@@ -34,7 +34,6 @@ import java.time.Period;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -45,7 +44,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
-import org.opentest4j.AssertionFailedError;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
@@ -77,29 +75,15 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testDynamicParamsMod() {
-        for (var i = 0; i < 10; i ++) {
-            try {
-                assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1)).check();
-            } catch (AssertionFailedError e) {
-                System.err.println("TEST ERROR " + e.getMessage());
-            }
-        }
-    }
-
-    @Test
     public void testDynamicParameters() {
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
-        assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1L)).check();
+        assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1)).check();
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
-
-        VarBinary varBinary = VarBinary.fromBytes(new byte[]{1, 2, 3});
-        assertQuery("SELECT ?").withParams(varBinary).returns(varBinary).check();
 
         createAndPopulateTable();
         assertQuery("SELECT name LIKE '%' || ? || '%' FROM person where name is not null").withParams("go").returns(true).returns(false)

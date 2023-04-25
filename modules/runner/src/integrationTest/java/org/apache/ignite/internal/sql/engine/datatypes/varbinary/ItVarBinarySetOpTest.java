@@ -22,6 +22,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.util.VarBinary;
 
 /**
  * Tests for set operators for {@link SqlTypeName#VARBINARY} type.

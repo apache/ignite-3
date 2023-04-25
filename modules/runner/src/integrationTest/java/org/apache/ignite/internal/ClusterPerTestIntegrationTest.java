@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromC
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;

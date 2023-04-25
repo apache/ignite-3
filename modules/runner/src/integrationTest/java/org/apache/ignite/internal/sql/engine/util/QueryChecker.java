@@ -335,7 +335,7 @@ public abstract class QueryChecker {
             params = NULL_AS_VARARG;
         }
 
-        this.params =Arrays.stream(params).map(NativeTypeWrapper::unwrap).toArray();
+        this.params = Arrays.stream(params).map(NativeTypeWrapper::unwrap).toArray();
 
         return this;
     }

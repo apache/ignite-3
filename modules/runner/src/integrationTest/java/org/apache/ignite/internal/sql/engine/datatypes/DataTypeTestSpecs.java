@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes;
 
-import static org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary.fromUtf8String;
-import static org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary.varBinary;
+import static org.apache.ignite.internal.sql.engine.util.VarBinary.fromUtf8String;
+import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.google.common.io.BaseEncoding;
@@ -28,7 +28,7 @@ import java.util.UUID;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
-import org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary;
+import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
@@ -101,13 +101,13 @@ public final class DataTypeTestSpecs {
 
         @Override
         public String toValueExpr(VarBinary value) {
-            return format("'{}'::VARBINARY", value.toString(StandardCharsets.UTF_8));
+            return format("'{}'::VARBINARY", value.asString(StandardCharsets.UTF_8));
         }
 
         /** {@inheritDoc} */
         @Override
         public String toStringValue(VarBinary value) {
-            return value.toString(StandardCharsets.UTF_8);
+            return value.asString(StandardCharsets.UTF_8);
         }
 
         /** {@inheritDoc} */
@@ -124,8 +124,8 @@ public final class DataTypeTestSpecs {
 
             TestDataSamples.Builder<VarBinary> samples = TestDataSamples.builder();
 
-            samples.add(values, SqlTypeName.VARCHAR, b -> b.toString(StandardCharsets.UTF_8));
-            samples.add(values, SqlTypeName.CHAR, b -> b.toString(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.VARCHAR, b -> b.asString(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.CHAR, b -> b.asString(StandardCharsets.UTF_8));
 
             return samples.build();
         }

@@ -66,6 +66,21 @@ public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
         assertThat(t.getMessage(), containsString("class java.util.UUID cannot be cast to class java.lang.Integer"));
     }
 
+    /** Invalid {@code UUID} string. */
+    @Test
+    public void testInvalidUuidString() {
+        IgniteException t = assertThrows(IgniteException.class, () -> runSql("SELECT '000000'::UUID"));
+        assertThat(t.getMessage(), containsString("Invalid UUID string"));
+    }
+
+    /** Invalid {@code UUID} string in dynamic parameter. */
+    @Test
+    public void testInvalidUuidStringInDynamicParams() {
+        IgniteException t = assertThrows(IgniteException.class, () -> runSql("SELECT ?::UUID", "00000"));
+        assertThat(t.getMessage(), containsString("Invalid UUID string"));
+
+    }
+
     /** {@inheritDoc} **/
     @Override
     protected DataTypeTestSpec<UUID> getTypeSpec() {

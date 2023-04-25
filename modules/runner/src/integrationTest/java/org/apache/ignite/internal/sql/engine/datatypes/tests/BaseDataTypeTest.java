@@ -59,6 +59,9 @@ import org.junit.jupiter.params.provider.Arguments;
  *     <li>{@code $N_lit} - the {@code N-th} value from sample values (0-based) in form of an SQL literal.</li>
  * </ul>
  *
+ * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
+ * that their {@link ColumnType column type} is equal to {@code columnType} defined by {@link DataTypeTestSpec}.
+ *
  * @param <T> A storage type for a custom data type.
  */
 public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterPerClassIntegrationTest {

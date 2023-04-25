@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
-import static org.apache.ignite.internal.sql.engine.datatypes.varbinary.VarBinary.varBinary;
+import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
 
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -129,7 +130,7 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
                 .check();
     }
 
-    /** Concatenation with dynamic parameter */
+    /** Concatenation with dynamic parameter. */
     @Test
     public void testConcatWithDynamicParameter() {
         runSql("INSERT INTO t VALUES (1, x'010203')");
@@ -152,7 +153,7 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
                 .check();
     }
 
-    /** {@code LIKE} operator */
+    /** {@code LIKE} operator. */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18166")
     @Test
     public void testLike() {

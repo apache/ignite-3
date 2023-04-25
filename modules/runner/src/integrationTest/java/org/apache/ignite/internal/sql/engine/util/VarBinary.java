@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
+package org.apache.ignite.internal.sql.engine.util;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * A wrapper for {@link NativeTypes#BYTES}.
+ * A wrapper for {@link NativeTypes#BYTES} that implements {@link Comparable} interface.
  */
 public final class VarBinary implements NativeTypeWrapper<VarBinary> {
 
     private final byte[] bytes;
 
-    /** Constructor */
+    /** Constructor. */
     private VarBinary(byte[] bytes) {
         this.bytes = bytes;
     }
-
 
     /** Creates a var binary object from the given bytes array. */
     public static VarBinary fromBytes(byte[] bytes) {
@@ -53,7 +51,9 @@ public final class VarBinary implements NativeTypeWrapper<VarBinary> {
     }
 
     /** Converts this var binary object ot a java string of the given {@link Charset}. */
-    public String toString(Charset charset) {
+    public String asString(Charset charset) {
+        // Renamed to asString because toString(Charset) triggers an error in checkstyle,
+        // which can not distinguish between toString() and toString(Charset).
         return new String(bytes, charset);
     }
 
@@ -91,6 +91,6 @@ public final class VarBinary implements NativeTypeWrapper<VarBinary> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return toString(StandardCharsets.UTF_8);
+        return asString(StandardCharsets.UTF_8);
     }
 }

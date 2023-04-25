@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import java.util.Arrays;
-import java.util.List;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
@@ -33,7 +31,8 @@ import org.apache.ignite.sql.ColumnType;
  *     <li>If type has SQL literal {@link #hasLiterals()} should return {@code true}
  *     and {@link #toLiteral(Comparable)} must convert values into corresponding literals.</li>
  * </ul>
- * <p>.
+ *
+ * @param <T> java type used by tests.
  */
 public abstract class DataTypeTestSpec<T extends Comparable<T>> {
 
@@ -45,7 +44,7 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
 
     /** Constructor. */
     public DataTypeTestSpec(ColumnType columnType, String typeName, @SuppressWarnings("unused") Class<T> javaType) {
-        // java type is only used for generics.
+        // javaType is only used to restrict the generic parameter.
         this.columnType = columnType;
         this.typeName = typeName;
         this.storageType = ColumnType.columnTypeToClass(columnType);

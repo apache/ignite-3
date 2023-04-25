@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -220,7 +221,7 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
     @Test
     public void testCastFromFromString() {
         T value = dataSamples.values().get(0);
-        String stringValue =testTypeSpec.toStringValue(value);
+        String stringValue = testTypeSpec.toStringValue(value);
 
         checkQuery(format("SELECT CAST('{}' AS <type>)", stringValue)).returns(value).check();
 
@@ -280,6 +281,17 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
         // assertThrows(RuntimeException.class, () -> {
         //   checkQuery("SELECT typeof(CAST('%s' as <type>))").returns(typeSpec.typeName()).check();
         // });
+    }
+
+    /** Dynamic parameter. **/
+    @Test
+    public void testDynamicParam() {
+        T value = dataSamples.min();
+
+        assertQuery("SELECT ?").withParams(value)
+                .returns(value)
+                .columnMetadata(new MetadataMatcher().type(testTypeSpec.columnType()))
+                .check();
     }
 
     /**
