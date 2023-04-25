@@ -103,11 +103,11 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reade
     if (reader.try_read_nil())
         return {};
 
-    auto count = reader.read_array_size();
+    auto count = reader.read_int32();
     std::vector<std::optional<ignite_tuple>> res;
     res.reserve(std::size_t(count));
 
-    for (std::uint32_t i = 0; i < count; ++i) {
+    for (std::int32_t i = 0; i < count; ++i) {
         auto exists = reader.read_bool();
         if (!exists)
             res.emplace_back(std::nullopt);
@@ -130,12 +130,11 @@ std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sc
     if (reader.try_read_nil())
         return {};
 
-    auto count = reader.read_array_size();
+    auto count = reader.read_int32();
     std::vector<ignite_tuple> res;
     res.reserve(std::size_t(count));
 
-    // TODO: read_array_raw?
-    for (std::uint32_t i = 0; i < count; ++i)
+    for (std::int32_t i = 0; i < count; ++i)
         res.emplace_back(read_tuple(reader, sch, key_only));
 
     return res;

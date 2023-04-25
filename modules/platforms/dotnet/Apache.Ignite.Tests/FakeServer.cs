@@ -578,7 +578,7 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleUpsertAll:
                         case ClientOp.TupleDeleteAll:
                         case ClientOp.TupleDeleteAllExact:
-                            Send(handler, requestId, new byte[] { 1, MessagePackCode.MinFixArray }.AsMemory());
+                            Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
                             continue;
 
                         case ClientOp.TxBegin:
