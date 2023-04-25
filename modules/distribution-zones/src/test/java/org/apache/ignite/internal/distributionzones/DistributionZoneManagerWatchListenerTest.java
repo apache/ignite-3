@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -188,7 +189,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     }
 
     private void startDistributionZoneManager() throws Exception {
-        deployWatchesAndUpdateMetaStorageRevision();
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
 
         distributionZoneManager.start();
     }

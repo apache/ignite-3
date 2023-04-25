@@ -19,10 +19,6 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -46,8 +42,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectRevisionList
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -55,7 +49,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -150,30 +143,5 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
         IgniteUtils.closeAll(components.stream().map(c -> c::stop));
-    }
-
-    /**
-     * This method is used to initialize the meta storage revision before starting the distribution zone manager.
-     *
-     * @throws Exception
-     */
-    protected void deployWatchesAndUpdateMetaStorageRevision() throws Exception {
-        // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
-        // distributionZoneManager's recovery.
-        metaStorageManager.deployWatches();
-
-        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
-        // Meta Storage revision is equal to 0.
-        var fakeKey = new ByteArray("foobar");
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
-                Conditions.notExists(fakeKey),
-                Operations.put(fakeKey, fakeKey.bytes()),
-                Operations.noop()
-        );
-
-        assertThat(invokeFuture, willBe(true));
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000));
     }
 }

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -1379,7 +1380,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     }
 
     private void startDistributionZoneManager() throws Exception {
-        deployWatchesAndUpdateMetaStorageRevision();
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
 
         distributionZoneManager.start();
     }
