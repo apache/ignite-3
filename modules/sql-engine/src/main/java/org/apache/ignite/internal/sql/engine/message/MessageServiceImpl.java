@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
-import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -77,14 +76,16 @@ public class MessageServiceImpl implements MessageService {
 
     /** {@inheritDoc} */
     @Override
-    public void send(String nodeName, NetworkMessage msg) throws IgniteInternalCheckedException {
+    public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
         if (!busyLock.enterBusy()) {
-            return;
+            return CompletableFuture.completedFuture(null);
         }
 
         try {
             if (locNodeName.equals(nodeName)) {
                 onMessage(nodeName, msg);
+
+                return CompletableFuture.completedFuture(null);
             } else {
                 ClusterNode node = topSrvc.getByConsistentId(nodeName);
 
@@ -94,15 +95,7 @@ public class MessageServiceImpl implements MessageService {
                     );
                 }
 
-                try {
-                    messagingSrvc.send(node, msg).join();
-                } catch (Exception ex) {
-                    if (ex instanceof IgniteInternalCheckedException) {
-                        throw (IgniteInternalCheckedException) ex;
-                    }
-
-                    throw new IgniteInternalCheckedException(MESSAGE_SEND_ERR, ex);
-                }
+                return messagingSrvc.send(node, msg);
             }
         } finally {
             busyLock.leaveBusy();

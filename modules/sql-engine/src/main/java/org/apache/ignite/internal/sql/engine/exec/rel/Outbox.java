@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.UUID;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -34,7 +35,10 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -172,13 +176,9 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /** {@inheritDoc} */
     @Override
     public void onError(Throwable e) {
-        try {
-            sendError(e);
-        } catch (IgniteInternalCheckedException ex) {
-            LOG.info("Unable to send error message", e);
-        } finally {
-            Commons.closeQuiet(this);
-        }
+        sendError(e);
+
+        Commons.closeQuiet(this);
     }
 
     /** {@inheritDoc} */
@@ -231,12 +231,47 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         return this;
     }
 
-    private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
-        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows);
+    private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) {
+        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows)
+                .whenComplete((ignored, ex) -> {
+                    if (ex == null) {
+                        return;
+                    }
+
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                            IgniteInternalException::new,
+                            Sql.INTERNAL_ERR,
+                            "Unable to send batch: " + ex.getMessage(),
+                            ex
+                    );
+
+                    context().execute(() -> onError(wrapperEx), this::onError);
+                });
     }
 
-    private void sendError(Throwable err) throws IgniteInternalCheckedException {
-        exchange.sendError(context().originatingNodeName(), queryId(), fragmentId(), err);
+    private void sendError(Throwable original) {
+        String nodeName = context().originatingNodeName();
+        UUID queryId = queryId();
+        long fragmentId = fragmentId();
+
+        exchange.sendError(nodeName, queryId, fragmentId, original)
+                .whenComplete((ignored, ex) -> {
+                    if (ex == null) {
+                        return;
+                    }
+
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                            IgniteInternalException::new,
+                            Sql.INTERNAL_ERR,
+                            "Unable to send error: " + ex.getMessage(),
+                            ex
+                    );
+
+                    wrapperEx.addSuppressed(original);
+
+                    LOG.warn("Unable to send error to a remote node [queryId={}, fragmentId={}, targetNode={}]",
+                            queryId, fragmentId, nodeName, wrapperEx);
+                });
     }
 
     private void flush() throws Exception {

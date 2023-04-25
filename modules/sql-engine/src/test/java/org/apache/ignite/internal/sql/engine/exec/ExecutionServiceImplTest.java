@@ -96,7 +96,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -233,16 +232,12 @@ public class ExecutionServiceImplTest {
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
-                try {
-                    testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
-                            .queryId(((QueryStartRequest) msg).queryId())
-                            .fragmentId(((QueryStartRequest) msg).fragmentId())
-                            .error(expectedEx)
-                            .build()
-                    );
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
-                }
+                testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(((QueryStartRequest) msg).queryId())
+                        .fragmentId(((QueryStartRequest) msg).fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
             } else {
                 original.onMessage(nodeName, msg);
             }
@@ -587,10 +582,12 @@ public class ExecutionServiceImplTest {
                 return new MessageService() {
                     /** {@inheritDoc} */
                     @Override
-                    public void send(String nodeName, NetworkMessage msg) {
+                    public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
                         TestNode node = nodes.get(nodeName);
 
                         node.onReceive(TestNode.this.nodeName, msg);
+
+                        return CompletableFuture.completedFuture(null);
                     }
 
                     /** {@inheritDoc} */

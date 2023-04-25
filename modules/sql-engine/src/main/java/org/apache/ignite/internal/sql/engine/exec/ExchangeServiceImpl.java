@@ -33,7 +33,6 @@ import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -72,9 +71,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> void sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
-            boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
-        messageService.send(
+    public <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
+            boolean last, List<RowT> rows) {
+        return messageService.send(
                 nodeName,
                 FACTORY.queryBatchMessage()
                         .queryId(qryId)
@@ -89,9 +88,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
-            @Nullable SharedState state) throws IgniteInternalCheckedException {
-        messageService.send(
+    public CompletableFuture<Void> request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+            @Nullable SharedState state) {
+        return messageService.send(
                 nodeName,
                 FACTORY.queryBatchRequestMessage()
                         .queryId(queryId)
@@ -105,13 +104,13 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
-        messageService.send(
+    public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
+        return messageService.send(
                 nodeName,
                 FACTORY.errorMessage()
-                        .queryId(qryId)
+                        .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .error(err)
+                        .error(error)
                         .build()
         );
     }

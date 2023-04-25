@@ -204,6 +204,9 @@ public class ErrorGroups {
 
         /** Execution cancelled. */
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
+
+        /** Error code describing any unexpected situation. */
+        public static final int INTERNAL_ERR = SQL_ERR_GROUP.registerErrorCode(34);
     }
 
     /** Meta storage error group. */
