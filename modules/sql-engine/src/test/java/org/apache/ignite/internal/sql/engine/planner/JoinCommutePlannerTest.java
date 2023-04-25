@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,7 +67,8 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
                                 .build(), 1_000) {
 
-                    @Override public IgniteDistribution distribution() {
+                    @Override
+                    public IgniteDistribution distribution() {
                         return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 },
@@ -76,11 +78,42 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
                                 .build(), 10) {
 
-                    @Override public IgniteDistribution distribution() {
+                    @Override
+                    public IgniteDistribution distribution() {
                         return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );
+    }
+
+    @Test
+    public void testEnforceJoinOrderHint() throws Exception {
+        String sqlJoinCommuteWithNoHint = "SELECT COUNT(*) FROM SMALL s, HUGE h, HUGE h1 WHERE h.id = s.id and h1.id=s.id";
+        String sqlJoinCommuteWithHint =
+                "SELECT /*+ ENFORCE_JOIN_ORDER */ COUNT(*) FROM SMALL s, HUGE h, HUGE h1 WHERE h.id = s.id and h1.id=s.id";
+        String sqlJoinCommuteOuterWithNoHint = "SELECT COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
+        String sqlJoinCommuteOuterWithHint = "SELECT /*+ ENFORCE_JOIN_ORDER */ COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
+
+        RuleAttemptListener listener = new RuleAttemptListener();
+
+        physicalPlan(sqlJoinCommuteWithNoHint, publicSchema, listener);
+        assertTrue(listener.isApplied("JoinCommute"));
+        assertTrue(listener.isApplied("JoinConditionPushRule"));
+
+        listener.resetStatistics();
+        physicalPlan(sqlJoinCommuteOuterWithNoHint, publicSchema, listener);
+        assertTrue(listener.isApplied("JoinCommute"));
+        assertTrue(listener.isApplied("JoinConditionPushRule"));
+
+        listener.resetStatistics();
+        physicalPlan(sqlJoinCommuteWithHint, publicSchema, listener);
+        assertFalse(listener.isApplied("JoinCommute"));
+        assertTrue(listener.isApplied("JoinConditionPushRule"));
+
+        listener.resetStatistics();
+        physicalPlan(sqlJoinCommuteOuterWithHint, publicSchema, listener);
+        assertFalse(listener.isApplied("JoinCommute"));
+        assertTrue(listener.isApplied("JoinConditionPushRule"));
     }
 
     @Test

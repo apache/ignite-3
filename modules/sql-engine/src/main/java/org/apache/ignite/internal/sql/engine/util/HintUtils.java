@@ -17,19 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.sql.engine.util.Hints.EXPAND_DISTINCT_AGG;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 
 /**
- * HintUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Hint util methods.
  */
 public class HintUtils {
     private HintUtils() {
@@ -37,36 +31,14 @@ public class HintUtils {
     }
 
     /**
-     * ContainsDisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static boolean containsDisabledRules(List<RelHint> hints) {
-        return hints.stream()
-                .anyMatch(h -> "DISABLE_RULE".equals(h.hintName) && !h.listOptions.isEmpty());
-    }
-
-    /**
-     * DisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Set<String> disabledRules(List<RelHint> hints) {
-        if (nullOrEmpty(hints)) {
-            return Collections.emptySet();
-        }
-
-        return hints.stream()
-                .filter(h -> "DISABLE_RULE".equals(h.hintName))
-                .flatMap(h -> h.listOptions.stream())
-                .collect(Collectors.toSet());
-    }
-
-    /**
-     * IsExpandDistinctAggregate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Return {@code true} if the EXPAND_DISTINCT_AGG hint presents in provided logical aggregate and aggregate contains distinct clause.
+     *
+     * @param rel Logical aggregate to check on expand distinct aggregate hint.
      */
     public static boolean isExpandDistinctAggregate(LogicalAggregate rel) {
         return rel.getHints().stream()
-                .anyMatch(h -> "EXPAND_DISTINCT_AGG".equals(h.hintName))
+                .anyMatch(EXPAND_DISTINCT_AGG::is)
                 && rel.getAggCallList().stream().anyMatch(AggregateCall::isDistinct);
     }
+
 }

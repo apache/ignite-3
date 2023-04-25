@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.engine.util.Hints;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
@@ -514,9 +515,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         assert pos >= 0;
 
         String newSql = sql.substring(0, pos + "select".length() + 1);
-        newSql += " /*+ DISABLE_RULE( '";
-        newSql += String.join("' ,'", rules);
-        newSql += "') */ ";
+        newSql += Hints.DISABLE_RULE.toHint(rules);
         newSql += sql.substring(pos + "select".length() + 1);
         return newSql;
     }

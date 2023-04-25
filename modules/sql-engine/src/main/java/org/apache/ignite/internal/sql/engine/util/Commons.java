@@ -142,8 +142,9 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy("DISABLE_RULE", (hint, rel) -> true)
-                                    .hintStrategy("EXPAND_DISTINCT_AGG", (hint, rel) -> rel instanceof Aggregate)
+                                    .hintStrategy(Hints.ENFORCE_JOIN_ORDER.name(), (hint, rel) -> true)
+                                    .hintStrategy(Hints.DISABLE_RULE.name(), (hint, rel) -> true)
+                                    .hintStrategy(Hints.EXPAND_DISTINCT_AGG.name(), (hint, rel) -> rel instanceof Aggregate)
                                     .build()
                     )
             )

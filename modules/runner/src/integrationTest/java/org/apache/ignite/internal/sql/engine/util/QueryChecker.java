@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -59,6 +60,8 @@ public abstract class QueryChecker {
     private static final Object[] NULL_AS_VARARG = {null};
 
     private static final List<List<?>> EMPTY_RES = List.of(List.of());
+    private static final Pattern SELECT_REGEXP = Pattern.compile("(?i)^select");
+    private static final Pattern SELECT_QRY_CHECK = Pattern.compile("(?i)^select .*");
 
     /**
      * Ignite table scan matcher.
@@ -418,10 +421,10 @@ public abstract class QueryChecker {
         String qry = originalQuery;
 
         if (!disabledRules.isEmpty()) {
-            assert qry.matches("(?i)^select .*") : "SELECT query was expected: " + originalQuery;
+            assert SELECT_QRY_CHECK.matcher(qry).matches() : "SELECT query was expected: " + originalQuery;
 
-            qry = qry.replaceAll("(?i)^select", "select "
-                    + disabledRules.stream().collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */")));
+            qry = SELECT_REGEXP.matcher(qry).replaceAll("select "
+                    + Hints.DISABLE_RULE.toHint(disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
         }
         try {
 

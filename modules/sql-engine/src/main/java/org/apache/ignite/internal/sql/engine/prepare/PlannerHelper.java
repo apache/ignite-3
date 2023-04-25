@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+import static org.apache.ignite.internal.sql.engine.util.Hints.DISABLE_RULE;
+import static org.apache.ignite.internal.sql.engine.util.Hints.ENFORCE_JOIN_ORDER;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -40,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
  * Utility class that encapsulates the query optimization pipeline.
@@ -82,8 +83,8 @@ public final class PlannerHelper {
 
             RelNode rel = root.rel;
 
-            if (HintUtils.containsDisabledRules(root.hints)) {
-                planner.setDisabledRules(HintUtils.disabledRules(root.hints));
+            if (DISABLE_RULE.presentWithParams(root.hints)) {
+                planner.setDisabledRules(DISABLE_RULE.params(root.hints));
             }
 
             // Transformation chain
@@ -97,8 +98,10 @@ public final class PlannerHelper {
 
             joinSizeFinder.visit(rel);
 
-            if (joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE) {
-                Set<String> disabledRules = new HashSet<>(HintUtils.disabledRules(root.hints));
+            boolean amountOfJoinsAreBig = joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE;
+            boolean enforceJoinOrder = ENFORCE_JOIN_ORDER.present(root.hints);
+            if (amountOfJoinsAreBig || enforceJoinOrder) {
+                Set<String> disabledRules = new HashSet<>(DISABLE_RULE.params(root.hints));
 
                 disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE));
                 disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE_OUTER));
@@ -119,8 +122,8 @@ public final class PlannerHelper {
             IgniteRel igniteRel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                final List<RexNode> projects = new ArrayList<>();
-                final RexBuilder rexBuilder = igniteRel.getCluster().getRexBuilder();
+                List<RexNode> projects = new ArrayList<>();
+                RexBuilder rexBuilder = igniteRel.getCluster().getRexBuilder();
 
                 for (int field : Pair.left(root.fields)) {
                     projects.add(rexBuilder.makeInputRef(igniteRel, field));
