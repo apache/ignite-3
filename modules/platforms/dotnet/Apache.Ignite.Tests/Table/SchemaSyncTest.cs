@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -27,6 +28,7 @@ public class SchemaSyncTest : IgniteTestsBase
 {
     private const string TempTableName = nameof(SchemaSyncTest);
 
+    [SetUp]
     [TearDown]
     public async Task DropTempTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {TempTableName}");
 
@@ -35,7 +37,15 @@ public class SchemaSyncTest : IgniteTestsBase
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE IF NOT EXISTS {TempTableName} (id int primary key, val int)");
         await Client.Sql.ExecuteAsync(null, $"INSERT INTO {TempTableName} (id, val) VALUES (1, 1)");
+
+        var table = await Client.Tables.GetTableAsync(TempTableName);
+        var (value, _) = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["id"] = 1 });
+        Assert.AreEqual("IgniteTuple { ID = 1, VAL = 1 }", value.ToString());
+
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TempTableName} ADD COLUMN val2 int");
         await Client.Sql.ExecuteAsync(null, $"UPDATE {TempTableName} SET val2 = 2");
+
+        var (value2, _) = await table.RecordBinaryView.GetAsync(null, new IgniteTuple { ["id"] = 1 });
+        Assert.AreEqual("IgniteTuple { ID = 1, VAL = 1, VAL2 = 2 }", value2.ToString());
     }
 }
