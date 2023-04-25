@@ -1350,29 +1350,19 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     static class RelOptListenerWrapper implements RelOptListener {
 
         @Override
-        public void relEquivalenceFound(RelEquivalenceEvent event) {
-
-        }
+        public void relEquivalenceFound(RelEquivalenceEvent event) {}
 
         @Override
-        public void ruleAttempted(RuleAttemptedEvent event) {
-
-        }
+        public void ruleAttempted(RuleAttemptedEvent event) {}
 
         @Override
-        public void ruleProductionSucceeded(RuleProductionEvent event) {
-
-        }
+        public void ruleProductionSucceeded(RuleProductionEvent event) {}
 
         @Override
-        public void relDiscarded(RelDiscardedEvent event) {
-
-        }
+        public void relDiscarded(RelDiscardedEvent event) {}
 
         @Override
-        public void relChosen(RelChosenEvent event) {
-
-        }
+        public void relChosen(RelChosenEvent event) {}
     }
 
     /**
