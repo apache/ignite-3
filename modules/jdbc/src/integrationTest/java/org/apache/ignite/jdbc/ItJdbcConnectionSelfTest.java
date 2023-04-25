@@ -510,25 +510,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18985")
-    public void testGetSetAutoCommit() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            boolean ac0 = conn.getAutoCommit();
-
-            conn.setAutoCommit(!ac0);
-            // assert no exception
-
-            conn.setAutoCommit(ac0);
-            // assert no exception
-
-            conn.close();
-
-            // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.setAutoCommit(ac0));
-        }
-    }
-
-    @Test
     public void testCommit() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Should not be called in auto-commit mode
