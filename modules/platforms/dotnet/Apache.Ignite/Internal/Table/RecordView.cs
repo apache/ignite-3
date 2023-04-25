@@ -173,6 +173,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleUpsert, transaction, record).ConfigureAwait(false);
+            ReadSchema(resBuf);
         }
 
         /// <inheritdoc/>
@@ -195,6 +196,7 @@ namespace Apache.Ignite.Internal.Table
             var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
             using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
+            ReadSchema(resBuf);
         }
 
         /// <inheritdoc/>
@@ -406,6 +408,8 @@ namespace Apache.Ignite.Internal.Table
 
             return reader.ReadBoolean();
         }
+
+        private void ReadSchema(PooledBuffer buf) => _table.LoadSchemaInBackground(buf.GetReader().ReadInt32());
 
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,

@@ -55,6 +55,18 @@ public class SchemaSyncTest : IgniteTestsBase
                 Assert.AreEqual("IgniteTuple { ID = 1, VAL = 1, VAL2 = 2 }", value.ToString());
             });
 
+    [Test]
+    public async Task TestBackgroundSchemaUpdateOnPut() =>
+        await TestSchemaUpdate(
+            async view =>
+            {
+                await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 });
+            },
+            async view =>
+            {
+                await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
+            });
+
     private async Task TestSchemaUpdate(
         Func<IRecordView<IIgniteTuple>, Task> before,
         Func<IRecordView<IIgniteTuple>, Task> after)
