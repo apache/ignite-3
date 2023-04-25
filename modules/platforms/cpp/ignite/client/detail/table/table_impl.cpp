@@ -194,7 +194,8 @@ void table_impl::get_async(
 
             auto reader_func = [self, key](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
@@ -289,7 +290,8 @@ void table_impl::get_and_upsert_async(
 
             auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
@@ -397,7 +399,8 @@ void table_impl::get_and_replace_async(
 
             auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
@@ -461,7 +464,8 @@ void table_impl::get_and_remove_async(
 
             auto reader_func = [self, record](protocol::reader &reader) -> std::optional<ignite_tuple> {
                 std::shared_ptr<schema> sch = self->get_schema(reader);
-                if (!sch)
+
+                if (reader.try_read_nil())
                     return std::nullopt;
 
                 return read_tuple(reader, sch.get());
