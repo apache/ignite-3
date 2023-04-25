@@ -308,7 +308,7 @@ public class ClientTable implements Table {
                             w -> writer.accept(schema, w),
                             r -> {
                                 // TODO: Load schema in the background when needed - extract a method for that.
-                                var schemaVer = r.in().unpackInt();
+                                @SuppressWarnings("unused") var schemaVer = r.in().unpackInt();
 
                                 return reader.apply(r.in());
                             },
