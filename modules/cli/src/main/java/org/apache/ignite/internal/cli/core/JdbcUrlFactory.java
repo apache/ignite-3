@@ -70,15 +70,12 @@ public class JdbcUrlFactory {
 
     private String applyConfig(String jdbcUrl) {
         List<String> queryParams = new ArrayList<>();
-        addIfSet(queryParams, JDBC_SSL_ENABLED, "sslEnabled");
         addIfSet(queryParams, JDBC_TRUST_STORE_PATH, "trustStorePath");
         addIfSet(queryParams, JDBC_TRUST_STORE_PASSWORD, "trustStorePassword");
         addIfSet(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");
         addIfSet(queryParams, JDBC_KEY_STORE_PASSWORD, "keyStorePassword");
         addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
-        if (!queryParams.isEmpty()) {
-            queryParams.add(0, "sslEnabled=true");
-        }
+        addSslEnabledIfNeeded(queryParams);
         addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthenticationUsername");
         addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthenticationPassword");
         if (!queryParams.isEmpty()) {
@@ -87,6 +84,15 @@ public class JdbcUrlFactory {
             return jdbcUrl + query;
         } else {
             return jdbcUrl;
+        }
+    }
+
+    private void addSslEnabledIfNeeded(List<String> queryParams) {
+        String sslEnabled = configManagerProvider.get().getCurrentProperty(JDBC_SSL_ENABLED.value());
+        if (sslEnabled != null) {
+            queryParams.add(0, "sslEnabled=" + sslEnabled);
+        } else if (!queryParams.isEmpty()) {
+            queryParams.add(0, "sslEnabled=true");
         }
     }
 
