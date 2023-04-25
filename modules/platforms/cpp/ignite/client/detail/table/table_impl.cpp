@@ -216,7 +216,11 @@ void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite
                 write_tuple(writer, sch, *key, true);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                auto schemaVer = reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(client_operation::TUPLE_CONTAINS_KEY, tx0.get(), writer_func,
                 std::move(reader_func), std::move(callback));
@@ -306,7 +310,11 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
                 write_tuple(writer, sch, record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                auto schemaVer = reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(
                 client_operation::TUPLE_INSERT, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
@@ -344,7 +352,11 @@ void table_impl::replace_async(transaction *tx, const ignite_tuple &record, igni
                 write_tuple(writer, sch, record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                auto schemaVer = reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(
                 client_operation::TUPLE_REPLACE, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
@@ -362,7 +374,11 @@ void table_impl::replace_async(
                 write_tuple(writer, sch, new_record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                auto schemaVer = reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(client_operation::TUPLE_REPLACE_EXACT, tx0.get(), writer_func,
                 std::move(reader_func), std::move(callback));
@@ -402,7 +418,11 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
                 write_tuple(writer, sch, record, true);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                auto schemaVer = reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(
                 client_operation::TUPLE_DELETE, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
@@ -418,7 +438,11 @@ void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record,
                 write_tuple(writer, sch, record, false);
             };
 
-            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+            auto reader_func = [](protocol::reader &reader) -> bool {
+                auto schemaVer = reader.read_int32(); // Skip schema version.
+
+                return reader.read_bool();
+            };
 
             self->m_connection->perform_request<bool>(client_operation::TUPLE_DELETE_EXACT, tx0.get(), writer_func,
                 std::move(reader_func), std::move(callback));
