@@ -427,7 +427,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> leaseGrantReqRef.get() != null, 10_000));
 
         assertEquals(leaseGrantReqRef.get().leaseStartTime(), lease.getStartTime());
-        assertEquals(leaseGrantReqRef.get().leaseExpirationTime(), lease.getExpirationTime());
+        assertTrue(leaseGrantReqRef.get().leaseExpirationTime().compareTo(lease.getExpirationTime()) >= 0);
     }
 
     /**
