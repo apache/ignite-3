@@ -83,7 +83,6 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     @Test
     public void testDynamicParameters() {
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
-        assertQuery("SELECT COALESCE(null, ?)").withParams('j').returns("j").check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();

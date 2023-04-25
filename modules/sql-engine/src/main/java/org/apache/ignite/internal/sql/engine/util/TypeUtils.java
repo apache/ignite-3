@@ -66,19 +66,6 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
-    private TypeUtils() {
-        supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
-
-        supportedParamClasses.add(boolean.class);
-        supportedParamClasses.add(byte.class);
-        supportedParamClasses.add(short.class);
-        supportedParamClasses.add(int.class);
-        supportedParamClasses.add(long.class);
-        supportedParamClasses.add(float.class);
-        supportedParamClasses.add(double.class);
-        supportedParamClasses.add(Character.class);
-    }
-
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
@@ -102,19 +89,28 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
 
-    private Set<Class<?>> supportedParamClasses;
+    private static class SupportedParamClassesHolder {
+        static final Set<Class<?>> supportedParamClasses;
 
-    private static class LazyHolder {
-        static final TypeUtils INSTANCE = new TypeUtils();
+        static {
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses.add(boolean.class);
+            supportedParamClasses.add(byte.class);
+            supportedParamClasses.add(short.class);
+            supportedParamClasses.add(int.class);
+            supportedParamClasses.add(long.class);
+            supportedParamClasses.add(float.class);
+            supportedParamClasses.add(double.class);
+        }
     }
 
-    private static TypeUtils instance() {
-        return LazyHolder.INSTANCE;
+    private static Set<Class<?>> supportedParamClasses() {
+        return SupportedParamClassesHolder.supportedParamClasses;
     }
 
     /** Return {@code true} if supplied object is suitable as dynamic parameter. */
     public static boolean supportParamInstance(Object param) {
-        return param == null || instance().supportedParamClasses.contains(param.getClass());
+        return param == null || supportedParamClasses().contains(param.getClass());
     }
 
     /**
