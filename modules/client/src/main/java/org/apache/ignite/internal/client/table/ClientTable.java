@@ -307,8 +307,7 @@ public class ClientTable implements Table {
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> {
-                                // TODO: Load schema in the background when needed - extract a method for that.
-                                @SuppressWarnings("unused") var schemaVer = r.in().unpackInt();
+                                ensureSchemaLoadedAsync(r.in().unpackInt());
 
                                 return reader.apply(r.in());
                             },
@@ -326,11 +325,7 @@ public class ClientTable implements Table {
         int schemaVer = in.unpackInt();
 
         if (in.tryUnpackNil()) {
-            if (schemas.get(schemaVer) == null) {
-                // The schema is not needed for current response.
-                // Load it in the background to keep the client up to date with the latest version.
-                loadSchema(schemaVer);
-            }
+            ensureSchemaLoadedAsync(schemaVer);
 
             return defaultValue;
         }
@@ -371,6 +366,14 @@ public class ClientTable implements Table {
         });
 
         return resFut;
+    }
+
+    private void ensureSchemaLoadedAsync(int schemaVer) {
+        if (schemas.get(schemaVer) == null) {
+            // The schema is not needed for current response.
+            // Load it in the background to keep the client up to date with the latest version.
+            loadSchema(schemaVer);
+        }
     }
 
     private CompletableFuture<List<String>> getPartitionAssignment() {
