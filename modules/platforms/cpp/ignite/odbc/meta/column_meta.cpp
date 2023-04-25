@@ -74,7 +74,7 @@ namespace ignite
 
 #undef DBG_STR_CASE
 
-            SqlLen Nullability::ToSql(int32_t nullability)
+            SQLLEN Nullability::ToSql(int32_t nullability)
             {
                 switch (nullability)
                 {
@@ -197,7 +197,7 @@ namespace ignite
                 }
             }
 
-            bool ColumnMeta::GetAttribute(uint16_t fieldId, SqlLen& value) const
+            bool ColumnMeta::GetAttribute(uint16_t fieldId, SQLLEN& value) const
             {
                 using namespace ignite::impl::binary;
 

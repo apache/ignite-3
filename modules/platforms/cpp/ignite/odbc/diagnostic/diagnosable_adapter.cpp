@@ -26,7 +26,7 @@ namespace ignite
     {
         namespace diagnostic
         {
-            void DiagnosableAdapter::AddStatusRecord(SqlState::Type  sqlState,
+            void DiagnosableAdapter::AddStatusRecord(sql_state  sqlState,
                 const std::string& message, int32_t rowNum, int32_t columnNum)
             {
                 LOG_MSG("Adding new record: " << message << ", rowNum: " << rowNum << ", columnNum: " << columnNum);
@@ -43,14 +43,14 @@ namespace ignite
                 }
             }
 
-            void DiagnosableAdapter::AddStatusRecord(SqlState::Type  sqlState, const std::string& message)
+            void DiagnosableAdapter::AddStatusRecord(sql_state  sqlState, const std::string& message)
             {
                 AddStatusRecord(sqlState, message, 0, 0);
             }
 
             void DiagnosableAdapter::AddStatusRecord(const std::string& message)
             {
-                AddStatusRecord(SqlState::SHY000_GENERAL_ERROR, message);
+                AddStatusRecord(sql_state::SHY000_GENERAL_ERROR, message);
             }
 
             void DiagnosableAdapter::AddStatusRecord(const OdbcError& err)

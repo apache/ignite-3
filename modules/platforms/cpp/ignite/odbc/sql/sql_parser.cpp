@@ -66,7 +66,7 @@ namespace ignite
                     case TokenType::PARENTHESIS_RIGHT:
                     default:
                     {
-                        throw OdbcError(SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
+                        throw OdbcError(sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
                             "Unexpected token: '" + token.ToString() + "'");
                     }
                 }
@@ -89,7 +89,7 @@ namespace ignite
                 return cmd;
             }
 
-            throw OdbcError(SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
+            throw OdbcError(sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
                 "Unexpected token: '" + token.ToString() + "'");
         }
     }

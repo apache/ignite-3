@@ -44,7 +44,7 @@ namespace ignite
                 if (lower == "0" || lower == "off")
                     return false;
 
-                return OdbcError(SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
+                return OdbcError(sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
                     "Unexpected token: '" + token.ToString() + "', ON, OFF, 1 or 0 expected.");
             }
 

@@ -20,7 +20,7 @@
 
 #include <string>
 
-#include "ignite/odbc/include/ignite/odbc/diagnostic/diagnosable.h"
+#include "ignite/odbc/diagnostic/diagnosable.h"
 
 namespace ignite
 {

@@ -137,7 +137,7 @@ namespace ignite
         }
 
         QueryExecuteBatchRequest::QueryExecuteBatchRequest(const std::string& schema, const std::string& sql,
-            const app::ParameterSet& params, SqlUlen begin, SqlUlen end, bool last, int32_t timeout, bool autoCommit) :
+            const app::ParameterSet& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout, bool autoCommit) :
             schema(schema),
             sql(sql),
             params(params),
@@ -328,7 +328,7 @@ namespace ignite
         }
 
         Response::Response() :
-            status(ResponseStatus::UNKNOWN_ERROR),
+            status(response_status::UNKNOWN_ERROR),
             error()
         {
             // No-op.
@@ -346,7 +346,7 @@ namespace ignite
             else
                 status = reader.ReadInt32();
 
-            if (status == ResponseStatus::SUCCESS)
+            if (status == response_status::SUCCESS)
                 ReadOnSuccess(reader, ver);
             else
                 utility::ReadString(reader, error);
@@ -455,7 +455,7 @@ namespace ignite
 
         StreamingBatchResponse::StreamingBatchResponse() :
             errorMessage(),
-            errorCode(ResponseStatus::SUCCESS),
+            errorCode(response_status::SUCCESS),
             order(0)
         {
             // No-op.

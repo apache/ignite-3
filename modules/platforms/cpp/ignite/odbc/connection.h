@@ -24,10 +24,10 @@
 
 #include <ignite/network/socket_client.h>
 
-#include "ignite/odbc/include/ignite/odbc/config/configuration.h"
-#include "ignite/odbc/include/ignite/odbc/config/connection_info.h"
-#include "ignite/odbc/include/ignite/odbc/diagnostic/diagnosable_adapter.h"
-#include "ignite/odbc/include/ignite/odbc/streaming/streaming_context.h"
+#include "ignite/odbc/config/configuration.h"
+#include "ignite/odbc/config/connection_info.h"
+#include "ignite/odbc/diagnostic/diagnosable_adapter.h"
+#include "ignite/odbc/streaming/streaming_context.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/parser.h"
 
@@ -195,7 +195,7 @@ namespace ignite
              * @param columnNum Associated column number.
              * @return DiagnosticRecord associated with the instance.
              */
-            static diagnostic::DiagnosticRecord CreateStatusRecord(SqlState::Type sqlState,
+            static diagnostic::DiagnosticRecord CreateStatusRecord(sql_state sqlState,
                 const std::string& message, int32_t rowNum = 0, int32_t columnNum = 0);
 
             /**
@@ -252,12 +252,12 @@ namespace ignite
                 bool success = Send(tempBuffer.data(), tempBuffer.size(), timeout);
 
                 if (!success)
-                    throw OdbcError(SqlState::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
+                    throw OdbcError(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
 
                 success = Receive(tempBuffer, timeout);
 
                 if (!success)
-                    throw OdbcError(SqlState::SHYT01_CONNECTION_TIMEOUT, "Receive operation timed out");
+                    throw OdbcError(sql_state::SHYT01_CONNECTION_TIMEOUT, "Receive operation timed out");
 
                 parser.Decode(rsp, tempBuffer);
             }
@@ -281,7 +281,7 @@ namespace ignite
                 bool success = Send(tempBuffer.data(), tempBuffer.size(), timeout);
 
                 if (!success)
-                    throw OdbcError(SqlState::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
+                    throw OdbcError(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
             }
 
             /**
@@ -321,7 +321,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type InitSocket();
+            sql_result InitSocket();
 
             /**
              * Synchronously send request message and receive response.
@@ -364,7 +364,7 @@ namespace ignite
              * @param parentWindow Parent window.
              * @return Operation result.
              */
-            SqlResult::Type InternalEstablish(const std::string& connectStr, void* parentWindow);
+            sql_result InternalEstablish(const std::string& connectStr, void* parentWindow);
 
             /**
              * Establish connection to ODBC server.
@@ -373,7 +373,7 @@ namespace ignite
              * @param cfg Configuration.
              * @return Operation result.
              */
-            SqlResult::Type InternalEstablish(const config::Configuration& cfg);
+            sql_result InternalEstablish(const config::Configuration& cfg);
 
             /**
              * Release established connection.
@@ -381,7 +381,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type InternalRelease();
+            sql_result InternalRelease();
 
             /**
              * Close connection.
@@ -398,7 +398,7 @@ namespace ignite
              * @param reslen Result value length pointer.
              * @return Operation result.
              */
-            SqlResult::Type InternalGetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen);
+            sql_result InternalGetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen);
 
             /**
              * Create statement associated with the connection.
@@ -407,7 +407,7 @@ namespace ignite
              * @param statement Pointer to valid instance on success and NULL on failure.
              * @return Operation result.
              */
-            SqlResult::Type InternalCreateStatement(Statement*& statement);
+            sql_result InternalCreateStatement(Statement*& statement);
 
             /**
              * Perform transaction commit on all the associated connections.
@@ -415,7 +415,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type InternalTransactionCommit();
+            sql_result InternalTransactionCommit();
 
             /**
              * Perform transaction rollback on all the associated connections.
@@ -423,7 +423,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type InternalTransactionRollback();
+            sql_result InternalTransactionRollback();
 
             /**
              * Get connection attribute.
@@ -435,7 +435,7 @@ namespace ignite
              * @param valueLen Resulting value length.
              * @return Operation result.
              */
-            SqlResult::Type InternalGetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
+            sql_result InternalGetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
 
             /**
              * Set connection attribute.
@@ -446,7 +446,7 @@ namespace ignite
              * @param valueLen Value length.
              * @return Operation result.
              */
-            SqlResult::Type InternalSetAttribute(int attr, void* value, SQLINTEGER valueLen);
+            sql_result InternalSetAttribute(int attr, void* value, SQLINTEGER valueLen);
 
             /**
              * Receive specified number of bytes.
@@ -473,7 +473,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type MakeRequestHandshake();
+            sql_result MakeRequestHandshake();
 
             /**
              * Ensure there is a connection to the cluster.

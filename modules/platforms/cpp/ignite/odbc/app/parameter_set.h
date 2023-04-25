@@ -62,7 +62,7 @@ namespace ignite
                  *
                  * @param size Size of the parameter set.
                  */
-                void SetParamSetSize(SqlUlen size);
+                void SetParamSetSize(SQLULEN size);
 
                 /**
                  * Bind parameter.
@@ -190,7 +190,7 @@ namespace ignite
                  * @param end End of the interval.
                  * @param last Last page flag.
                  */
-                void Write(impl::binary::BinaryWriterImpl& writer, SqlUlen begin, SqlUlen end, bool last) const;
+                void Write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const;
 
                 /**
                  * Calculate row length.
@@ -211,21 +211,21 @@ namespace ignite
                  *
                  * @param processed Processed.
                  */
-                void SetParamsProcessed(SqlUlen processed) const;
+                void SetParamsProcessed(SQLULEN processed) const;
 
                 /**
                  * Number of processed params should be written using provided address.
                  *
                  * @param ptr Pointer.
                  */
-                void SetParamsProcessedPtr(SqlUlen* ptr);
+                void SetParamsProcessedPtr(SQLULEN* ptr);
 
                 /**
                  * Get pointer to write number of parameters processed in batch.
                  *
                  * @return Pointer to write number of parameters processed in batch.
                  */
-                SqlUlen* GetParamsProcessedPtr() const;
+                SQLULEN* GetParamsProcessedPtr() const;
 
                 /**
                  * Set pointer to array in which to return the status of each
@@ -254,7 +254,7 @@ namespace ignite
                  * @param writer Writer.
                  * @param idx Row index.
                  */
-                void WriteRow(impl::binary::BinaryWriterImpl& writer, SqlUlen idx) const;
+                void WriteRow(impl::binary::BinaryWriterImpl& writer, SQLULEN idx) const;
 
                 IGNITE_NO_COPY_ASSIGNMENT(ParameterSet);
 
@@ -268,16 +268,16 @@ namespace ignite
                 int* paramBindOffset;
 
                 /** Processed parameters. */
-                SqlUlen* processedParamRows;
+                SQLULEN* processedParamRows;
 
                 /** Parameters status. */
                 SQLUSMALLINT* paramsStatus;
 
                 /** Parameter set size. */
-                SqlUlen paramSetSize;
+                SQLULEN paramSetSize;
 
                 /** Current position in parametor set. */
-                SqlUlen paramSetPos;
+                SQLULEN paramSetPos;
 
                 /** Index of the parameter, which is currently being set. */
                 uint16_t currentParamIdx;

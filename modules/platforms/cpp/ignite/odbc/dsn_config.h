@@ -18,7 +18,7 @@
 #ifndef _IGNITE_ODBC_DSN_CONFIG
 #define _IGNITE_ODBC_DSN_CONFIG
 
-#include "ignite/odbc/include/ignite/odbc/config/configuration.h"
+#include "ignite/odbc/config/configuration.h"
 
 namespace ignite
 {

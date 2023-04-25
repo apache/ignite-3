@@ -43,26 +43,26 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type StreamingQuery::Execute()
+            sql_result StreamingQuery::Execute()
             {
                 return connection.GetStreamingContext().Execute(sql, params);
             }
 
-            SqlResult::Type StreamingQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result StreamingQuery::FetchNextRow(app::ColumnBindingMap&)
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type StreamingQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result StreamingQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
             {
-                diag.AddStatusRecord(SqlState::S24000_INVALID_CURSOR_STATE, "Column is not available.");
+                diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE, "Column is not available.");
 
-                return SqlResult::AI_ERROR;
+                return sql_result::AI_ERROR;
             }
 
-            SqlResult::Type StreamingQuery::Close()
+            sql_result StreamingQuery::Close()
             {
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool StreamingQuery::DataAvailable() const
@@ -75,9 +75,9 @@ namespace ignite
                 return 0;
             }
 
-            SqlResult::Type StreamingQuery::NextResultSet()
+            sql_result StreamingQuery::NextResultSet()
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
         }
     }

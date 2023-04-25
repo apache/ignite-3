@@ -81,7 +81,7 @@ namespace ignite
                  * @param offset Offset for the buffer.
                  * @param idx Index for the array-of-parameters case.
                  */
-                void Write(impl::binary::BinaryWriterImpl& writer, int offset = 0, SqlUlen idx = 0) const;
+                void Write(impl::binary::BinaryWriterImpl& writer, int offset = 0, SQLULEN idx = 0) const;
 
                 /**
                  * Get data buffer.
@@ -114,7 +114,7 @@ namespace ignite
                  * @param data Data buffer pointer.
                  * @param len Data length.
                  */
-                void PutData(void* data, SqlLen len);
+                void PutData(void* data, SQLLEN len);
 
             private:
                 /** Underlying data buffer. */

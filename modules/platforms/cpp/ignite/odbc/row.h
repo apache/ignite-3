@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "ignite/odbc/column.h"
-#include "ignite/odbc/include/ignite/odbc/app/application_data_buffer.h"
+#include "ignite/odbc/app/application_data_buffer.h"
 
 namespace ignite
 {

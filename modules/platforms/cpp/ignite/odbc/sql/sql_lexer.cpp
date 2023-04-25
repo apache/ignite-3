@@ -81,7 +81,7 @@ namespace ignite
                             ++pos;
 
                             if (IsEod())
-                                return OdbcError(SqlState::SHY000_GENERAL_ERROR, "Unclosed quoted identifier.");
+                                return OdbcError(sql_state::SHY000_GENERAL_ERROR, "Unclosed quoted identifier.");
 
                             if (sql[pos] == '"')
                             {
@@ -105,7 +105,7 @@ namespace ignite
                             ++pos;
 
                             if (IsEod())
-                                return OdbcError(SqlState::SHY000_GENERAL_ERROR, "Unclosed string literal.");
+                                return OdbcError(sql_state::SHY000_GENERAL_ERROR, "Unclosed string literal.");
 
                             if (sql[pos] == '\'')
                             {

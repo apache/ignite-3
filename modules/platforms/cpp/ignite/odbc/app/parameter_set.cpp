@@ -37,7 +37,7 @@ namespace ignite
                 // No-op.
             }
 
-            void ParameterSet::SetParamSetSize(SqlUlen size)
+            void ParameterSet::SetParamSetSize(SQLULEN size)
             {
                 paramSetSize = size;
             }
@@ -95,12 +95,12 @@ namespace ignite
                 return false;
             }
 
-            void ParameterSet::SetParamsProcessedPtr(SqlUlen* ptr)
+            void ParameterSet::SetParamsProcessedPtr(SQLULEN* ptr)
             {
                 processedParamRows = ptr;
             }
 
-            SqlUlen* ParameterSet::GetParamsProcessedPtr() const
+            SQLULEN* ParameterSet::GetParamsProcessedPtr() const
             {
                 return processedParamRows;
             }
@@ -123,7 +123,7 @@ namespace ignite
                 paramsStatus[idx] = status;
             }
 
-            void ParameterSet::SetParamsProcessed(SqlUlen processed) const
+            void ParameterSet::SetParamsProcessed(SQLULEN processed) const
             {
                 if (processedParamRows)
                     *processedParamRows = processed;
@@ -199,13 +199,13 @@ namespace ignite
                 WriteRow(writer, 0);
             }
 
-            void ParameterSet::Write(impl::binary::BinaryWriterImpl& writer, SqlUlen begin, SqlUlen end, bool last) const
+            void ParameterSet::Write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const
             {
                 int32_t rowLen = CalculateRowLen();
 
                 writer.WriteInt32(rowLen);
 
-                SqlUlen intervalEnd = std::min(paramSetSize, end);
+                SQLULEN intervalEnd = std::min(paramSetSize, end);
 
                 assert(begin < intervalEnd);
 
@@ -216,12 +216,12 @@ namespace ignite
 
                 if (rowLen)
                 {
-                    for (SqlUlen i = begin; i < intervalEnd; ++i)
+                    for (SQLULEN i = begin; i < intervalEnd; ++i)
                         WriteRow(writer, i);
                 }
             }
 
-            void ParameterSet::WriteRow(impl::binary::BinaryWriterImpl& writer, SqlUlen idx) const
+            void ParameterSet::WriteRow(impl::binary::BinaryWriterImpl& writer, SQLULEN idx) const
             {
                 uint16_t prev = 0;
 

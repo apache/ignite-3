@@ -89,7 +89,7 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type PrimaryKeysQuery::Execute()
+            sql_result PrimaryKeysQuery::Execute()
             {
                 if (executed)
                     Close();
@@ -100,7 +100,7 @@ namespace ignite
 
                 cursor = meta.begin();
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             const meta::ColumnMetaVector* PrimaryKeysQuery::GetMeta()
@@ -108,17 +108,17 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            SqlResult::Type PrimaryKeysQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
+            sql_result PrimaryKeysQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (cursor == meta.end())
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
 
                 app::ColumnBindingMap::iterator it;
 
@@ -127,20 +127,20 @@ namespace ignite
 
                 ++cursor;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type PrimaryKeysQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+            sql_result PrimaryKeysQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (cursor == meta.end())
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
 
                 const meta::PrimaryKeyMeta& currentColumn = *cursor;
 
@@ -186,16 +186,16 @@ namespace ignite
                         break;
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type PrimaryKeysQuery::Close()
+            sql_result PrimaryKeysQuery::Close()
             {
                 meta.clear();
 
                 executed = false;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool PrimaryKeysQuery::DataAvailable() const
@@ -208,9 +208,9 @@ namespace ignite
                 return 0;
             }
 
-            SqlResult::Type PrimaryKeysQuery::NextResultSet()
+            sql_result PrimaryKeysQuery::NextResultSet()
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
         }
     }

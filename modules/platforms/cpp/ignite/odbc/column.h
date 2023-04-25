@@ -22,7 +22,7 @@
 
 #include <ignite/impl/binary/binary_reader_impl.h>
 
-#include "ignite/odbc/include/ignite/odbc/app/application_data_buffer.h"
+#include "ignite/odbc/app/application_data_buffer.h"
 
 namespace ignite
 {

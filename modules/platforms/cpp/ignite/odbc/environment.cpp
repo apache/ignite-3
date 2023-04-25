@@ -52,20 +52,20 @@ namespace ignite
             connections.erase(conn);
         }
 
-        SqlResult::Type Environment::InternalCreateConnection(Connection*& connection)
+        sql_result Environment::InternalCreateConnection(Connection*& connection)
         {
             connection = new Connection(this);
 
             if (!connection)
             {
-                AddStatusRecord(SqlState::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
+                AddStatusRecord(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 
-                return SqlResult::AI_ERROR;
+                return sql_result::AI_ERROR;
             }
 
             connections.insert(connection);
 
-            return SqlResult::AI_SUCCESS;
+            return sql_result::AI_SUCCESS;
         }
 
         void Environment::TransactionCommit()
@@ -73,9 +73,9 @@ namespace ignite
             IGNITE_ODBC_API_CALL(InternalTransactionCommit());
         }
 
-        SqlResult::Type Environment::InternalTransactionCommit()
+        sql_result Environment::InternalTransactionCommit()
         {
-            SqlResult::Type res = SqlResult::AI_SUCCESS;
+            sql_result res = sql_result::AI_SUCCESS;
 
             for (ConnectionSet::iterator it = connections.begin(); it != connections.end(); ++it)
             {
@@ -89,7 +89,7 @@ namespace ignite
                 {
                     AddStatusRecord(diag.GetStatusRecord(1));
 
-                    res = SqlResult::AI_SUCCESS_WITH_INFO;
+                    res = sql_result::AI_SUCCESS_WITH_INFO;
                 }
             }
 
@@ -101,9 +101,9 @@ namespace ignite
             IGNITE_ODBC_API_CALL(InternalTransactionRollback());
         }
 
-        SqlResult::Type Environment::InternalTransactionRollback()
+        sql_result Environment::InternalTransactionRollback()
         {
-            SqlResult::Type res = SqlResult::AI_SUCCESS;
+            sql_result res = sql_result::AI_SUCCESS;
 
             for (ConnectionSet::iterator it = connections.begin(); it != connections.end(); ++it)
             {
@@ -117,7 +117,7 @@ namespace ignite
                 {
                     AddStatusRecord(diag.GetStatusRecord(1));
 
-                    res = SqlResult::AI_SUCCESS_WITH_INFO;
+                    res = sql_result::AI_SUCCESS_WITH_INFO;
                 }
             }
 
@@ -129,53 +129,53 @@ namespace ignite
             IGNITE_ODBC_API_CALL(InternalSetAttribute(attr, value, len));
         }
 
-        SqlResult::Type Environment::InternalSetAttribute(int32_t attr, void* value, int32_t len)
+        sql_result Environment::InternalSetAttribute(int32_t attr, void* value, int32_t len)
         {
             IGNITE_UNUSED(len);
 
-            EnvironmentAttribute::Type attribute = EnvironmentAttributeToInternal(attr);
+            environment_attribute attribute = environment_attribute_to_internal(attr);
 
             switch (attribute)
             {
-                case EnvironmentAttribute::ODBC_VERSION:
+                case environment_attribute::ODBC_VERSION:
                 {
                     int32_t version = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
 
                     if (version != odbcVersion)
                     {
-                        AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED,
+                        AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
                             "ODBC version is not supported.");
 
-                        return SqlResult::AI_SUCCESS_WITH_INFO;
+                        return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
                 }
 
-                case EnvironmentAttribute::OUTPUT_NTS:
+                case environment_attribute::OUTPUT_NTS:
                 {
                     int32_t nts = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
 
                     if (nts != odbcNts)
                     {
-                        AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED,
+                        AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
                             "Only null-termination of strings is supported.");
 
-                        return SqlResult::AI_SUCCESS_WITH_INFO;
+                        return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
                 }
 
-                case EnvironmentAttribute::UNKNOWN:
+                case environment_attribute::UNKNOWN:
                 default:
                     break;
             }
 
-            AddStatusRecord(SqlState::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+            AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                 "Attribute is not supported.");
 
-            return SqlResult::AI_ERROR;
+            return sql_result::AI_ERROR;
         }
 
         void Environment::GetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer)
@@ -183,35 +183,35 @@ namespace ignite
             IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buffer));
         }
 
-        SqlResult::Type Environment::InternalGetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer)
+        sql_result Environment::InternalGetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer)
         {
-            EnvironmentAttribute::Type attribute = EnvironmentAttributeToInternal(attr);
+            environment_attribute attribute = environment_attribute_to_internal(attr);
 
             switch (attribute)
             {
-                case EnvironmentAttribute::ODBC_VERSION:
+                case environment_attribute::ODBC_VERSION:
                 {
                     buffer.PutInt32(odbcVersion);
 
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
                 }
 
-                case EnvironmentAttribute::OUTPUT_NTS:
+                case environment_attribute::OUTPUT_NTS:
                 {
                     buffer.PutInt32(odbcNts);
 
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
                 }
 
-                case EnvironmentAttribute::UNKNOWN:
+                case environment_attribute::UNKNOWN:
                 default:
                     break;
             }
 
-            AddStatusRecord(SqlState::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+            AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                 "Attribute is not supported.");
 
-            return SqlResult::AI_ERROR;
+            return sql_result::AI_ERROR;
         }
     }
 }

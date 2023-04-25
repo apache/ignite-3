@@ -181,14 +181,14 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type TypeInfoQuery::Execute()
+            sql_result TypeInfoQuery::Execute()
             {
                 cursor = types.begin();
 
                 executed = true;
                 fetched = false;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             const meta::ColumnMetaVector* TypeInfoQuery::GetMeta()
@@ -196,13 +196,13 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            SqlResult::Type TypeInfoQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
+            sql_result TypeInfoQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (!fetched)
@@ -211,33 +211,33 @@ namespace ignite
                     ++cursor;
 
                 if (cursor == types.end())
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
 
                 app::ColumnBindingMap::iterator it;
 
                 for (it = columnBindings.begin(); it != columnBindings.end(); ++it)
                     GetColumn(it->first, it->second);
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type TypeInfoQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer & buffer)
+            sql_result TypeInfoQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer & buffer)
             {
                 using namespace ignite::impl::binary;
 
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (cursor == types.end())
                 {
-                    diag.AddStatusRecord(SqlState::S24000_INVALID_CURSOR_STATE,
+                    diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
                         "Cursor has reached end of the result set.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 int8_t currentType = *cursor;
@@ -374,16 +374,16 @@ namespace ignite
                         break;
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type TypeInfoQuery::Close()
+            sql_result TypeInfoQuery::Close()
             {
                 cursor = types.end();
 
                 executed = false;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool TypeInfoQuery::DataAvailable() const
@@ -396,9 +396,9 @@ namespace ignite
                 return 0;
             }
 
-            SqlResult::Type TypeInfoQuery::NextResultSet()
+            sql_result TypeInfoQuery::NextResultSet()
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
         }
     }

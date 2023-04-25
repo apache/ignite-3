@@ -47,14 +47,14 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type BatchQuery::Execute()
+            sql_result BatchQuery::Execute()
             {
                 if (executed)
                     Close();
 
                 int32_t maxPageSize = connection.GetConfiguration().GetPageSize();
                 int32_t rowNum = params.GetParamSetSize();
-                SqlResult::Type res;
+                sql_result res;
 
                 int32_t processed = 0;
 
@@ -68,9 +68,9 @@ namespace ignite
                     res = MakeRequestExecuteBatch(processed, processed + currentPageSize, lastPage);
 
                     processed += currentPageSize;
-                } while ((res == SqlResult::AI_SUCCESS || res == SqlResult::AI_SUCCESS_WITH_INFO) && processed < rowNum);
+                } while ((res == sql_result::AI_SUCCESS || res == sql_result::AI_SUCCESS_WITH_INFO) && processed < rowNum);
 
-                params.SetParamsProcessed(static_cast<SqlUlen>(rowsAffected.size()));
+                params.SetParamsProcessed(static_cast<SQLULEN>(rowsAffected.size()));
 
                 return res;
             }
@@ -80,40 +80,40 @@ namespace ignite
                 return &resultMeta;
             }
 
-            SqlResult::Type BatchQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result BatchQuery::FetchNextRow(app::ColumnBindingMap&)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type BatchQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result BatchQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                diag.AddStatusRecord(SqlState::S24000_INVALID_CURSOR_STATE,
+                diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
                     "Cursor has reached end of the result set.");
 
-                return SqlResult::AI_ERROR;
+                return sql_result::AI_ERROR;
             }
 
-            SqlResult::Type BatchQuery::Close()
+            sql_result BatchQuery::Close()
             {
                 executed = false;
                 rowsAffected.clear();
                 rowsAffectedIdx = 0;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool BatchQuery::DataAvailable() const
@@ -127,20 +127,20 @@ namespace ignite
                 return affected < 0 ? 0 : affected;
             }
 
-            SqlResult::Type BatchQuery::NextResultSet()
+            sql_result BatchQuery::NextResultSet()
             {
                 if (rowsAffectedIdx + 1 >= rowsAffected.size())
                 {
                     Close();
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
                 }
 
                 ++rowsAffectedIdx;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type BatchQuery::MakeRequestExecuteBatch(SqlUlen begin, SqlUlen end, bool last)
+            sql_result BatchQuery::MakeRequestExecuteBatch(SQLULEN begin, SQLULEN end, bool last)
             {
                 const std::string& schema = connection.GetSchema();
 
@@ -155,22 +155,22 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 const std::vector<int64_t>& rowsLastTime = rsp.GetAffectedRows();
@@ -190,13 +190,13 @@ namespace ignite
                     LOG_MSG("Error: " << rsp.GetErrorMessage());
                     LOG_MSG("Sets Processed: " << rowsAffected.size());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetErrorCode()), rsp.GetErrorMessage(),
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.GetErrorMessage(),
                         static_cast<int32_t>(rowsAffected.size()), 0);
 
-                    return SqlResult::AI_SUCCESS_WITH_INFO;
+                    return sql_result::AI_SUCCESS_WITH_INFO;
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
         }
     }

@@ -24,7 +24,7 @@
 
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/diagnostic/diagnosable.h"
-#include "ignite/odbc/include/ignite/odbc/sql/sql_command.h"
+#include "ignite/odbc/sql/sql_command.h"
 #include "ignite/odbc/meta/column_meta.h"
 #include "ignite/odbc/query/query.h"
 
@@ -68,11 +68,11 @@ namespace ignite
                  *
                  * @return True on success.
                  */
-                virtual SqlResult::Type Execute()
+                virtual sql_result Execute()
                 {
                     diag.AddStatusRecord("Internal error.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 /**
@@ -81,11 +81,11 @@ namespace ignite
                  * @param columnBindings Application buffers to put data to.
                  * @return Operation result.
                  */
-                virtual SqlResult::Type FetchNextRow(app::ColumnBindingMap& columnBindings)
+                virtual sql_result FetchNextRow(app::ColumnBindingMap& columnBindings)
                 {
                    IGNITE_UNUSED(columnBindings);
 
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
                 }
 
                 /**
@@ -95,12 +95,12 @@ namespace ignite
                  * @param buffer Buffer to put column data to.
                  * @return Operation result.
                  */
-                virtual SqlResult::Type GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+                virtual sql_result GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
                 {
                     IGNITE_UNUSED(columnIdx);
                     IGNITE_UNUSED(buffer);
 
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
                 }
 
                 /**
@@ -108,9 +108,9 @@ namespace ignite
                  *
                  * @return Operation result.
                  */
-                virtual SqlResult::Type Close()
+                virtual sql_result Close()
                 {
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
                 }
 
                 /**
@@ -138,9 +138,9 @@ namespace ignite
                  *
                  * @return Operation result.
                  */
-                virtual SqlResult::Type NextResultSet()
+                virtual sql_result NextResultSet()
                 {
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
                 }
 
                 /**

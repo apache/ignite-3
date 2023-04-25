@@ -24,10 +24,10 @@
 #include "ignite/impl/binary/binary_writer_impl.h"
 #include "ignite/impl/binary/binary_reader_impl.h"
 
-#include "ignite/odbc/include/ignite/odbc/app/parameter_set.h"
-#include "ignite/odbc/include/ignite/odbc/config/configuration.h"
-#include "ignite/odbc/include/ignite/odbc/meta/column_meta.h"
-#include "ignite/odbc/include/ignite/odbc/meta/table_meta.h"
+#include "ignite/odbc/app/parameter_set.h"
+#include "ignite/odbc/config/configuration.h"
+#include "ignite/odbc/meta/column_meta.h"
+#include "ignite/odbc/meta/table_meta.h"
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/result_page.h"
 
@@ -171,7 +171,7 @@ namespace ignite
              * @param autoCommit Auto commit flag.
              */
             QueryExecuteBatchRequest(const std::string& schema, const std::string& sql,
-                const app::ParameterSet& params, SqlUlen begin, SqlUlen end, bool last, int32_t timeout,
+                const app::ParameterSet& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout,
                 bool autoCommit);
 
             /**
@@ -197,10 +197,10 @@ namespace ignite
             const app::ParameterSet& params;
 
             /** Beginning of the interval. */
-            SqlUlen begin;
+            SQLULEN begin;
 
             /** End of the interval. */
-            SqlUlen end;
+            SQLULEN end;
 
             /** Last page flag. */
             bool last;
@@ -554,7 +554,7 @@ namespace ignite
 
         protected:
             /**
-             * Read data if response status is ResponseStatus::SUCCESS.
+             * Read data if response status is response_status::SUCCESS.
              */
             virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl&, const ProtocolVersion&);
 

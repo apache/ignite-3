@@ -50,7 +50,7 @@ namespace ignite
                 InternalClose();
             }
 
-            SqlResult::Type DataQuery::Execute()
+            sql_result DataQuery::Execute()
             {
                 if (cursor.get())
                     InternalClose();
@@ -71,17 +71,17 @@ namespace ignite
                 return &resultMeta;
             }
 
-            SqlResult::Type DataQuery::FetchNextRow(app::ColumnBindingMap& columnBindings)
+            sql_result DataQuery::FetchNextRow(app::ColumnBindingMap& columnBindings)
             {
                 if (!cursor.get())
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (!cursor->HasData())
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
 
                 cursor->Increment();
 
@@ -91,15 +91,15 @@ namespace ignite
                         cursor->UpdateData(cachedNextPage);
                     else
                     {
-                        SqlResult::Type result = MakeRequestFetch();
+                        sql_result result = MakeRequestFetch();
 
-                        if (result != SqlResult::AI_SUCCESS)
+                        if (result != sql_result::AI_SUCCESS)
                             return result;
                     }
                 }
 
                 if (!cursor->HasData())
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
 
                 Row* row = cursor->GetRow();
 
@@ -107,7 +107,7 @@ namespace ignite
                 {
                     diag.AddStatusRecord("Unknown error.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 for (int32_t i = 1; i < row->GetSize() + 1; ++i)
@@ -119,57 +119,57 @@ namespace ignite
 
                     app::ConversionResult::Type convRes = row->ReadColumnToBuffer(i, it->second);
 
-                    SqlResult::Type result = ProcessConversionResult(convRes, 0, i);
+                    sql_result result = ProcessConversionResult(convRes, 0, i);
 
-                    if (result == SqlResult::AI_ERROR)
-                        return SqlResult::AI_ERROR;
+                    if (result == sql_result::AI_ERROR)
+                        return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type DataQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+            sql_result DataQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
             {
                 if (!cursor.get())
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 Row* row = cursor->GetRow();
 
                 if (!row)
                 {
-                    diag.AddStatusRecord(SqlState::S24000_INVALID_CURSOR_STATE,
+                    diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
                         "Cursor has reached end of the result set.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 app::ConversionResult::Type convRes = row->ReadColumnToBuffer(columnIdx, buffer);
 
-                SqlResult::Type result = ProcessConversionResult(convRes, 0, columnIdx);
+                sql_result result = ProcessConversionResult(convRes, 0, columnIdx);
 
                 return result;
             }
 
-            SqlResult::Type DataQuery::Close()
+            sql_result DataQuery::Close()
             {
                 return InternalClose();
             }
 
-            SqlResult::Type DataQuery::InternalClose()
+            sql_result DataQuery::InternalClose()
             {
                 if (!cursor.get())
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
 
-                SqlResult::Type result = SqlResult::AI_SUCCESS;
+                sql_result result = sql_result::AI_SUCCESS;
 
                 if (!IsClosedRemotely())
                     result = MakeRequestClose();
 
-                if (result == SqlResult::AI_SUCCESS)
+                if (result == sql_result::AI_SUCCESS)
                 {
                     cursor.reset();
 
@@ -196,18 +196,18 @@ namespace ignite
                 return connection.GetConfiguration().GetPageSize();
             }
 
-            SqlResult::Type DataQuery::NextResultSet()
+            sql_result DataQuery::NextResultSet()
             {
                 if (rowsAffectedIdx + 1 >= rowsAffected.size())
                 {
                     InternalClose();
 
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
                 }
 
-                SqlResult::Type res = MakeRequestMoreResults();
+                sql_result res = MakeRequestMoreResults();
 
-                if (res == SqlResult::AI_SUCCESS)
+                if (res == sql_result::AI_SUCCESS)
                     ++rowsAffectedIdx;
 
                 return res;
@@ -224,7 +224,7 @@ namespace ignite
                 return true;
             }
 
-            SqlResult::Type DataQuery::MakeRequestExecute()
+            sql_result DataQuery::MakeRequestExecute()
             {
                 const std::string& schema = connection.GetSchema();
 
@@ -239,22 +239,22 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 rowsAffected = rsp.GetAffectedRows();
@@ -267,10 +267,10 @@ namespace ignite
 
                 rowsAffectedIdx = 0;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type DataQuery::MakeRequestClose()
+            sql_result DataQuery::MakeRequestClose()
             {
                 QueryCloseRequest req(cursor->GetQueryId());
                 QueryCloseResponse rsp;
@@ -283,30 +283,30 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 LOG_MSG("Query id: " << rsp.GetQueryId());
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type DataQuery::MakeRequestFetch()
+            sql_result DataQuery::MakeRequestFetch()
             {
                 std::auto_ptr<ResultPage> resultPage(new ResultPage());
 
@@ -321,22 +321,22 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 LOG_MSG("Page size:    " << resultPage->GetSize());
@@ -344,10 +344,10 @@ namespace ignite
 
                 cursor->UpdateData(resultPage);
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type DataQuery::MakeRequestMoreResults()
+            sql_result DataQuery::MakeRequestMoreResults()
             {
                 std::auto_ptr<ResultPage> resultPage(new ResultPage());
 
@@ -362,22 +362,22 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 LOG_MSG("Page size:    " << resultPage->GetSize());
@@ -386,10 +386,10 @@ namespace ignite
                 cachedNextPage = resultPage;
                 cursor.reset(new Cursor(rsp.GetQueryId()));
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type DataQuery::MakeRequestResultsetMeta()
+            sql_result DataQuery::MakeRequestResultsetMeta()
             {
                 const std::string& schema = connection.GetSchema();
 
@@ -404,87 +404,87 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 SetResultsetMeta(rsp.GetMeta());
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type DataQuery::ProcessConversionResult(app::ConversionResult::Type convRes, int32_t rowIdx,
+            sql_result DataQuery::ProcessConversionResult(app::ConversionResult::Type convRes, int32_t rowIdx,
                 int32_t columnIdx)
             {
                 switch (convRes)
                 {
                     case app::ConversionResult::AI_SUCCESS:
                     {
-                        return SqlResult::AI_SUCCESS;
+                        return sql_result::AI_SUCCESS;
                     }
 
                     case app::ConversionResult::AI_NO_DATA:
                     {
-                        return SqlResult::AI_NO_DATA;
+                        return sql_result::AI_NO_DATA;
                     }
 
                     case app::ConversionResult::AI_VARLEN_DATA_TRUNCATED:
                     {
-                        diag.AddStatusRecord(SqlState::S01004_DATA_TRUNCATED,
+                        diag.AddStatusRecord(sql_state::S01004_DATA_TRUNCATED,
                             "Buffer is too small for the column data. Truncated from the right.", rowIdx, columnIdx);
 
-                        return SqlResult::AI_SUCCESS_WITH_INFO;
+                        return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
                     case app::ConversionResult::AI_FRACTIONAL_TRUNCATED:
                     {
-                        diag.AddStatusRecord(SqlState::S01S07_FRACTIONAL_TRUNCATION,
+                        diag.AddStatusRecord(sql_state::S01S07_FRACTIONAL_TRUNCATION,
                             "Buffer is too small for the column data. Fraction truncated.", rowIdx, columnIdx);
 
-                        return SqlResult::AI_SUCCESS_WITH_INFO;
+                        return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
                     case app::ConversionResult::AI_INDICATOR_NEEDED:
                     {
-                        diag.AddStatusRecord(SqlState::S22002_INDICATOR_NEEDED,
+                        diag.AddStatusRecord(sql_state::S22002_INDICATOR_NEEDED,
                             "Indicator is needed but not suplied for the column buffer.", rowIdx, columnIdx);
 
-                        return SqlResult::AI_SUCCESS_WITH_INFO;
+                        return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
                     case app::ConversionResult::AI_UNSUPPORTED_CONVERSION:
                     {
-                        diag.AddStatusRecord(SqlState::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                        diag.AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Data conversion is not supported.", rowIdx, columnIdx);
 
-                        return SqlResult::AI_SUCCESS_WITH_INFO;
+                        return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
                     case app::ConversionResult::AI_FAILURE:
                     default:
                     {
-                        diag.AddStatusRecord(SqlState::S01S01_ERROR_IN_ROW,
+                        diag.AddStatusRecord(sql_state::S01S01_ERROR_IN_ROW,
                             "Can not retrieve row column.", rowIdx, columnIdx);
 
                         break;
                     }
                 }
 
-                return SqlResult::AI_ERROR;
+                return sql_result::AI_ERROR;
             }
 
             void DataQuery::SetResultsetMeta(const meta::ColumnMetaVector& value)

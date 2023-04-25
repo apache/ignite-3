@@ -74,11 +74,11 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type ForeignKeysQuery::Execute()
+            sql_result ForeignKeysQuery::Execute()
             {
                 executed = true;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             const meta::ColumnMetaVector* ForeignKeysQuery::GetMeta()
@@ -86,35 +86,35 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            SqlResult::Type ForeignKeysQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result ForeignKeysQuery::FetchNextRow(app::ColumnBindingMap&)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type ForeignKeysQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result ForeignKeysQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type ForeignKeysQuery::Close()
+            sql_result ForeignKeysQuery::Close()
             {
                 executed = false;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool ForeignKeysQuery::DataAvailable() const
@@ -126,9 +126,9 @@ namespace ignite
                 return 0;
             }
 
-            SqlResult::Type ForeignKeysQuery::NextResultSet()
+            sql_result ForeignKeysQuery::NextResultSet()
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
         }
     }

@@ -53,7 +53,7 @@ namespace ignite
                  * @param rowNum Associated row number.
                  * @param columnNum Associated column number.
                  */
-                DiagnosticRecord(SqlState::Type sqlState, const std::string& message,
+                DiagnosticRecord(sql_state sqlState, const std::string& message,
                     const std::string& connectionName, const std::string& serverName,
                     int32_t rowNum = 0, int32_t columnNum = 0);
 
@@ -107,7 +107,7 @@ namespace ignite
                  *
                  * @return A five-character SQLSTATE diagnostic code.
                  */
-                const std::string& GetSqlState() const;
+                const std::string& Getsql_state() const;
 
                 /**
                  * Get row number.
@@ -142,7 +142,7 @@ namespace ignite
 
             private:
                 /** SQL state diagnostic code. */
-                SqlState::Type sqlState;
+                sql_state sqlState;
 
                 /** An informational message on the error or warning. */
                 std::string message;

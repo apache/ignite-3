@@ -53,7 +53,7 @@ namespace ignite
                  * @param nullability Nullability.
                  * @return SQL constant.
                  */
-                static SqlLen ToSql(int32_t nullability);
+                static SQLLEN ToSql(int32_t nullability);
             };
 
             using namespace ignite::odbc;
@@ -222,7 +222,7 @@ namespace ignite
                  * @param value Output attribute value.
                  * @return True if the attribute supported and false otherwise.
                  */
-                bool GetAttribute(uint16_t fieldId, SqlLen& value) const;
+                bool GetAttribute(uint16_t fieldId, SQLLEN& value) const;
 
             private:
                 /** Schema name. */

@@ -76,7 +76,7 @@ namespace ignite
                 return *this;
             }
 
-            void Parameter::Write(impl::binary::BinaryWriterImpl& writer, int offset, SqlUlen idx) const
+            void Parameter::Write(impl::binary::BinaryWriterImpl& writer, int offset, SQLULEN idx) const
             {
                 if (buffer.GetInputSize() == SQL_NULL_DATA)
                 {
@@ -90,7 +90,7 @@ namespace ignite
                 buf.SetByteOffset(offset);
                 buf.SetElementOffset(idx);
 
-                SqlLen storedDataLen = static_cast<SqlLen>(storedData.size());
+                SQLLEN storedDataLen = static_cast<SQLLEN>(storedData.size());
 
                 if (buffer.IsDataAtExec())
                 {
@@ -177,7 +177,7 @@ namespace ignite
                     {
                         const ApplicationDataBuffer& constRef = buf;
 
-                        const SqlLen* resLenPtr = constRef.GetResLen();
+                        const SQLLEN* resLenPtr = constRef.GetResLen();
 
                         if (!resLenPtr)
                             break;
@@ -232,10 +232,10 @@ namespace ignite
             bool Parameter::IsDataReady() const
             {
                 return !buffer.IsDataAtExec() ||
-                    static_cast<SqlLen>(storedData.size()) == buffer.GetDataAtExecSize();
+                    static_cast<SQLLEN>(storedData.size()) == buffer.GetDataAtExecSize();
             }
 
-            void Parameter::PutData(void* data, SqlLen len)
+            void Parameter::PutData(void* data, SQLLEN len)
             {
                 if (len == SQL_DEFAULT_PARAM)
                     return;
@@ -250,7 +250,7 @@ namespace ignite
                 if (buffer.GetType() == type_traits::OdbcNativeType::AI_CHAR ||
                     buffer.GetType() == type_traits::OdbcNativeType::AI_BINARY)
                 {
-                    SqlLen slen = len;
+                    SQLLEN slen = len;
 
                     if (buffer.GetType() == type_traits::OdbcNativeType::AI_CHAR && slen == SQL_NTSL)
                     {

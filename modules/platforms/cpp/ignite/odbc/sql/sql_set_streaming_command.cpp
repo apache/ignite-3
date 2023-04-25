@@ -131,13 +131,13 @@ namespace ignite
 
         void SqlSetStreamingCommand::ThrowUnexpectedTokenError(const SqlToken& token, const std::string& expected)
         {
-            throw OdbcError(SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
+            throw OdbcError(sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
                 "Unexpected token: '" + token.ToString() + "', " + expected + " expected.");
         }
 
         void SqlSetStreamingCommand::ThrowUnexpectedEndOfStatement(const std::string& expected)
         {
-            throw OdbcError(SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
+            throw OdbcError(sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
                 "Unexpected end of statement: " + expected + " expected.");
         }
 
@@ -179,7 +179,7 @@ namespace ignite
 
             if (val <= 0)
             {
-                throw OdbcError(SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
+                throw OdbcError(sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION,
                     "Invalid " + description + " - positive integer number is expected.");
             }
 

@@ -81,7 +81,7 @@ public:
      * @param reslen Resulting data length.
      */
     ApplicationDataBuffer(type_traits::OdbcNativeType::Type type, void* buffer,
-        SqlLen buflen, SqlLen* reslen);
+        SQLLEN buflen, SQLLEN* reslen);
 
     /**
      * Copy constructor.
@@ -118,7 +118,7 @@ public:
      *
      * @param
      */
-    void SetElementOffset(SqlUlen idx)
+    void SetElementOffset(SQLULEN idx)
     {
         this->elementOffset = idx;
     }
@@ -340,7 +340,7 @@ public:
      *
      * @return Data length pointer.
      */
-    [[nodiscard]] const SqlLen* GetResLen() const;
+    [[nodiscard]] const SQLLEN* GetResLen() const;
 
     /**
      * Get raw data.
@@ -354,14 +354,14 @@ public:
      *
      * @return Data length pointer.
      */
-    SqlLen* GetResLen();
+    SQLLEN* GetResLen();
 
     /**
      * Get buffer size in bytes.
      *
      * @return Buffer size.
      */
-    [[nodiscard]] SqlLen GetSize() const
+    [[nodiscard]] SQLLEN GetSize() const
     {
         return buflen;
     }
@@ -381,14 +381,14 @@ public:
      * @return Size of the data that is going to be provided
      *     at execution.
      */
-    [[nodiscard]] SqlLen GetDataAtExecSize() const;
+    [[nodiscard]] SQLLEN GetDataAtExecSize() const;
 
     /**
      * Get single element size.
      *
      * @return Size of the single element.
      */
-    [[nodiscard]] SqlLen GetElementSize() const;
+    [[nodiscard]] SQLLEN GetElementSize() const;
 
     /**
      * Get size of the input buffer.
@@ -396,7 +396,7 @@ public:
      * @return Input buffer size, or zero if the data is going
      *     to be provided at execution.
      */
-    [[nodiscard]] SqlLen GetInputSize() const;
+    [[nodiscard]] SQLLEN GetInputSize() const;
 
     /**
      * Get buffer type.
@@ -490,16 +490,16 @@ private:
     void* buffer;
 
     /** Buffer length. */
-    SqlLen buflen;
+    SQLLEN buflen;
 
     /** Result length. */
-    SqlLen* reslen;
+    SQLLEN* reslen;
 
     /** Current byte offset */
     int byteOffset;
 
     /** Current element offset. */
-    SqlUlen elementOffset;
+    SQLULEN elementOffset;
 };
 
 /** Column binging map type alias. */

@@ -59,7 +59,7 @@ namespace ignite
                  *
                  * @return True on success.
                  */
-                virtual SqlResult::Type Execute();
+                virtual sql_result Execute();
 
                 /**
                  * Get column metadata.
@@ -74,7 +74,7 @@ namespace ignite
                  * @param columnBindings Application buffers to put data to.
                  * @return Operation result.
                  */
-                virtual SqlResult::Type FetchNextRow(app::ColumnBindingMap& columnBindings);
+                virtual sql_result FetchNextRow(app::ColumnBindingMap& columnBindings);
 
                 /**
                  * Get data of the specified column in the result set.
@@ -83,14 +83,14 @@ namespace ignite
                  * @param buffer Buffer to put column data to.
                  * @return Operation result.
                  */
-                virtual SqlResult::Type GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer);
+                virtual sql_result GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer);
 
                 /**
                  * Close query.
                  *
                  * @return Result.
                  */
-                virtual SqlResult::Type Close();
+                virtual sql_result Close();
 
                 /**
                  * Check if data is available.
@@ -111,7 +111,7 @@ namespace ignite
                  *
                  * @return Operaion result.
                  */
-                virtual SqlResult::Type NextResultSet();
+                virtual sql_result NextResultSet();
 
                 /**
                  * Get SQL query string.
@@ -139,7 +139,7 @@ namespace ignite
                  *
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestPrepare();
+                sql_result MakeRequestPrepare();
 
                 /**
                  * Make query execute request and use response to set internal
@@ -147,35 +147,35 @@ namespace ignite
                  *
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestExecute();
+                sql_result MakeRequestExecute();
 
                 /**
                  * Make query close request.
                  *
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestClose();
+                sql_result MakeRequestClose();
 
                 /**
                  * Make data fetch request and use response to set internal state.
                  *
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestFetch();
+                sql_result MakeRequestFetch();
 
                 /**
                  * Make next result set request and use response to set internal state.
                  *
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestMoreResults();
+                sql_result MakeRequestMoreResults();
 
                 /**
                  * Make result set metadata request.
                  *
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestResultsetMeta();
+                sql_result MakeRequestResultsetMeta();
 
                 /**
                  * Process column conversion operation result.
@@ -185,7 +185,7 @@ namespace ignite
                  * @param columnIdx Column index.
                  * @return General SQL result.
                  */
-                SqlResult::Type ProcessConversionResult(app::ConversionResult::Type convRes, int32_t rowIdx,
+                sql_result ProcessConversionResult(app::ConversionResult::Type convRes, int32_t rowIdx,
                     int32_t columnIdx);;
 
                 /**
@@ -203,7 +203,7 @@ namespace ignite
                  *
                  * @return Result.
                  */
-                SqlResult::Type InternalClose();
+                sql_result InternalClose();
 
                 /** Connection associated with the statement. */
                 Connection& connection;

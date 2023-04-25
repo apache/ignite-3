@@ -64,7 +64,7 @@ namespace ignite
                  *
                  * @param result Operation return code.
                  */
-                void SetHeaderRecord(SqlResult::Type result);
+                void SetHeaderRecord(sql_result result);
 
                 /**
                  * Add new status record.
@@ -72,7 +72,7 @@ namespace ignite
                  * @param sqlState SQL state.
                  * @param message Message.
                  */
-                void AddStatusRecord(SqlState::Type  sqlState, const std::string& message);
+                void AddStatusRecord(sql_state  sqlState, const std::string& message);
 
                 /**
                  * Add status record to diagnostic records.
@@ -91,7 +91,7 @@ namespace ignite
                  *
                  * @return Result of the last operation.
                  */
-                SqlResult::Type GetOperaionResult() const;
+                sql_result GetOperaionResult() const;
 
                 /**
                  * Get return code of the last operation.
@@ -177,7 +177,7 @@ namespace ignite
                  * @param buffer Buffer to put data to.
                  * @return Operation result.
                  */
-                SqlResult::Type GetField(int32_t recNum, DiagnosticField::Type field,
+                sql_result GetField(int32_t recNum, diagnostic_field field,
                     app::ApplicationDataBuffer& buffer) const;
 
             private:
@@ -205,7 +205,7 @@ namespace ignite
                  * Operation result. This field is mapped to "Return code" header
                  * record field.
                  */
-                SqlResult::Type result;
+                sql_result result;
 
                 /**
                  * Header record field. The number of rows affected by an insert,

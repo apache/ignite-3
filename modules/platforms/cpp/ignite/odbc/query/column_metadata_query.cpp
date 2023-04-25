@@ -117,14 +117,14 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type ColumnMetadataQuery::Execute()
+            sql_result ColumnMetadataQuery::Execute()
             {
                 if (executed)
                     Close();
 
-                SqlResult::Type result = MakeRequestGetColumnsMeta();
+                sql_result result = MakeRequestGetColumnsMeta();
 
-                if (result == SqlResult::AI_SUCCESS)
+                if (result == sql_result::AI_SUCCESS)
                 {
                     executed = true;
                     fetched = false;
@@ -140,13 +140,13 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            SqlResult::Type ColumnMetadataQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
+            sql_result ColumnMetadataQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (!fetched)
@@ -155,31 +155,31 @@ namespace ignite
                     ++cursor;
 
                 if (cursor == meta.end())
-                    return SqlResult::AI_NO_DATA;
+                    return sql_result::AI_NO_DATA;
 
                 app::ColumnBindingMap::iterator it;
 
                 for (it = columnBindings.begin(); it != columnBindings.end(); ++it)
                     GetColumn(it->first, it->second);
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type ColumnMetadataQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer & buffer)
+            sql_result ColumnMetadataQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer & buffer)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 if (cursor == meta.end())
                 {
-                    diag.AddStatusRecord(SqlState::S24000_INVALID_CURSOR_STATE,
+                    diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
                         "Cursor has reached end of the result set.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 const meta::ColumnMeta& currentColumn = *cursor;
@@ -267,16 +267,16 @@ namespace ignite
                         break;
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type ColumnMetadataQuery::Close()
+            sql_result ColumnMetadataQuery::Close()
             {
                 meta.clear();
 
                 executed = false;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool ColumnMetadataQuery::DataAvailable() const
@@ -289,12 +289,12 @@ namespace ignite
                 return 0;
             }
 
-            SqlResult::Type ColumnMetadataQuery::NextResultSet()
+            sql_result ColumnMetadataQuery::NextResultSet()
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type ColumnMetadataQuery::MakeRequestGetColumnsMeta()
+            sql_result ColumnMetadataQuery::MakeRequestGetColumnsMeta()
             {
                 QueryGetColumnsMetaRequest req(schema, table, column);
                 QueryGetColumnsMetaResponse rsp;
@@ -307,21 +307,21 @@ namespace ignite
                 {
                     diag.AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     diag.AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
-                    diag.AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 meta = rsp.GetMeta();
@@ -334,7 +334,7 @@ namespace ignite
                          << "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta[i].GetDataType()));
                 }
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
         }
     }

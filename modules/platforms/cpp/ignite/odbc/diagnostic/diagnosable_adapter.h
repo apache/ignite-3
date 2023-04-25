@@ -22,12 +22,12 @@
 
 #define IGNITE_ODBC_API_CALL(...)                   \
         diagnosticRecords.Reset();                  \
-        SqlResult::Type result = (__VA_ARGS__);     \
+        sql_result result = (__VA_ARGS__);     \
         diagnosticRecords.SetHeaderRecord(result)
 
 #define IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS                     \
         diagnosticRecords.Reset();                              \
-        diagnosticRecords.SetHeaderRecord(SqlResult::AI_SUCCESS)
+        diagnosticRecords.SetHeaderRecord(sql_result::AI_SUCCESS)
 
 namespace ignite
 {
@@ -92,7 +92,7 @@ namespace ignite
                  * @param rowNum Associated row number.
                  * @param columnNum Associated column number.
                  */
-                virtual void AddStatusRecord(SqlState::Type  sqlState, const std::string& message,
+                virtual void AddStatusRecord(sql_state  sqlState, const std::string& message,
                     int32_t rowNum, int32_t columnNum);
 
                 /**
@@ -101,10 +101,10 @@ namespace ignite
                  * @param sqlState SQL state.
                  * @param message Message.
                  */
-                virtual void AddStatusRecord(SqlState::Type  sqlState, const std::string& message);
+                virtual void AddStatusRecord(sql_state  sqlState, const std::string& message);
 
                 /**
-                 * Add new status record with SqlState::SHY000_GENERAL_ERROR state.
+                 * Add new status record with sql_state::SHY000_GENERAL_ERROR state.
                  *
                  * @param message Message.
                  */

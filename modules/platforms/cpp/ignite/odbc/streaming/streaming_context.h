@@ -67,14 +67,14 @@ namespace ignite
                  * @param cmd Set streaming command.
                  * @return Result.
                  */
-                SqlResult::Type Enable(const SqlSetStreamingCommand& cmd);
+                sql_result Enable(const SqlSetStreamingCommand& cmd);
 
                 /**
                  * Disable streaming.
                  *
                  * @return Result.
                  */
-                SqlResult::Type Disable();
+                sql_result Disable();
 
                 /**
                  * Check if the streaming is enabled.
@@ -93,7 +93,7 @@ namespace ignite
                  * @param params SQL params.
                  * @return True on success.
                  */
-                SqlResult::Type Execute(const std::string& sql, const app::ParameterSet& params);
+                sql_result Execute(const std::string& sql, const app::ParameterSet& params);
 
             private:
                 IGNITE_NO_COPY_ASSIGNMENT(StreamingContext);
@@ -104,7 +104,7 @@ namespace ignite
                  * @param last Last page indicator.
                  * @return Operation result.
                  */
-                SqlResult::Type Flush(bool last);
+                sql_result Flush(bool last);
 
                 /**
                  * Send batch request.
@@ -112,7 +112,7 @@ namespace ignite
                  * @param last Last page flag.
                  * @return Result.
                  */
-                SqlResult::Type MakeRequestStreamingBatch(bool last);
+                sql_result MakeRequestStreamingBatch(bool last);
 
                 /** Connection associated with the statement. */
                 Connection* connection;

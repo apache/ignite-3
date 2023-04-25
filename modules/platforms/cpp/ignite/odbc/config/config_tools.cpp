@@ -112,7 +112,7 @@ namespace ignite
                         << value << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return false;
                 }
@@ -128,7 +128,7 @@ namespace ignite
                     stream << "Port is missing in the following address: '" << value << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return false;
                 }
@@ -165,7 +165,7 @@ namespace ignite
                         << value << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return false;
                 }
@@ -188,7 +188,7 @@ namespace ignite
                         << value << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return false;
                 }
@@ -210,7 +210,7 @@ namespace ignite
                     stream << "Unexpected port characters: '" << port << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return 0;
                 }
@@ -222,7 +222,7 @@ namespace ignite
                     stream << "Port value is too large: '" << port << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return 0;
                 }
@@ -240,7 +240,7 @@ namespace ignite
                     stream << "Port value is out of range: '" << port << "'. Ignoring address.";
 
                     if (diag)
-                        diag->AddStatusRecord(SqlState::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
                     return 0;
                 }

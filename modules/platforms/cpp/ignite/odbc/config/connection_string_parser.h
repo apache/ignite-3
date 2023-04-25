@@ -21,7 +21,7 @@
 #include <string>
 
 #include "ignite/odbc/config/configuration.h"
-#include "ignite/odbc/include/ignite/odbc/diagnostic/diagnostic_record_storage.h"
+#include "ignite/odbc/diagnostic/diagnostic_record_storage.h"
 
 namespace ignite
 {

@@ -43,14 +43,14 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type StreamingContext::Enable(const SqlSetStreamingCommand& cmd)
+            sql_result StreamingContext::Enable(const SqlSetStreamingCommand& cmd)
             {
-                SqlResult::Type res = SqlResult::AI_SUCCESS;
+                sql_result res = sql_result::AI_SUCCESS;
 
                 if (enabled)
                     res = Disable();
 
-                if (res != SqlResult::AI_SUCCESS)
+                if (res != sql_result::AI_SUCCESS)
                     return res;
 
                 batchSize = cmd.GetBatchSize();
@@ -59,14 +59,14 @@ namespace ignite
 
                 order = 0;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
-            SqlResult::Type StreamingContext::Disable()
+            sql_result StreamingContext::Disable()
             {
                 LOG_MSG("Disabling streaming context.");
 
-                SqlResult::Type res = SqlResult::AI_SUCCESS;
+                sql_result res = sql_result::AI_SUCCESS;
 
                 if (enabled)
                     res = Flush(true);
@@ -76,33 +76,33 @@ namespace ignite
                 return res;
             }
 
-            SqlResult::Type StreamingContext::Execute(const std::string& sql, const app::ParameterSet& params)
+            sql_result StreamingContext::Execute(const std::string& sql, const app::ParameterSet& params)
             {
                 assert(enabled);
 
                 currentBatch.AddRow(sql, params);
 
                 if (currentBatch.GetSize() < batchSize)
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
 
                 return Flush(false);
             }
 
-            SqlResult::Type StreamingContext::Flush(bool last)
+            sql_result StreamingContext::Flush(bool last)
             {
                 LOG_MSG("Flushing data");
 
                 if (currentBatch.GetSize() == 0 && !last)
-                    return SqlResult::AI_SUCCESS;
+                    return sql_result::AI_SUCCESS;
 
-                SqlResult::Type res = MakeRequestStreamingBatch(last);
+                sql_result res = MakeRequestStreamingBatch(last);
 
                 currentBatch.Clear();
 
                 return res;
             }
 
-            SqlResult::Type StreamingContext::MakeRequestStreamingBatch(bool last)
+            sql_result StreamingContext::MakeRequestStreamingBatch(bool last)
             {
                 assert(connection != 0);
 
@@ -119,40 +119,40 @@ namespace ignite
                 {
                     connection->AddStatusRecord(err);
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
                     connection->AddStatusRecord(err.GetText());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 currentBatch.Clear();
 
-                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                if (rsp.GetStatus() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    connection->AddStatusRecord(ResponseStatusToSqlState(rsp.GetStatus()), rsp.GetError());
+                    connection->AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetErrorCode() != ResponseStatus::SUCCESS)
+                if (rsp.GetErrorCode() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetErrorMessage());
 
-                    connection->AddStatusRecord(ResponseStatusToSqlState(rsp.GetErrorCode()), rsp.GetErrorMessage());
+                    connection->AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.GetErrorMessage());
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
                 assert(order == rsp.GetOrder());
 
                 ++order;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
         }
     }

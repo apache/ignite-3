@@ -64,11 +64,11 @@ namespace ignite
                 // No-op.
             }
 
-            SqlResult::Type SpecialColumnsQuery::Execute()
+            sql_result SpecialColumnsQuery::Execute()
             {
                 executed = true;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             const meta::ColumnMetaVector* SpecialColumnsQuery::GetMeta()
@@ -76,35 +76,35 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            SqlResult::Type SpecialColumnsQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result SpecialColumnsQuery::FetchNextRow(app::ColumnBindingMap&)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type SpecialColumnsQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result SpecialColumnsQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(SqlState::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
-                    return SqlResult::AI_ERROR;
+                    return sql_result::AI_ERROR;
                 }
 
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
 
-            SqlResult::Type SpecialColumnsQuery::Close()
+            sql_result SpecialColumnsQuery::Close()
             {
                 executed = false;
 
-                return SqlResult::AI_SUCCESS;
+                return sql_result::AI_SUCCESS;
             }
 
             bool SpecialColumnsQuery::DataAvailable() const
@@ -117,9 +117,9 @@ namespace ignite
                 return 0;
             }
 
-            SqlResult::Type SpecialColumnsQuery::NextResultSet()
+            sql_result SpecialColumnsQuery::NextResultSet()
             {
-                return SqlResult::AI_NO_DATA;
+                return sql_result::AI_NO_DATA;
             }
         }
     }

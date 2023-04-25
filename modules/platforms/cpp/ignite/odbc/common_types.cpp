@@ -15,166 +15,163 @@
  * limitations under the License.
  */
 
-#include <ignite/impl/binary/binary_common.h>
-
 #include "common_types.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
 namespace ignite
 {
-    namespace odbc
+
+int sql_result_to_return_code(sql_result result)
+{
+    switch (result)
     {
-        int SqlResultToReturnCode(SqlResult::Type result)
-        {
-            switch (result)
-            {
-                case SqlResult::AI_SUCCESS:
-                    return SQL_SUCCESS;
+        case sql_result::AI_SUCCESS:
+            return SQL_SUCCESS;
 
-                case SqlResult::AI_SUCCESS_WITH_INFO:
-                    return SQL_SUCCESS_WITH_INFO;
+        case sql_result::AI_SUCCESS_WITH_INFO:
+            return SQL_SUCCESS_WITH_INFO;
 
-                case SqlResult::AI_NO_DATA:
-                    return SQL_NO_DATA;
+        case sql_result::AI_NO_DATA:
+            return SQL_NO_DATA;
 
-                case SqlResult::AI_NEED_DATA:
-                    return SQL_NEED_DATA;
+        case sql_result::AI_NEED_DATA:
+            return SQL_NEED_DATA;
 
-                case SqlResult::AI_ERROR:
-                default:
-                    return SQL_ERROR;
-            }
-        }
-
-        DiagnosticField::Type DiagnosticFieldToInternal(int16_t field)
-        {
-            switch (field)
-            {
-                case SQL_DIAG_CURSOR_ROW_COUNT:
-                    return DiagnosticField::HEADER_CURSOR_ROW_COUNT;
-
-                case SQL_DIAG_DYNAMIC_FUNCTION:
-                    return DiagnosticField::HEADER_DYNAMIC_FUNCTION;
-
-                case SQL_DIAG_DYNAMIC_FUNCTION_CODE:
-                    return DiagnosticField::HEADER_DYNAMIC_FUNCTION_CODE;
-
-                case SQL_DIAG_NUMBER:
-                    return DiagnosticField::HEADER_NUMBER;
-
-                case SQL_DIAG_RETURNCODE:
-                    return DiagnosticField::HEADER_RETURNCODE;
-
-                case SQL_DIAG_ROW_COUNT:
-                    return DiagnosticField::HEADER_ROW_COUNT;
-
-                case SQL_DIAG_CLASS_ORIGIN:
-                    return DiagnosticField::STATUS_CLASS_ORIGIN;
-
-                case SQL_DIAG_COLUMN_NUMBER:
-                    return DiagnosticField::STATUS_COLUMN_NUMBER;
-
-                case SQL_DIAG_CONNECTION_NAME:
-                    return DiagnosticField::STATUS_CONNECTION_NAME;
-
-                case SQL_DIAG_MESSAGE_TEXT:
-                    return DiagnosticField::STATUS_MESSAGE_TEXT;
-
-                case SQL_DIAG_NATIVE:
-                    return DiagnosticField::STATUS_NATIVE;
-
-                case SQL_DIAG_ROW_NUMBER:
-                    return DiagnosticField::STATUS_ROW_NUMBER;
-
-                case SQL_DIAG_SERVER_NAME:
-                    return DiagnosticField::STATUS_SERVER_NAME;
-
-                case SQL_DIAG_SQLSTATE:
-                    return DiagnosticField::STATUS_SQLSTATE;
-
-                case SQL_DIAG_SUBCLASS_ORIGIN:
-                    return DiagnosticField::STATUS_SUBCLASS_ORIGIN;
-
-                default:
-                    break;
-            }
-
-            return DiagnosticField::UNKNOWN;
-        }
-
-        EnvironmentAttribute::Type EnvironmentAttributeToInternal(int32_t attr)
-        {
-            switch (attr)
-            {
-                case SQL_ATTR_ODBC_VERSION:
-                    return EnvironmentAttribute::ODBC_VERSION;
-
-                case SQL_ATTR_OUTPUT_NTS:
-                    return EnvironmentAttribute::OUTPUT_NTS;
-
-                default:
-                    break;
-            }
-
-            return EnvironmentAttribute::UNKNOWN;
-        }
-
-        SqlState::Type ResponseStatusToSqlState(int32_t status)
-        {
-            switch (status)
-            {
-                case ResponseStatus::PARSING_FAILURE:
-                case ResponseStatus::KEY_UPDATE:
-                case ResponseStatus::UNEXPECTED_OPERATION:
-                    return SqlState::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION;
-
-                case ResponseStatus::UNSUPPORTED_OPERATION:
-                    return SqlState::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED;
-
-                case ResponseStatus::UNEXPECTED_ELEMENT_TYPE:
-                    return SqlState::SHY004_INVALID_SQL_DATA_TYPE;
-
-                case ResponseStatus::DUPLICATE_KEY:
-                case ResponseStatus::NULL_KEY:
-                case ResponseStatus::NULL_VALUE:
-                    return SqlState::S23000_INTEGRITY_CONSTRAINT_VIOLATION;
-
-                case ResponseStatus::TABLE_NOT_FOUND:
-                    return SqlState::S42S02_TABLE_OR_VIEW_NOT_FOUND;
-
-                case ResponseStatus::INDEX_ALREADY_EXISTS:
-                    return SqlState::S42S11_INDEX_ALREADY_EXISTS;
-
-                case ResponseStatus::INDEX_NOT_FOUND:
-                    return SqlState::S42S12_INDEX_NOT_FOUND;
-
-                case ResponseStatus::TABLE_ALREADY_EXISTS:
-                    return SqlState::S42S01_TABLE_OR_VIEW_ALREADY_EXISTS;
-
-                case ResponseStatus::COLUMN_NOT_FOUND:
-                    return SqlState::S42S22_COLUMN_NOT_FOUND;
-
-                case ResponseStatus::COLUMN_ALREADY_EXISTS:
-                    return SqlState::S42S21_COLUMN_ALREADY_EXISTS;
-
-                case ResponseStatus::TRANSACTION_COMPLETED:
-                    return SqlState::S25000_INVALID_TRANSACTION_STATE;
-
-                case ResponseStatus::TRANSACTION_SERIALIZATION_ERROR:
-                    return SqlState::S40001_SERIALIZATION_FAILURE;
-
-                case ResponseStatus::CACHE_NOT_FOUND:
-                case ResponseStatus::NULL_TABLE_DESCRIPTOR:
-                case ResponseStatus::CONVERSION_FAILED:
-                case ResponseStatus::CONCURRENT_UPDATE:
-                case ResponseStatus::ENTRY_PROCESSING:
-                case ResponseStatus::TABLE_DROP_FAILED:
-                case ResponseStatus::STMT_TYPE_MISMATCH:
-                case ResponseStatus::UNKNOWN_ERROR:
-                default:
-                    return SqlState::SHY000_GENERAL_ERROR;
-            }
-        }
+        case sql_result::AI_ERROR:
+        default:
+            return SQL_ERROR;
     }
 }
+
+diagnostic_field diagnostic_field_to_internal(int16_t field)
+{
+    switch (field)
+    {
+        case SQL_DIAG_CURSOR_ROW_COUNT:
+            return diagnostic_field::HEADER_CURSOR_ROW_COUNT;
+
+        case SQL_DIAG_DYNAMIC_FUNCTION:
+            return diagnostic_field::HEADER_DYNAMIC_FUNCTION;
+
+        case SQL_DIAG_DYNAMIC_FUNCTION_CODE:
+            return diagnostic_field::HEADER_DYNAMIC_FUNCTION_CODE;
+
+        case SQL_DIAG_NUMBER:
+            return diagnostic_field::HEADER_NUMBER;
+
+        case SQL_DIAG_RETURNCODE:
+            return diagnostic_field::HEADER_RETURN_CODE;
+
+        case SQL_DIAG_ROW_COUNT:
+            return diagnostic_field::HEADER_ROW_COUNT;
+
+        case SQL_DIAG_CLASS_ORIGIN:
+            return diagnostic_field::STATUS_CLASS_ORIGIN;
+
+        case SQL_DIAG_COLUMN_NUMBER:
+            return diagnostic_field::STATUS_COLUMN_NUMBER;
+
+        case SQL_DIAG_CONNECTION_NAME:
+            return diagnostic_field::STATUS_CONNECTION_NAME;
+
+        case SQL_DIAG_MESSAGE_TEXT:
+            return diagnostic_field::STATUS_MESSAGE_TEXT;
+
+        case SQL_DIAG_NATIVE:
+            return diagnostic_field::STATUS_NATIVE;
+
+        case SQL_DIAG_ROW_NUMBER:
+            return diagnostic_field::STATUS_ROW_NUMBER;
+
+        case SQL_DIAG_SERVER_NAME:
+            return diagnostic_field::STATUS_SERVER_NAME;
+
+        case SQL_DIAG_SQLSTATE:
+            return diagnostic_field::STATUS_SQLSTATE;
+
+        case SQL_DIAG_SUBCLASS_ORIGIN:
+            return diagnostic_field::STATUS_SUBCLASS_ORIGIN;
+
+        default:
+            break;
+    }
+
+    return diagnostic_field::UNKNOWN;
+}
+
+environment_attribute environment_attribute_to_internal(int32_t attr)
+{
+    switch (attr)
+    {
+        case SQL_ATTR_ODBC_VERSION:
+            return environment_attribute::ODBC_VERSION;
+
+        case SQL_ATTR_OUTPUT_NTS:
+            return environment_attribute::OUTPUT_NTS;
+
+        default:
+            break;
+    }
+
+    return environment_attribute::UNKNOWN;
+}
+
+sql_state response_status_to_sql_state(int32_t status)
+{
+    switch (response_status(status))
+    {
+        case response_status::PARSING_FAILURE:
+        case response_status::KEY_UPDATE:
+        case response_status::UNEXPECTED_OPERATION:
+            return sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION;
+
+        case response_status::UNSUPPORTED_OPERATION:
+            return sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED;
+
+        case response_status::UNEXPECTED_ELEMENT_TYPE:
+            return sql_state::SHY004_INVALID_SQL_DATA_TYPE;
+
+        case response_status::DUPLICATE_KEY:
+        case response_status::NULL_KEY:
+        case response_status::NULL_VALUE:
+            return sql_state::S23000_INTEGRITY_CONSTRAINT_VIOLATION;
+
+        case response_status::TABLE_NOT_FOUND:
+            return sql_state::S42S02_TABLE_OR_VIEW_NOT_FOUND;
+
+        case response_status::INDEX_ALREADY_EXISTS:
+            return sql_state::S42S11_INDEX_ALREADY_EXISTS;
+
+        case response_status::INDEX_NOT_FOUND:
+            return sql_state::S42S12_INDEX_NOT_FOUND;
+
+        case response_status::TABLE_ALREADY_EXISTS:
+            return sql_state::S42S01_TABLE_OR_VIEW_ALREADY_EXISTS;
+
+        case response_status::COLUMN_NOT_FOUND:
+            return sql_state::S42S22_COLUMN_NOT_FOUND;
+
+        case response_status::COLUMN_ALREADY_EXISTS:
+            return sql_state::S42S21_COLUMN_ALREADY_EXISTS;
+
+        case response_status::TRANSACTION_COMPLETED:
+            return sql_state::S25000_INVALID_TRANSACTION_STATE;
+
+        case response_status::TRANSACTION_SERIALIZATION_ERROR:
+            return sql_state::S40001_SERIALIZATION_FAILURE;
+
+        case response_status::CACHE_NOT_FOUND:
+        case response_status::NULL_TABLE_DESCRIPTOR:
+        case response_status::CONVERSION_FAILED:
+        case response_status::CONCURRENT_UPDATE:
+        case response_status::ENTRY_PROCESSING:
+        case response_status::TABLE_DROP_FAILED:
+        case response_status::STMT_TYPE_MISMATCH:
+        case response_status::UNKNOWN_ERROR:
+        default:
+            return sql_state::SHY000_GENERAL_ERROR;
+    }
+}
+
+} // namespace ignite
 

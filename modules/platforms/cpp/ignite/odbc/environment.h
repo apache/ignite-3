@@ -20,7 +20,7 @@
 
 #include <set>
 
-#include "ignite/odbc/include/ignite/odbc/diagnostic/diagnosable_adapter.h"
+#include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 
 namespace ignite
 {
@@ -98,7 +98,7 @@ namespace ignite
              * @return Pointer to valid instance on success or NULL on failure.
              * @return Operation result.
              */
-            SqlResult::Type InternalCreateConnection(Connection*& connection);
+            sql_result InternalCreateConnection(Connection*& connection);
 
             /**
              * Perform transaction commit on all the associated connections.
@@ -106,7 +106,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type InternalTransactionCommit();
+            sql_result InternalTransactionCommit();
 
             /**
              * Perform transaction rollback on all the associated connections.
@@ -114,7 +114,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            SqlResult::Type InternalTransactionRollback();
+            sql_result InternalTransactionRollback();
 
             /**
              * Set attribute.
@@ -125,7 +125,7 @@ namespace ignite
              * @param len Value length if the attribute is of string type.
              * @return Operation result.
              */
-            SqlResult::Type InternalSetAttribute(int32_t attr, void* value, int32_t len);
+            sql_result InternalSetAttribute(int32_t attr, void* value, int32_t len);
 
             /**
              * Get attribute.
@@ -135,7 +135,7 @@ namespace ignite
              * @param buffer Buffer to put value to.
              * @return Operation result.
              */
-            SqlResult::Type InternalGetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer);
+            sql_result InternalGetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer);
 
             /** Assotiated connections. */
             ConnectionSet connections;

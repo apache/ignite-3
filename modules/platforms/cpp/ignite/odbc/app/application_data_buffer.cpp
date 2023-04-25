@@ -76,7 +76,7 @@ namespace ignite
             }
 
             ApplicationDataBuffer::ApplicationDataBuffer(type_traits::OdbcNativeType::Type type,
-                void* buffer, SqlLen buflen, SqlLen* reslen) :
+                void* buffer, SQLLEN buflen, SQLLEN* reslen) :
                 type(type),
                 buffer(buffer),
                 buflen(buflen),
@@ -94,7 +94,7 @@ namespace ignite
 
                 LOG_MSG("value: " << value);
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
 
                 switch (type)
@@ -179,7 +179,7 @@ namespace ignite
                         }
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_NUMERIC_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_NUMERIC_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -223,7 +223,7 @@ namespace ignite
             ConversionResult::Type ApplicationDataBuffer::PutNumToNumBuffer(TIn value)
             {
                 void* dataPtr = GetData();
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
 
                 if (dataPtr)
                 {
@@ -232,7 +232,7 @@ namespace ignite
                 }
 
                 if (resLenPtr)
-                    *resLenPtr = static_cast<SqlLen>(sizeof(TBuf));
+                    *resLenPtr = static_cast<SQLLEN>(sizeof(TBuf));
 
                 return ConversionResult::AI_SUCCESS;
             }
@@ -271,13 +271,13 @@ namespace ignite
             {
                 written = 0;
 
-                SqlLen charSize = static_cast<SqlLen>(sizeof(OutCharT));
+                SQLLEN charSize = static_cast<SQLLEN>(sizeof(OutCharT));
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
 
                 if (resLenPtr)
-                    *resLenPtr = static_cast<SqlLen>(value.size());
+                    *resLenPtr = static_cast<SQLLEN>(value.size());
 
                 if (!dataPtr)
                     return ConversionResult::AI_SUCCESS;
@@ -287,18 +287,18 @@ namespace ignite
 
                 OutCharT* out = reinterpret_cast<OutCharT*>(dataPtr);
 
-                SqlLen outLen = (buflen / charSize) - 1;
+                SQLLEN outLen = (buflen / charSize) - 1;
 
-                SqlLen toCopy = std::min<SqlLen>(outLen, value.size());
+                SQLLEN toCopy = std::min<SQLLEN>(outLen, value.size());
 
-                for (SqlLen i = 0; i < toCopy; ++i)
+                for (SQLLEN i = 0; i < toCopy; ++i)
                     out[i] = value[i];
 
                 out[toCopy] = 0;
 
                 written = static_cast<int32_t>(toCopy);
 
-                if (toCopy < static_cast<SqlLen>(value.size()))
+                if (toCopy < static_cast<SQLLEN>(value.size()))
                     return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                 return ConversionResult::AI_SUCCESS;
@@ -306,15 +306,15 @@ namespace ignite
 
             ConversionResult::Type ApplicationDataBuffer::PutRawDataToBuffer(void *data, size_t len, int32_t& written)
             {
-                SqlLen iLen = static_cast<SqlLen>(len);
+                SQLLEN iLen = static_cast<SQLLEN>(len);
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
 
                 if (resLenPtr)
                     *resLenPtr = iLen;
 
-                SqlLen toCopy = std::min(buflen, iLen);
+                SQLLEN toCopy = std::min(buflen, iLen);
 
                 if (dataPtr != 0 && toCopy > 0)
                     memcpy(dataPtr, data, static_cast<size_t>(toCopy));
@@ -434,7 +434,7 @@ namespace ignite
 
                 LOG_MSG("value: " << value);
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
 
                 switch (type)
                 {
@@ -463,7 +463,7 @@ namespace ignite
                             guid->Data4[i] = (lsb >> (sizeof(guid->Data4) - i - 1) * 8) & 0xFF;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQLGUID));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQLGUID));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -530,7 +530,7 @@ namespace ignite
 
             ConversionResult::Type ApplicationDataBuffer::PutNull()
             {
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
 
                 if (!resLenPtr)
                     return ConversionResult::AI_INDICATOR_NEEDED;
@@ -544,7 +544,7 @@ namespace ignite
             {
                 using namespace type_traits;
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
 
                 switch (type)
                 {
@@ -611,7 +611,7 @@ namespace ignite
                         numeric->precision = unscaled.GetPrecision();
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_NUMERIC_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_NUMERIC_STRUCT));
 
                         if (bytesBuffer.GetSize() > SQL_MAX_NUMERIC_LEN)
                             return ConversionResult::AI_FRACTIONAL_TRUNCATED;
@@ -636,7 +636,7 @@ namespace ignite
 
                 DateToCTm(value, tmTime);
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
 
                 switch (type)
@@ -652,7 +652,7 @@ namespace ignite
                         if (buffer)
                             strftime(buffer, GetSize(), "%Y-%m-%d", &tmTime);
 
-                        if (static_cast<SqlLen>(valLen) + 1 > GetSize())
+                        if (static_cast<SQLLEN>(valLen) + 1 > GetSize())
                             return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                         return ConversionResult::AI_SUCCESS;
@@ -675,7 +675,7 @@ namespace ignite
                             StringToWstring(&tmp[0], tmp.size(), buffer, GetSize());
                         }
 
-                        if (static_cast<SqlLen>(valLen) + 1 > GetSize())
+                        if (static_cast<SQLLEN>(valLen) + 1 > GetSize())
                             return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                         return ConversionResult::AI_SUCCESS;
@@ -690,7 +690,7 @@ namespace ignite
                         buffer->day = tmTime.tm_mday;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_DATE_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -704,7 +704,7 @@ namespace ignite
                         buffer->second = tmTime.tm_sec;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_TIME_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -722,7 +722,7 @@ namespace ignite
                         buffer->fraction = 0;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_TIMESTAMP_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -756,7 +756,7 @@ namespace ignite
 
                 TimestampToCTm(value, tmTime);
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
 
                 switch (type)
@@ -773,7 +773,7 @@ namespace ignite
                         if (buffer)
                             strftime(buffer, GetSize(), "%Y-%m-%d %H:%M:%S", &tmTime);
 
-                        if (static_cast<SqlLen>(valLen) + 1 > GetSize())
+                        if (static_cast<SQLLEN>(valLen) + 1 > GetSize())
                             return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                         return ConversionResult::AI_SUCCESS;
@@ -797,7 +797,7 @@ namespace ignite
                             StringToWstring(&tmp[0], tmp.size(), buffer, GetSize());
                         }
 
-                        if (static_cast<SqlLen>(valLen) + 1 > GetSize())
+                        if (static_cast<SQLLEN>(valLen) + 1 > GetSize())
                             return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                         return ConversionResult::AI_SUCCESS;
@@ -812,7 +812,7 @@ namespace ignite
                         buffer->day = tmTime.tm_mday;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_DATE_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
 
                         return ConversionResult::AI_FRACTIONAL_TRUNCATED;
                     }
@@ -826,7 +826,7 @@ namespace ignite
                         buffer->second = tmTime.tm_sec;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_TIME_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
 
                         return ConversionResult::AI_FRACTIONAL_TRUNCATED;
                     }
@@ -844,7 +844,7 @@ namespace ignite
                         buffer->fraction = value.GetSecondFraction();
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_TIMESTAMP_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -878,7 +878,7 @@ namespace ignite
 
                 TimeToCTm(value, tmTime);
 
-                SqlLen* resLenPtr = GetResLen();
+                SQLLEN* resLenPtr = GetResLen();
                 void* dataPtr = GetData();
 
                 switch (type)
@@ -895,7 +895,7 @@ namespace ignite
                         if (buffer)
                             strftime(buffer, GetSize(), "%H:%M:%S", &tmTime);
 
-                        if (static_cast<SqlLen>(valLen) + 1 > GetSize())
+                        if (static_cast<SQLLEN>(valLen) + 1 > GetSize())
                             return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                         return ConversionResult::AI_SUCCESS;
@@ -919,7 +919,7 @@ namespace ignite
                             StringToWstring(&tmp[0], tmp.size(), buffer, GetSize());
                         }
 
-                        if (static_cast<SqlLen>(valLen) + 1 > GetSize())
+                        if (static_cast<SQLLEN>(valLen) + 1 > GetSize())
                             return ConversionResult::AI_VARLEN_DATA_TRUNCATED;
 
                         return ConversionResult::AI_SUCCESS;
@@ -934,7 +934,7 @@ namespace ignite
                         buffer->second = tmTime.tm_sec;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_TIME_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -952,7 +952,7 @@ namespace ignite
                         buffer->fraction = 0;
 
                         if (resLenPtr)
-                            *resLenPtr = static_cast<SqlLen>(sizeof(SQL_TIMESTAMP_STRUCT));
+                            *resLenPtr = static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
 
                         return ConversionResult::AI_SUCCESS;
                     }
@@ -1101,7 +1101,7 @@ namespace ignite
                 {
                     case OdbcNativeType::AI_CHAR:
                     {
-                        SqlLen paramLen = GetInputSize();
+                        SQLLEN paramLen = GetInputSize();
 
                         if (!paramLen)
                             break;
@@ -1148,7 +1148,7 @@ namespace ignite
                 return ApplyOffset(buffer, GetElementSize());
             }
 
-            const SqlLen* ApplicationDataBuffer::GetResLen() const
+            const SQLLEN* ApplicationDataBuffer::GetResLen() const
             {
                 return ApplyOffset(reslen, sizeof(*reslen));
             }
@@ -1158,7 +1158,7 @@ namespace ignite
                 return ApplyOffset(buffer, GetElementSize());
             }
 
-            SqlLen* ApplicationDataBuffer::GetResLen()
+            SQLLEN* ApplicationDataBuffer::GetResLen()
             {
                 return ApplyOffset(reslen, sizeof(*reslen));
             }
@@ -1182,7 +1182,7 @@ namespace ignite
                 {
                     case OdbcNativeType::AI_CHAR:
                     {
-                        SqlLen paramLen = GetInputSize();
+                        SQLLEN paramLen = GetInputSize();
 
                         if (!paramLen)
                             break;
@@ -1340,7 +1340,7 @@ namespace ignite
 
                     case OdbcNativeType::AI_CHAR:
                     {
-                        SqlLen paramLen = GetInputSize();
+                        SQLLEN paramLen = GetInputSize();
 
                         if (!paramLen)
                             break;
@@ -1418,7 +1418,7 @@ namespace ignite
 
                     case OdbcNativeType::AI_CHAR:
                     {
-                        SqlLen paramLen = GetInputSize();
+                        SQLLEN paramLen = GetInputSize();
 
                         if (!paramLen)
                             break;
@@ -1480,7 +1480,7 @@ namespace ignite
 
                     case OdbcNativeType::AI_CHAR:
                     {
-                        SqlLen paramLen = GetInputSize();
+                        SQLLEN paramLen = GetInputSize();
 
                         if (!paramLen)
                             break;
@@ -1508,7 +1508,7 @@ namespace ignite
                 {
                     case OdbcNativeType::AI_CHAR:
                     {
-                        SqlLen paramLen = GetInputSize();
+                        SQLLEN paramLen = GetInputSize();
 
                         if (!paramLen)
                             break;
@@ -1586,7 +1586,7 @@ namespace ignite
 
             bool ApplicationDataBuffer::IsDataAtExec() const
             {
-                const SqlLen* resLenPtr = GetResLen();
+                const SQLLEN* resLenPtr = GetResLen();
 
                 if (!resLenPtr)
                     return false;
@@ -1596,7 +1596,7 @@ namespace ignite
                 return ilen <= SQL_LEN_DATA_AT_EXEC_OFFSET || ilen == SQL_DATA_AT_EXEC;
             }
 
-            SqlLen ApplicationDataBuffer::GetDataAtExecSize() const
+            SQLLEN ApplicationDataBuffer::GetDataAtExecSize() const
             {
                 using namespace type_traits;
 
@@ -1606,7 +1606,7 @@ namespace ignite
                     case OdbcNativeType::AI_CHAR:
                     case OdbcNativeType::AI_BINARY:
                     {
-                        const SqlLen* resLenPtr = GetResLen();
+                        const SQLLEN* resLenPtr = GetResLen();
 
                         if (!resLenPtr)
                             return 0;
@@ -1626,41 +1626,41 @@ namespace ignite
 
                     case OdbcNativeType::AI_SIGNED_SHORT:
                     case OdbcNativeType::AI_UNSIGNED_SHORT:
-                        return static_cast<SqlLen>(sizeof(short));
+                        return static_cast<SQLLEN>(sizeof(short));
 
                     case OdbcNativeType::AI_SIGNED_LONG:
                     case OdbcNativeType::AI_UNSIGNED_LONG:
-                        return static_cast<SqlLen>(sizeof(long));
+                        return static_cast<SQLLEN>(sizeof(long));
 
                     case OdbcNativeType::AI_FLOAT:
-                        return static_cast<SqlLen>(sizeof(float));
+                        return static_cast<SQLLEN>(sizeof(float));
 
                     case OdbcNativeType::AI_DOUBLE:
-                        return static_cast<SqlLen>(sizeof(double));
+                        return static_cast<SQLLEN>(sizeof(double));
 
                     case OdbcNativeType::AI_BIT:
                     case OdbcNativeType::AI_SIGNED_TINYINT:
                     case OdbcNativeType::AI_UNSIGNED_TINYINT:
-                        return static_cast<SqlLen>(sizeof(char));
+                        return static_cast<SQLLEN>(sizeof(char));
 
                     case OdbcNativeType::AI_SIGNED_BIGINT:
                     case OdbcNativeType::AI_UNSIGNED_BIGINT:
-                        return static_cast<SqlLen>(sizeof(SQLBIGINT));
+                        return static_cast<SQLLEN>(sizeof(SQLBIGINT));
 
                     case OdbcNativeType::AI_TDATE:
-                        return static_cast<SqlLen>(sizeof(SQL_DATE_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
 
                     case OdbcNativeType::AI_TTIME:
-                        return static_cast<SqlLen>(sizeof(SQL_TIME_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
 
                     case OdbcNativeType::AI_TTIMESTAMP:
-                        return static_cast<SqlLen>(sizeof(SQL_TIMESTAMP_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
 
                     case OdbcNativeType::AI_NUMERIC:
-                        return static_cast<SqlLen>(sizeof(SQL_NUMERIC_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_NUMERIC_STRUCT));
 
                     case OdbcNativeType::AI_GUID:
-                        return static_cast<SqlLen>(sizeof(SQLGUID));
+                        return static_cast<SQLLEN>(sizeof(SQLGUID));
 
                     case OdbcNativeType::AI_DEFAULT:
                     case OdbcNativeType::AI_UNSUPPORTED:
@@ -1671,7 +1671,7 @@ namespace ignite
                 return 0;
             }
 
-            SqlLen ApplicationDataBuffer::GetElementSize() const
+            SQLLEN ApplicationDataBuffer::GetElementSize() const
             {
                 using namespace type_traits;
 
@@ -1683,50 +1683,50 @@ namespace ignite
                         return buflen;
 
                     case OdbcNativeType::AI_SIGNED_SHORT:
-                        return static_cast<SqlLen>(sizeof(SQLSMALLINT));
+                        return static_cast<SQLLEN>(sizeof(SQLSMALLINT));
 
                     case OdbcNativeType::AI_UNSIGNED_SHORT:
-                        return static_cast<SqlLen>(sizeof(SQLUSMALLINT));
+                        return static_cast<SQLLEN>(sizeof(SQLUSMALLINT));
 
                     case OdbcNativeType::AI_SIGNED_LONG:
-                        return static_cast<SqlLen>(sizeof(SQLUINTEGER));
+                        return static_cast<SQLLEN>(sizeof(SQLUINTEGER));
 
                     case OdbcNativeType::AI_UNSIGNED_LONG:
-                        return static_cast<SqlLen>(sizeof(SQLINTEGER));
+                        return static_cast<SQLLEN>(sizeof(SQLINTEGER));
 
                     case OdbcNativeType::AI_FLOAT:
-                        return static_cast<SqlLen>(sizeof(SQLREAL));
+                        return static_cast<SQLLEN>(sizeof(SQLREAL));
 
                     case OdbcNativeType::AI_DOUBLE:
-                        return static_cast<SqlLen>(sizeof(SQLDOUBLE));
+                        return static_cast<SQLLEN>(sizeof(SQLDOUBLE));
 
                     case OdbcNativeType::AI_SIGNED_TINYINT:
-                        return static_cast<SqlLen>(sizeof(SQLSCHAR));
+                        return static_cast<SQLLEN>(sizeof(SQLSCHAR));
 
                     case OdbcNativeType::AI_BIT:
                     case OdbcNativeType::AI_UNSIGNED_TINYINT:
-                        return static_cast<SqlLen>(sizeof(SQLCHAR));
+                        return static_cast<SQLLEN>(sizeof(SQLCHAR));
 
                     case OdbcNativeType::AI_SIGNED_BIGINT:
-                        return static_cast<SqlLen>(sizeof(SQLBIGINT));
+                        return static_cast<SQLLEN>(sizeof(SQLBIGINT));
 
                     case OdbcNativeType::AI_UNSIGNED_BIGINT:
-                        return static_cast<SqlLen>(sizeof(SQLUBIGINT));
+                        return static_cast<SQLLEN>(sizeof(SQLUBIGINT));
 
                     case OdbcNativeType::AI_TDATE:
-                        return static_cast<SqlLen>(sizeof(SQL_DATE_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_DATE_STRUCT));
 
                     case OdbcNativeType::AI_TTIME:
-                        return static_cast<SqlLen>(sizeof(SQL_TIME_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_TIME_STRUCT));
 
                     case OdbcNativeType::AI_TTIMESTAMP:
-                        return static_cast<SqlLen>(sizeof(SQL_TIMESTAMP_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_TIMESTAMP_STRUCT));
 
                     case OdbcNativeType::AI_NUMERIC:
-                        return static_cast<SqlLen>(sizeof(SQL_NUMERIC_STRUCT));
+                        return static_cast<SQLLEN>(sizeof(SQL_NUMERIC_STRUCT));
 
                     case OdbcNativeType::AI_GUID:
-                        return static_cast<SqlLen>(sizeof(SQLGUID));
+                        return static_cast<SQLLEN>(sizeof(SQLGUID));
 
                     case OdbcNativeType::AI_DEFAULT:
                     case OdbcNativeType::AI_UNSUPPORTED:
@@ -1737,11 +1737,11 @@ namespace ignite
                 return 0;
             }
 
-            SqlLen ApplicationDataBuffer::GetInputSize() const
+            SQLLEN ApplicationDataBuffer::GetInputSize() const
             {
                 if (!IsDataAtExec())
                 {
-                    const SqlLen *len = GetResLen();
+                    const SQLLEN *len = GetResLen();
 
                     return len ? *len : SQL_NTS;
                 }

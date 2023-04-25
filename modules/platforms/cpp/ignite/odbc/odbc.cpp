@@ -107,7 +107,7 @@ namespace ignite
                     *result = 0;
 
                 connection->GetDiagnosticRecords().Reset();
-                connection->AddStatusRecord(odbc::SqlState::SIM001_FUNCTION_NOT_SUPPORTED,
+                connection->AddStatusRecord(odbc::sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
                                             "The HandleType argument was SQL_HANDLE_DESC, and "
                                             "the driver does not support allocating a descriptor handle");
 
@@ -714,7 +714,7 @@ namespace ignite
                              SQLSMALLINT*   nullable)
     {
         using odbc::Statement;
-        using odbc::SqlLen;
+        using odbc::SQLLEN;
 
         LOG_MSG("SQLDescribeCol called");
 
@@ -726,10 +726,10 @@ namespace ignite
         statement->GetColumnAttribute(columnNum, SQL_DESC_NAME,
             reinterpret_cast<char*>(columnNameBuf), columnNameBufLen, columnNameLen, 0);
 
-        SqlLen dataTypeRes;
-        SqlLen columnSizeRes;
-        SqlLen decimalDigitsRes;
-        SqlLen nullableRes;
+        SQLLEN dataTypeRes;
+        SQLLEN columnSizeRes;
+        SQLLEN decimalDigitsRes;
+        SQLLEN nullableRes;
 
         statement->GetColumnAttribute(columnNum, SQL_DESC_TYPE, 0, 0, 0, &dataTypeRes);
         statement->GetColumnAttribute(columnNum, SQL_DESC_PRECISION, 0, 0, 0, &columnSizeRes);
@@ -945,12 +945,12 @@ namespace ignite
 
         LOG_MSG("SQLGetDiagField called: " << recNum);
 
-        SqlLen outResLen;
+        SQLLEN outResLen;
         ApplicationDataBuffer outBuffer(OdbcNativeType::AI_DEFAULT, buffer, bufferLen, &outResLen);
 
-        SqlResult::Type result;
+        sql_result result;
 
-        DiagnosticField::Type field = DiagnosticFieldToInternal(diagId);
+        diagnostic_field field = diagnostic_field_to_internal(diagId);
 
         switch (handleType)
         {
@@ -967,15 +967,15 @@ namespace ignite
 
             default:
             {
-                result = SqlResult::AI_NO_DATA;
+                result = sql_result::AI_NO_DATA;
                 break;
             }
         }
 
-        if (resLen && result == SqlResult::AI_SUCCESS)
+        if (resLen && result == sql_result::AI_SUCCESS)
             *resLen = static_cast<SQLSMALLINT>(outResLen);
 
-        return SqlResultToReturnCode(result);
+        return sql_result_to_return_code(result);
     }
 
     SQLRETURN SQLGetDiagRec(SQLSMALLINT     handleType,
@@ -1027,7 +1027,7 @@ namespace ignite
         const DiagnosticRecord& record = records->GetStatusRecord(recNum);
 
         if (sqlState)
-            CopyStringToBuffer(record.GetSqlState(), reinterpret_cast<char*>(sqlState), 6);
+            CopyStringToBuffer(record.Getsql_state(), reinterpret_cast<char*>(sqlState), 6);
 
         if (nativeError)
             *nativeError = 0;
@@ -1191,7 +1191,7 @@ namespace ignite
         if (!environment)
             return SQL_INVALID_HANDLE;
 
-        SqlLen outResLen;
+        SQLLEN outResLen;
         ApplicationDataBuffer outBuffer(OdbcNativeType::AI_SIGNED_LONG, valueBuf,
             static_cast<int32_t>(valueBufLen), &outResLen);
 
@@ -1334,12 +1334,12 @@ namespace ignite
         record.MarkRetrieved();
 
         if (state)
-            CopyStringToBuffer(record.GetSqlState(), reinterpret_cast<char*>(state), 6);
+            CopyStringToBuffer(record.Getsql_state(), reinterpret_cast<char*>(state), 6);
 
         if (error)
             *error = 0;
 
-        SqlLen outResLen;
+        SQLLEN outResLen;
         ApplicationDataBuffer outBuffer(OdbcNativeType::AI_CHAR, msgBuf, msgBufLen, &outResLen);
 
         outBuffer.PutString(record.GetMessageText());

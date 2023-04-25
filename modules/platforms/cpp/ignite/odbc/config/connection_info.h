@@ -69,7 +69,7 @@ namespace ignite
                  * @param reslen Result value length pointer.
                  * @return True on success.
                  */
-                SqlResult::Type GetInfo(InfoType type, void* buf, short buflen, short* reslen) const;
+                sql_result GetInfo(InfoType type, void* buf, short buflen, short* reslen) const;
 
             private:
                 IGNITE_NO_COPY_ASSIGNMENT(ConnectionInfo);
