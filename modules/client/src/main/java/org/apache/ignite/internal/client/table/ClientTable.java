@@ -329,7 +329,9 @@ public class ClientTable implements Table {
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> {
-                                // TODO: Require schema as the first result.
+                                // TODO: Load schema in the background when needed - extract a method for that.
+                                var schemaVer = r.in().unpackInt();
+
                                 return reader.apply(r.in());
                             },
                             null,
