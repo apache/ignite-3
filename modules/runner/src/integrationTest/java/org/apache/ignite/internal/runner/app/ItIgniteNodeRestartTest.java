@@ -907,7 +907,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         try (Session session = ignite.sql().createSession()) {
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
-                        i + 500, VALUE_PRODUCER.apply(i));
+                        i + 500, VALUE_PRODUCER.apply(i + 500));
             }
         }
 
@@ -923,7 +923,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
 
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+            assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
         }
     }
 
