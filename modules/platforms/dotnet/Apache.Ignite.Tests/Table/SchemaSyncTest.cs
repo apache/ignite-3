@@ -18,9 +18,11 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
+using Internal.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -59,10 +61,7 @@ public class SchemaSyncTest : IgniteTestsBase
     [Test]
     public async Task TestBackgroundSchemaUpdateOnPut() =>
         await TestSchemaUpdate(
-            async view =>
-            {
-                await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 });
-            },
+            async view => await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 }),
             async view =>
             {
                 // TODO IGNITE-18733: Schema is synchronized in background, so we don't update the new column on first Upsert.
@@ -73,6 +72,28 @@ public class SchemaSyncTest : IgniteTestsBase
                 await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
                 Assert.AreEqual(4, await ExecuteSingleAsync<int?>("select val2 from " + TempTableName));
             });
+
+    [Test]
+    public async Task TestBackgroundSchemaUpdateOnAllOperations()
+    {
+        await Test(async (view, tuple) => await view.UpsertAsync(null, tuple));
+
+        async Task Test(Func<IRecordView<IIgniteTuple>, IIgniteTuple, Task> action)
+        {
+            await TestSchemaUpdate(
+                async view => await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 }),
+                async view =>
+                {
+                    await action(view, new IgniteTuple { ["id"] = 1 });
+
+                    var schemas = view
+                        .GetFieldValue<ITable>("_table")
+                        .GetFieldValue<IDictionary<int, Schema>>("_schemas");
+
+                    TestUtils.WaitForCondition(() => schemas.ContainsKey(2), 1000, () => string.Join(", ", schemas.Keys));
+                });
+        }
+    }
 
     private async Task TestSchemaUpdate(
         Func<IRecordView<IIgniteTuple>, Task> before,
