@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Table;
@@ -30,13 +31,21 @@ using NUnit.Framework;
 /// </summary>
 public class SchemaSyncTest : IgniteTestsBase
 {
-    private const string TempTableName = nameof(SchemaSyncTest);
+    private string _tempTableName = null!;
+
+    private int _tempTableId;
 
     private IIgniteClient _tempClient = null!;
 
     [SetUp]
     [TearDown]
-    public async Task DropTempTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {TempTableName}");
+    public async Task DropTempTable()
+    {
+        if (!string.IsNullOrEmpty(_tempTableName))
+        {
+            await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {_tempTableName}");
+        }
+    }
 
     [SetUp]
     public async Task ConnectTempClient() => _tempClient = await IgniteClient.StartAsync(GetConfig());
@@ -66,16 +75,19 @@ public class SchemaSyncTest : IgniteTestsBase
             {
                 // TODO IGNITE-18733: Schema is synchronized in background, so we don't update the new column on first Upsert.
                 await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
-                Assert.IsNull(await ExecuteSingleAsync<int?>("select val2 from " + TempTableName));
+                Assert.IsNull(await ExecuteSingleAsync<int?>("select val2 from " + _tempTableName));
 
                 // Second Upsert uses updated schema.
                 await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
-                Assert.AreEqual(4, await ExecuteSingleAsync<int?>("select val2 from " + TempTableName));
+                Assert.AreEqual(4, await ExecuteSingleAsync<int?>("select val2 from " + _tempTableName));
             });
 
     [Test]
     public async Task TestBackgroundSchemaUpdateOnAllOperations()
     {
+        await DropTempTable();
+
+        await Test(async (view, tuple) => await view.GetAsync(null, tuple));
         await Test(async (view, tuple) => await view.UpsertAsync(null, tuple));
 
         async Task Test(Func<IRecordView<IIgniteTuple>, IIgniteTuple, Task> action)
@@ -100,7 +112,7 @@ public class SchemaSyncTest : IgniteTestsBase
         Func<IRecordView<IIgniteTuple>, Task> after)
     {
         await CreateTempTable();
-        var table = await _tempClient.Tables.GetTableAsync(TempTableName);
+        var table = await _tempClient.Tables.GetTableAsync(_tempTableName);
 
         await before(table!.RecordBinaryView);
         await AddTempTableColumn();
@@ -109,14 +121,16 @@ public class SchemaSyncTest : IgniteTestsBase
 
     private async Task AddTempTableColumn()
     {
-        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TempTableName} ADD COLUMN val2 int");
-        await Client.Sql.ExecuteAsync(null, $"UPDATE {TempTableName} SET val2 = 2");
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {_tempTableName} ADD COLUMN val2 int");
+        await Client.Sql.ExecuteAsync(null, $"UPDATE {_tempTableName} SET val2 = 2");
     }
 
     private async Task CreateTempTable()
     {
-        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE IF NOT EXISTS {TempTableName} (id int primary key, val int)");
-        await Client.Sql.ExecuteAsync(null, $"INSERT INTO {TempTableName} (id, val) VALUES (1, 1)");
+        _tempTableName = $"{nameof(SchemaSyncTest)}_{Interlocked.Increment(ref _tempTableId)}";
+
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE IF NOT EXISTS {_tempTableName} (id int primary key, val int)");
+        await Client.Sql.ExecuteAsync(null, $"INSERT INTO {_tempTableName} (id, val) VALUES (1, 1)");
     }
 
     private async Task<T> ExecuteSingleAsync<T>(string sql)
