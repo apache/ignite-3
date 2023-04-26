@@ -51,9 +51,11 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     @Override
     @AfterEach
     public void after() throws Exception {
-        assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000));
-        assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000));
-
-        super.after();
+        try {
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000));
+        } finally {
+            super.after();
+        }
     }
 }
