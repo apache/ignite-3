@@ -96,7 +96,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         this.clusterTime = clusterTime;
     }
 
-    RaftGroupService raftGroupService() {
+    public RaftGroupService raftGroupService() {
         return context.raftService();
     }
 

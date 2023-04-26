@@ -20,64 +20,51 @@ package org.apache.ignite.deployment;
 import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.deserialize;
 import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.serialize;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
 import org.apache.ignite.internal.deployunit.version.Version;
-import org.hamcrest.MatcherAssert;
-import org.junit.jupiter.api.Test;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test for {@link UnitMetaSerializer}.
  */
 public class UnitMetaSerializerTest {
-    @Test
-    public void testSerializeDeserializeLatest() {
-        UnitMeta meta = new UnitMeta("id", Version.LATEST, "unitName", UPLOADING, Arrays.asList("id1", "id2"));
-
-        byte[] serialize = serialize(meta);
-
-        MatcherAssert.assertThat(deserialize(serialize), is(meta));
+    private static List<Arguments> metaProvider() {
+        return List.of(
+                arguments("id", Version.LATEST, List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
+                arguments("id", Version.LATEST, List.of("fileName1", "fileName2"), UPLOADING, Arrays.asList("id1", "id2")),
+                arguments("id", Version.parseVersion("3.0.0"), List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
+                arguments("id", Version.parseVersion("3.0"), List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
+                arguments("id", Version.parseVersion("3.0.0"), List.of("fileName"), UPLOADING, Collections.emptyList()),
+                arguments("id", Version.parseVersion("3.0.0"), List.of("fileName1", "fileName2"), UPLOADING, Collections.emptyList()),
+                arguments("id;", Version.parseVersion("3.0.0"), List.of("fileName;"), UPLOADING, Collections.emptyList()),
+                arguments("id;", Version.parseVersion("3.0.0"), List.of("fileName1:;", "fileName2"), UPLOADING, Collections.emptyList())
+        );
     }
 
-    @Test
-    public void testSerializeDeserializeUnit() {
-        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", UPLOADING, Arrays.asList("id1", "id2"));
+    @ParameterizedTest
+    @MethodSource("metaProvider")
+    public void testSerializeDeserialize(
+            String id,
+            Version version,
+            List<String> fileNames,
+            DeploymentStatus status,
+            List<String> consistentIdLocation
+    ) {
+        UnitMeta meta = new UnitMeta(id, version, fileNames, status, consistentIdLocation);
 
         byte[] serialize = serialize(meta);
 
-        MatcherAssert.assertThat(deserialize(serialize), is(meta));
-    }
-
-    @Test
-    public void testSerializeDeserializeUnitIncompleteVersion() {
-        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0"), "unitName", UPLOADING, Arrays.asList("id1", "id2"));
-
-        byte[] serialize = serialize(meta);
-
-        MatcherAssert.assertThat(deserialize(serialize), is(meta));
-    }
-
-    @Test
-    public void testSerializeDeserializeUnitEmptyConsistentId() {
-        UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", UPLOADING, Collections.emptyList());
-
-        byte[] serialize = serialize(meta);
-
-        UnitMeta deserialize = deserialize(serialize);
-        MatcherAssert.assertThat(deserialize, is(meta));
-    }
-
-    @Test
-    public void testSerializeDeserializeWithSeparatorCharInIdName() {
-        UnitMeta meta = new UnitMeta("id;", Version.parseVersion("3.0.0"), "unitName;", UPLOADING, Collections.emptyList());
-
-        byte[] serialize = serialize(meta);
-
-        UnitMeta deserialize = deserialize(serialize);
-        MatcherAssert.assertThat(deserialize, is(meta));
+        assertThat(deserialize(serialize), is(meta));
     }
 }

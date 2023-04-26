@@ -365,9 +365,11 @@ paths:
                   type: string
                   description: The version of the deployment unit.
                 unitContent:
-                  type: string
+                  type: array
                   description: The code to deploy.
-                  format: binary
+                  items:
+                    type: string
+                    format: binary
         required: true
       responses:
         "200":
