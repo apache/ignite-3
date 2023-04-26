@@ -1377,7 +1377,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public void ruleAttempted(final RuleAttemptedEvent event) {
             if (event.isBefore()) {
                 attemptedRules.add(event.getRuleCall().getRule().toString());
-                System.out.println(event.getRuleCall().getRule().toString());
             }
         }
 
