@@ -60,6 +60,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
+import org.apache.ignite.internal.sql.engine.table.TestSortedIndex;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -104,7 +106,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testSplitterColocatedPartitionedPartitioned() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable developer = new TestTable(
+        AbstractTestTable developer = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -131,7 +133,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable project = new TestTable(
+        AbstractTestTable project = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                     .add("ID", f.createJavaType(Integer.class))
                     .add("NAME", f.createJavaType(String.class))
@@ -196,7 +198,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testSplitterColocatedReplicatedReplicated() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable developer = new TestTable(
+        AbstractTestTable developer = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -213,7 +215,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable project = new TestTable(
+        AbstractTestTable project = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -274,7 +276,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable developer = new TestTable(
+        AbstractTestTable developer = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -291,7 +293,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable project = new TestTable(
+        AbstractTestTable project = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -355,7 +357,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testSplitterPartiallyColocated1() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable developer = new TestTable(
+        AbstractTestTable developer = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -372,7 +374,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable project = new TestTable(
+        AbstractTestTable project = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -438,7 +440,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testSplitterPartiallyColocated2() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable developer = new TestTable(
+        AbstractTestTable developer = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -454,7 +456,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable project = new TestTable(
+        AbstractTestTable project = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -518,7 +520,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testSplitterNonColocated() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable developer = new TestTable(
+        AbstractTestTable developer = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -535,7 +537,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable project = new TestTable(
+        AbstractTestTable project = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -597,7 +599,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testMergeFilters() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable testTbl = new TestTable(
+        AbstractTestTable testTbl = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
@@ -653,7 +655,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testJoinPushExpressionRule() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable emp = new TestTable(
+        AbstractTestTable emp = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -665,7 +667,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
         };
 
-        TestTable dept = new TestTable(
+        AbstractTestTable dept = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("DEPTNO", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -755,7 +757,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void testMergeJoinIsNotAppliedForNonEquiJoin() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable emp = new TestTable("EMP",
+        AbstractTestTable emp = new AbstractTestTable("EMP",
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -770,7 +772,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         emp.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(ImmutableIntList.of(1, 2)), "emp_idx", emp)));
 
-        TestTable dept = new TestTable("DEPT",
+        AbstractTestTable dept = new AbstractTestTable("DEPT",
                 new RelDataTypeFactory.Builder(f)
                         .add("DEPTNO", f.createJavaType(Integer.class))
                         .add("NAME", f.createJavaType(String.class))
@@ -809,7 +811,7 @@ public class PlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                new TestTable(
+                new AbstractTestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
@@ -841,7 +843,7 @@ public class PlannerTest extends AbstractPlannerTest {
     public void correctPlanningWithOrToUnion() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable tab0 = new TestTable(
+        AbstractTestTable tab0 = new AbstractTestTable(
                 new RelDataTypeFactory.Builder(f)
                         .add("PK", f.createJavaType(Integer.class))
                         .add("COL0", f.createJavaType(Integer.class))

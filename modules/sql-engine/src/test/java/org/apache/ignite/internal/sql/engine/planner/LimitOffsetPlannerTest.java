@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -206,7 +207,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 .add("VAL", f.createJavaType(String.class))
                 .build();
 
-        TestTable table = new TestTable("TEST", type, ROW_CNT) {
+        AbstractTestTable table = new AbstractTestTable("TEST", type, ROW_CNT) {
             @Override public IgniteDistribution distribution() {
                 return distr;
             }

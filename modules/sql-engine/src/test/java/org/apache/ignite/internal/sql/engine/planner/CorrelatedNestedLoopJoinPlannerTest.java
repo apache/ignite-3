@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -51,7 +52,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                new TestTable(
+                new AbstractTestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
@@ -66,7 +67,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         );
 
         publicSchema.addTable(
-                new TestTable(
+                new AbstractTestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
@@ -116,7 +117,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                new TestTable(
+                new AbstractTestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
@@ -132,7 +133,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         );
 
         publicSchema.addTable(
-                new TestTable(
+                new AbstractTestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))

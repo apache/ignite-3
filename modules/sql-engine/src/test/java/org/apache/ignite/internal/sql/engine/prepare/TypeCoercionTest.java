@@ -47,6 +47,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
@@ -381,7 +382,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, @Nullable RelDataType tableType) {
         IgniteSchema igniteSchema;
         if (tableType != null) {
-            TestTable testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
+            AbstractTestTable testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
             igniteSchema = createSchema(testTable);
         } else {
             igniteSchema = createSchema();

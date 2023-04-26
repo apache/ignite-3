@@ -30,6 +30,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.table.AbstractTestTable;
+import org.apache.ignite.internal.sql.engine.table.TestHashIndex;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +43,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     public void hashIndexIsAppliedForEquiCondition() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
-        TestTable tbl = createTable(
+        AbstractTestTable tbl = createTable(
                 "TEST_TBL",
                 IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
@@ -68,7 +70,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     public void hashIndexIsNotAppliedForRangeCondition() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
-        TestTable tbl = createTable(
+        AbstractTestTable tbl = createTable(
                 "TEST_TBL",
                 IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
@@ -94,7 +96,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     public void hashIndexIsAppliedForComplexConditions() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
-        TestTable leftTable = createTable(
+        AbstractTestTable leftTable = createTable(
                 "LEFT_TBL",
                 IgniteDistributions.single(),
                 "ID", Integer.class,
@@ -102,7 +104,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
                 "VAL1", Integer.class
         );
 
-        TestTable rightTable = createTable(
+        AbstractTestTable rightTable = createTable(
                 "RIGHT_TBL",
                 IgniteDistributions.single(),
                 "ID", Integer.class,
@@ -130,7 +132,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     public void hashIndexIsNotAppliedForPartialCoveredConditions() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
-        TestTable leftTable = createTable(
+        AbstractTestTable leftTable = createTable(
                 "LEFT_TBL",
                 IgniteDistributions.single(),
                 "ID", Integer.class,
@@ -138,7 +140,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
                 "VAL1", Integer.class
         );
 
-        TestTable rightTable = createTable(
+        AbstractTestTable rightTable = createTable(
                 "RIGHT_TBL",
                 IgniteDistributions.single(),
                 "ID", Integer.class,
