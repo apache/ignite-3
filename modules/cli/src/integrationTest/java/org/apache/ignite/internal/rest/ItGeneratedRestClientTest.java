@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -400,7 +401,7 @@ public class ItGeneratedRestClientTest {
         assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
 
         deploymentApi.undeployUnit("test.unit.id", "1.0.0");
-        assertThat(deploymentApi.units(), empty());
+        await().untilAsserted(() -> assertThat(deploymentApi.units(), empty()));
     }
 
     @Test
