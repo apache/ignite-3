@@ -40,6 +40,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessag
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.TestOnly;
@@ -88,6 +89,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
+
+    private final FailureHandler failureHandler = new FailureHandler();
 
     /**
      * Constructor.
@@ -151,6 +154,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             LOG.warn("Handshake rejected by server: {}", msg.reason());
 
             handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.reason()));
+
+            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
+            failureHandler.handleFailure(new IgniteException("Handshake rejected by server: " + msg.reason()));
 
             return;
         }

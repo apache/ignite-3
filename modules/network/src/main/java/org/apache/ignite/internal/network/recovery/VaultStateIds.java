@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.Collectors.joining;
 
 import java.util.Collections;
 import java.util.Iterator;
