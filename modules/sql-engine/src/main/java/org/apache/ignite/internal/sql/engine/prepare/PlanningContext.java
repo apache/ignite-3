@@ -177,7 +177,7 @@ public final class PlanningContext implements Context {
 
         if (clazz == IgniteTypeCoercion.class) {
             IgniteSqlValidator validator = (IgniteSqlValidator) planner().validator();
-            return clazz.cast(validator.typeCoercion());
+            return clazz.cast(validator.getTypeCoercion());
         }
 
         return parentCtx.unwrap(clazz);
