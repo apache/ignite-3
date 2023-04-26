@@ -144,14 +144,14 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
 
-        return needToCast(typeFactory, fromType, toType);
+        return needToCast(fromType, toType);
     }
 
     /**
      * Checks whether {@code CAST} operation can be used to convert {@code fromType} to {@code toType}.
      * This method returns {@code false} if type are the same.
      */
-    public static boolean needToCast(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
+    public boolean needToCast(RelDataType fromType, RelDataType toType) {
         if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.

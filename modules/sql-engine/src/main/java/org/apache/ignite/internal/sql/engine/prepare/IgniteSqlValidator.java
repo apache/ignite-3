@@ -65,6 +65,7 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.sql.validate.implicit.TypeCoercion;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -102,6 +103,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Dynamic parameters. */
     private final Object[] parameters;
 
+    private final IgniteTypeCoercion typeCoercion;
+
     /**
      * Creates a validator.
      *
@@ -116,6 +119,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         super(opTab, catalogReader, typeFactory, config);
 
         this.parameters = parameters;
+
+        TypeCoercion typeCoercion = config.typeCoercionFactory().create(typeFactory, this);
+        this.typeCoercion = (IgniteTypeCoercion) typeCoercion;
+    }
+
+    /** Returns type coercion strategy. **/
+    public IgniteTypeCoercion typeCoercion() {
+        return typeCoercion;
     }
 
     /** {@inheritDoc} */

@@ -175,6 +175,11 @@ public final class PlanningContext implements Context {
             return clazz.cast(cancelFlag);
         }
 
+        if (clazz == IgniteTypeCoercion.class) {
+            IgniteSqlValidator validator = (IgniteSqlValidator) planner().validator();
+            return clazz.cast(validator.typeCoercion());
+        }
+
         return parentCtx.unwrap(clazz);
     }
 

@@ -409,7 +409,7 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                RexNode casted = addCast(builder(cluster), pred.operands.get(1), types.get(fldIdx));
+                RexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
                 bounds.set(fldIdx, new ExactBounds(pred, casted));
             }
         }
@@ -441,7 +441,7 @@ public class RexUtils {
             RexNode ref = pred.getOperands().get(0);
 
             if (isBinaryComparison(pred)) {
-                val = addCast(builder, pred.operands.get(1), fldType);
+                val = addCast(cluster, pred.operands.get(1), fldType);
             }
 
             SqlOperator op = pred.getOperator();
@@ -704,10 +704,12 @@ public class RexUtils {
         op = removeCast(op);
 
         // Can proceed without ref cast only if cast was redundant in terms of values comparison.
-        IgniteTypeFactory typeFactory = (IgniteTypeFactory) cluster.getTypeFactory();
+        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
+        assert typeCoercion != null : "type coercion";
+
         if (op instanceof RexSlot) {
             RelDataType operandType = call.getOperands().get(operandNum).getType();
-            if (!IgniteTypeCoercion.needToCast(typeFactory, op.getType(), operandType)) {
+            if (!typeCoercion.needToCast(op.getType(), operandType)) {
                 return (RexSlot) op;
             }
         }
@@ -926,14 +928,16 @@ public class RexUtils {
         }
     }
 
-    private static RexNode addCast(RexBuilder builder, RexNode condition, RelDataType type) {
+    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
         RexNode node = removeCast(condition);
 
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
 
-        IgniteTypeFactory typeFactory = (IgniteTypeFactory) builder.getTypeFactory();
+        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
+        assert typeCoercion != null : "type coercion";
 
-        if (IgniteTypeCoercion.needToCast(typeFactory, node.getType(), type)) {
+        if (typeCoercion.needToCast(node.getType(), type)) {
+            RexBuilder builder = cluster.getRexBuilder();
             return builder.makeCast(type, node);
         } else {
             return node;
