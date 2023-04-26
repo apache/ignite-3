@@ -109,24 +109,19 @@ public enum Hints {
     }
 
     /**
-     * Generate string representation of the hint. Can be used as is in query.
-     *
-     * @return String representation of a hint.
-     */
-    public String toHint() {
-        return "/*+ " + name() + " */";
-    }
-
-    /**
      * Generate string representation of the hint together with a list of parameters. Can be used as is in query.
      *
      * @return String representation of a hint together with a list of parameters..
      */
     public String toHint(String... params) {
-        assert paramSupport;
-        StringJoiner joiner = new StringJoiner(",", "/*+ " + name() + "(", ") */");
-        Arrays.stream(params).forEach(p -> joiner.add("'" + p + "'"));
+        if (params != null) {
+            assert paramSupport;
+            StringJoiner joiner = new StringJoiner(",", "/*+ " + name() + "(", ") */");
+            Arrays.stream(params).forEach(p -> joiner.add("'" + p + "'"));
 
-        return joiner.toString();
+            return joiner.toString();
+        } else {
+            return "/*+ " + name() + " */";
+        }
     }
 }
