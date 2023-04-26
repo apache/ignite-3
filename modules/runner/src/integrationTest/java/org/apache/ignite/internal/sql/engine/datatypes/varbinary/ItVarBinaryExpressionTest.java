@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
 import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
 
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
@@ -50,18 +51,41 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
 
     /** {@code POSITION} expression. */
     @Test
-    public void testPositionExpressionWithDynamicParams() {
-        checkQuery("SELECT POSITION (x'02' IN x'010203')")
+    public void testPositionExpressionWithDynamicParameter() {
+        checkQuery("SELECT POSITION (? IN x'010203')")
+                .withParams(varBinary(new byte[]{2}))
+                .returns(2)
+                .check();
+
+        checkQuery("SELECT POSITION (x'02' IN ?)")
+                .withParams(varBinary(new byte[]{1, 2, 3}))
+                .returns(2)
+                .check();
+
+        checkQuery("SELECT POSITION (? IN ?)")
+                .withParams(varBinary(new byte[]{2}), varBinary(new byte[]{1, 2, 3}))
                 .returns(2)
                 .check();
     }
 
-    /** {@code POSITION} expression. */
+    /** {@code LENGTH} expression. */
     @Test
-    public void testPositionExpressionWithDynamicParams2() {
-        checkQuery("SELECT POSITION (? IN x'010203')")
-                .returns(2)
-                .check();
+    public void testLengthExpression() {
+        checkQuery("SELECT LENGTH(x'010203')")
+                .withParams(varBinary(new byte[]{2}))
+                .returns(3);
+    }
+
+    /** {@code LENGTH} expression. */
+    @Test
+    public void testLengthExpressionWithDynamicParameter() {
+        checkQuery("SELECT LENGTH(?)")
+                .withParams(varBinary(new byte[]{1, 2, 3}))
+                .returns(3);
+
+        checkQuery("SELECT LENGTH(?)")
+                .withParams(varBinary(new byte[0]))
+                .returns(0);
     }
 
     /**

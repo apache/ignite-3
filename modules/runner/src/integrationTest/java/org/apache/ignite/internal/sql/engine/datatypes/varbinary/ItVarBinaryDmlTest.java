@@ -46,7 +46,7 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
     public void testEmptyVarBinary() {
         VarBinary value = VarBinary.fromBytes(new byte[0]);
 
-        runSql("INSERT INTO t (id) VALUES (1, ?)", value);
+        runSql("INSERT INTO t VALUES (1, ?)", value);
 
         checkQuery("SELECT val * FROM t WHERE id = 1")
                 .returns(value)
