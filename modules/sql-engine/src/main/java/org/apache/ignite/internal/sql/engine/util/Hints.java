@@ -114,14 +114,13 @@ public enum Hints {
      * @return String representation of a hint together with a list of parameters..
      */
     public String toHint(String... params) {
+        StringJoiner joiner = new StringJoiner(",", "/*+ " + name() + "(", ") */");
+
         if (params != null) {
             assert paramSupport;
-            StringJoiner joiner = new StringJoiner(",", "/*+ " + name() + "(", ") */");
             Arrays.stream(params).forEach(p -> joiner.add("'" + p + "'"));
-
-            return joiner.toString();
-        } else {
-            return "/*+ " + name() + " */";
         }
+
+        return joiner.toString();
     }
 }
