@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
 import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
 
-import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
