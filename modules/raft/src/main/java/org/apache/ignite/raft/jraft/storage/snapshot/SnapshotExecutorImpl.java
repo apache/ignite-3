@@ -255,7 +255,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
             if (!node.getNodeId().getGroupId().contains("part")) {
                 done.waitForRun();
             } else {
-                done.status = new Status();
+                done.status = Status.OK();
             }
         }
         catch (final InterruptedException e) {
