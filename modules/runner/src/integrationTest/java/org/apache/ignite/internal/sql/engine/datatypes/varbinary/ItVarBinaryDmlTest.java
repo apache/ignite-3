@@ -29,14 +29,14 @@ import org.junit.jupiter.api.Test;
  */
 public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
 
-    /** {@code INSERT} into DEFAULT column. */
+    /** {@code INSERT} into a column with DEFAULT constraint. */
     @Test
     public void testDefault() {
-        runSql("CREATE TABLE t_def (id INT PRIMARY KEY, val VARBINARY DEFAULT $0_lit)");
+        runSql("CREATE TABLE t_def (id INT PRIMARY KEY, test_key VARBINARY DEFAULT $0_lit)");
         runSql("INSERT INTO t_def (id) VALUES (0)");
 
         VarBinary value = values.get(0);
-        checkQuery("SELECT val FROM t_def WHERE id=0")
+        checkQuery("SELECT test_key FROM t_def WHERE id=0")
                 .returns(value)
                 .check();
     }
@@ -48,7 +48,7 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
 
         runSql("INSERT INTO t VALUES (1, ?)", value);
 
-        checkQuery("SELECT val * FROM t WHERE id = 1")
+        checkQuery("SELECT test_key FROM t WHERE id = 1")
                 .returns(value)
                 .check();
     }
