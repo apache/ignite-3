@@ -111,6 +111,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -294,7 +295,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 

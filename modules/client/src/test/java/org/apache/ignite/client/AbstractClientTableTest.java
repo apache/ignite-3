@@ -90,7 +90,9 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected Table defaultTable() {
-        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
+        if (server.tables().table(DEFAULT_TABLE) == null) {
+            ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
+        }
 
         return client.tables().table(DEFAULT_TABLE);
     }

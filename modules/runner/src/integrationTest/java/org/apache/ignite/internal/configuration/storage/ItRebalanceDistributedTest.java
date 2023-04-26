@@ -141,6 +141,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -640,7 +641,7 @@ public class ItRebalanceDistributedTest {
                     hybridClock
             );
 
-            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
+            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);

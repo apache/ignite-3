@@ -52,6 +52,10 @@ public class IniSection {
         props.put(key, value);
     }
 
+    public String removeProperty(String key) {
+        return props.remove(key);
+    }
+
     public void setProperties(Map<String, String> values) {
         props.putAll(values);
     }

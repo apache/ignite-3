@@ -21,7 +21,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     using System.Collections;
     using System.Linq;
     using System.Numerics;
-    using Internal.Proto;
+    using Ignite.Sql;
     using Internal.Proto.BinaryTuple;
     using Internal.Table;
     using NodaTime;
@@ -803,43 +803,43 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var reader = BuildAndRead(
                 (ref BinaryTupleBuilder b) =>
                 {
-                    b.AppendObject(null, ClientDataType.String);
-                    b.AppendObject(sbyte.MaxValue, ClientDataType.Int8);
-                    b.AppendObject(short.MaxValue, ClientDataType.Int16);
-                    b.AppendObject(int.MaxValue, ClientDataType.Int32);
-                    b.AppendObject(long.MaxValue, ClientDataType.Int64);
-                    b.AppendObject(float.MaxValue, ClientDataType.Float);
-                    b.AppendObject(double.MaxValue, ClientDataType.Double);
-                    b.AppendObject(decimal.One, ClientDataType.Decimal);
-                    b.AppendObject(BigInteger.One, ClientDataType.Number);
-                    b.AppendObject("foo", ClientDataType.String);
-                    b.AppendObject(bitArray, ClientDataType.BitMask);
-                    b.AppendObject(guid, ClientDataType.Uuid);
-                    b.AppendObject(bytes, ClientDataType.Bytes);
-                    b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ClientDataType.Time, precision: TemporalTypes.MaxTimePrecision);
-                    b.AppendObject(date, ClientDataType.Date);
-                    b.AppendObject(dateTime, ClientDataType.DateTime, precision: TemporalTypes.MaxTimePrecision);
-                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ClientDataType.Timestamp, precision: TemporalTypes.MaxTimePrecision);
+                    b.AppendObject(null, ColumnType.String);
+                    b.AppendObject(sbyte.MaxValue, ColumnType.Int8);
+                    b.AppendObject(short.MaxValue, ColumnType.Int16);
+                    b.AppendObject(int.MaxValue, ColumnType.Int32);
+                    b.AppendObject(long.MaxValue, ColumnType.Int64);
+                    b.AppendObject(float.MaxValue, ColumnType.Float);
+                    b.AppendObject(double.MaxValue, ColumnType.Double);
+                    b.AppendObject(decimal.One, ColumnType.Decimal);
+                    b.AppendObject(BigInteger.One, ColumnType.Number);
+                    b.AppendObject("foo", ColumnType.String);
+                    b.AppendObject(bitArray, ColumnType.Bitmask);
+                    b.AppendObject(guid, ColumnType.Uuid);
+                    b.AppendObject(bytes, ColumnType.ByteArray);
+                    b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ColumnType.Time, precision: TemporalTypes.MaxTimePrecision);
+                    b.AppendObject(date, ColumnType.Date);
+                    b.AppendObject(dateTime, ColumnType.Datetime, precision: TemporalTypes.MaxTimePrecision);
+                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ColumnType.Timestamp, precision: TemporalTypes.MaxTimePrecision);
                 },
                 17);
 
-            Assert.IsNull(reader.GetObject(0, ClientDataType.String));
-            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(1, ClientDataType.Int8));
-            Assert.AreEqual(short.MaxValue, reader.GetObject(2, ClientDataType.Int16));
-            Assert.AreEqual(int.MaxValue, reader.GetObject(3, ClientDataType.Int32));
-            Assert.AreEqual(long.MaxValue, reader.GetObject(4, ClientDataType.Int64));
-            Assert.AreEqual(float.MaxValue, reader.GetObject(5, ClientDataType.Float));
-            Assert.AreEqual(double.MaxValue, reader.GetObject(6, ClientDataType.Double));
-            Assert.AreEqual(decimal.One, reader.GetObject(7, ClientDataType.Decimal));
-            Assert.AreEqual(BigInteger.One, reader.GetObject(8, ClientDataType.Number));
-            Assert.AreEqual("foo", reader.GetObject(9, ClientDataType.String));
-            Assert.AreEqual(bitArray, reader.GetObject(10, ClientDataType.BitMask));
-            Assert.AreEqual(guid, reader.GetObject(11, ClientDataType.Uuid));
-            Assert.AreEqual(bytes, reader.GetObject(12, ClientDataType.Bytes));
-            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ClientDataType.Time));
-            Assert.AreEqual(date, reader.GetObject(14, ClientDataType.Date));
-            Assert.AreEqual(dateTime, reader.GetObject(15, ClientDataType.DateTime));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ClientDataType.Timestamp));
+            Assert.IsNull(reader.GetObject(0, ColumnType.String));
+            Assert.AreEqual(sbyte.MaxValue, reader.GetObject(1, ColumnType.Int8));
+            Assert.AreEqual(short.MaxValue, reader.GetObject(2, ColumnType.Int16));
+            Assert.AreEqual(int.MaxValue, reader.GetObject(3, ColumnType.Int32));
+            Assert.AreEqual(long.MaxValue, reader.GetObject(4, ColumnType.Int64));
+            Assert.AreEqual(float.MaxValue, reader.GetObject(5, ColumnType.Float));
+            Assert.AreEqual(double.MaxValue, reader.GetObject(6, ColumnType.Double));
+            Assert.AreEqual(decimal.One, reader.GetObject(7, ColumnType.Decimal));
+            Assert.AreEqual(BigInteger.One, reader.GetObject(8, ColumnType.Number));
+            Assert.AreEqual("foo", reader.GetObject(9, ColumnType.String));
+            Assert.AreEqual(bitArray, reader.GetObject(10, ColumnType.Bitmask));
+            Assert.AreEqual(guid, reader.GetObject(11, ColumnType.Uuid));
+            Assert.AreEqual(bytes, reader.GetObject(12, ColumnType.ByteArray));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ColumnType.Time));
+            Assert.AreEqual(date, reader.GetObject(14, ColumnType.Date));
+            Assert.AreEqual(dateTime, reader.GetObject(15, ColumnType.Datetime));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ColumnType.Timestamp));
         }
 
         [Test]

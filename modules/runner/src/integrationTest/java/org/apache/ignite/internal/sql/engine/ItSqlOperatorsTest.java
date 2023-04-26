@@ -256,7 +256,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15550")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19332")
     public void testQueryAsCollections() {
         assertExpression("MAP(SELECT 'a', 1)").returns(Map.of("a", 1)).check();
         assertExpression("ARRAY(SELECT 1)").returns(List.of(1)).check();

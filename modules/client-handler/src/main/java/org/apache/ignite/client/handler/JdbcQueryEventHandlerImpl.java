@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.io.PrintWriter;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -60,13 +62,14 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,21 +92,27 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** Current JDBC cursors. */
     private final ClientResourceRegistry resources;
 
+    /** Ignite transactions API. */
+    private final IgniteTransactions igniteTransactions;
+
     /**
      * Constructor.
      *
      * @param processor Processor.
      * @param meta JdbcMetadataInfo.
      * @param resources Client resources.
+     * @param igniteTransactions Ignite transactions API.
      */
     public JdbcQueryEventHandlerImpl(
             QueryProcessor processor,
             JdbcMetadataCatalog meta,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            IgniteTransactions igniteTransactions
     ) {
         this.processor = processor;
         this.meta = meta;
         this.resources = resources;
+        this.igniteTransactions = igniteTransactions;
     }
 
     /** {@inheritDoc} */
@@ -112,7 +121,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
                     processor::createSession,
-                    processor::closeSession
+                    processor::closeSession,
+                    igniteTransactions
             );
 
             long connectionId = resources.put(new ClientResource(
@@ -144,7 +154,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Connection is broken"));
         }
 
-        QueryContext context = createQueryContext(req.getStmtType());
+        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        QueryContext context = createQueryContext(req.getStmtType(), tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
@@ -163,14 +174,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 });
     }
 
-    private QueryContext createQueryContext(JdbcStatementType stmtType) {
+    private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Transaction tx) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                return QueryContext.create(SqlQueryType.ALL);
+                return QueryContext.create(SqlQueryType.ALL, tx);
             case SELECT_STATEMENT_TYPE:
-                return QueryContext.create(SELECT_STATEMENT_QUERIES);
+                return QueryContext.create(SELECT_STATEMENT_QUERIES, tx);
             case UPDATE_STATEMENT_TYPE:
-                return QueryContext.create(UPDATE_STATEMENT_QUERIES);
+                return QueryContext.create(UPDATE_STATEMENT_QUERIES, tx);
             default:
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
@@ -179,13 +190,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
-        List<String> queries = req.queries();
+        JdbcConnectionContext connectionContext;
+        try {
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
+        }
 
+        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        var queries = req.queries();
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
 
         for (String query : queries) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, query, OBJECT_EMPTY_ARRAY)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, query, OBJECT_EMPTY_ARRAY)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -205,13 +223,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
-        var argList = req.getArgs();
+        JdbcConnectionContext connectionContext;
+        try {
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
+        }
 
+        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        var argList = req.getArgs();
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
 
         for (Object[] args : argList) {
-            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionId, req.getQuery(), args)
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(connectionContext, tx, req.getQuery(), args)
                     .thenApply(cnt -> {
                         list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
 
@@ -228,19 +253,17 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         });
     }
 
-    private CompletableFuture<Long> executeAndCollectUpdateCount(long connectionId, String sql, Object[] arg) {
-        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+    private CompletableFuture<Long> executeAndCollectUpdateCount(
+            JdbcConnectionContext connCtx,
+            @Nullable Transaction tx,
+            String sql,
+            Object[] arg
+    ) {
+        QueryContext queryContext = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
-        JdbcConnectionContext connectionContext;
-        try {
-            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
-        } catch (IgniteInternalCheckedException exception) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(Client.CONNECTION_ERR));
-        }
-
-        CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
+        CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
-                context,
+                queryContext,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));
@@ -285,6 +308,26 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     @Override
     public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
+        JdbcConnectionContext connectionContext;
+
+        try {
+            connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
+        } catch (IgniteInternalCheckedException exception) {
+            return CompletableFuture.completedFuture(new JdbcFinishTxResult(Response.STATUS_FAILED, "Connection is broken"));
+        }
+
+        return connectionContext.finishTransactionAsync(commit).handle((ignored, t) -> {
+            if (t != null) {
+                return new JdbcFinishTxResult(Response.STATUS_FAILED, t.getMessage());
+            }
+
+            return new JdbcFinishTxResult();
+        });
     }
 
     /**
@@ -375,20 +418,60 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         private final SessionFactory factory;
         private final SessionCleaner cleaner;
+        private final IgniteTransactions igniteTransactions;
         private final PropertiesHolder properties = PropertiesHelper.emptyHolder();
 
         private volatile @Nullable SessionId sessionId;
+        private boolean closed;
+        private @Nullable Transaction tx;
 
         JdbcConnectionContext(
                 SessionFactory factory,
-                SessionCleaner cleaner
+                SessionCleaner cleaner,
+                IgniteTransactions igniteTransactions
         ) {
             this.factory = factory;
             this.cleaner = cleaner;
+            this.igniteTransactions = igniteTransactions;
+        }
+
+        /**
+         * Gets the transaction associated with the current connection, starts a new one if it doesn't already exist.
+         *
+         * <p>NOTE: this method is not thread-safe and should only be called by a single thread.
+         *
+         * @return Transaction associated with the current connection.
+         */
+        Transaction getOrStartTransaction() {
+            return tx == null ? tx = igniteTransactions.begin() : tx;
+        }
+
+        /**
+         * Finishes active transaction, if one exists.
+         *
+         * <p>NOTE: this method is not thread-safe and should only be called by a single thread.
+         *
+         * @param commit {@code True} to commit, {@code false} to rollback.
+         * @return Future that represents the pending completion of the operation.
+         */
+        CompletableFuture<Void> finishTransactionAsync(boolean commit) {
+            Transaction tx0 = tx;
+
+            tx = null;
+
+            if (tx0 == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return commit ? tx0.commitAsync() : tx0.rollbackAsync();
         }
 
         void close() {
             synchronized (mux) {
+                closed = true;
+
+                finishTransactionAsync(false);
+
                 SessionId sessionId = this.sessionId;
 
                 this.sessionId = null;
@@ -427,6 +510,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         private SessionId recreateSession(@Nullable SessionId expectedSessionId) {
             synchronized (mux) {
+                if (closed) {
+                    throw new IgniteInternalException(CONNECTION_ERR, "Connection is closed");
+                }
+
                 SessionId actualSessionId = sessionId;
 
                 // session was recreated by another thread
