@@ -43,6 +43,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManage
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ChannelType;
@@ -87,6 +88,9 @@ public class ConnectionManager {
     /** Supplies node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
     private final Supplier<String> launchIdSupplier;
 
+    /** Used to detect that a peer uses a stale ID. */
+    private final StaleIdDetector staleIdDetector;
+
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
     private final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
 
@@ -110,13 +114,15 @@ public class ConnectionManager {
      * @param launchIdSupplier              Supplier of launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
+     * @param staleIdDetector               Detects stale member IDs.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
             Supplier<String> launchIdSupplier,
             String consistentId,
-            NettyBootstrapFactory bootstrapFactory
+            NettyBootstrapFactory bootstrapFactory,
+            StaleIdDetector staleIdDetector
     ) {
         this(
                 networkConfiguration,
@@ -124,7 +130,8 @@ public class ConnectionManager {
                 launchIdSupplier,
                 consistentId,
                 bootstrapFactory,
-                new DefaultRecoveryClientHandshakeManagerFactory()
+                staleIdDetector,
+                new DefaultRecoveryClientHandshakeManagerFactory(staleIdDetector)
         );
     }
 
@@ -136,6 +143,7 @@ public class ConnectionManager {
      * @param launchIdSupplier              Supplier of launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
+     * @param staleIdDetector               Detects stale member IDs.
      * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
      */
     public ConnectionManager(
@@ -144,11 +152,13 @@ public class ConnectionManager {
             Supplier<String> launchIdSupplier,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
+            StaleIdDetector staleIdDetector,
             RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
     ) {
         this.serializationService = serializationService;
         this.launchIdSupplier = launchIdSupplier;
         this.consistentId = consistentId;
+        this.staleIdDetector = staleIdDetector;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
 
@@ -343,7 +353,7 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createServerHandshakeManager() {
-        return new RecoveryServerHandshakeManager(launchIdSupplier, consistentId, FACTORY, descriptorProvider);
+        return new RecoveryServerHandshakeManager(launchIdSupplier, consistentId, FACTORY, descriptorProvider, staleIdDetector);
     }
 
     /**
@@ -384,13 +394,25 @@ public class ConnectionManager {
      * Factory producing vanilla {@link RecoveryClientHandshakeManager} instances.
      */
     private static class DefaultRecoveryClientHandshakeManagerFactory implements RecoveryClientHandshakeManagerFactory {
+        private final StaleIdDetector staleIdDetector;
+
+        private DefaultRecoveryClientHandshakeManagerFactory(StaleIdDetector staleIdDetector) {
+            this.staleIdDetector = staleIdDetector;
+        }
+
         @Override
         public RecoveryClientHandshakeManager create(Supplier<String> launchIdSupplier,
                 String consistentId,
                 short connectionId,
                 RecoveryDescriptorProvider recoveryDescriptorProvider
         ) {
-            return new RecoveryClientHandshakeManager(launchIdSupplier, consistentId, connectionId, recoveryDescriptorProvider);
+            return new RecoveryClientHandshakeManager(
+                    launchIdSupplier,
+                    consistentId,
+                    connectionId,
+                    recoveryDescriptorProvider,
+                    staleIdDetector
+            );
         }
     }
 }

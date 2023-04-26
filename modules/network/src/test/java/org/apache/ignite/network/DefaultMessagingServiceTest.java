@@ -47,9 +47,11 @@ import org.apache.ignite.internal.network.messages.TestMessageSerializationFacto
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
+import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -290,6 +292,8 @@ class DefaultMessagingServiceTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         bootstrapFactory.start();
 
+        StaleIdDetector staleIdDetector = new AllIdsAreFresh();
+
         UUID launchId = UUID.randomUUID();
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
@@ -297,7 +301,8 @@ class DefaultMessagingServiceTest {
                 launchId::toString,
                 node.name(),
                 bootstrapFactory,
-                clientHandshakeManagerFactoryAdding(beforeHandshake)
+                staleIdDetector,
+                clientHandshakeManagerFactoryAdding(beforeHandshake, staleIdDetector)
         );
         connectionManager.start();
 
@@ -306,7 +311,8 @@ class DefaultMessagingServiceTest {
         return new Services(connectionManager, messagingService);
     }
 
-    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake) {
+    private static RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(Runnable beforeHandshake,
+            StaleIdDetector staleIdDetector) {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
@@ -314,10 +320,17 @@ class DefaultMessagingServiceTest {
                     String consistentId,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider) {
-                return new RecoveryClientHandshakeManager(launchIdSupplier, consistentId, connectionId, recoveryDescriptorProvider) {
+                return new RecoveryClientHandshakeManager(
+                        launchIdSupplier,
+                        consistentId,
+                        connectionId,
+                        recoveryDescriptorProvider,
+                        staleIdDetector
+                ) {
                     @Override
                     protected void finishHandshake() {
                         beforeHandshake.run();
+
                         super.finishHandshake();
                     }
                 };

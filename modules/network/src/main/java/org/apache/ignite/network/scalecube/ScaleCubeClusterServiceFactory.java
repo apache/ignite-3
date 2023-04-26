@@ -39,6 +39,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -53,6 +55,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -76,7 +79,8 @@ public class ScaleCubeClusterServiceFactory {
             String consistentId,
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory,
-            MessageSerializationRegistry serializationRegistry
+            MessageSerializationRegistry serializationRegistry,
+            StaleIds staleIds
     ) {
         var messageFactory = new NetworkMessagesFactory();
 
@@ -111,7 +115,8 @@ public class ScaleCubeClusterServiceFactory {
                         serializationService,
                         () -> cluster.member().id(),
                         consistentId,
-                        nettyBootstrapFactory
+                        nettyBootstrapFactory,
+                        staleIds
                 );
 
                 connectionMgr.start();
@@ -141,6 +146,13 @@ public class ScaleCubeClusterServiceFactory {
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
+
+                topologyService.addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        staleIds.markAsStale(member.id());
+                    }
+                });
 
                 cluster.startAwait();
 

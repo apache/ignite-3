@@ -88,6 +88,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -277,7 +278,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
-                defaultSerializationRegistry()
+                defaultSerializationRegistry(),
+                new InMemoryStaleIds()
         );
 
         HybridClock hybridClock = new HybridClockImpl();

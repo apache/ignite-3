@@ -48,6 +48,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -341,7 +342,8 @@ public class ItConnectionManagerTest {
                     new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                     launchId::toString,
                     consistentId,
-                    bootstrapFactory
+                    bootstrapFactory,
+                    new AllIdsAreFresh()
             );
 
             manager.start();
