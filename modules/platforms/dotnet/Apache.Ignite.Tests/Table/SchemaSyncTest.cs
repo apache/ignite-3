@@ -31,7 +31,7 @@ using NUnit.Framework;
 /// </summary>
 public class SchemaSyncTest : IgniteTestsBase
 {
-    private string _tempTableName = null!;
+    private string _tempTableName = string.Empty;
 
     private int _tempTableId;
 
@@ -44,6 +44,7 @@ public class SchemaSyncTest : IgniteTestsBase
         if (!string.IsNullOrEmpty(_tempTableName))
         {
             await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {_tempTableName}");
+            _tempTableName = string.Empty;
         }
     }
 
@@ -85,8 +86,6 @@ public class SchemaSyncTest : IgniteTestsBase
     [Test]
     public async Task TestBackgroundSchemaUpdateOnAllOperations()
     {
-        await DropTempTable();
-
         await Test(async (view, tuple) => await view.GetAsync(null, tuple));
         await Test(async (view, tuple) => await view.UpsertAsync(null, tuple));
 
@@ -129,7 +128,7 @@ public class SchemaSyncTest : IgniteTestsBase
     {
         _tempTableName = $"{nameof(SchemaSyncTest)}_{Interlocked.Increment(ref _tempTableId)}";
 
-        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE IF NOT EXISTS {_tempTableName} (id int primary key, val int)");
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {_tempTableName} (id int primary key, val int)");
         await Client.Sql.ExecuteAsync(null, $"INSERT INTO {_tempTableName} (id, val) VALUES (1, 1)");
     }
 
