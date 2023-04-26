@@ -17,47 +17,39 @@
 
 package org.apache.ignite.internal.distributionzones.util;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.command.GetAllCommand;
-import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
-import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
-import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,14 +66,58 @@ public class DistributionZonesTestUtil {
      */
     public static void assertDataNodesForZone(
             int zoneId,
-            @Nullable Set<String> clusterNodes,
+            @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
+    ) throws InterruptedException {
+        Set<NodeWithAttributes> nodes = clusterNodes == null
+                ? null
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes())).collect(Collectors.toSet());
+
+        assertValueInStorage(
+                keyValueStorage,
+                zoneDataNodesKey(zoneId).bytes(),
+                value -> DistributionZonesUtil.dataNodes(fromBytes(value), DEFAULT_FILTER),
+                nodes,
+                2000
+        );
+    }
+
+    /**
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)}.
+     *
+     * @param zoneId Zone id.
+     * @param nodes Data nodes.
+     * @param keyValueStorage Key-value storage.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertDataNodesForZoneWithAttributes(
+            int zoneId,
+            @Nullable Set<NodeWithAttributes> nodes,
+            KeyValueStorage keyValueStorage
+    ) throws InterruptedException {
+        assertDataNodesForZoneWithAttributes(zoneId, nodes, keyValueStorage, DEFAULT_FILTER);
+    }
+
+    /**
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} and with provided {@code filter}.
+     *
+     * @param zoneId Zone id.
+     * @param nodes Data nodes.
+     * @param keyValueStorage Key-value storage.
+     * @param filter Filter for data nodes.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertDataNodesForZoneWithAttributes(
+            int zoneId,
+            @Nullable Set<NodeWithAttributes> nodes,
+            KeyValueStorage keyValueStorage,
+            String filter
     ) throws InterruptedException {
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
-                clusterNodes,
+                value -> DistributionZonesUtil.dataNodes(fromBytes(value), filter),
+                nodes,
                 2000
         );
     }
@@ -163,9 +199,9 @@ public class DistributionZonesTestUtil {
             @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        Set<String> nodes = clusterNodes == null
+        Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : toBytes(clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes())).collect(Collectors.toSet()));
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes())).collect(Collectors.toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -234,6 +270,12 @@ public class DistributionZonesTestUtil {
         }
     }
 
+    /**
+     * Sets logical topology to Vault.
+     *
+     * @param nodes Logical topology
+     * @param vaultMgr Vault manager
+     */
     public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
@@ -241,7 +283,25 @@ public class DistributionZonesTestUtil {
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);
 
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
+    }
+
+    /**
+     * Sets logical topology to Meta Storage.
+     *
+     * @param nodes Logical topology
+     * @param topVer Topology version
+     * @param metaStorageManager Meta Storage manager.
+     */
+    public static void setLogicalTopologyInMetaStorage(Set<LogicalNode> nodes, long topVer, MetaStorageManager metaStorageManager) {
+        Iif iff = iif(
+                Conditions.exists(zonesLogicalTopologyKey()),
+                updateLogicalTopologyAndVersion(nodes, topVer),
+                ops().yield(false)
+        );
+
+        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(iff).thenApply(StatementResult::getAsBoolean);
+
+        assertThat(invokeFuture, willBe(true));
     }
 }

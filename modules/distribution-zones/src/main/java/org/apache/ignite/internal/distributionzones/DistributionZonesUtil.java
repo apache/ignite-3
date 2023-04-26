@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -39,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -310,7 +310,7 @@ public class DistributionZonesUtil {
      * @param topologyVersion Logical topology version.
      * @return Update command for the meta storage.
      */
-    static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
+    public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
                 .collect(toSet());
@@ -446,6 +446,9 @@ public class DistributionZonesUtil {
      * @return True if {@code nodeAttributes} satisfy {@code filter}, false otherwise. Returns true if {@code nodeAttributes} is empty.
      */
     public static boolean filter(Map<String, String> nodeAttributes, String filter) {
+        if (filter.equals(DEFAULT_FILTER)) {
+            return true;
+        }
         // We need to convert numbers to Long objects, so they could be parsed to numbers in JSON.
         // nodeAttributes has String values of numbers because nodeAttributes come from configuration,
         // but configuration does not support Object as a configuration value.

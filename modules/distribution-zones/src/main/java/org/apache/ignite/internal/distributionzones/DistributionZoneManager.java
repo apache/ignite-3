@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filter;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
@@ -58,7 +57,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,8 +72,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
@@ -1029,7 +1025,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     LOG.error(
                             "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
                             e,
-                            Arrays.toString(topologyFromCmg.toArray()),
+                            Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
                 } else if (res.getAsBoolean()) {
@@ -1075,8 +1071,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     byte[] topVerFromMetaStorage = topVerEntry.value();
 
-                        if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
-                            Set<LogicalNode> topologyFromCmg = snapshot.nodes();
+                    if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
+                        Set<LogicalNode> topologyFromCmg = snapshot.nodes();
 
                         Condition topologyVersionCondition = topVerFromMetaStorage == null
                                 ? notExists(zonesLogicalTopologyVersionKey()) :
@@ -1303,7 +1299,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             byte[] dataNodesBytes = e.value();
 
-                            String filter = getZoneById(zonesConfiguration, zoneId).filter().value();
+                            String filter;
+
+                            try {
+                                filter = getZoneById(zonesConfiguration, zoneId).filter().value();
+                            } catch (DistributionZoneNotFoundException ignored) {
+                                //The zone has been dropped so no need to update zoneState.
+                                return completedFuture(null);
+                            }
 
                             if (dataNodesBytes != null) {
                                 newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes), filter).stream()
@@ -1888,6 +1891,10 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Structure that represents node with the attributes and which we store in Meta Storage.
+     * Light-weighted version of the {@link LogicalNode}.
+     */
     public static class NodeWithAttributes implements Serializable {
         String nodeName;
 
@@ -1924,6 +1931,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
         public Map<String, String> nodeAttributes() {
             return nodeAttributes;
+        }
+
+        @Override
+        public String toString() {
+            return nodeName;
         }
     }
 }

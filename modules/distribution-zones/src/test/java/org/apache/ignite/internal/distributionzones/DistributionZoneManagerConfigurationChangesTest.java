@@ -111,7 +111,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
         Set<LogicalNode> logicalTopology = nodes.stream()
-                .map(n -> new LogicalNode(n, n, new NetworkAddress(n, 10_000)))
+                .map(n -> new LogicalNode(n.nodeName, n.nodeName, new NetworkAddress(n.nodeName, 10_000)))
                 .collect(toSet());
 
         when(logicalTopologyService.logicalTopologyOnLeader())
