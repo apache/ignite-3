@@ -1635,7 +1635,9 @@ public class RexImpTable {
             } else if (op == TYPEOF) {
                 assert call.getOperands().size() == 1 : call.getOperands();
 
-                return Expressions.constant(call.getOperands().get(0).getType().toString());
+                RelDataType type = call.getOperands().get(0).getType();
+
+                return Expressions.constant(type.toString());
             } else if (op == NULL_BOUND) {
                 return Expressions.call(root, IgniteMethod.CONTEXT_NULL_BOUND.method());
             }
