@@ -37,7 +37,7 @@ public enum Hints {
     ENFORCE_JOIN_ORDER,
     EXPAND_DISTINCT_AGG;
 
-    private boolean paramSupport;
+    private final boolean paramSupport;
 
     /**
      * Constructor.
