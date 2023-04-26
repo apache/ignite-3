@@ -1172,10 +1172,10 @@
         </value>
       </option>
     </inspection_tool>
-    <inspection_tool class="unused" enabled="true" level="WARNING" enabled_by_default="true" checkParameterExcludingHierarchy="false">
+    <inspection_tool class="unused" enabled="true" level="WARNING" enabled_by_default="true" checkParameterExcludingHierarchy="false" ignoreAccessors="true">
       <option name="LOCAL_VARIABLE" value="true" />
       <option name="FIELD" value="true" />
-      <option name="METHOD" value="false" />
+      <option name="METHOD" value="true" />
       <option name="CLASS" value="false" />
       <option name="PARAMETER" value="true" />
       <option name="REPORT_PARAMETER_FOR_PUBLIC_METHODS" value="false" />

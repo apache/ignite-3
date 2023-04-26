@@ -45,10 +45,17 @@ public class SqlQueryCall implements Call<StringCallInput, SqlQueryResult> {
     @Override
     public CallOutput<SqlQueryResult> execute(StringCallInput input) {
         try {
-            SqlQueryResult result = sqlManager.execute(input.getString());
+            SqlQueryResult result = sqlManager.execute(trimQuotes(input.getString()));
             return DefaultCallOutput.success(result);
         } catch (SQLException e) {
             return DefaultCallOutput.failure(e);
         }
+    }
+
+    private static String trimQuotes(String input) {
+        if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
+            return input.substring(1, input.length() - 1);
+        }
+        return input;
     }
 }

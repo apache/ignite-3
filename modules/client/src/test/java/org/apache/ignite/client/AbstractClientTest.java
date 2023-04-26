@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -81,6 +82,8 @@ public abstract class AbstractClientTest {
      */
     @BeforeEach
     public void beforeEach() throws InterruptedException {
+        FakeSchemaRegistry.setLastVer(1);
+
         dropTables(server);
     }
 
@@ -141,7 +144,7 @@ public abstract class AbstractClientTest {
             Ignite ignite,
             String nodeName
     ) {
-        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId);
+        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId, null);
     }
 
     /**

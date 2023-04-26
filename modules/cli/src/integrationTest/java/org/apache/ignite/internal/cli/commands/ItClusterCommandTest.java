@@ -23,7 +23,7 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
@@ -186,7 +186,7 @@ class ItClusterCommandTest extends AbstractCliTest {
                 .map(Matchers::containsString)
                 .collect(collectingAndThen(toList(), (List<Matcher<? super String>> matchers) -> allOf(matchers)));
 
-        boolean success = waitForCondition(() -> {
+        await().untilAsserted(() -> {
             out.reset();
             err.reset();
 
@@ -199,13 +199,8 @@ class ItClusterCommandTest extends AbstractCliTest {
                     String.format("Wrong exit code; std is '%s', stderr is '%s'", out.toString(UTF_8), err.toString(UTF_8)),
                     code, is(0)
             );
-
-            return nodeNameMatcher.matches(out.toString(UTF_8));
-        }, 10_000);
-
-        if (!success) {
             assertThat(out.toString(UTF_8), nodeNameMatcher);
-        }
+        });
     }
 
     private static class Node {

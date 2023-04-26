@@ -24,33 +24,28 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.EnvironmentDefaultValueProvider;
-import org.apache.ignite.network.NetworkAddress;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.TypeConversionException;
 
 /**
- * The main entry point for running new Ignite node. Configuration values can be overridden using environment variables
- * or command-line arguments. Base configuration is either empty, or taken from the {@code --config-path}. Then,
- * if an environment variable with the pattern {@code IGNITE_VAR_NAME} (where VAR_NAME corresponds to {@code --var-name} command line
- * argument) is set, it overrides the value from the config. And last, if the {@code --var-name} command line argument is passed, it
- * overrides any other values.
+ * The main entry point for running new Ignite node. Command-line arguments can be provided using environment variables
+ * {@code IGNITE_CONFIG_PATH}, {@code IGNITE_WORK_DIR} and {@code IGNITE_NODE_NAME} for {@code --config-path}, {@code --work-dir} and
+ * {@code --node-name} command line arguments respectively.
  */
 @Command(name = "runner")
 public class IgniteRunner implements Callable<CompletableFuture<Ignite>> {
-    @Option(names = {"--config-path"}, description = "Path to node configuration file in HOCON format.", required = true)
+    @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
     private Path configPath;
 
-    @Option(names = {"--work-dir"}, description = "Path to node working directory.", required = true)
+    @Option(names = "--work-dir", description = "Path to node working directory.", required = true)
     private Path workDir;
 
-    @Option(names = {"--node-name"}, description = "Node name.", required = true)
+    @Option(names = "--node-name", description = "Node name.", required = true)
     private String nodeName;
 
     @Override
     public CompletableFuture<Ignite> call() throws Exception {
-        // If config path is specified and there are no overrides then pass it directly.
         return IgnitionManager.start(nodeName, configPath.toAbsolutePath(), workDir);
     }
 
@@ -63,13 +58,6 @@ public class IgniteRunner implements Callable<CompletableFuture<Ignite>> {
     public static CompletableFuture<Ignite> start(String... args) {
         CommandLine commandLine = new CommandLine(new IgniteRunner());
         commandLine.setDefaultValueProvider(new EnvironmentDefaultValueProvider());
-        commandLine.registerConverter(NetworkAddress.class, value -> {
-            try {
-                return NetworkAddress.from(value);
-            } catch (IllegalArgumentException e) {
-                throw new TypeConversionException(e.getMessage());
-            }
-        });
         int exitCode = commandLine.execute(args);
         if (exitCode != 0) {
             System.exit(exitCode);

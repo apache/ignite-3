@@ -42,6 +42,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
@@ -206,7 +208,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 timer.cancel();
             }
 
-            sock.close();
+            if (sock != null) {
+                sock.close();
+            }
 
             for (ClientRequestFuture pendingReq : pendingReqs.values()) {
                 pendingReq.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
@@ -513,7 +517,23 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         req.packInt(2); // Client type: general purpose.
 
         req.packBinaryHeader(0); // Features.
-        req.packMapHeader(0); // Extensions.
+
+        IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
+
+        if (authenticator != null) {
+            req.packMapHeader(3); // Extensions.
+
+            req.packString(HandshakeExtension.AUTHENTICATION_TYPE.key());
+            req.packString(authenticator.type());
+
+            req.packString(HandshakeExtension.AUTHENTICATION_IDENTITY.key());
+            packAuthnObj(req, authenticator.identity());
+
+            req.packString(HandshakeExtension.AUTHENTICATION_SECRET.key());
+            packAuthnObj(req, authenticator.secret());
+        } else {
+            req.packMapHeader(0); // Extensions.
+        }
 
         return write(req);
     }
@@ -602,6 +622,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         return Math.min(configuredInterval, recommendedHeartbeatInterval);
+    }
+
+    private static void packAuthnObj(ClientMessagePacker packer, Object obj) {
+        if (obj == null) {
+            packer.packNil();
+        } else if (obj instanceof String) {
+            packer.packString((String) obj);
+        } else {
+            throw new IllegalArgumentException("Unsupported authentication object type: " + obj.getClass().getName());
+        }
     }
 
     /**

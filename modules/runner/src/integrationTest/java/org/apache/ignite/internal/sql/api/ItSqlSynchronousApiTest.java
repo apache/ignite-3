@@ -56,6 +56,8 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -92,8 +94,12 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
+    protected IgniteTransactions igniteTx() {
+        return CLUSTER_NODES.get(0).transactions();
+    }
+
     @Test
-    public void ddl() {
+    public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
@@ -133,6 +139,9 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
         checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX");
 
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
@@ -275,6 +284,40 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
+        }
+    }
+
+    /**
+     * DDL is non-transactional.
+     */
+    @Test
+    public void ddlInTransaction() {
+        Session ses = igniteSql().createSession();
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        {
+            Transaction tx = igniteTx().begin();
+            try {
+                assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)"),
+                        SqlException.class,
+                        "DDL doesn't support transactions."
+                );
+            } finally {
+                tx.rollback();
+            }
+        }
+        {
+            Transaction tx = igniteTx().begin();
+            ResultSet<SqlRow> res = ses.execute(tx, "INSERT INTO TEST VALUES (?, ?)", -1, -1);
+            assertEquals(1, res.affectedRows());
+
+            assertThrowsWithCause(() -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)"),
+                    SqlException.class,
+                    "DDL doesn't support transactions."
+            );
+            tx.commit();
+
+            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
         }
 
         TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");

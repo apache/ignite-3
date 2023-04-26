@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cli.core.rest;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_LOGIN;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
@@ -76,7 +76,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        ApiClient apiClient = clientMap.computeIfAbsent(settings(path), this::buildClient);
+        ApiClient apiClient = clientMap.computeIfAbsent(settings(path), ApiClientFactory::buildClient);
         CliLoggers.addApiClient(path, apiClient);
         return apiClient;
     }
@@ -89,17 +89,23 @@ public class ApiClientFactory {
                 .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
                 .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
                 .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()))
-                .basicAuthLogin(configManager.getCurrentProperty(BASIC_AUTHENTICATION_LOGIN.value()))
-                .basicAuthPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()))
+                .basicAuthenticationUsername(configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()))
+                .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()))
                 .build();
     }
 
 
-    private ApiClient buildClient(ApiClientSettings settings) {
+    /**
+     * Builds {@link ApiClient} using provided settings.
+     *
+     * @param settings Settings.
+     * @return Created client.
+     */
+    public static ApiClient buildClient(ApiClientSettings settings) {
         try {
             Builder builder = new Builder();
 
-            if (!nullOrBlank(settings.keyStorePath()) || !nullOrBlank(settings.keyStorePassword())) {
+            if (!nullOrBlank(settings.trustStorePath()) || !nullOrBlank(settings.trustStorePassword())) {
                 applySslSettings(builder, settings);
             }
 
@@ -118,7 +124,7 @@ public class ApiClientFactory {
         }
     }
 
-    private Builder applySslSettings(Builder builder, ApiClientSettings settings) throws UnrecoverableKeyException,
+    private static Builder applySslSettings(Builder builder, ApiClientSettings settings) throws UnrecoverableKeyException,
             CertificateException,
             NoSuchAlgorithmException,
             KeyStoreException,
@@ -137,7 +143,7 @@ public class ApiClientFactory {
                 .hostnameVerifier(OkHostnameVerifier.INSTANCE);
     }
 
-    private KeyManagerFactory keyManagerFactory(ApiClientSettings settings)
+    private static KeyManagerFactory keyManagerFactory(ApiClientSettings settings)
             throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, CertificateException, IOException {
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 
@@ -152,7 +158,7 @@ public class ApiClientFactory {
         return keyManagerFactory;
     }
 
-    private TrustManagerFactory trustManagerFactory(ApiClientSettings settings)
+    private static TrustManagerFactory trustManagerFactory(ApiClientSettings settings)
             throws NoSuchAlgorithmException, KeyStoreException, CertificateException, IOException {
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 
@@ -168,9 +174,9 @@ public class ApiClientFactory {
     }
 
     @Nullable
-    private Interceptor authInterceptor(ApiClientSettings settings) {
-        if (!nullOrBlank(settings.basicAuthLogin()) && !nullOrBlank(settings.basicAuthPassword())) {
-            return new BasicAuthenticationInterceptor(settings.basicAuthLogin(), settings.basicAuthPassword());
+    private static Interceptor authInterceptor(ApiClientSettings settings) {
+        if (!nullOrBlank(settings.basicAuthenticationUsername()) && !nullOrBlank(settings.basicAuthenticationPassword())) {
+            return new BasicAuthenticationInterceptor(settings.basicAuthenticationUsername(), settings.basicAuthenticationPassword());
         } else {
             return null;
         }

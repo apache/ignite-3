@@ -23,10 +23,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for deployment commands. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19139")
 public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBase {
 
     private String path;
@@ -91,6 +93,29 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
         assertAll(
                 () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("Unit not found")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display correct status after deploy")
+    void deployAndStatusCheck() {
+        // When undeploy non-existing unit
+        execute("unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", path);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        execute("unit", "status", "test.unit.id.5");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("1.0.0"),
+                () -> assertOutputContains("DEPLOYED")
         );
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -144,7 +145,12 @@ public class ClientSqlTest extends AbstractClientTableTest {
         for (int i = 0; i < meta.columns().size(); i++) {
             ColumnMetadata col = meta.columns().get(i);
             assertEquals(i, meta.indexOf(col.name()));
-            assertEquals(row.<Object>value(i), row.value(col.name()));
+
+            if (col.type() == ColumnType.BYTE_ARRAY) {
+                assertArrayEquals(row.<byte[]>value(i), row.value(col.name()));
+            } else {
+                assertEquals(row.<Object>value(i), row.value(col.name()));
+            }
         }
 
         assertTrue((boolean) row.value(0));

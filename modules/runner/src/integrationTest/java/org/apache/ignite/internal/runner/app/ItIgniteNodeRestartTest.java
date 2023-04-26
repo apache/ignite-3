@@ -111,6 +111,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -248,7 +249,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         partialNode = new ArrayList<>();
 
-        VaultManager vault = createVault(dir);
+        VaultManager vault = createVault(name, dir);
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
@@ -294,7 +295,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
@@ -320,7 +321,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 cmgManager,
                 new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                 raftMgr,
-                new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
+                new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
+                hybridClock
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -341,7 +343,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         Path storagePath = getPartitionsStorePath(dir);
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterCfgMgr.configurationRegistry(),
@@ -395,7 +397,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 view -> new LocalLogStorageFactory(),
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                vault
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
@@ -533,7 +536,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    private static VaultManager createVault(Path workDir) {
+    private static VaultManager createVault(String nodeName, Path workDir) {
         Path vaultPath = workDir.resolve(Paths.get("vault"));
 
         try {
@@ -542,7 +545,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             throw new IgniteInternalException(e);
         }
 
-        return new VaultManager(new PersistentVaultService(vaultPath));
+        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
     }
 
     /**
@@ -782,8 +785,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             res2.close();
         }
 
-        // TODO: Uncomment after IGNITE-18203
-        /*stopNode(0);
+        stopNode(0);
 
         ignite1 = startNode(0);
 
@@ -791,7 +793,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             ResultSet<SqlRow> res3 = session1.execute(null, sql);
 
             assertEquals(intRes, res3.next().intValue(0));
-        }*/
+        }
     }
 
     /**

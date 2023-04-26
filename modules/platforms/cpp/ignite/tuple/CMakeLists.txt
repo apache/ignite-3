@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-schema)
+project(ignite-tuple)
 
 set(TARGET ${PROJECT_NAME})
 
@@ -26,11 +26,8 @@ set(SOURCES
 
 set(PUBLIC_HEADERS
     binary_tuple_builder.h
-    binary_tuple_header.h
+    binary_tuple_common.h
     binary_tuple_parser.h
-    binary_tuple_schema.h
-    column_info.h
-    types.h
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
@@ -41,10 +38,10 @@ ignite_test(tuple_test tuple_test.cpp LIBS ${TARGET})
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
-        RUNTIME DESTINATION bin/
+        RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
     )
 
-    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/schema)
+    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/tuple)
 endif()

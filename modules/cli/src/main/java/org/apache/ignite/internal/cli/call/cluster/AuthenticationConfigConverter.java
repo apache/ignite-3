@@ -55,7 +55,7 @@ final class AuthenticationConfigConverter {
                 return new AuthenticationProviderConfig()
                         .type(config.type().toString())
                         .name(config.name())
-                        .login(config.login())
+                        .username(config.username())
                         .password(config.password());
             default:
                 throw new IllegalArgumentException("Unexpected authentication provider type: " + provider.type());

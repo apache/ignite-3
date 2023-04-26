@@ -21,6 +21,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
+import org.apache.ignite.internal.cli.config.exception.NonexistentPropertyException;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 
@@ -37,7 +38,10 @@ public class CliConfigGetCall implements Call<CliConfigGetCallInput, String> {
         ConfigManager configManager = configManagerProvider.get();
         String key = input.getKey();
         String profileName = input.getProfileName();
-        String property = configManager.getProperty(key, profileName, "");
-        return DefaultCallOutput.success(property);
+        String property = configManager.getProperty(key, profileName);
+        if (property != null) {
+            return DefaultCallOutput.success(property);
+        }
+        return DefaultCallOutput.failure(new NonexistentPropertyException(key));
     }
 }

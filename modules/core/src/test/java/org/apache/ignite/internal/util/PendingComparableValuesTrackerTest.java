@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -150,5 +152,20 @@ public class PendingComparableValuesTrackerTest {
 
         assertThat(writerFuture, willCompleteSuccessfully());
         assertThat(readerFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testClose() {
+        var tracker = new PendingComparableValuesTracker<>(1);
+
+        CompletableFuture<Void> future0 = tracker.waitFor(2);
+
+        tracker.close();
+
+        assertThrows(TrackerClosedException.class, tracker::current);
+        assertThrows(TrackerClosedException.class, () -> tracker.update(2));
+
+        assertThat(future0, willThrowFast(TrackerClosedException.class));
+        assertThat(tracker.waitFor(2), willThrowFast(TrackerClosedException.class));
     }
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.deployment;
 
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.deserialize;
 import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.serialize;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;

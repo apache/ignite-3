@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import com.google.gson.Gson;
 import jakarta.inject.Singleton;
-import java.net.MalformedURLException;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.JdbcUrl;
+import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
-import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -43,25 +41,29 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Call for connect to Ignite 3 node. As a result {@link Session} will hold a valid node-url.
  */
 @Singleton
-public class ConnectCall implements Call<ConnectCallInput, String> {
+public class ConnectCall implements Call<UrlCallInput, String> {
     private final Session session;
 
     private final StateConfigProvider stateConfigProvider;
 
     private final ApiClientFactory clientFactory;
 
+    private final JdbcUrlFactory jdbcUrlFactory;
+
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory) {
+    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
+            JdbcUrlFactory jdbcUrlFactory) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
         this.clientFactory = clientFactory;
+        this.jdbcUrlFactory = jdbcUrlFactory;
     }
 
     @Override
-    public CallOutput<String> execute(ConnectCallInput input) {
-        String nodeUrl = input.getNodeUrl();
+    public CallOutput<String> execute(UrlCallInput input) {
+        String nodeUrl = input.getUrl();
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
             MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
@@ -70,7 +72,10 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         try {
             String configuration = fetchNodeConfiguration(nodeUrl);
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
-            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), constructJdbcUrl(configuration, nodeUrl)));
+
+            String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
+            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl));
+
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (ApiException | IllegalArgumentException e) {
             session.disconnect();
@@ -84,15 +89,5 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
         return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
-    }
-
-    private String constructJdbcUrl(String configuration, String nodeUrl) {
-        try {
-            int port = new Gson().fromJson(configuration, RootConfig.class).clientConnector.port;
-            return JdbcUrl.of(nodeUrl, port).toString();
-        } catch (MalformedURLException ignored) {
-            // Shouldn't happen ever since we are now connected to this URL
-            return null;
-        }
     }
 }

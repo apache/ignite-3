@@ -41,7 +41,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
@@ -64,13 +63,6 @@ data: {
 #     "KEY_TYPE" // already presented in Calcite
       "TREE"
       "HASH"
-      "PARTITIONS"
-      "REPLICAS"
-      "AFFINITY_FUNCTION"
-      "DATA_NODES_FILTER"
-      "DATA_NODES_AUTO_ADJUST"
-      "DATA_NODES_AUTO_ADJUST_SCALE_UP"
-      "DATA_NODES_AUTO_ADJUST_SCALE_DOWN",
       "RENAME",
       "UUID",
     ]
@@ -511,7 +503,7 @@ data: {
       "TEMPORARY"
 #     "THEN"
 #     "TIME"
-#     "TIMESTAMP"
+      "TIMESTAMP"
       "TIMEZONE_HOUR"
       "TIMEZONE_MINUTE"
       "TINYINT"
@@ -568,13 +560,6 @@ data: {
       "WRITE"
       "YEAR"
       "ZONE"
-      "PARTITIONS"
-      "REPLICAS"
-      "AFFINITY_FUNCTION"
-      "DATA_NODES_FILTER"
-      "DATA_NODES_AUTO_ADJUST"
-      "DATA_NODES_AUTO_ADJUST_SCALE_UP"
-      "DATA_NODES_AUTO_ADJUST_SCALE_DOWN"
     ]
 
     # List of non-reserved keywords to add;

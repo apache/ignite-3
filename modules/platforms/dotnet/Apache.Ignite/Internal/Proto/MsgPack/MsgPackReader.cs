@@ -21,10 +21,12 @@ using System;
 using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
+using Ignite.Sql;
 
 /// <summary>
 /// MsgPack reader.
 /// </summary>
+// ReSharper disable PatternIsRedundant
 internal ref struct MsgPackReader
 {
     private readonly ReadOnlySpan<byte> _span;
@@ -375,7 +377,7 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
-    /// Reads <see cref="ClientDataType"/> and value.
+    /// Reads <see cref="ColumnType"/> and value.
     /// </summary>
     /// <returns>Value.</returns>
     public object? ReadObjectFromBinaryTuple()

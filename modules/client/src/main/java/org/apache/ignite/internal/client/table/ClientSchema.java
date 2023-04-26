@@ -17,33 +17,18 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
-import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DECIMAL;
-import static org.apache.ignite.internal.client.proto.ClientDataType.DOUBLE;
-import static org.apache.ignite.internal.client.proto.ClientDataType.FLOAT;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT16;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT32;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT64;
-import static org.apache.ignite.internal.client.proto.ClientDataType.INT8;
-import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
-import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
-import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
-import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -189,7 +174,7 @@ public class ClientSchema {
         return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY);
     }
 
-    private static BinaryMode mode(int dataType) {
+    private static BinaryMode mode(ColumnType dataType) {
         switch (dataType) {
             case INT8:
                 return BinaryMode.BYTE;
@@ -209,13 +194,13 @@ public class ClientSchema {
             case DOUBLE:
                 return BinaryMode.DOUBLE;
 
-            case ClientDataType.UUID:
+            case UUID:
                 return BinaryMode.UUID;
 
             case STRING:
                 return BinaryMode.STRING;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 return BinaryMode.BYTE_ARR;
 
             case DECIMAL:
@@ -240,7 +225,7 @@ public class ClientSchema {
                 return BinaryMode.TIMESTAMP;
 
             default:
-                throw new IgniteException("Unknown client data type: " + dataType);
+                throw new IgniteException(Client.PROTOCOL_ERR, "Unknown client data type: " + dataType);
         }
     }
 }

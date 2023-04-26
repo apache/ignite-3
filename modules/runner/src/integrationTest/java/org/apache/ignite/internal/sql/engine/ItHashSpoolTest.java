@@ -50,7 +50,7 @@ public class ItHashSpoolTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18689")
     @SuppressWarnings("unchecked")
     public void testHashSpoolCondition() {
         sql("CREATE TABLE t(id INT PRIMARY KEY, i INTEGER)");

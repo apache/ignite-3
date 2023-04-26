@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -87,6 +88,30 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR,
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
+
+    private static class SupportedParamClassesHolder {
+        static final Set<Class<?>> supportedParamClasses;
+
+        static {
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses.add(boolean.class);
+            supportedParamClasses.add(byte.class);
+            supportedParamClasses.add(short.class);
+            supportedParamClasses.add(int.class);
+            supportedParamClasses.add(long.class);
+            supportedParamClasses.add(float.class);
+            supportedParamClasses.add(double.class);
+        }
+    }
+
+    private static Set<Class<?>> supportedParamClasses() {
+        return SupportedParamClassesHolder.supportedParamClasses;
+    }
+
+    /** Return {@code true} if supplied object is suitable as dynamic parameter. */
+    public static boolean supportParamInstance(Object param) {
+        return param == null || supportedParamClasses().contains(param.getClass());
+    }
 
     /**
      * CombinedRowType.
@@ -264,6 +289,10 @@ public class TypeUtils {
             var dt = (LocalDateTime) val;
 
             return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
+        } else if (storageType == Instant.class) {
+            var timeStamp = (Instant) val;
+
+            return timeStamp.toEpochMilli();
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
@@ -312,6 +341,8 @@ public class TypeUtils {
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
                     (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+        } else if (storageType == Instant.class && val instanceof Long) {
+            return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {

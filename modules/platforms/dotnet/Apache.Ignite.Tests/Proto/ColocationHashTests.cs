@@ -25,9 +25,9 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using Ignite.Table;
 using Internal.Buffers;
-using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Proto.MsgPack;
 using Internal.Table;
@@ -221,30 +221,30 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var colType = value switch
         {
-            sbyte => ClientDataType.Int8,
-            short => ClientDataType.Int16,
-            int => ClientDataType.Int32,
-            long => ClientDataType.Int64,
-            float => ClientDataType.Float,
-            double => ClientDataType.Double,
-            decimal => ClientDataType.Decimal,
-            Guid => ClientDataType.Uuid,
-            byte[] => ClientDataType.Bytes,
-            string => ClientDataType.String,
-            BigInteger => ClientDataType.Number,
-            BitArray => ClientDataType.BitMask,
-            LocalTime => ClientDataType.Time,
-            LocalDate => ClientDataType.Date,
-            LocalDateTime => ClientDataType.DateTime,
-            Instant => ClientDataType.Timestamp,
+            sbyte => ColumnType.Int8,
+            short => ColumnType.Int16,
+            int => ColumnType.Int32,
+            long => ColumnType.Int64,
+            float => ColumnType.Float,
+            double => ColumnType.Double,
+            decimal => ColumnType.Decimal,
+            Guid => ColumnType.Uuid,
+            byte[] => ColumnType.ByteArray,
+            string => ColumnType.String,
+            BigInteger => ColumnType.Number,
+            BitArray => ColumnType.Bitmask,
+            LocalTime => ColumnType.Time,
+            LocalDate => ColumnType.Date,
+            LocalDateTime => ColumnType.Datetime,
+            Instant => ColumnType.Timestamp,
             _ => throw new Exception("Unknown type: " + value.GetType())
         };
 
         var precision = colType switch
         {
-            ClientDataType.Time => timePrecision,
-            ClientDataType.DateTime => timePrecision,
-            ClientDataType.Timestamp => timestampPrecision,
+            ColumnType.Time => timePrecision,
+            ColumnType.Datetime => timePrecision,
+            ColumnType.Timestamp => timestampPrecision,
             _ => 0
         };
 

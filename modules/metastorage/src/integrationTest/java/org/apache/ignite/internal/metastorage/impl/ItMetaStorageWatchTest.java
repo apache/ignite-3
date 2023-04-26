@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -107,11 +108,12 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             Path basePath = dataPath.resolve(name());
 
+            HybridClock clock = new HybridClockImpl();
             var raftManager = new Loza(
                     clusterService,
                     raftConfiguration,
                     basePath.resolve("raft"),
-                    new HybridClockImpl()
+                    clock
             );
 
             components.add(raftManager);
@@ -146,7 +148,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     cmgManager,
                     new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"))
+                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage")),
+                    clock
             );
 
             components.add(metaStorageManager);

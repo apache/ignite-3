@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
@@ -133,12 +133,14 @@ public class JdbcStatement implements Statement {
         }
 
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
-                args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
+                args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray(), conn.getAutoCommit());
 
         Response res;
         try {
-            res = conn.handler().queryAsync(conn.connectionId(), req).join();
-        } catch (CompletionException e) {
+            res = conn.handler().queryAsync(conn.connectionId(), req).get();
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
             throw toSqlException(e);
         } catch (CancellationException e) {
             throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
@@ -547,10 +549,10 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch);
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
 
         try {
-            JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).join();
+            JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),
@@ -560,7 +562,9 @@ public class JdbcStatement implements Statement {
             }
 
             return res.updateCounts();
-        } catch (CompletionException e) {
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
             throw toSqlException(e);
         } catch (CancellationException e) {
             throw new SQLException("Batch execution canceled.", SqlStateCode.QUERY_CANCELLED);
@@ -732,7 +736,7 @@ public class JdbcStatement implements Statement {
         this.timeout = timeout;
     }
 
-    private static SQLException toSqlException(CompletionException e) {
+    private static SQLException toSqlException(ExecutionException e) {
         return new SQLException(e);
     }
 }
