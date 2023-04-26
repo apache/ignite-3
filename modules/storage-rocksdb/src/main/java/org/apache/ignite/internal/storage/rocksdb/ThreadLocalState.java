@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.rocksdb.WriteBatchWithIndex;
 
+/**
+ * Thread-local state of the MV storage during the execution of {@link WriteClosure}.
+ */
 class ThreadLocalState {
+    /** Write batch instance that will be written at the end of {@link RocksDbMvPartitionStorage#runConsistently(WriteClosure)}. */
     public final WriteBatchWithIndex batch;
 
+    /** Locker instance, used in {@link WriteClosure#execute(Locker)}. */
     public final LocalLocker locker;
 
-    public ThreadLocalState(WriteBatchWithIndex batch, LocalLocker locker) {
+    ThreadLocalState(WriteBatchWithIndex batch, LocalLocker locker) {
         this.batch = batch;
         this.locker = locker;
     }
