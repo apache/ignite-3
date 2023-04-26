@@ -822,8 +822,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createDistributionZone();
 
-        System.out.println("before createTableAsync");
-
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(), ZONE_NAME,
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
         );
