@@ -921,7 +921,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
 
             assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
         }
