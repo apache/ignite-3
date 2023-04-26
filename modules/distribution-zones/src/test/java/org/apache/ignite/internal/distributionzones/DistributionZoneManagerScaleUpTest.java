@@ -841,18 +841,19 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     @Test
     void testScaleDownDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
         topology.putNode(NODE_1);
+        topology.putNode(NODE_2);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
+        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1, NODE_2));
 
         startDistributionZoneManager();
 
-        assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
+        assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
 
         distributionZoneManager.createZone(
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
         ).get();
 
-        assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
+        assertDataNodesForZone(1, Set.of(NODE_1.name(), NODE_2.name()), keyValueStorage);
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
@@ -870,9 +871,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             return invocation.callRealMethod();
         }).when(keyValueStorage).invoke(any());
 
-        topology.removeNodes(Set.of(NODE_1));
+        topology.removeNodes(Set.of(NODE_2));
 
-        assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
+        assertDataNodesForZone(1, Set.of(NODE_1.name(), NODE_2.name()), keyValueStorage);
 
         assertZoneScaleDownChangeTriggerKey(100, 1, keyValueStorage);
     }
@@ -1309,6 +1310,18 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Collections.sort(nodes);
 
         assertEquals(List.of("C", "C", "D", "D"), nodes);
+    }
+
+    @Test
+    void testScaleDownDoesNotSaveEmptyDataNodes() throws Exception {
+        preparePrerequisites();
+
+        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
+
+        zoneState.nodesToRemoveFromDataNodes(Set.of("A", "B", "C"), 3);
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
+
+        assertDataNodesForZone(1, Set.of("A", "B", "C"), keyValueStorage);
     }
 
     /**

@@ -1583,7 +1583,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Remove redundant nodes that are not presented in the data nodes.
                 newDataNodes.entrySet().removeIf(e -> e.getValue() == 0);
 
-                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(zoneId, revision, toBytes(newDataNodes));
+                //Do not save the empty data nodes list to avoid the distribution zone without a data nodes.
+                byte[] newDataNodesBytes = newDataNodes.isEmpty() ? toBytes(dataNodesFromMetaStorage) : toBytes(newDataNodes);
+
+                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(zoneId, revision, newDataNodesBytes);
 
                 Iif iif = iif(
                         triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
@@ -1595,6 +1598,11 @@ public class DistributionZoneManager implements IgniteComponent {
                         .thenApply(StatementResult::getAsBoolean)
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
+                                if (newDataNodes.isEmpty()) {
+                                    LOG.debug("Data nodes for a zone was not updated because"
+                                            + " the data nodes value was empty [zoneId = {}]", zoneId);
+                                }
+
                                 zoneState.cleanUp(Math.min(scaleUpTriggerRevision, revision));
                             } else {
                                 LOG.debug("Updating data nodes for a zone has not succeeded [zoneId = {}]", zoneId);
