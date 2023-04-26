@@ -107,10 +107,12 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -294,7 +296,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock);
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
@@ -875,6 +877,54 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         ignite = startNode(0);
 
         checkTableWithData(ignite, TABLE_NAME);
+    }
+
+    /**
+     * Restarts the node which stores some data.
+     */
+    @Test
+    public void nodeWithDataAndIndexRebuildTest() throws InterruptedException {
+        IgniteImpl ignite = startNode(0);
+
+        int partitions = 20;
+
+        createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
+
+        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
+
+        InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
+
+        CompletableFuture[] flushFuts = new CompletableFuture[partitions];
+
+        for (int i = 0; i < partitions; i++) {
+            // Flush data on disk, so that we will have a snapshot to read on restart.
+            flushFuts[i] = internalTable.storage().getMvPartition(i).flush();
+        }
+
+        assertThat(CompletableFuture.allOf(flushFuts), willCompleteSuccessfully());
+
+        // Add more data, so that on restart there will be a index rebuilding operation.
+        try (Session session = ignite.sql().createSession()) {
+            for (int i = 0; i < 100; i++) {
+                session.execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
+                        i + 500, VALUE_PRODUCER.apply(i + 500));
+            }
+        }
+
+        stopNode(0);
+
+        ignite = startNode(0);
+
+        checkTableWithData(ignite, TABLE_NAME);
+
+        table = (TableImpl) ignite.tables().table(TABLE_NAME);
+
+        // Check data that was added after flush.
+        for (int i = 0; i < 100; i++) {
+            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
+
+            assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
+        }
     }
 
     /**

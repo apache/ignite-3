@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
+package org.apache.ignite.internal.tx;
 
-import java.io.InputStream;
-import java.util.Map;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-/**
- * Deployment unit interface.
- */
-@FunctionalInterface
-public interface DeploymentUnit {
-    /**
-     * Deployment unit content - a map from file name to input stream.
-     *
-     * @return Deployment unit content.
-     */
-    Map<String, InputStream> content();
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.Test;
+
+class TransactionIdsTest {
+    @Test
+    void transactionIdIsBuiltCorrectly() {
+        HybridTimestamp beginTs = new HybridTimestamp(123L, 456);
+
+        UUID txId = TransactionIds.transactionId(beginTs, 0xdeadbeef);
+
+        HybridTimestamp extractedTs = TransactionIds.beginTimestamp(txId);
+
+        assertThat(extractedTs, is(beginTs));
+        assertThat((int) txId.getLeastSignificantBits(), is(0xdeadbeef));
+    }
 }

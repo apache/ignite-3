@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
@@ -40,7 +41,7 @@ public abstract class AbstractLockingTest {
     protected abstract LockManager lockManager();
 
     protected UUID beginTx() {
-        return Timestamp.nextVersion().toUuid();
+        return TestTransactionIds.newTransactionId();
     }
 
     protected LockKey key(Object key) {

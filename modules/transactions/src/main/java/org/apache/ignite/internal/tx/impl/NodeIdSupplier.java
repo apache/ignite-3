@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit;
-
-import java.io.InputStream;
-import java.util.Map;
+package org.apache.ignite.internal.tx.impl;
 
 /**
- * Deployment unit interface.
+ * Knows how to obtain a 32-bit nodeId needed for transactionId generation. Must return the same value for all invocations
+ * run in the same Ignite instance.
  */
 @FunctionalInterface
-public interface DeploymentUnit {
+public interface NodeIdSupplier {
     /**
-     * Deployment unit content - a map from file name to input stream.
+     * Returns the node ID.
      *
-     * @return Deployment unit content.
+     * @return Node ID.
      */
-    Map<String, InputStream> content();
+    int nodeId();
 }
