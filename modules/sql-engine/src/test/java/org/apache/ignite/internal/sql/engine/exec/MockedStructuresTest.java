@@ -122,10 +122,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
 
-    /** Node name. */
+    /** Zone name. */
     private static final String ZONE_NAME = "zone1";
 
-    /** Node name. */
+    /** Zone id. */
     private static final int ZONE_ID = 1;
 
     /** Empty logical topology snapshot. */

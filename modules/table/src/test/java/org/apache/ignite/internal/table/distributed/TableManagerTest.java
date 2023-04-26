@@ -162,8 +162,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Count of replicas. */
     private static final int REPLICAS = 1;
 
+    /** Zone name. */
     private static final String ZONE_NAME = "zone1";
 
+    /** Zone id. */
     private static final int ZONE_ID = 1;
 
     /** Schema manager. */

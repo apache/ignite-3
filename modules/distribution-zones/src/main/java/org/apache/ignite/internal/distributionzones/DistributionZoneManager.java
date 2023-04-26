@@ -259,6 +259,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
+     * @param registry Registry for versioned values.
+     * @param nodeName Node name.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
@@ -883,15 +885,17 @@ public class DistributionZoneManager implements IgniteComponent {
 
             saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), logicalTopology);
 
-            zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
+            return zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
                 HashSet<Integer> newZones = new HashSet<>(zones);
 
                 newZones.add(zoneId);
 
                 return completedFuture(newZones);
             });
-
-            return completedFuture(null);
         }
 
         @Override
@@ -907,16 +911,17 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneState.scaleUpRevisionTracker.update(Long.MAX_VALUE);
             zoneState.scaleDownRevisionTracker.update(Long.MAX_VALUE);
 
-            zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
+            return zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
                 HashSet<Integer> newZones = new HashSet<>(zones);
 
                 newZones.remove(zoneId);
 
                 return completedFuture(newZones);
             });
-
-
-            return completedFuture(null);
         }
     }
 
@@ -1683,12 +1688,12 @@ public class DistributionZoneManager implements IgniteComponent {
     @Nullable
     private Integer directZoneIdInternal(String zoneName) {
         try {
-            DistributionZoneConfiguration exZoneCfg = directProxy(zonesConfiguration.distributionZones()).get(zoneName);
+            DistributionZoneConfiguration zoneCfg = directProxy(zonesConfiguration.distributionZones()).get(zoneName);
 
-            if (exZoneCfg == null) {
+            if (zoneCfg == null) {
                 return null;
             } else {
-                return exZoneCfg.zoneId().value();
+                return zoneCfg.zoneId().value();
             }
         } catch (NoSuchElementException e) {
             return null;
