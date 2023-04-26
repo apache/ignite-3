@@ -93,7 +93,7 @@ public class ClusterServiceTestUtils {
     public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder, StaleIds staleIds) {
         String nodeName = testNodeName(testInfo, port);
 
-        return clusterService(nodeName, port, nodeFinder);
+        return clusterService(nodeName, port, nodeFinder, staleIds);
     }
 
     /**
@@ -105,6 +105,19 @@ public class ClusterServiceTestUtils {
      * @return Cluster service instance.
      */
     public static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder) {
+        return clusterService(nodeName, port, nodeFinder, new InMemoryStaleIds());
+    }
+
+    /**
+     * Creates a cluster service with predefined name.
+     *
+     * @param nodeName Node name.
+     * @param port Local port.
+     * @param nodeFinder Node finder.
+     * @param staleIds Used to track stale launch IDs.
+     * @return Cluster service instance.
+     */
+    private static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder, StaleIds staleIds) {
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
                 Set.of(),
