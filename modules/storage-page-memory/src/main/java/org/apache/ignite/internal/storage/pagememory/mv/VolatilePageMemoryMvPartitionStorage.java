@@ -103,17 +103,18 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         } else {
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-                    LocalLocker locker0 = new LocalLocker(lockByRowId);
 
-                    THREAD_LOCAL_LOCKER.set(locker0);
+                LocalLocker locker0 = new LocalLocker(lockByRowId);
 
-                    try {
-                        return closure.execute(locker0);
-                    } finally {
-                        THREAD_LOCAL_LOCKER.set(null);
+                THREAD_LOCAL_LOCKER.set(locker0);
 
-                        locker0.unlockAll();
-                    }
+                try {
+                    return closure.execute(locker0);
+                } finally {
+                    THREAD_LOCAL_LOCKER.set(null);
+
+                    locker0.unlockAll();
+                }
             });
         }
     }
