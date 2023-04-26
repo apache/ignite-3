@@ -86,7 +86,6 @@ public class SchemaSyncTest : IgniteTestsBase
     [Test]
     public async Task TestBackgroundSchemaUpdateOnAllOperations()
     {
-        // TODO: All operations.
         await Test(async (view, tuple) => await view.GetAsync(null, tuple));
         await Test(async (view, tuple) => await view.ContainsKeyAsync(null, tuple));
         await Test(async (view, tuple) => await view.GetAllAsync(null, new[] { tuple }));
@@ -97,7 +96,12 @@ public class SchemaSyncTest : IgniteTestsBase
         await Test(async (view, tuple) => await view.InsertAllAsync(null, new[] { tuple }));
         await Test(async (view, tuple) => await view.ReplaceAsync(null, tuple));
         await Test(async (view, tuple) => await view.ReplaceAsync(null, tuple, tuple));
+        await Test(async (view, tuple) => await view.GetAndReplaceAsync(null, tuple));
         await Test(async (view, tuple) => await view.DeleteAsync(null, tuple));
+        await Test(async (view, tuple) => await view.DeleteExactAsync(null, tuple));
+        await Test(async (view, tuple) => await view.GetAndDeleteAsync(null, tuple));
+        await Test(async (view, tuple) => await view.DeleteAllAsync(null, new[] { tuple }));
+        await Test(async (view, tuple) => await view.DeleteAllExactAsync(null, new[] { tuple }));
 
         async Task Test(Func<IRecordView<IIgniteTuple>, IIgniteTuple, Task> action) =>
             await TestSchemaUpdate(
