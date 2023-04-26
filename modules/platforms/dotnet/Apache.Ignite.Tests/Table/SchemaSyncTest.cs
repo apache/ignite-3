@@ -86,11 +86,12 @@ public class SchemaSyncTest : IgniteTestsBase
     [Test]
     public async Task TestBackgroundSchemaUpdateOnAllOperations()
     {
+        // TODO: All operations.
         await Test(async (view, tuple) => await view.GetAsync(null, tuple));
         await Test(async (view, tuple) => await view.UpsertAsync(null, tuple));
+        await Test(async (view, tuple) => await view.DeleteAsync(null, tuple));
 
-        async Task Test(Func<IRecordView<IIgniteTuple>, IIgniteTuple, Task> action)
-        {
+        async Task Test(Func<IRecordView<IIgniteTuple>, IIgniteTuple, Task> action) =>
             await TestSchemaUpdate(
                 async view => await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 }),
                 async view =>
@@ -103,7 +104,6 @@ public class SchemaSyncTest : IgniteTestsBase
 
                     TestUtils.WaitForCondition(() => schemas.ContainsKey(2), 1000, () => string.Join(", ", schemas.Keys));
                 });
-        }
     }
 
     private async Task TestSchemaUpdate(
@@ -126,6 +126,7 @@ public class SchemaSyncTest : IgniteTestsBase
 
     private async Task CreateTempTable()
     {
+        await DropTempTable();
         _tempTableName = $"{nameof(SchemaSyncTest)}_{Interlocked.Increment(ref _tempTableId)}";
 
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {_tempTableName} (id int primary key, val int)");
