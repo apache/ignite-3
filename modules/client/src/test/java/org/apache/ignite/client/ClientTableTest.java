@@ -127,8 +127,6 @@ public class ClientTableTest extends AbstractClientTableTest {
             assertEquals(2, tuple.columnCount());
             assertEquals(3, resTuple.columnCount());
 
-            Tuple.create().set("key", 1).set("NEWCOL", 100);
-
             assertEquals(-1, tuple.columnIndex("XYZ"));
             assertEquals(2, resTuple.columnIndex("XYZ"));
 
