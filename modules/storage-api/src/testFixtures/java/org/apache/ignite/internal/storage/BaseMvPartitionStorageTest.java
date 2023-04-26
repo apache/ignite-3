@@ -193,7 +193,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     }
 
     protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        //TODO Remove? Fix?
+        //TODO IGNITE-19367 Remove or replace with some other method.
         return storage.pollForVacuum(lowWatermark);
     }
 }

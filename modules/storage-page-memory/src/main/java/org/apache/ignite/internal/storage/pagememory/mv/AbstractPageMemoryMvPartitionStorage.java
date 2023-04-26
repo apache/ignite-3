@@ -87,8 +87,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>A few words about parallel operations with version chains:
  * <ul>
- *     <li>All update operations (including creation) must first be synchronized by row ID using
- *     {@link #inUpdateVersionChainLock(RowId, Supplier)};</li>
  *     <li>Reads and updates of version chains (or a single version) must be synchronized by the {@link #versionChainTree}, for example for
  *     reading you can use {@link #findVersionChain(RowId, Function)} or
  *     {@link AbstractPartitionTimestampCursor#createVersionChainCursorIfMissing()}, and for updates you can use {@link InvokeClosure}
@@ -101,6 +99,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
     static final Predicate<HybridTimestamp> DONT_LOAD_VALUE = timestamp -> false;
+
+    /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
+    protected static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     protected final int partitionId;
 
@@ -132,8 +133,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /** Version chain update lock by row ID. */
     protected final LockByRowId lockByRowId = new LockByRowId();
-
-    protected static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     /**
      * Constructor.
@@ -319,7 +318,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private static boolean rowIsLocked(RowId rowId) {
+    /**
+     * Checks if current thread holds a lock on passed row ID.
+     */
+    public static boolean rowIsLocked(RowId rowId) {
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         return locker != null && locker.isLocked(rowId);

@@ -137,31 +137,31 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
-            LocalLocker locker = THREAD_LOCAL_LOCKER.get();
+        if (locker != null) {
+            return closure.execute(locker);
+        } else {
+            return busy(() -> {
+                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            if (locker != null) {
-                return closure.execute(locker);
-            } else {
-                locker = new LocalLocker(lockByRowId);
+                LocalLocker locker0 = new LocalLocker(lockByRowId);
 
                 checkpointTimeoutLock.checkpointReadLock();
 
-                THREAD_LOCAL_LOCKER.set(locker);
+                THREAD_LOCAL_LOCKER.set(locker0);
 
                 try {
-                    return closure.execute(locker);
+                    return closure.execute(locker0);
                 } finally {
                     THREAD_LOCAL_LOCKER.set(null);
 
-                    locker.unlockAll();
+                    locker0.unlockAll();
 
                     checkpointTimeoutLock.checkpointReadUnlock();
                 }
-            }
-        });
+            });
+        }
     }
 
     @Override

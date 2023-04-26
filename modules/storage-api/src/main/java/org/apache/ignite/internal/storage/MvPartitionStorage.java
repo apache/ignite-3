@@ -48,7 +48,12 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long REBALANCE_IN_PROGRESS = -1;
 
     /**
-     * Closure for executing write operations on the storage.
+     * Closure for executing write operations on the storage. All write operations, such as
+     * {@link #addWrite(RowId, BinaryRow, UUID, UUID, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
+     * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
+     * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)} must hold lock on
+     * corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
+     * result.
      *
      * @param <V> Type of the result returned from the closure.
      */
@@ -64,8 +69,19 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     @SuppressWarnings("PublicInnerClass")
     interface Locker {
+        /**
+         * Locks passed row ID until the {@link WriteClosure#execute(Locker)} is completed.
+         *
+         * @param rowId Row ID to lock.
+         */
         void lock(RowId rowId);
 
+        /**
+         * Tries to lock passed row ID. If successful, lock will be released when the {@link WriteClosure#execute(Locker)} is completed.
+         *
+         * @param rowId Row ID to lock.
+         * @return {@code true} if row ID has been locked successfully, or the lock has already been held by current thread.
+         */
         boolean tryLock(RowId rowId);
     }
 
@@ -257,7 +273,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *      {@code null} if there's no such value.
      * @throws StorageException If failed to poll element for vacuum.
      */
-    //TODO Move to tests.
+    //TODO IGNITE-19367 Remove this method and replace its usages with proper batch removes.
     @Deprecated
     default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         while (true) {
@@ -268,9 +284,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
                     return null;
                 }
 
-                if (!locker.tryLock(gcEntry.getRowId())) {
-                    return new BinaryRowAndRowId(null, gcEntry.getRowId());
-                }
+                locker.lock(gcEntry.getRowId());
 
                 return new BinaryRowAndRowId(vacuum(gcEntry), gcEntry.getRowId());
             });

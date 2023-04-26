@@ -281,7 +281,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                savePendingLastApplied(helper.requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
+                savePendingLastApplied(PartitionDataHelper.requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
 
                 return null;
             } catch (RocksDBException e) {
@@ -320,7 +320,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                saveGroupConfiguration(helper.requireWriteBatch(), config);
+                saveGroupConfiguration(PartitionDataHelper.requireWriteBatch(), config);
 
                 return null;
             } catch (RocksDBException e) {
@@ -404,7 +404,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         return busy(() -> {
-            @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = helper.requireWriteBatch();
+            @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
             assert rowIsLocked(rowId);
 
@@ -462,7 +462,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     private void writeUnversioned(byte[] keyArray, BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws RocksDBException {
-        @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = helper.requireWriteBatch();
+        @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
         byte[] rowBytes = rowBytes(row);
 
@@ -489,7 +489,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = helper.requireWriteBatch();
+            @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
             assert rowIsLocked(rowId);
 
@@ -524,7 +524,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         busy(() -> {
-            WriteBatchWithIndex writeBatch = helper.requireWriteBatch();
+            WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
             assert rowIsLocked(rowId);
 
@@ -572,7 +572,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         busy(() -> {
-            WriteBatchWithIndex writeBatch = helper.requireWriteBatch();
+            WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
             assert rowIsLocked(rowId);
 
@@ -1009,7 +1009,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
         //noinspection resource
-        helper.requireWriteBatch();
+        PartitionDataHelper.requireWriteBatch();
 
         // No busy lock required, we're already in "runConsistently" closure.
         throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
@@ -1019,7 +1019,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable BinaryRow vacuum(GcEntry entry) {
-        WriteBatchWithIndex batch = helper.requireWriteBatch();
+        WriteBatchWithIndex batch = PartitionDataHelper.requireWriteBatch();
 
         // No busy lock required, we're already in "runConsistently" closure.
         throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);

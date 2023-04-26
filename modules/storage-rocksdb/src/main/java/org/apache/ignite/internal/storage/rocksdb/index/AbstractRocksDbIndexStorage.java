@@ -80,7 +80,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            WriteBatchWithIndex writeBatch = helper.requireWriteBatch();
+            WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
             indexMetaStorage.putNextRowIdToBuilt(writeBatch, indexId, helper.partitionId(), rowId);
 

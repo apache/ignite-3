@@ -69,34 +69,30 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
             return hasNext;
         }
 
-        return storage.busy(() -> {
-            storage.throwExceptionIfStorageNotInRunnableState();
+        assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
 
-            hasNext = (nextLink != NULL_LINK);
+        hasNext = (nextLink != NULL_LINK);
 
-            if (hasNext) {
-                currentRowVersion = storage.readRowVersion(nextLink, ALWAYS_LOAD_VALUE);
+        if (hasNext) {
+            currentRowVersion = storage.readRowVersion(nextLink, ALWAYS_LOAD_VALUE);
 
-                nextLink = currentRowVersion.nextLink();
-            }
+            nextLink = currentRowVersion.nextLink();
+        }
 
-            return hasNext;
-        });
+        return hasNext;
     }
 
     @Override
     public ReadResult next() {
-        return storage.busy(() -> {
-            storage.throwExceptionIfStorageNotInRunnableState();
+        assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
 
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
 
-            hasNext = null;
+        hasNext = null;
 
-            return rowVersionToReadResult(currentRowVersion);
-        });
+        return rowVersionToReadResult(currentRowVersion);
     }
 
     private ReadResult rowVersionToReadResult(RowVersion rowVersion) {
