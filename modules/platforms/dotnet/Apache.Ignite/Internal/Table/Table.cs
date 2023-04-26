@@ -173,6 +173,8 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="ver">Schema version.</param>
         internal void LoadSchemaInBackground(int ver)
         {
+            // TODO IGNITE-18733: Background schema synchronization means that data can be lost if we do
+            // an upsert via Table API after ALTER TABLE.
             if (!_schemas.ContainsKey(ver))
             {
                 _ = LoadSchemaAsync(ver);

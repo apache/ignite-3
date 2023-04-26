@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NUnit.Framework;
@@ -64,11 +65,13 @@ public class SchemaSyncTest : IgniteTestsBase
             },
             async view =>
             {
-                // TODO: Wait for schema to be loaded in the background, then check the value.
-                // TODO: This is not good! As a user, I want to be able to use new schema right after ALTER TABLE!!!
-                // Same problem exists in Java. File tickets, think how to mitigate.
-                // What about server-side API, does it guarantee new schema availability right after ALTER TABLE?
+                // TODO IGNITE-18733: Schema is synchronized in background, so we don't update the new column on first Upsert.
                 await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
+                Assert.IsNull(await ExecuteSingleAsync<int?>("select val2 from " + TempTableName));
+
+                // Second Upsert uses updated schema.
+                await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
+                Assert.AreEqual(4, await ExecuteSingleAsync<int?>("select val2 from " + TempTableName));
             });
 
     private async Task TestSchemaUpdate(
@@ -93,5 +96,12 @@ public class SchemaSyncTest : IgniteTestsBase
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE IF NOT EXISTS {TempTableName} (id int primary key, val int)");
         await Client.Sql.ExecuteAsync(null, $"INSERT INTO {TempTableName} (id, val) VALUES (1, 1)");
+    }
+
+    private async Task<T> ExecuteSingleAsync<T>(string sql)
+    {
+        var cursor = await Client.Sql.ExecuteAsync<T>(null, sql);
+
+        return await cursor.SingleAsync();
     }
 }
