@@ -31,8 +31,10 @@ import org.apache.calcite.rel.hint.RelHint;
  * Enumeration of supported SQL hints together with help methods.
  */
 public enum Hints {
-    ENFORCE_JOIN_ORDER,
+    //Only for test purpose!!! No any product use and not available for user
     DISABLE_RULE(true),
+    //Disable commute joins and keeps the join order defined by the user in a query
+    ENFORCE_JOIN_ORDER,
     EXPAND_DISTINCT_AGG;
 
     private boolean paramSupport;
