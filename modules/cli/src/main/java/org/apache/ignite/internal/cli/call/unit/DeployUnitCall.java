@@ -21,7 +21,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import okhttp3.Call;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -33,7 +39,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
-import org.apache.ignite.rest.client.api.DeploymentApi;
+import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /** Call to deploy a unit. */
@@ -53,36 +59,42 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
     @Override
     public CompletableFuture<CallOutput<String>> execute(DeployUnitCallInput input) {
-        try {
-            DeploymentApi api = new DeploymentApi(clientFactory.getClient(input.clusterUrl()));
+        ApiClient apiClient = clientFactory.getClient(input.clusterUrl());
+        DeployUnitClient api = new DeployUnitClient(apiClient);
 
-            File file = input.path().toFile();
-            if (!file.exists()) {
-                return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(input.path().toString())));
-            }
-
-            TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
-            String ver = input.version() == null ? "" : input.version();
-            Call call = api.deployUnitAsync(input.id(), file, ver, callback);
-
-            return CompletableFuture.supplyAsync(() -> {
-                try {
-                    callback.awaitDone();
-                } catch (InterruptedException e) {
-                    return DefaultCallOutput.failure(e);
-                }
-                if (call.isCanceled()) {
-                    return DefaultCallOutput.failure(new RuntimeException("Unit deployment process was canceled"));
-                } else if (callback.exception() != null) {
-                    return handleException(callback.exception(), input);
-                } else {
-                    unitsRegistry.refresh();
-                    return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());
-                }
-            });
-        } catch (ApiException e) {
-            return completedFuture(DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl())));
+        Path path = input.path();
+        if (Files.notExists(path)) {
+            return completedFuture(DefaultCallOutput.failure(new FileNotFoundException(path.toString())));
         }
+        List<File> files;
+        try (Stream<Path> stream = Files.walk(path, 1)) {
+            files = stream
+                    .filter(Files::isRegularFile)
+                    .map(Path::toFile)
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            return completedFuture(DefaultCallOutput.failure(e));
+        }
+
+        TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
+        String ver = input.version() == null ? "" : input.version();
+        Call call = api.deployUnitAsync(input.id(), files, ver, callback);
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                callback.awaitDone();
+            } catch (InterruptedException e) {
+                return DefaultCallOutput.failure(e);
+            }
+            if (call.isCanceled()) {
+                return DefaultCallOutput.failure(new RuntimeException("Unit deployment process was canceled"));
+            } else if (callback.exception() != null) {
+                return handleException(callback.exception(), input);
+            } else {
+                unitsRegistry.refresh();
+                return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());
+            }
+        });
     }
 
     private static CallOutput<String> handleException(Exception exception, DeployUnitCallInput input) {
