@@ -67,6 +67,7 @@ public class SchemaSyncTest : IgniteTestsBase
                 // TODO: Wait for schema to be loaded in the background, then check the value.
                 // TODO: This is not good! As a user, I want to be able to use new schema right after ALTER TABLE!!!
                 // Same problem exists in Java. File tickets, think how to mitigate.
+                // What about server-side API, does it guarantee new schema availability right after ALTER TABLE?
                 await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1, ["val2"] = 4 });
             });
 
