@@ -28,7 +28,7 @@ using Transactions;
 /// </summary>
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
-public interface IKeyValueView<TK, TV>
+public interface IKeyValueView<TK, TV> : IStreamerTarget<KeyValuePair<TK, TV>>
     where TK : notnull
     where TV : notnull
 {
