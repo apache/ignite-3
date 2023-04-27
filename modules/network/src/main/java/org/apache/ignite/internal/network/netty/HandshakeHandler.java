@@ -67,7 +67,13 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        manager.onConnectionOpen();
+        try {
+            manager.onConnectionOpen();
+        } catch (RuntimeException e) {
+            LOG.error("Error in onConnectionOpen()", e);
+
+            throw e;
+        }
 
         manager.handshakeFuture().whenComplete((unused, throwable) -> {
             if (throwable != null) {
