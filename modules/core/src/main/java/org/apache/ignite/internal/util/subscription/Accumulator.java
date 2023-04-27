@@ -15,22 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.util.subscription;
 
-import org.apache.ignite.internal.metastorage.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Subscriber;
 
 /**
  * Values accumulator. Implementation should NOT be thead-safe.
  *
+ * @param <T> The subscribed item type.
  * @param <R> Result value type.
  */
-public interface Accumulator<R> {
+public interface Accumulator<T, R> {
     /**
      * Accumulate provided value.
      *
-     * @param item Item from metastore.
+     * @param item Subscribed item.
      */
-    void accumulate(Entry item);
+    void accumulate(T item);
 
     /**
      * Returns all accumulated values transformed to required type.
@@ -39,4 +41,14 @@ public interface Accumulator<R> {
      * @throws AccumulateException in case when accumulation or transformation failed.
      */
     R get() throws AccumulateException;
+
+    /**
+     * Transform accumulator to {@link Subscriber}.
+     *
+     * @param future Result future.
+     * @return {@link Subscriber} instance with accumulation logic.
+     */
+    default Subscriber<T> toSubscriber(CompletableFuture<R> future) {
+        return new AccumulatorSubscriber<>(future, this);
+    }
 }
