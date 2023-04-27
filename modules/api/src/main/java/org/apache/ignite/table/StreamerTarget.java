@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 public interface StreamerTarget<R> {
     // TODO: Can we have async producer AND async consumer? Like IAsyncEnumerable in .NET?
     // What if I want to have multiple producers threads on the client - it is not possible with Stream?
-    CompletableFuture<Void> streamData(Stream<R> data); // Sync producer, async consumer
+    CompletableFuture<Void> streamData(Stream<R> data, DataStreamerOptions options); // Sync producer, async consumer
 
     /**
      * Stream data to the cluster with a receiver.
@@ -40,5 +40,6 @@ public interface StreamerTarget<R> {
      * @return Future that will be completed when the stream is finished.
      * @param <T> Entry type.
      */
-    <T> CompletableFuture<Void> streamData(Stream<T> data, Function<T, R> keyAccessor, StreamReceiver<T> receiver);
+    <T> CompletableFuture<Void> streamData(
+            Stream<T> data, Function<T, R> keyAccessor, StreamReceiver<T> receiver, DataStreamerOptions options);
 }
