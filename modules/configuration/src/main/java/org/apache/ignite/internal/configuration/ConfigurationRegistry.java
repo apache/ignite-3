@@ -18,24 +18,13 @@
 package org.apache.ignite.internal.configuration;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
-import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -53,13 +42,11 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -96,8 +83,11 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /** Configuration generator. */
-    private final ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
+    /** Runtime implementations generator for node classes. */
+    private final ConfigurationTreeGenerator generator;
+
+    /** Flag that indicates if the {@link ConfigurationTreeGenerator} instance is owned by this object or not. */
+    private boolean ownConfigTreeGenerator = false;
 
     /** Configuration storage revision change listeners. */
     private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
@@ -122,13 +112,34 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
+        this(
+                rootKeys,
+                validators,
+                storage,
+                new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions)
+        );
+
+        this.ownConfigTreeGenerator = true;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param rootKeys                    Configuration root keys.
+     * @param validators                  Validators.
+     * @param storage                     Configuration storage.
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
+     *                                  extensions are not valid.
+     */
+    public ConfigurationRegistry(
+            Collection<RootKey<?, ?>> rootKeys,
+            Set<Validator<?, ?>> validators,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator
+    ) {
+        this.generator = generator;
+
         checkConfigurationType(rootKeys, storage);
-
-        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
-
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
-
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
 
         this.rootKeys = rootKeys;
 
@@ -143,37 +154,15 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, validators0, storage) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
-                return cgen.instantiateNode(rootKey.schemaClass());
+                return generator.instantiateNode(rootKey.schemaClass());
             }
         };
 
         rootKeys.forEach(rootKey -> {
-            cgen.compileRootSchema(rootKey.schemaClass(), internalExtensions, polymorphicExtensions);
-
-            DynamicConfiguration<?, ?> cfg = cgen.instantiateCfg(rootKey, changer);
+            DynamicConfiguration<?, ?> cfg = generator.instantiateCfg(rootKey, changer);
 
             configs.put(rootKey.key(), cfg);
         });
-    }
-
-    /**
-     * Collects all schemas and subschemas (recursively) from root keys, internal and polymorphic schema extensions.
-     *
-     * @param rootKeys                    root keys
-     * @param internalSchemaExtensions    internal schema extensions
-     * @param polymorphicSchemaExtensions polymorphic schema extensions
-     * @return set of all schema classes
-     */
-    private static Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions) {
-        Set<Class<?>> allSchemas = new HashSet<>();
-
-        allSchemas.addAll(collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass)));
-        allSchemas.addAll(collectSchemas(internalSchemaExtensions));
-        allSchemas.addAll(collectSchemas(polymorphicSchemaExtensions));
-
-        return allSchemas;
     }
 
     /**
@@ -204,6 +193,10 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         changer.stop();
 
         storageRevisionListeners.clear();
+
+        if (ownConfigTreeGenerator) {
+            generator.close();
+        }
     }
 
     /**
@@ -385,114 +378,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public CompletableFuture<Void> notifyCurrentConfigurationListeners() {
         return changer.notifyCurrentConfigurationListeners();
-    }
-
-    /**
-     * Get configuration schemas and their validated internal extensions with checks.
-     *
-     * @param allSchemas               All configuration schemas.
-     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                 ConfigurationRoot} and {@link Config}).
-     * @return Mapping: original of the schema -> internal schema extensions.
-     * @throws IllegalArgumentException If the schema extension is invalid.
-     */
-    private Map<Class<?>, Set<Class<?>>> internalExtensionsWithCheck(
-            Set<Class<?>> allSchemas,
-            Collection<Class<?>> internalSchemaExtensions
-    ) {
-        if (internalSchemaExtensions.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
-
-        Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
-
-        if (!notInAllSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Internal extensions for which no parent configuration schemas were found: " + notInAllSchemas
-            );
-        }
-
-        return internalExtensions;
-    }
-
-    /**
-     * Get polymorphic extensions of configuration schemas with checks.
-     *
-     * @param allSchemas                  All configuration schemas.
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
-     * @return Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
-     * @throws IllegalArgumentException If the schema extension is invalid.
-     */
-    private Map<Class<?>, Set<Class<?>>> polymorphicExtensionsWithCheck(
-            Set<Class<?>> allSchemas,
-            Collection<Class<?>> polymorphicSchemaExtensions
-    ) {
-        Map<Class<?>, Set<Class<?>>> polymorphicExtensionsByParent = polymorphicSchemaExtensions(polymorphicSchemaExtensions);
-
-        Set<Class<?>> notInAllSchemas = difference(polymorphicExtensionsByParent.keySet(), allSchemas);
-
-        if (!notInAllSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Polymorphic extensions for which no polymorphic configuration schemas were found: " + notInAllSchemas
-            );
-        }
-
-        Collection<Class<?>> noPolymorphicExtensionsSchemas = allSchemas.stream()
-                .filter(ConfigurationUtil::isPolymorphicConfig)
-                .filter(not(polymorphicExtensionsByParent::containsKey))
-                .collect(toList());
-
-        if (!noPolymorphicExtensionsSchemas.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Polymorphic configuration schemas for which no extensions were found: " + noPolymorphicExtensionsSchemas
-            );
-        }
-
-        checkPolymorphicConfigIds(polymorphicExtensionsByParent);
-
-        for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensionsByParent.entrySet()) {
-            Class<?> schemaClass = e.getKey();
-
-            Field typeIdField = schemaFields(schemaClass).get(0);
-
-            if (!isPolymorphicId(typeIdField)) {
-                throw new IllegalArgumentException(String.format(
-                        "First field in a polymorphic configuration schema must contain @%s: %s",
-                        PolymorphicId.class,
-                        schemaClass.getName()
-                ));
-            }
-        }
-
-        return polymorphicExtensionsByParent;
-    }
-
-    /**
-     * Checks that there are no conflicts between ids of a polymorphic configuration and its extensions (instances).
-     *
-     * @param polymorphicExtensions Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
-     * @throws IllegalArgumentException If a polymorphic configuration id conflict is found.
-     * @see PolymorphicConfigInstance#value
-     */
-    private void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
-        // Mapping: id -> configuration schema.
-        Map<String, Class<?>> ids = new HashMap<>();
-
-        for (Map.Entry<Class<?>, Set<Class<?>>> e : polymorphicExtensions.entrySet()) {
-            for (Class<?> schemaClass : e.getValue()) {
-                String id = polymorphicInstanceId(schemaClass);
-                Class<?> prev = ids.put(id, schemaClass);
-
-                if (prev != null) {
-                    throw new IllegalArgumentException("Found an id conflict for a polymorphic configuration [id="
-                            + id + ", schemas=" + List.of(prev, schemaClass));
-                }
-            }
-
-            ids.clear();
-        }
     }
 
     private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision, long notificationNumber) {

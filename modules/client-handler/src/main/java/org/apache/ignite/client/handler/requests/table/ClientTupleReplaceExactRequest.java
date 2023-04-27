@@ -54,6 +54,9 @@ public class ClientTupleReplaceExactRequest {
         var oldTuple = readTuple(in, false, schema);
         var newTuple = readTuple(in, false, schema);
 
-        return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(out::packBoolean);
+        return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
+            out.packInt(table.schemaView().lastSchemaVersion());
+            out.packBoolean(res);
+        });
     }
 }

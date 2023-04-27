@@ -41,7 +41,9 @@ set(SOURCES
 )
 
 set(PUBLIC_HEADERS
+    basic_authenticator.h
     ignite_client.h
+    ignite_client_authenticator.h
     ignite_client_configuration.h
     ignite_logger.h
     primitive.h

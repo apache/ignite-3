@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -316,7 +315,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
             var schemaColumn = new ClientColumn(
                     metaColumn.name(),
-                    ClientColumnTypeConverter.sqlColumnTypeToOrdinal(metaColumn.type()),
+                    metaColumn.type(),
                     metaColumn.nullable(),
                     true,
                     false,

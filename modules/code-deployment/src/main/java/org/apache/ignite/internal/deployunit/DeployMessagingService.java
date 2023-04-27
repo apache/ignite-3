@@ -112,13 +112,11 @@ public class DeployMessagingService {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @param unitName Deployment unit file name.
-     * @param unitContent Deployment unit file content.
+     * @param unitContent Deployment unit file names and content.
      * @return Future with deployment result.
      */
-    public CompletableFuture<List<String>> startDeployAsyncToCmg(String id, Version version, String unitName, byte[] unitContent) {
+    public CompletableFuture<List<String>> startDeployAsyncToCmg(String id, Version version, Map<String, byte[]> unitContent) {
         DeployUnitRequest request = DeployUnitRequestImpl.builder()
-                .unitName(unitName)
                 .id(id)
                 .version(version.render())
                 .unitContent(unitContent)
@@ -214,7 +212,7 @@ public class DeployMessagingService {
         String id = executeRequest.id();
         String version = executeRequest.version();
         tracker.track(id, Version.parseVersion(version),
-                deployerService.deploy(id, version, executeRequest.unitName(), executeRequest.unitContent())
+                deployerService.deploy(id, version, executeRequest.unitContent())
                         .thenCompose(success -> clusterService.messagingService().respond(
                                 senderConsistentId,
                                 DEPLOYMENT_CHANNEL,

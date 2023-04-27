@@ -19,8 +19,6 @@ package org.apache.ignite.internal.rest.deployment;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +31,7 @@ import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
+import org.reactivestreams.Publisher;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -46,16 +45,10 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, CompletedFileUpload unitContent) {
-        try {
-            DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
-            if (unitVersion == null || unitVersion.isBlank()) {
-                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
-            }
-            return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
-        } catch (IOException e) {
-            return CompletableFuture.failedFuture(e);
-        }
+    public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
+        CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
+        unitContent.subscribe(new CompletedFileUploadSubscriber(result));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit));
     }
 
     @Override
@@ -92,22 +85,6 @@ public class DeploymentManagementController implements DeploymentCodeApi {
                         .collect(Collectors.toList()));
     }
 
-    private static DeploymentUnit toDeploymentUnit(CompletedFileUpload unitContent) throws IOException {
-        String fileName = unitContent.getFilename();
-        InputStream is = unitContent.getInputStream();
-        return new DeploymentUnit() {
-            @Override
-            public String name() {
-                return fileName;
-            }
-
-            @Override
-            public InputStream content() {
-                return is;
-            }
-        };
-    }
-
     /**
      * Mapper method.
      *
@@ -122,5 +99,12 @@ public class DeploymentManagementController implements DeploymentCodeApi {
             versionToDeploymentStatus.put(version.render(), info);
         }
         return new UnitStatus(status.id(), versionToDeploymentStatus);
+    }
+
+    private static Version parseVersion(String unitVersion) {
+        if (unitVersion == null || unitVersion.isBlank()) {
+            return Version.LATEST;
+        }
+        return Version.parseVersion(unitVersion);
     }
 }

@@ -70,7 +70,7 @@ public class ConnectionTest extends AbstractClientTest {
         testConnection("127.0.0.1:47500", "127.0.0.1:10801", "127.0.0.1:" + serverPort);
     }
 
-    @Disabled("IPv6 is not enabled by default on some systems.")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15611 . IPv6 is not enabled by default on some systems.")
     @Test
     public void testIpv6NodeAddresses() throws Exception {
         testConnection("[::1]:" + serverPort);

@@ -76,6 +76,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -141,6 +142,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -582,6 +584,8 @@ public class ItRebalanceDistributedTest {
 
         private List<IgniteComponent> nodeComponents;
 
+        private final ConfigurationTreeGenerator generator;
+
         private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
                 = new ConcurrentHashMap<>();
 
@@ -599,15 +603,18 @@ public class ItRebalanceDistributedTest {
 
             vaultManager = createVault(name, dir);
 
+            generator = new ConfigurationTreeGenerator(
+                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
+            );
+
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     Set.of(),
-                    new LocalFileConfigurationStorage(configPath),
-                    List.of(),
-                    List.of()
+                    new LocalFileConfigurationStorage(configPath, generator),
+                    generator
             );
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -633,7 +640,7 @@ public class ItRebalanceDistributedTest {
                     hybridClock
             );
 
-            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
+            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -851,6 +858,8 @@ public class ItRebalanceDistributedTest {
                 }
             });
 
+
+            generator.close();
         }
 
         NetworkAddress address() {

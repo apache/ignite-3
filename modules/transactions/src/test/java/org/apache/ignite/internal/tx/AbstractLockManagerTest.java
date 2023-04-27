@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +65,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testSingleKeyWrite() {
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -84,9 +85,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteLock() throws LockException {
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyWriteLock() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -117,10 +118,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void downgradeLockOutOfTurnTest() throws Exception {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void downgradeLockOutOfTurnTest() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -143,10 +144,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void upgradeLockImmediatelyTest() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void upgradeLockImmediatelyTest() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -166,11 +167,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteLock() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
-        UUID txId3 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyReadWriteLock() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        UUID txId3 = TestTransactionIds.newTransactionId();
         assertTrue(txId3.compareTo(txId2) > 0);
         assertTrue(txId2.compareTo(txId1) > 0);
         assertTrue(txId1.compareTo(txId0) > 0);
@@ -216,9 +217,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyReadWriteConflict() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         // Lock in order
@@ -249,7 +250,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict2() throws LockException {
+    public void testSingleKeyReadWriteConflict2() {
         UUID[] txId = generate(3);
         LockKey key = new LockKey("test");
 
@@ -270,10 +271,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict3() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyReadWriteConflict3() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         // Lock in order
@@ -295,11 +296,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict4() throws LockException {
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        final UUID txId2 = Timestamp.nextVersion().toUuid();
-        UUID txId3 = Timestamp.nextVersion().toUuid();
-        UUID txId4 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyReadWriteConflict4() {
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        final UUID txId2 = TestTransactionIds.newTransactionId();
+        UUID txId3 = TestTransactionIds.newTransactionId();
+        UUID txId4 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         CompletableFuture<Lock> fut4 = lockManager.acquire(txId4, key, S);
@@ -316,9 +317,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyReadWriteConflict5() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyReadWriteConflict5() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         lockManager.acquire(txId0, key, X).join();
@@ -327,9 +328,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testConflicts() throws Exception {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+    public void testConflicts() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -370,10 +371,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteWriteConflict() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyWriteWriteConflict() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         // Lock in order
@@ -393,10 +394,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSingleKeyWriteWriteConflict2() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void testSingleKeyWriteWriteConflict2() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         // Lock in order
@@ -443,9 +444,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testLockUpgrade() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+    public void testLockUpgrade() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         lockManager.acquire(txId0, key, S).join();
@@ -465,9 +466,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testLockUpgrade2() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+    public void testLockUpgrade2() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         lockManager.acquire(txId0, key, S).join();
@@ -478,10 +479,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testLockUpgrade3() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+    public void testLockUpgrade3() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         lockManager.acquire(txId1, key, S).join();
@@ -500,9 +501,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testLockUpgrade4() throws LockException {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+    public void testLockUpgrade4() {
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         lockManager.acquire(txId0, key, S).join();
@@ -522,7 +523,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testLockUpgrade5() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
+        UUID txId0 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -558,8 +559,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testReenter() throws LockException {
-        UUID txId = Timestamp.nextVersion().toUuid();
+    public void testReenter() {
+        UUID txId = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         CompletableFuture<Lock> fut = lockManager.acquire(txId, key, X);
@@ -589,8 +590,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testAcquireReleasedLock() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -634,8 +635,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testCompatibleLockModes() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId0 = TestTransactionIds.newTransactionId();
+        UUID txId1 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -670,7 +671,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testPossibleDowngradeLockModes() {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
+        UUID txId0 = TestTransactionIds.newTransactionId();
 
         LockKey key = new LockKey("test");
 
@@ -701,7 +702,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testAcquireRelease() {
-        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID txId = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         for (LockMode lockMode : LockMode.values()) {
@@ -716,7 +717,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testAcquireReleaseWhenHoldOther() {
-        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID txId = TestTransactionIds.newTransactionId();
         LockKey key = new LockKey("test");
 
         for (LockMode holdLockMode : LockMode.values()) {
@@ -745,8 +746,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testReleaseThenReleaseWeakerInHierarchy() {
         LockKey key = new LockKey("test");
 
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
 
         var tx1SharedLock = lockManager.acquire(txId2, key, S);
 
@@ -775,8 +776,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testReleaseThenNoReleaseWeakerInHierarchy() {
         LockKey key = new LockKey("test");
 
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
 
         var tx1SharedLock = lockManager.acquire(txId2, key, S);
 
@@ -805,8 +806,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testLockingOverloadAndUpgrade() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
 
         var tx1Lock = lockManager.acquire(tx2, key, X);
 
@@ -830,8 +831,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testLockingOverload() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
 
         var tx1Lock = lockManager.acquire(tx2, key, X);
 
@@ -858,9 +859,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testFailUpgrade() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
-        UUID tx3 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
 
         var tx1Lock = lockManager.acquire(tx1, key, S);
         var tx2Lock = lockManager.acquire(tx2, key, S);
@@ -892,8 +893,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testDowngradeTargetLock() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
 
         var tx1Lock = lockManager.acquire(tx1, key, S);
         var tx2Lock = lockManager.acquire(tx2, key, S);
@@ -921,9 +922,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testFailWait() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
-        UUID tx3 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
 
         var tx3Lock = lockManager.acquire(tx3, key, S);
 
@@ -948,9 +949,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testWaitInOrder() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
-        UUID tx3 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
 
         var tx3IxLock = lockManager.acquire(tx3, key, IX);
         var tx3Lock = lockManager.acquire(tx3, key, S);
@@ -980,9 +981,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testWaitNotInOrder() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
-        UUID tx3 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
 
         var tx3IxLock = lockManager.acquire(tx3, key, IX);
         var tx3Lock = lockManager.acquire(tx3, key, S);
@@ -1012,9 +1013,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     public void testWaitFailNotInOrder() {
         LockKey key = new LockKey("test");
 
-        UUID tx1 = Timestamp.nextVersion().toUuid();
-        UUID tx2 = Timestamp.nextVersion().toUuid();
-        UUID tx3 = Timestamp.nextVersion().toUuid();
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
 
         var tx3IxLock = lockManager.acquire(tx3, key, IX);
         var tx3Lock = lockManager.acquire(tx3, key, S);
@@ -1079,7 +1080,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        UUID txId = Timestamp.nextVersion().toUuid();
+                        UUID txId = TestTransactionIds.newTransactionId();
 
                         if (mode == 0 ? false : mode == 1 ? true : r.nextBoolean()) {
                             Lock lock;
@@ -1149,7 +1150,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID[] tmp = new UUID[num];
 
         for (int i = 0; i < tmp.length; i++) {
-            tmp[i] = Timestamp.nextVersion().toUuid();
+            tmp[i] = TestTransactionIds.newTransactionId();
         }
 
         for (int i = 1; i < tmp.length; i++) {

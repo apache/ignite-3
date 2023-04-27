@@ -18,17 +18,23 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
@@ -122,31 +128,31 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        UnitMeta meta = new UnitMeta(id, version, deploymentUnit.name(), UPLOADING, Collections.emptyList());
-
-        byte[] unitContent;
-        try {
-            unitContent = deploymentUnit.content().readAllBytes();
-        } catch (IOException e) {
-            LOG.error("Error to read deployment unit content", e);
-            return CompletableFuture.failedFuture(new DeploymentUnitReadException(e));
-        }
+        List<String> fileNames = List.copyOf(deploymentUnit.content().keySet());
+        UnitMeta meta = new UnitMeta(id, version, fileNames, UPLOADING, Collections.emptyList());
 
         return metastore.putIfNotExist(id, version, meta)
                 .thenCompose(success -> {
                     if (success) {
-                        return tracker.track(id, version, deployer.deploy(id, version.render(), deploymentUnit.name(), unitContent)
+                        Map<String, byte[]> unitContent;
+                        try {
+                            unitContent = deploymentUnit.content().entrySet().stream()
+                                    .collect(Collectors.toMap(Entry::getKey, entry -> readContent(entry.getValue())));
+                        } catch (DeploymentUnitReadException e) {
+                            return failedFuture(e);
+                        }
+                        return tracker.track(id, version, deployer.deploy(id, version.render(), unitContent)
                                 .thenCompose(deployed -> {
                                     if (deployed) {
                                         return metastore.updateMeta(id, version,
                                                 unitMeta -> unitMeta
                                                         .addConsistentId(clusterService.topologyService().localMember().name()));
                                     }
-                                    return CompletableFuture.completedFuture(false);
+                                    return completedFuture(false);
                                 })
                                 .thenApply(completed -> {
                                     if (completed) {
-                                        messaging.startDeployAsyncToCmg(id, version, deploymentUnit.name(), unitContent)
+                                        messaging.startDeployAsyncToCmg(id, version, unitContent)
                                                 .thenAccept(ids -> metastore.updateMeta(id, version, unitMeta -> {
                                                     for (String consistentId : ids) {
                                                         unitMeta.addConsistentId(consistentId);
@@ -163,7 +169,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
-                        return CompletableFuture.failedFuture(
+                        return failedFuture(
                                 new DeploymentUnitAlreadyExistsException(id,
                                         "Unit " + id + ":" + version + " already exists"));
                     }
@@ -183,13 +189,13 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         //TODO: Check unit usages here. If unit used in compute task we cannot just remove it.
                         return metastore.updateMeta(id, version, true, meta -> meta.updateStatus(REMOVING));
                     }
-                    return CompletableFuture.completedFuture(false);
+                    return completedFuture(false);
                 })
                 .thenCompose(success -> {
                     if (success) {
                         return cmgManager.logicalTopology();
                     }
-                    return CompletableFuture.failedFuture(new DeploymentUnitNotFoundException(
+                    return failedFuture(new DeploymentUnitNotFoundException(
                             "Unit " + id + " with version " + version + " doesn't exist"));
                 }).thenCompose(logicalTopologySnapshot -> allOf(
                         logicalTopologySnapshot.nodes().stream()
@@ -254,6 +260,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
         if (id.isBlank()) {
             throw new IllegalArgumentException("Id is blank");
+        }
+    }
+
+    private static byte[] readContent(InputStream inputStream) {
+        try (inputStream) {
+            return inputStream.readAllBytes();
+        } catch (IOException e) {
+            LOG.error("Error reading deployment unit content", e);
+            throw new DeploymentUnitReadException(e);
         }
     }
 }

@@ -50,6 +50,9 @@ public class ClientTupleDeleteExactRequest {
         var tx = readTx(in, resources);
         var tuple = readTuple(in, table, false);
 
-        return table.recordView().deleteExactAsync(tx, tuple).thenAccept(out::packBoolean);
+        return table.recordView().deleteExactAsync(tx, tuple).thenAccept(res -> {
+            out.packInt(table.schemaView().lastSchemaVersion());
+            out.packBoolean(res);
+        });
     }
 }
