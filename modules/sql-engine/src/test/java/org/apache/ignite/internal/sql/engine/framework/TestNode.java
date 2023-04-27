@@ -120,7 +120,6 @@ public class TestNode implements LifecycleAware {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 rowHandler,
-                exchangeService,
                 ctx -> new LogicalRelImplementor<Object[]>(
                         ctx,
                         new HashFunctionFactoryImpl<>(schemaManager, rowHandler),
