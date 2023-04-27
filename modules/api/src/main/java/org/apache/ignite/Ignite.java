@@ -19,14 +19,18 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.StreamReceiver;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite API entry point.
@@ -84,4 +88,15 @@ public interface Ignite extends AutoCloseable {
      * @return Collection of cluster nodes.
      */
     CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
+
+    /**
+     * Streams data into the cluster with a receiver.
+     *
+     * @param publisher Producer.
+     * @param receiver Stream receiver. Will be invoked on the target node.
+     * @return Future that will be completed when the stream is finished.
+     * @param <T> Entry type.
+     */
+    <T> CompletableFuture<Void> streamData(
+            Flow.Publisher<T> publisher, StreamReceiver<T> receiver, @Nullable DataStreamerOptions options);
 }
