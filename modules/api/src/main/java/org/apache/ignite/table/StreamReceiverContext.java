@@ -17,23 +17,20 @@
 
 package org.apache.ignite.table;
 
-import java.util.function.Function;
-import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 
-/**
- * Stream receiver.
- *
- * <p>See {@link StreamerTarget#streamData(Stream, Function, StreamReceiver, DataStreamerOptions)}.</p>
- *
- * @param <T> Element type.
- */
-@FunctionalInterface
-public interface StreamReceiver<T> {
+public interface StreamReceiverContext {
     /**
-     * Receive a stream of elements.
+     * Get the Ignite instance.
      *
-     * @param stream Stream of elements.
-     * @param context Stream receiver context.
+     * @return Ignite instance.
      */
-    void receive(Stream<T> stream, StreamReceiverContext context);
+    Ignite ignite();
+
+    /**
+     * Get the table that this streamer targets.
+     *
+     * @return Target table.
+     */
+    Table table();
 }
