@@ -36,6 +36,7 @@ public class RaftNodeId {
      * @param peer Peer running a Raft node.
      */
     public RaftNodeId(ReplicationGroupId groupId, Peer peer) {
+        assert !groupId.getClass().getSimpleName().startsWith("Zone");
         this.groupId = groupId;
         this.peer = Objects.requireNonNull(peer);
     }

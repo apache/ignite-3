@@ -810,7 +810,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
 
-                                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+                                        var raftNodeId = new RaftNodeId(tblPartId, serverPeer);
 
                                         try {
                                             // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -848,7 +848,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 startGroupFut
                         .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                             try {
-                                return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
+                                return raftMgr.startRaftGroupService(tblPartId, newConfiguration, raftGroupServiceFactory);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
                             }
@@ -867,9 +867,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         try {
                                             replicaMgr.startReplica(
-                                                    replicaGrpId,
+                                                    tblPartId,
                                                     allOf(
-                                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                                            ((Loza) raftMgr).raftNodeReadyFuture(tblPartId),
                                                             table.pkIndexesReadyFuture()
                                                     ),
                                                     new PartitionReplicaListener(
@@ -2015,6 +2015,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // Assignments of the pending rebalance that we received through the Meta storage watch mechanism.
         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
+        TablePartitionId tablePartitionId = new TablePartitionId(tbl.tableId(), replicaGrpId.partId);
+
         PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
 
         ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
@@ -2033,7 +2035,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
 
         placementDriver.updateAssignment(
-                replicaGrpId,
+                tablePartitionId,
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
 
@@ -2098,7 +2100,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         Peer serverPeer = pendingConfiguration.peer(localMember.name());
 
-                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+                        var raftNodeId = new RaftNodeId(tablePartitionId, serverPeer);
 
                         try {
                             // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -2113,9 +2115,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             UUID tblId = tbl.tableId();
 
                             replicaMgr.startReplica(
-                                    replicaGrpId,
+                                    tablePartitionId,
                                     allOf(
-                                            ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                                            ((Loza) raftMgr).raftNodeReadyFuture(tablePartitionId),
                                             tbl.pkIndexesReadyFuture()
                                     ),
                                     new PartitionReplicaListener(
@@ -2165,7 +2167,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 if (isLocalPeer(leaderWithTerm.leader())) {
                                     LOG.info("Current node={} is the leader of partition raft group={}. "
                                                     + "Initiate rebalance process for partition={}, table={}",
-                                            localMember.address(), replicaGrpId, partId, tbl.name());
+                                            localMember.address(), tablePartitionId, partId, tbl.name());
 
                                     return partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term());
                                 } else {
