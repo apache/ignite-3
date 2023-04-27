@@ -45,6 +45,9 @@ public enum CliConfigKeys {
     /** Default JDBC URL property name. */
     JDBC_URL(Constants.JDBC_URL),
 
+    /** JDBC SSL enabled property name. */
+    JDBC_SSL_ENABLED(Constants.JDBC_SSL_ENABLED),
+
     /** JDBC trust store path property name. */
     JDBC_TRUST_STORE_PATH(Constants.JDBC_TRUST_STORE_PATH),
 
@@ -81,6 +84,7 @@ public enum CliConfigKeys {
                         REST_KEY_STORE_PATH,
                         REST_TRUST_STORE_PASSWORD,
                         REST_TRUST_STORE_PATH,
+                        JDBC_SSL_ENABLED,
                         JDBC_KEY_STORE_PASSWORD,
                         JDBC_KEY_STORE_PATH,
                         JDBC_TRUST_STORE_PASSWORD,
@@ -109,6 +113,8 @@ public enum CliConfigKeys {
         public static final String REST_KEY_STORE_PASSWORD = "ignite.rest.key-store.password";
 
         public static final String JDBC_URL = "ignite.jdbc-url";
+
+        public static final String JDBC_SSL_ENABLED = "ignite.jdbc.ssl-enabled";
 
         public static final String JDBC_TRUST_STORE_PATH = "ignite.jdbc.trust-store.path";
 

@@ -185,13 +185,6 @@ public interface ConnectionProperties {
     void setTrustStorePassword(String password);
 
     /**
-     * Set keystore type. For example, PKSC12 or JKS.
-     *
-     * @param type Truststore type.
-     */
-    void setTrustStoreType(String type);
-
-    /**
      * Trust store path.
      *
      * @return Truststore path.
@@ -204,20 +197,6 @@ public interface ConnectionProperties {
      * @return Truststore password.
      */
     String getTrustStorePassword();
-
-    /**
-     * Truststore type.
-     *
-     * @return Truststore type.
-     */
-    String getTrustStoreType();
-
-    /**
-     * Set keystore type. For example, PKSC12 or JKS.
-     *
-     * @param type Keystore type.
-     */
-    void setKeyStoreType(String type);
 
     /**
      * Set key store path that will be used to setup SSL connection.
@@ -246,13 +225,6 @@ public interface ConnectionProperties {
      * @return Keystore password.
      */
     String getKeyStorePassword();
-
-    /**
-     * Keystore type.
-     *
-     * @return Keytore type.
-     */
-    String getKeyStoreType();
 
     /**
      * Basic authentication username.
