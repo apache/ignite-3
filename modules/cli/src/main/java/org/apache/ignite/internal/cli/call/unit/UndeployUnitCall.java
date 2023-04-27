@@ -46,11 +46,8 @@ public class UndeployUnitCall implements Call<UndeployUnitCallInput, String> {
     public CallOutput<String> execute(UndeployUnitCallInput input) {
         try {
             DeploymentApi api = new DeploymentApi(clientFactory.getClient(input.clusterUrl()));
-            if (input.version() == null || input.version().isEmpty()) {
-                api.undeployLatestUnit(input.id());
-            } else {
-                api.undeployUnit(input.id(), input.version());
-            }
+            api.undeployUnit(input.id(), input.version());
+
             unitsRegistry.refresh();
             return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());
         } catch (ApiException e) {

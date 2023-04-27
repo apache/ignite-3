@@ -68,6 +68,7 @@ public interface DeploymentCodeApi {
                     requiredMode = RequiredMode.REQUIRED,
                     description = "The ID of the deployment unit.") String unitId,
             @Schema(name = "unitVersion",
+                    requiredMode = RequiredMode.REQUIRED,
                     description = "The version of the deployment unit.") String unitVersion,
             @Schema(name = "unitContent",
                     requiredMode = RequiredMode.REQUIRED,
@@ -90,29 +91,12 @@ public interface DeploymentCodeApi {
     @Consumes(APPLICATION_JSON)
     @Delete("units/{unitId}/{unitVersion}")
     CompletableFuture<Void> undeploy(
-            @PathVariable("unitId") @Schema(name = "unitId", description = "The ID of the deployment unit.",
+            @PathVariable("unitId") @Schema(name = "unitId",
+                    description = "The ID of the deployment unit.",
                     requiredMode = RequiredMode.REQUIRED) String unitId,
             @PathVariable("unitVersion") @Schema(name = "unitVersion",
-                    description = "The version of the deployment unit.", requiredMode = RequiredMode.REQUIRED) String unitVersion);
-
-    /**
-     * Undeploy latest unit REST method.
-     */
-    @Operation(operationId = "undeployLatestUnit", description = "Undeploys the latest unit with the provided unitId.")
-    @ApiResponse(responseCode = "200", description = "Unit undeployed successfully.")
-    @ApiResponse(responseCode = "404",
-            description = "Unit with provided identifier and version does not exist.",
-            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
-    )
-    @ApiResponse(responseCode = "500",
-            description = "Internal error.",
-            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
-    )
-    @Consumes(APPLICATION_JSON)
-    @Delete("units/{unitId}")
-    CompletableFuture<Void> undeploy(
-            @PathVariable("unitId") @Schema(name = "unitId", description = "The ID of the deployment unit.",
-                    requiredMode = RequiredMode.REQUIRED) String unitId);
+                    description = "The version of the deployment unit.",
+                    requiredMode = RequiredMode.REQUIRED) String unitVersion);
 
     /**
      * All units status REST method.

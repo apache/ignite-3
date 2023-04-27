@@ -417,7 +417,7 @@ public class ItGeneratedRestClientTest {
         assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
     }
 
-    private File emptyFile() {
+    private static File emptyFile() {
         try {
             return Files.createTempFile(WORK_DIR, "empty", "file").toFile();
         } catch (IOException e) {
