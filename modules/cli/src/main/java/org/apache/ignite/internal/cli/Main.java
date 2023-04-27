@@ -56,7 +56,7 @@ public class Main {
         try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
             AnsiConsole.systemInstall();
             initReplExecutor(micronautFactory);
-            if (args.length != 0 /*|| !isatty()*/) { // do not enter REPL if input or output is redirected
+            if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
                     exitCode = executeCommand(args, micronautFactory);
                 } catch (Exception e) {

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -32,15 +32,7 @@ public interface MessageService extends LifecycleAware {
      * @param nodeName Node consistent ID.
      * @param msg Message.
      */
-    void send(String nodeName, NetworkMessage msg) throws IgniteInternalCheckedException;
-
-    /**
-     * Checks whether a node with given ID is alive.
-     *
-     * @param nodeName Node consistent ID.
-     * @return {@code True} if node is alive.
-     */
-    boolean alive(String nodeName);
+    CompletableFuture<Void> send(String nodeName, NetworkMessage msg);
 
     /**
      * Registers a listener for messages of a given type.

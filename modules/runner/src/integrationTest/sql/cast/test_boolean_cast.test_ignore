@@ -1,7 +1,7 @@
 # name: test/sql/cast/test_boolean_cast.test
 # description: Test boolean casts
 # group: [cast]
-# Ignored with https://issues.apache.org/jira/browse/IGNITE-15559
+# Ignored with https://issues.apache.org/jira/browse/IGNITE-19331
 
 statement ok
 PRAGMA enable_verification

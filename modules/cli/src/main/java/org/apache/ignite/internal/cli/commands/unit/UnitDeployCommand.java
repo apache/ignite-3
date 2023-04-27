@@ -42,7 +42,7 @@ import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 
 /** Command to deploy a unit. */
-@Command(name = "deploy", description = "Deploys a unit")
+@Command(name = "deploy", description = "Deploys a unit from file or a directory (non-recursively)")
 public class UnitDeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin

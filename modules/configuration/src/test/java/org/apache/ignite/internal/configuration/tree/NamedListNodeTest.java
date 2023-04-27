@@ -38,8 +38,8 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -79,7 +79,7 @@ public class NamedListNodeTest {
     }
 
     /** Runtime implementations generator. */
-    private static ConfigurationAsmGenerator cgen;
+    private static ConfigurationTreeGenerator cgen;
 
     /** Test configuration storage. */
     private TestConfigurationStorage storage;
@@ -90,13 +90,13 @@ public class NamedListNodeTest {
     /** Instantiates {@link #cgen}. */
     @BeforeAll
     public static void beforeAll() {
-        cgen = new ConfigurationAsmGenerator();
+        cgen = new ConfigurationTreeGenerator(FirstConfiguration.KEY);
     }
 
     /** Nullifies {@link #cgen} to prevent memory leak from having runtime ClassLoader accessible from GC root. */
     @AfterAll
     public static void afterAll() {
-        cgen = null;
+        cgen.close();
     }
 
     /**
@@ -107,12 +107,10 @@ public class NamedListNodeTest {
         storage = new TestConfigurationStorage(LOCAL);
 
         changer = new TestConfigurationChanger(
-                cgen,
                 List.of(FirstConfiguration.KEY),
                 Set.of(),
                 storage,
-                List.of(),
-                List.of()
+                cgen
         );
 
         changer.start();

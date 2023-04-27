@@ -340,7 +340,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.IS_EMPTY);
         register(SqlStdOperatorTable.IS_NOT_EMPTY);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-15550
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19332
         //register(SqlStdOperatorTable.MAP_QUERY);
         //register(SqlStdOperatorTable.ARRAY_QUERY);
 

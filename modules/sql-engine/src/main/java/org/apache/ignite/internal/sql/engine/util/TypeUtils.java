@@ -89,6 +89,30 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
 
+    private static class SupportedParamClassesHolder {
+        static final Set<Class<?>> supportedParamClasses;
+
+        static {
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses.add(boolean.class);
+            supportedParamClasses.add(byte.class);
+            supportedParamClasses.add(short.class);
+            supportedParamClasses.add(int.class);
+            supportedParamClasses.add(long.class);
+            supportedParamClasses.add(float.class);
+            supportedParamClasses.add(double.class);
+        }
+    }
+
+    private static Set<Class<?>> supportedParamClasses() {
+        return SupportedParamClassesHolder.supportedParamClasses;
+    }
+
+    /** Return {@code true} if supplied object is suitable as dynamic parameter. */
+    public static boolean supportParamInstance(Object param) {
+        return param == null || supportedParamClasses().contains(param.getClass());
+    }
+
     /**
      * CombinedRowType.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859

@@ -136,6 +136,12 @@ public class ConfigurationFlattener {
                 return null;
             }
 
+            // In case inner node is null in both trees,
+            // see LocalFileConfigurationStorageTest#innerNodeWithPartialContent – the node is someConfigurationValue.
+            if (oldNode == null && newNode == null) {
+                return null;
+            }
+
             if (oldNode == null) {
                 visitAsymmetricInnerNode(newNode, false);
             } else if (oldNode.schemaType() != newNode.schemaType()) {

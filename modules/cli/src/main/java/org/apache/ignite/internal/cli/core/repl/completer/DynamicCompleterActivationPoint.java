@@ -139,6 +139,7 @@ public class DynamicCompleterActivationPoint {
                 CompleterConf.builder()
                         .command("cli", "config", "set")
                         .command("cli", "config", "get")
+                        .command("cli", "config", "remove")
                         .singlePositionalParameter()
                         .build(),
                 cliConfigDynamicCompleterFactory

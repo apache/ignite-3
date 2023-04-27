@@ -29,6 +29,7 @@ import picocli.CommandLine.Command;
         subcommands = {
                 CliConfigGetReplCommand.class,
                 CliConfigSetReplCommand.class,
+                CliConfigRemoveReplCommand.class,
                 CliConfigShowReplCommand.class,
                 CliConfigProfileCommand.class,
         })

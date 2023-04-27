@@ -39,6 +39,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.reactivestreams.Publisher;
 
 /**
  * REST endpoint allows to deployment code service.
@@ -71,7 +72,8 @@ public interface DeploymentCodeApi {
                     description = "The version of the deployment unit.") String unitVersion,
             @Schema(name = "unitContent",
                     requiredMode = RequiredMode.REQUIRED,
-                    description = "The code to deploy.") CompletedFileUpload unitContent);
+                    description = "The code to deploy.") Publisher<CompletedFileUpload> unitContent
+    );
 
     /**
      * Undeploy unit REST method.

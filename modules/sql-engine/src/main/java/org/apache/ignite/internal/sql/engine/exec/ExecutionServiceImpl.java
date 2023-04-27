@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fr
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -63,10 +63,10 @@ import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
+import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
-import org.apache.ignite.internal.sql.engine.prepare.FragmentPlan;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -84,6 +84,8 @@ import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -108,7 +110,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    private final MessageService msgSrvc;
+    private final MessageService messageService;
 
     private final TopologyService topSrvc;
 
@@ -119,8 +121,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private final QueryTaskExecutor taskExecutor;
 
     private final MappingService mappingSrvc;
-
-    private final ExchangeService exchangeSrvc;
 
     private final RowHandler<RowT> handler;
 
@@ -162,7 +162,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 ddlCommandHandler,
                 taskExecutor,
                 handler,
-                exchangeSrvc,
                 ctx -> new LogicalRelImplementor<>(
                         ctx,
                         new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
@@ -175,35 +174,32 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Constructor.
      *
-     * @param msgSrvc Message service.
+     * @param messageService Message service.
      * @param topSrvc Topology service.
      * @param mappingSrvc Nodes mapping calculation service.
      * @param sqlSchemaManager Schema manager.
      * @param ddlCmdHnd Handler of the DDL commands.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
-     * @param exchangeSrvc Exchange service.
      * @param implementorFactory Relational node implementor factory.
      */
     public ExecutionServiceImpl(
-            MessageService msgSrvc,
+            MessageService messageService,
             TopologyService topSrvc,
             MappingService mappingSrvc,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCmdHnd,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
-            ExchangeService exchangeSrvc,
             ImplementorFactory<RowT> implementorFactory
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
-        this.msgSrvc = msgSrvc;
+        this.messageService = messageService;
         this.mappingSrvc = mappingSrvc;
         this.topSrvc = topSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
-        this.exchangeSrvc = exchangeSrvc;
         this.ddlCmdHnd = ddlCmdHnd;
         this.implementorFactory = implementorFactory;
     }
@@ -211,10 +207,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void start() {
-        msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
+        messageService.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
+        messageService.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
+        messageService.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
+        messageService.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
     private AsyncCursor<List<Object>> executeQuery(
@@ -246,10 +242,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .build();
     }
 
-    private QueryPlan prepareFragment(String jsonFragment, BaseQueryContext ctx) {
+    private IgniteRel relationalTreeFromJsonString(String jsonFragment, BaseQueryContext ctx) {
         IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment, ser -> fromJson(ctx, ser));
 
-        return new FragmentPlan(plan);
+        return new Cloner(Commons.cluster()).visit(plan);
     }
 
     /** {@inheritDoc} */
@@ -385,12 +381,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
-    public void onAppeared(ClusterNode member) {
-        // NO_OP
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void onDisappeared(ClusterNode member) {
         queryManagerMap.values().forEach(qm -> qm.onNodeLeft(member.name()));
     }
@@ -419,19 +409,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
-        DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
+        return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
             BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });
-
-        return queryManager;
     }
 
     /**
      * A convenient class that manages the initialization and termination of distributed queries.
      */
-    class DistributedQueryManager {
+    private class DistributedQueryManager {
         private final BaseQueryContext ctx;
 
         private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
@@ -465,10 +453,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return List.copyOf(localFragments);
         }
 
-        private void sendFragment(
+        private CompletableFuture<Void> sendFragment(
                 String targetNodeName, Fragment fragment, FragmentDescription desc, TxAttributes txAttributes
-        ) throws IgniteInternalCheckedException {
-            QueryStartRequest req = FACTORY.queryStartRequest()
+        ) {
+            QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
                     .fragmentId(fragment.fragmentId())
                     .schema(ctx.schemaName())
@@ -479,16 +467,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .schemaVersion(ctx.schemaVersion())
                     .build();
 
-            var fut = new CompletableFuture<Void>();
-            remoteFragmentInitCompletion.put(new RemoteFragmentKey(targetNodeName, fragment.fragmentId()), fut);
+            CompletableFuture<Void> remoteFragmentInitializationCompletionFuture = new CompletableFuture<>();
 
-            try {
-                msgSrvc.send(targetNodeName, req);
-            } catch (Exception ex) {
-                fut.complete(null);
+            remoteFragmentInitCompletion.put(
+                    new RemoteFragmentKey(targetNodeName, fragment.fragmentId()),
+                    remoteFragmentInitializationCompletionFuture
+            );
 
-                throw ex;
-            }
+            return messageService.send(targetNodeName, request);
         }
 
         private void acknowledgeFragment(String nodeName, long fragmentId, @Nullable Throwable ex) {
@@ -525,15 +511,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                     NODE_LEFT_ERR, "Node left the cluster [nodeName=" + nodeName + "]")));
         }
 
-        private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {
+        private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ExecutionContext<RowT> ectx) {
             String origNodeName = ectx.originatingNodeName();
 
-            AbstractNode<RowT> node = implementorFactory.create(ectx).go(plan.root());
+            AbstractNode<RowT> node = implementorFactory.create(ectx).go(treeRoot);
 
             localFragments.add(node);
 
             if (!(node instanceof Outbox)) {
-                Function<RowT, RowT> internalTypeConverter = TypeUtils.resultTypeConverter(ectx, plan.root().getRowType());
+                Function<RowT, RowT> internalTypeConverter = TypeUtils.resultTypeConverter(ectx, treeRoot.getRowType());
 
                 AsyncRootNode<RowT, List<Object>> rootNode = new AsyncRootNode<>(node, inRow -> {
                     inRow = internalTypeConverter.apply(inRow);
@@ -555,21 +541,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 root.complete(rootNode);
             }
 
-            try {
-                msgSrvc.send(
-                        origNodeName,
-                        FACTORY.queryStartResponse()
-                                .queryId(ectx.queryId())
-                                .fragmentId(ectx.fragmentId())
-                                .build()
-                );
-            } catch (IgniteInternalCheckedException e) {
-                throw new IgniteInternalException(MESSAGE_SEND_ERR, "Failed to send reply. [nodeName=" + origNodeName + ']', e);
-            }
+            CompletableFuture<Void> sendingResult = messageService.send(
+                    origNodeName,
+                    FACTORY.queryStartResponse()
+                            .queryId(ectx.queryId())
+                            .fragmentId(ectx.fragmentId())
+                            .build()
+            );
 
             if (node instanceof Outbox) {
                 ((Outbox<?>) node).prefetch();
             }
+
+            return sendingResult;
         }
 
         private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc, TxAttributes txAttributes) {
@@ -592,22 +576,26 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 FragmentDescription desc,
                 TxAttributes txAttributes
         ) {
-            try {
-                QueryPlan qryPlan = prepareFragment(fragmentString, ctx);
+            CompletableFuture<?> start = new CompletableFuture<>();
 
-                FragmentPlan plan = (FragmentPlan) qryPlan;
+            start.thenCompose(none -> {
+                IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
 
-                executeFragment(plan, createContext(initiatorNode, desc, txAttributes));
-            } catch (Throwable ex) {
+                return executeFragment(treeRoot, createContext(initiatorNode, desc, txAttributes));
+            }).exceptionally(ex -> {
                 handleError(ex, initiatorNode, desc.fragmentId());
-            }
+
+                return null;
+            });
+
+            start.complete(null);
         }
 
         private void handleError(Throwable ex, String initiatorNode, long fragmentId) {
             LOG.debug("Unable to start query fragment", ex);
 
             try {
-                msgSrvc.send(
+                messageService.send(
                         initiatorNode,
                         FACTORY.queryStartResponse()
                                 .queryId(ctx.queryId())
@@ -644,6 +632,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     // of the commit partition (if there is at least one table in the fragments)
                     TxAttributes attributes = TxAttributes.fromTx(tx);
 
+                    List<CompletableFuture<?>> resultsOfFragmentSending = new ArrayList<>();
+
                     // start remote execution
                     for (Fragment fragment : fragments) {
                         if (fragment.rootFragment()) {
@@ -661,10 +651,68 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         );
 
                         for (String nodeName : fragmentDesc.nodeNames()) {
-                            sendFragment(nodeName, fragment, fragmentDesc, attributes);
+                            CompletableFuture<Void> resultOfSending = sendFragment(nodeName, fragment, fragmentDesc, attributes);
+
+                            resultsOfFragmentSending.add(resultOfSending);
+
+                            resultOfSending.handle((ignored, t) -> {
+                                if (t == null) {
+                                    return null;
+                                }
+
+                                // if we were unable to send a request, then no need
+                                // to wait for the remote node to complete initialization
+
+                                CompletableFuture<?> completionFuture = remoteFragmentInitCompletion.get(
+                                        new RemoteFragmentKey(nodeName, fragment.fragmentId())
+                                );
+
+                                if (completionFuture != null) {
+                                    completionFuture.complete(null);
+                                }
+
+                                throw ExceptionUtils.withCauseAndCode(
+                                        IgniteInternalException::new,
+                                        Sql.INTERNAL_ERR,
+                                        format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
+                                                nodeName, fragment.fragmentId(), t.getMessage()),
+                                        t
+                                );
+                            });
                         }
                     }
+
+                    CompletableFuture.allOf(resultsOfFragmentSending.toArray(new CompletableFuture[0]))
+                            .handle((ignoredVal, ignoredTh) -> {
+                                if (ignoredTh == null) {
+                                    return null;
+                                }
+
+                                Throwable firstFoundError = null;
+
+                                for (CompletableFuture<?> fut : resultsOfFragmentSending) {
+                                    if (fut.isCompletedExceptionally()) {
+                                        // this is non blocking join() because we are inside of CompletableFuture.allOf call
+                                        Throwable fromFuture = fut.handle((ignored, ex) -> ex).join();
+
+                                        if (firstFoundError == null) {
+                                            firstFoundError = fromFuture;
+                                        } else {
+                                            firstFoundError.addSuppressed(fromFuture);
+                                        }
+                                    }
+                                }
+
+                                Throwable error = firstFoundError;
+                                if (!root.completeExceptionally(error)) {
+                                    root.thenAccept(root -> root.onError(error));
+                                }
+
+                                return null;
+                            });
                 } catch (Throwable t) {
+                    LOG.warn("Unexpected exception during query initialization", t);
+
                     if (!root.completeExceptionally(t)) {
                         root.thenAccept(root -> root.onError(t));
                     }
@@ -766,24 +814,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         for (Map.Entry<String, List<CompletableFuture<?>>> entry : requestsPerNode.entrySet()) {
                             String nodeId = entry.getKey();
 
-                            if (!exchangeSrvc.alive(nodeId)) {
-                                continue;
-                            }
-
                             cancelFuts.add(
                                     CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
                                             .handle((none2, t) -> {
-                                                // t is ignored in this block because it's passed to a cursor.
-
-                                                try {
-                                                    exchangeSrvc.closeQuery(nodeId, ctx.queryId());
-                                                } catch (IgniteInternalCheckedException e) {
-                                                    throw new IgniteInternalException(MESSAGE_SEND_ERR,
-                                                            "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
-                                                }
+                                                // Some fragments may be completed exceptionally, and that is fine.
+                                                // Here we need to make sure that all query initialisation requests
+                                                // have been processed before sending a cancellation request. That's
+                                                // why we just ignore any exception.
 
                                                 return null;
                                             })
+                                            .thenCompose(ignored -> messageService.send(
+                                                    nodeId,
+                                                    FACTORY.queryCloseMessage()
+                                                            .queryId(ctx.queryId())
+                                                            .build()
+                                            ))
                             );
                         }
 

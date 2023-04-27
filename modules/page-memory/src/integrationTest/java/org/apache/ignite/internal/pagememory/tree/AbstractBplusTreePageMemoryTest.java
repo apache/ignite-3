@@ -1395,8 +1395,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * <p>Since in the presence of concurrent modifications the size may differ from the actual one, the test maintains sliding window of
      * records in the tree, uses a barrier between concurrent runs to limit runaway delta in the calculated size, and checks that the
      * measured size lies within certain bounds.
-     *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
      */
     public void doTestSizeForRandomPutRmvMultithreadedAsync(final int rmvPutSlidingWindowSize) throws Exception {
         MAX_PER_PAGE = 5;
@@ -1774,8 +1772,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * concurrently, perform correctly and report correct values.
      *
      * <p>A sliding window of numbers is maintainted in the tests.
-     *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
      *
      * @throws Exception If failed.
      */
