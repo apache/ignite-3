@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -31,9 +32,11 @@ import java.util.stream.Stream;
 public interface StreamReceiver<T> {
     /**
      * Receive a stream of elements.
+     * This method is called multiple times on server nodes for each batch of elements.
      *
      * @param stream Stream of elements.
      * @param context Stream receiver context.
+     * @return Future that is completed when the stream is processed.
      */
-    void receive(Stream<T> stream, StreamReceiverContext context);
+    CompletableFuture<Void> receive(Stream<T> stream, StreamReceiverContext context);
 }
