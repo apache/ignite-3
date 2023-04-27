@@ -31,7 +31,6 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -137,7 +136,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         Map<String, byte[]> unitContent;
                         try {
                             unitContent = deploymentUnit.content().entrySet().stream()
-                                    .collect(Collectors.toMap(Entry::getKey, entry -> readContent(entry.getValue())));
+                                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> readContent(entry.getValue())));
                         } catch (DeploymentUnitReadException e) {
                             return failedFuture(e);
                         }
