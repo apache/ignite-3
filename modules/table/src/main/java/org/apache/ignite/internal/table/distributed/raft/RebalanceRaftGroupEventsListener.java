@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.union;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -174,8 +175,30 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     rebalanceAttempts.set(0);
 
-                    // TODO: KKK we need to receive the right zone key here. Also we will have races in the case of concurrent alter zone operation (not the right pending assignments can be received);
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(new ZoneReplicaGroupId(tblConfiguration.zoneId().value(), partNum))).get().value();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(zoneReplicaGroupId)).get().value();
+
+                    if (pendingAssignmentsBytes != null) {
+                        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsBytes);
+
+                        var peers = new HashSet<String>();
+                        var learners = new HashSet<String>();
+
+                        for (Assignment assignment : pendingAssignments) {
+                            if (assignment.isPeer()) {
+                                peers.add(assignment.consistentId());
+                            } else {
+                                learners.add(assignment.consistentId());
+                            }
+                        }
+
+                        LOG.info("New leader elected. Going to apply new configuration "
+                                        + "[group={}, partition={}, table={}, peers={}, learners={}]",
+                                zoneReplicaGroupId, partNum, tblConfiguration.name().value(), peers, learners);
+
+                        PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
+
+                        partitionMover.movePartition(peersAndLearners, term).get();
+                    }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
                     LOG.warn("Unable to start rebalance [partition={}, table={}, term={}]",

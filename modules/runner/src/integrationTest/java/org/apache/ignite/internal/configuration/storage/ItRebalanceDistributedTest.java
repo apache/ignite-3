@@ -445,7 +445,7 @@ public class ItRebalanceDistributedTest {
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
-        nodes.forEach(node -> prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0));
+        nodes.forEach(node -> prepareFinishHandleChangeStableAssignmentEventFuture(node, ZONE_1_NAME, 0));
 
         changeTableReplicasForSinglePartition(ZONE_1_NAME, 2);
 
@@ -459,7 +459,7 @@ public class ItRebalanceDistributedTest {
                 hasSize(1)
         );
 
-        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null, TABLE_1_NAME, 0), willCompleteSuccessfully());
+        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null, ZONE_1_NAME, 0), willCompleteSuccessfully());
 
         Node evictedNode = findNodeByConsistentId(first(evictedAssignments).consistentId());
 
@@ -477,7 +477,7 @@ public class ItRebalanceDistributedTest {
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
         nodes.forEach(node -> {
-            prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0);
+            prepareFinishHandleChangeStableAssignmentEventFuture(node, ZONE_1_NAME, 0);
 
             throwExceptionOnInvokeDestroyPartitionStorages(node, TABLE_1_NAME, 0);
         });
@@ -490,13 +490,13 @@ public class ItRebalanceDistributedTest {
 
         // Let's make sure that we handled the events (STABLE_ASSIGNMENTS_PREFIX) from the metastore correctly.
         assertThat(
-                collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode), TABLE_1_NAME, 0),
+                collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode), ZONE_1_NAME, 0),
                 willCompleteSuccessfully()
         );
 
-        TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_1_NAME, 0);
+        ZoneReplicaGroupId replicaGroupId = new ZoneReplicaGroupId(nodes.get(0).distributionZoneManager.getZoneId(ZONE_1_NAME), 0);
 
-        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willThrowFast(Exception.class));
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(replicaGroupId), willThrowFast(Exception.class));
 
         // Restart evicted node.
         int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
@@ -505,14 +505,14 @@ public class ItRebalanceDistributedTest {
 
         Node newNode = new Node(testInfo, evictedNode.networkAddress);
 
-        newNode.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+        newNode.finishHandleChangeStableAssignmentEventFutures.put(replicaGroupId, new CompletableFuture<>());
 
         newNode.start();
 
         nodes.set(evictedNodeIndex, newNode);
 
         // Let's make sure that we will destroy the partition again.
-        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willSucceedIn(1, TimeUnit.MINUTES));
+        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(replicaGroupId), willSucceedIn(1, TimeUnit.MINUTES));
 
         checkInvokeDestroyedPartitionStorages(newNode, TABLE_1_NAME, 0);
     }
@@ -587,7 +587,7 @@ public class ItRebalanceDistributedTest {
 
         private final ConfigurationTreeGenerator generator;
 
-        private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
+        private final Map<ZoneReplicaGroupId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
@@ -984,15 +984,15 @@ public class ItRebalanceDistributedTest {
                 .destroyTxStateStorage(partitionId);
     }
 
-    private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {
-        TablePartitionId tablePartitionId = new TablePartitionId(getInternalTable(node, tableName).tableId(), partitionId);
+    private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String zoneName, int partitionId) {
+        ZoneReplicaGroupId groupId = new ZoneReplicaGroupId(nodes.get(0).distributionZoneManager.getZoneId(zoneName), partitionId);
 
-        node.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+        node.finishHandleChangeStableAssignmentEventFutures.put(groupId, new CompletableFuture<>());
     }
 
     private CompletableFuture<?> collectFinishHandleChangeStableAssignmentEventFuture(
             @Nullable Predicate<Node> nodeFilter,
-            String tableName,
+            String zoneName,
             int partitionId
     ) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -1002,16 +1002,16 @@ public class ItRebalanceDistributedTest {
                 continue;
             }
 
-            TablePartitionId tablePartitionId = new TablePartitionId(getInternalTable(node, tableName).tableId(), partitionId);
+            ZoneReplicaGroupId tablePartitionId = new ZoneReplicaGroupId(node.distributionZoneManager.getZoneId(zoneName), partitionId);
 
             CompletableFuture<Void> future = node.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
 
-            assertNotNull(future, String.format("node=%s, table=%s, partitionId=%s", node.name, tableName, partitionId));
+            assertNotNull(future, String.format("node=%s, zoneName=%s, partitionId=%s", node.name, zoneName, partitionId));
 
             futures.add(future);
         }
 
-        assertThat(String.format("tableName=%s, partitionId=%s", tableName, partitionId), futures, not(empty()));
+        assertThat(String.format("zoneName=%s, partitionId=%s", zoneName, partitionId), futures, not(empty()));
 
         return CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new));
     }
