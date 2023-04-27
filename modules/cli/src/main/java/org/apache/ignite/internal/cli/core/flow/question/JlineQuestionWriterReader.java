@@ -17,45 +17,41 @@
 
 package org.apache.ignite.internal.cli.core.flow.question;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cli.core.flow.FlowInterruptException;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.UserInterruptException;
-import org.jline.widget.TailTipWidgets;
 
 /**
  * Implementation of {@link QuestionWriterReader} based on {@link LineReader}.
  */
 public class JlineQuestionWriterReader implements QuestionWriterReader {
     private final LineReader reader;
-    private final TailTipWidgets widgets;
+    private final Consumer<Boolean> widgetsEnabler;
 
-    public JlineQuestionWriterReader(LineReader reader, TailTipWidgets widgets) {
+    public JlineQuestionWriterReader(LineReader reader, Consumer<Boolean> widgetsEnabler) {
         this.reader = reader;
-        this.widgets = widgets;
+        this.widgetsEnabler = widgetsEnabler;
     }
 
     public JlineQuestionWriterReader(LineReader reader) {
-        this(reader, null);
+        this(reader, enable -> {});
     }
 
     /** {@inheritDoc} */
     @Override
     public String readAnswer(String question) {
-        if (widgets != null) {
-            widgets.disable();
-        }
+        widgetsEnabler.accept(false);
         reader.setVariable(LineReader.DISABLE_HISTORY, true);
-        String s = readLine(reader, question);
+        String s = readLine(question);
         reader.setVariable(LineReader.DISABLE_HISTORY, false);
-        if (widgets != null) {
-            widgets.enable();
-        }
+        widgetsEnabler.accept(true);
         return s;
     }
 
-    private String readLine(LineReader reader, String question) {
+    private String readLine(String question) {
         try {
             return reader.readLine(question, null, (MaskingCallback) null, null);
         } catch (UserInterruptException /* Ctrl-C pressed */ | EndOfFileException /* Ctrl-D pressed */ ignored) {

@@ -179,9 +179,12 @@ public class LowWatermark implements ManuallyCloseable {
             // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
             // up the stale/junk data in the tables.
             txManager.updateLowWatermark(lowWatermarkCandidate)
-                    .thenCompose(unused -> inBusyLock(
-                            busyLock,
-                            () -> vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate)))
+                    .thenComposeAsync(
+                            unused -> inBusyLock(
+                                    busyLock,
+                                    () -> vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate))
+                            ),
+                            scheduledThreadPool
                     )
                     .thenRun(() -> inBusyLock(busyLock, () -> {
                         lowWatermark.set(lowWatermarkCandidate);

@@ -15,21 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cliconfig;
-
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
-import org.junit.jupiter.api.BeforeEach;
+package org.apache.ignite.internal.util;
 
 /**
- * Base class for testing CLI config commands.
+ * Exception that will be thrown when the {@link PendingComparableValuesTracker} is closed.
  */
-public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
-    @Inject
-    protected TestConfigManagerProvider configManagerProvider;
-
-    @BeforeEach
-    void configManagerRefresh() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
-    }
+public class TrackerClosedException extends RuntimeException {
+    private static final long serialVersionUID = -3685913884384983930L;
 }

@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cliconfig;
+package org.apache.ignite.internal.cli.commands.sql;
 
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
+import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
-/**
- * Base class for testing CLI config commands.
- */
-public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
-    @Inject
-    protected TestConfigManagerProvider configManagerProvider;
-
+/** Base class for testing CLI sql command which creates a table before each test. */
+public class CliSqlCommandTestBase extends CliCommandTestInitializedIntegrationBase {
     @BeforeEach
-    void configManagerRefresh() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
+    @Override
+    public void setUp(TestInfo testInfo) throws Exception {
+        super.setUp(testInfo);
+        createAndPopulateTable();
+    }
+
+    @AfterEach
+    void tearDown() {
+        dropAllTables();
     }
 }

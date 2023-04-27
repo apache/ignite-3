@@ -85,7 +85,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTests());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
