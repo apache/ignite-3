@@ -21,10 +21,7 @@ import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManage
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecretConfig;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.util.List;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.security.AuthenticationConfig;
-import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
