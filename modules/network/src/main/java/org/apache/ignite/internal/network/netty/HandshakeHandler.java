@@ -69,7 +69,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     public void channelActive(ChannelHandlerContext ctx) {
         try {
             manager.onConnectionOpen();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | AssertionError e) {
             LOG.error("Error in onConnectionOpen()", e);
 
             throw e;
