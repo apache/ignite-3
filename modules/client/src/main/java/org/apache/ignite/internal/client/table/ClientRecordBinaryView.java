@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -401,6 +403,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        publisher.subscribe(new StreamerSubscriber(options));
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -409,5 +412,46 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     public <T> CompletableFuture<Void> streamData(Publisher<T> publisher, Function<T, Tuple> keyAccessor, StreamReceiver<T> receiver,
             @Nullable DataStreamerOptions options) {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    private class StreamerSubscriber implements Subscriber<Tuple> {
+        private final DataStreamerOptions options;
+
+        private @Nullable Subscription subscription;
+
+        private StreamerSubscriber(@Nullable DataStreamerOptions options) {
+            this.options = options == null ? new DataStreamerOptions() : null;
+        }
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            this.subscription = subscription;
+
+            // TODO: When do we request more?
+            subscription.request(options.batchSize());
+        }
+
+        @Override
+        public void onNext(Tuple objects) {
+            // TODO: Update per-node buffers.
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            close();
+        }
+
+        @Override
+        public void onComplete() {
+            close();
+        }
+
+        private void close() {
+            var s = subscription;
+
+            if (s != null) {
+                s.cancel();
+            }
+        }
     }
 }
