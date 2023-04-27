@@ -45,10 +45,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Checks basic operations on a table where all columns belong to the primary key.
+ * Test uses a different API for operations on table data.
  */
 public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
-    private static final String TABLE_NAME = "test";
-
     private static final String[] ENGINES = {"aipersist", "aimem", "rocksdb"};
 
     @Override
@@ -72,7 +71,8 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
             String testZoneName = ("test_zone_" + engine).toUpperCase();
 
             sql(String.format("create zone %s engine %s with partitions=1, replicas=3;", testZoneName, engine));
-            sql(String.format("create table %s (ID int primary key) with primary_zone='%s'", tableName(engine), testZoneName));
+            sql(String.format("create table %s (ID int, NAME varchar, primary key(ID, NAME)) with primary_zone='%s'",
+                    tableName(engine), testZoneName));
         }
     }
 
@@ -81,7 +81,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     public void testRecordView(TestEnvironment env) {
         Table tab = env.table();
         RecordView<Tuple> view = tab.recordView();
-        Tuple key = Tuple.create().set("id", 0);
+        Tuple key = Tuple.create().set("id", 0).set("name", "John");
 
         env.runInTransaction(
                 rwTx -> {
@@ -110,9 +110,9 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     public void testKeyValueView(TestEnvironment env) {
         Table tab = env.table();
 
-        KeyValueView<Integer, Void> kvView = tab.keyValueView(Integer.class, Void.class);
+        KeyValueView<KeyObject, Void> kvView = tab.keyValueView(KeyObject.class, Void.class);
 
-        int key = 0;
+        KeyObject key = new KeyObject(0, "John");
 
         env.runInTransaction(
                 rwTx -> {
@@ -124,7 +124,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
                 tx -> {
                     assertNotNull(kvView.getNullable(tx, key));
                     assertTrue(kvView.contains(tx, key));
-                    assertEquals(1, kvView.getAll(tx, Collections.singleton(0)).size());
+                    assertEquals(1, kvView.getAll(tx, Collections.singleton(key)).size());
 
                     if (!tx.isReadOnly()) {
                         kvView.remove(tx, key);
@@ -140,7 +140,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     @MethodSource("parameters")
     public void testBinaryView(TestEnvironment env) {
         KeyValueView<Tuple, Tuple> binView = env.table().keyValueView();
-        Tuple key = Tuple.create().set("id", 0);
+        Tuple key = Tuple.create().set("id", 0).set("name", "John");
         Tuple emptyVal = Tuple.create();
 
         env.runInTransaction(
@@ -153,6 +153,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
                 tx -> {
                     assertEquals(emptyVal, binView.get(tx, key));
                     assertTrue(binView.contains(tx, key));
+                    assertEquals(1, binView.getAll(tx, Collections.singleton(key)).size());
 
                     if (!tx.isReadOnly()) {
                         binView.remove(tx, key);
@@ -169,8 +170,8 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         String tableName = env.table().name();
 
         env.runInTransaction(
-                rwTx -> sql(rwTx, "insert into " + tableName + " values (0), (1)"),
-                tx -> assertQuery(tx, "select count(*) from " + tableName).returns(2)
+                rwTx -> sql(rwTx, "insert into " + tableName + " values (0, 'A'), (1, 'B')"),
+                tx -> assertQuery(tx, "select count(*) from " + tableName).returns(2L).check()
         );
     }
 
@@ -179,45 +180,49 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     public void testMixed(TestEnvironment env) {
         Table tab = env.table();
 
+        String sqlInsert = "insert into " + tab.name() + " values (%d, '%s')";
+        String[] names = {"a", "b", "c", "d"};
+
         RecordView<Tuple> recordView = tab.recordView();
-        KeyValueView<Integer, Void> kvView = tab.keyValueView(Integer.class, Void.class);
+        KeyValueView<KeyObject, Void> kvView = tab.keyValueView(KeyObject.class, Void.class);
         KeyValueView<Tuple, Tuple> binView = tab.keyValueView();
-        String sqlInsert = "insert into " + tab.name() + " values (%d)";
 
         env.runInTransaction(
                 rwTx -> {
-                    recordView.upsert(rwTx, Tuple.create().set("id", 0));
+                    recordView.upsert(rwTx, Tuple.create().set("id", 0).set("name", names[0]));
 
-                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 0)));
+                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
                     assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
-                    kvView.put(rwTx, 1, null);
+                    kvView.put(rwTx, new KeyObject(1, names[1]), null);
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 1)));
+                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 1, names[1])));
                     assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
-                    binView.put(rwTx, Tuple.create().set("id", 2), Tuple.create());
+                    binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create());
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 2)));
+                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
                     assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
-                    sql(rwTx, String.format(sqlInsert, 3));
+                    sql(rwTx, String.format(sqlInsert, 3, names[3]));
                 },
                 tx -> {
-                    for (int i = 0; i < 3; i++) {
-                        Tuple key = Tuple.create().set("id", i);
+                    for (int i = 0; i < 4; i++) {
+                        Tuple key = Tuple.create().set("id", i).set("name", names[i]);
+                        KeyObject kvKey = new KeyObject(i, names[i]);
 
                         assertEquals(key, recordView.get(tx, key));
 
-                        assertTrue(kvView.contains(tx, i));
-                        assertNotNull(kvView.getNullable(tx, 0));
+                        assertTrue(kvView.contains(tx, kvKey));
+                        assertNotNull(kvView.getNullable(tx, kvKey));
 
                         assertTrue(binView.contains(tx, key));
 
-                        assertQuery("select * from " + tab.name() + " where id=" + i).returns(i);
+                        assertQuery(tx, String.format("select * from %s where ID=%d and NAME='%s'", tab.name(), i, names[i]))
+                                .returns(i, names[i]).check();
                     }
 
-                    assertQuery("select count(*) from " + tab.name()).returns(4);
+                    assertQuery(tx, "select count(*) from " + tab.name()).returns(4L).check();
                 }
         );
     }
@@ -237,7 +242,20 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     }
 
     private static String tableName(String engineName) {
-        return TABLE_NAME + "_" + engineName;
+        return "test_" + engineName;
+    }
+
+    private static class KeyObject {
+        int id;
+        String name;
+
+        KeyObject() {
+        }
+
+        KeyObject(int id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 
     private static class TestEnvironment {
