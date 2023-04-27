@@ -19,9 +19,11 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_LEFT;
 import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_RIGHT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,6 +40,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -58,6 +61,7 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -66,6 +70,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +85,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     /** Sorted index name. */
-    public static final String SORTED_IDX = "sorted_idx";
+    private static final String SORTED_IDX = "sorted_idx";
 
     /** Ids to insert. */
     private static final List<Integer> ROW_IDS = List.of(1, 2, 5, 6, 7, 10, 53);
@@ -94,9 +99,15 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             }
     );
 
+    private TableImpl table;
+
+    private InternalTable internalTable;
+
     @BeforeEach
     public void beforeTest() throws InterruptedException {
-        TableImpl table = getOrCreateTable();
+        table = getOrCreateTable();
+
+        internalTable = table.internalTable();
 
         // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
         waitForIndex(SORTED_IDX);
@@ -106,23 +117,20 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     public void afterTest() {
-        clearData(getOrCreateTable());
+        clearData(table);
     }
 
     @Test
     public void testInsertWaitScanComplete() throws Exception {
         int partId = 0;
-        TableImpl table = getOrCreateTable();
         IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
 
         InternalTransaction tx0 = (InternalTransaction) transactions.begin();
         InternalTransaction tx1 = startTxWithEnlistedPartition(partId);
 
-        InternalTable internalTable = table.internalTable();
-
         UUID sortedIndexId = getSortedIndexId();
 
-        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
+        List<BinaryRow> scannedRows = new ArrayList<>();
 
         IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx1.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
 
@@ -136,9 +144,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         subscription.request(2);
 
-        waitForCondition(() -> scannedRows.size() == 2, 10_000);
+        assertTrue(waitForCondition(() -> scannedRows.size() == 2, 10_000));
 
-        assertEquals(2, scannedRows.size());
         assertFalse(scanned.isDone());
 
         CompletableFuture<Void> insertFut = table.keyValueView()
@@ -162,13 +169,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertDuringScan() throws Exception {
-        TableImpl table = getOrCreateTable();
-
-        InternalTable internalTable = table.internalTable();
-
         UUID sortedIndexId = getSortedIndexId();
 
-        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
+        List<BinaryRow> scannedRows = new ArrayList<>();
 
         Publisher<BinaryRow> publisher = internalTable.scan(0, null, sortedIndexId, null, null, 0, null);
 
@@ -178,9 +181,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         subscription.request(1);
 
-        waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), 10_000));
 
-        assertEquals(1, scannedRows.size());
         assertFalse(scanned.isDone());
 
         table.keyValueView().put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
@@ -196,205 +198,140 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testUpsertDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
-
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.upsert(createKeyValueRow(3), tx)
-                    .thenApply(unused -> 1);
-        });
+        pureTableScan(tx -> internalTable.upsert(createKeyValueRow(3), tx)
+                .thenApply(unused -> 1)
+        );
     }
 
     @Test
     public void testUpsertAllDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
-
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.upsertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
-                    .thenApply(unused -> 2);
-        });
+        pureTableScan(tx -> internalTable.upsertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
+                .thenApply(unused -> 2)
+        );
     }
 
     @Test
     public void testGetAndUpsertDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.getAndUpsert(createKeyValueRow(3), tx)
+                .thenApply(previous -> {
+                    assertNull(previous);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.getAndUpsert(createKeyValueRow(3), tx)
-                    .thenApply(previous -> {
-                        assertNull(previous);
-
-                        return 1;
-                    });
-        });
+                    return 1;
+                })
+        );
     }
 
     @Test
     public void testInsertDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.insert(createKeyValueRow(3), tx)
+                .thenApply(inserted -> {
+                    assertTrue(inserted);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.insert(createKeyValueRow(3), tx)
-                    .thenApply(inserted -> {
-                        assertTrue(inserted);
-
-                        return 1;
-                    });
-        });
+                    return 1;
+                })
+        );
     }
 
     @Test
     public void testInsertAllDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.insertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
+                .thenApply(notInsertedRows -> {
+                    assertTrue(notInsertedRows.isEmpty());
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.insertAll(List.of(createKeyValueRow(3), createKeyValueRow(60)), tx)
-                    .thenApply(notInsertedRows -> {
-                        assertTrue(notInsertedRows.isEmpty());
-
-                        return 2;
-                    });
-        });
+                    return 2;
+                })
+        );
     }
 
     @Test
     public void testReplaceDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.replace(createKeyValueRow(6), tx)
+                .thenApply(inserted -> {
+                    assertTrue(inserted);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.replace(createKeyValueRow(6), tx)
-                    .thenApply(inserted -> {
-                        assertTrue(inserted);
-
-                        return 0;
-                    });
-        });
+                    return 0;
+                })
+        );
     }
 
     @Test
     @Disabled("IGNITE-18299 Value comparison in table operations")
     public void testReplaceOldDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.replace(createOldKeyValueRow(6), createKeyValueRow(6), tx)
+                .thenApply(inserted -> {
+                    assertTrue(inserted);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.replace(createOldKeyValueRow(6), createKeyValueRow(6), tx)
-                    .thenApply(inserted -> {
-                        assertTrue(inserted);
-
-                        return 0;
-                    });
-        });
+                    return 0;
+                })
+        );
     }
 
     @Test
     public void testGetAndReplaceDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.getAndReplace(createKeyValueRow(6), tx)
+                .thenApply(previous -> {
+                    assertNotNull(previous);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.getAndReplace(createKeyValueRow(6), tx)
-                    .thenApply(previous -> {
-                        assertNotNull(previous);
-
-                        return 0;
-                    });
-        });
+                    return 0;
+                })
+        );
     }
 
     @Test
     public void testDeleteDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.delete(createKeyRow(6), tx)
+                .thenApply(deleted -> {
+                    assertTrue(deleted);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.delete(createKeyRow(6), tx)
-                    .thenApply(deleted -> {
-                        assertTrue(deleted);
-
-                        return -1;
-                    });
-        });
+                    return -1;
+                })
+        );
     }
 
     @Test
     public void testDeleteAllDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.deleteAll(List.of(createKeyRow(6), createKeyRow(10)), tx)
+                .thenApply(deletedRows -> {
+                    assertEquals(0, deletedRows.size());
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.deleteAll(List.of(createKeyRow(6), createKeyRow(10)), tx)
-                    .thenApply(deletedRows -> {
-                        assertEquals(0, deletedRows.size());
-
-                        return -2;
-                    });
-        });
+                    return -2;
+                })
+        );
     }
 
     @Test
     @Disabled("IGNITE-18299 Value comparison in table operations")
     public void testDeleteExactDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.deleteExact(createOldKeyValueRow(6), tx)
+                .thenApply(deleted -> {
+                    assertTrue(deleted);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.deleteExact(createOldKeyValueRow(6), tx)
-                    .thenApply(deleted -> {
-                        assertTrue(deleted);
-
-                        return -1;
-                    });
-        });
+                    return -1;
+                })
+        );
     }
 
     @Test
     @Disabled("IGNITE-18299 Value comparison in table operations")
     public void testDeleteAllExactDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.deleteAllExact(List.of(createOldKeyValueRow(6), createOldKeyValueRow(10)), tx)
+                .thenApply(deletedRows -> {
+                    assertEquals(2, deletedRows.size());
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.deleteAllExact(List.of(createOldKeyValueRow(6), createOldKeyValueRow(10)), tx)
-                    .thenApply(deletedRows -> {
-                        assertEquals(2, deletedRows.size());
-
-                        return -2;
-                    });
-        });
+                    return -2;
+                })
+        );
     }
 
     @Test
     public void testGetAndDeleteDuringPureTableScan() throws Exception {
-        pureTableScan(tx -> {
-            TableImpl table = getOrCreateTable();
+        pureTableScan(tx -> internalTable.getAndDelete(createKeyRow(6), tx)
+                .thenApply(deleted -> {
+                    assertNotNull(deleted);
 
-            InternalTable internalTable = table.internalTable();
-
-            return internalTable.getAndDelete(createKeyRow(6), tx)
-                    .thenApply(deleted -> {
-                        assertNotNull(deleted);
-
-                        return -1;
-                    });
-        });
+                    return -1;
+                })
+        );
     }
 
     /**
@@ -404,15 +341,11 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @throws Exception If failed.
      */
     public void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
-        TableImpl table = getOrCreateTable();
-
-        InternalTable internalTable = table.internalTable();
-
         InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
 
         log.info("Old transaction [id={}]", tx.id());
 
-        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
+        List<BinaryRow> scannedRows = new ArrayList<>();
 
         Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
 
@@ -422,7 +355,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         subscription.request(1);
 
-        waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
+        assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), 10_000));
 
         assertEquals(1, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -433,9 +366,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         subscription.request(2);
 
-        waitForCondition(() -> scannedRows.size() == 3, 10_000);
+        assertTrue(waitForCondition(() -> scannedRows.size() == 3, 10_000));
 
-        assertEquals(3, scannedRows.size());
         assertFalse(scanned.isDone());
         assertFalse(txOpFut.isDone());
 
@@ -458,15 +390,11 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testTwiceScanInTransaction() throws Exception {
-        TableImpl table = getOrCreateTable();
-
-        InternalTable internalTable = table.internalTable();
-
-        KeyValueView kvView = table.keyValueView();
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         UUID sortedIndexId = getSortedIndexId();
 
-        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
+        List<BinaryRow> scannedRows = new ArrayList<>();
 
         int partId = 0;
 
@@ -484,12 +412,11 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         subscription.request(3);
 
-        waitForCondition(() -> scannedRows.size() == 3, 10_000);
+        assertTrue(waitForCondition(() -> scannedRows.size() == 3, 10_000));
 
-        assertEquals(3, scannedRows.size());
         assertFalse(scanned.isDone());
 
-        assertThrows(Exception.class,
+        assertThrows(TransactionException.class,
                 () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")));
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
@@ -498,7 +425,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
@@ -515,11 +442,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testScanWithUpperBound() throws Exception {
-        TableImpl table = getOrCreateTable();
-
-        InternalTable internalTable = table.internalTable();
-
-        KeyValueView kvView = table.keyValueView();
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         var sortedIndexBinarySchema = BinaryTupleSchema.createSchema(SCHEMA, new int[]{1 /* intVal column */});
 
@@ -547,16 +470,16 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        ArrayList<BinaryRow> scannedRows = scanAllRows(publisher);
+        List<BinaryRow> scannedRows = scanAllRows(publisher);
 
         log.info("Result of scanning in old transaction: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow))
                 .collect(Collectors.joining(", ")));
 
         assertEquals(3, scannedRows.size());
 
-        assertThrows(Exception.class, () ->
+        assertThrows(TransactionException.class, () ->
                 kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")));
-        assertThrows(Exception.class, () ->
+        assertThrows(TransactionException.class, () ->
                 kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")));
 
         Publisher<BinaryRow> publisher1 = internalTable.scan(
@@ -570,7 +493,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        ArrayList<BinaryRow> scannedRows1 = scanAllRows(publisher1);
+        List<BinaryRow> scannedRows1 = scanAllRows(publisher1);
 
         tx.commit();
 
@@ -590,12 +513,69 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        ArrayList<BinaryRow> scannedRows2 = scanAllRows(publisher2);
+        List<BinaryRow> scannedRows2 = scanAllRows(publisher2);
 
         assertEquals(5, scannedRows2.size());
 
         log.info("Result of scanning after insert rows: " + scannedRows2.stream().map(binaryRow -> rowToString(binaryRow))
                 .collect(Collectors.joining(", ")));
+    }
+
+    @Test
+    public void testPhantomReads() throws Exception {
+        int iterations = 10;
+
+        // "for" is better at detecting data races than RepeatedTest.
+        for (int i = 0; i < iterations; i++) {
+            KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+            UUID sortedIndexId = getSortedIndexId();
+
+            int partId = 0;
+
+            InternalTransaction tx = startTxWithEnlistedPartition(partId);
+
+            try {
+                IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+
+                PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+
+                Publisher<BinaryRow> publisher = internalTable.scan(partId, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+
+                // Non-thread-safe collection is fine, HB is guaranteed by "Thread#join" inside of "runRace".
+                List<BinaryRow> scannedRows = new ArrayList<>();
+
+                IntFunction<RunnableX> put = intValue -> () -> {
+                    try {
+                        kvView.put(null, Tuple.create().set("key", intValue),
+                                Tuple.create().set("valInt", intValue).set("valStr", "Str_" + intValue));
+                    } catch (TransactionException e) {
+                        // May happen, this is a race after all.
+                        assertThat(e.getMessage(), containsString("Failed to acquire a lock"));
+                    }
+                };
+
+                runRace(
+                        put.apply(3),
+                        put.apply(4),
+                        put.apply(8),
+                        put.apply(9),
+                        () -> scannedRows.addAll(scanAllRows(publisher))
+                );
+
+                Publisher<BinaryRow> publisher1 = internalTable.scan(0, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+
+                assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
+            } finally {
+                tx.commit();
+            }
+
+            clearData(table);
+
+            if (i != iterations - 1) {
+                loadData(table);
+            }
+        }
     }
 
     /**
@@ -617,15 +597,15 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @return List of scanned rows.
      * @throws Exception If failed.
      */
-    private ArrayList<BinaryRow> scanAllRows(Publisher<BinaryRow> publisher) throws Exception {
-        ArrayList<BinaryRow> scannedRows = new ArrayList<>();
+    private List<BinaryRow> scanAllRows(Publisher<BinaryRow> publisher) throws Exception {
+        List<BinaryRow> scannedRows = new ArrayList<>();
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
         Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
         subscription.request(1_000); // Request so much entries here to close the publisher.
 
-        waitForCondition(() -> scanned.isDone(), 10_000);
+        assertTrue(waitForCondition(() -> scanned.isDone(), 10_000));
 
         return scannedRows;
     }
