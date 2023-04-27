@@ -90,13 +90,15 @@ public class MessageServiceImpl implements MessageService {
                 ClusterNode node = topSrvc.getByConsistentId(nodeName);
 
                 if (node == null) {
-                    throw new IgniteInternalException(
+                    return CompletableFuture.failedFuture(new IgniteInternalException(
                             NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeName
-                    );
+                    ));
                 }
 
                 return messagingSrvc.send(node, msg);
             }
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }

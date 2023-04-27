@@ -474,16 +474,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     remoteFragmentInitializationCompletionFuture
             );
 
-            try {
-                return messageService.send(targetNodeName, request);
-            } catch (Throwable th) {
-                // it's not expected MessageService to throw any exception, yet it may be possible
-                // due to unpredictable side effects of different implementations. To avoid blocking
-                // of node on stopping, let's complete initialization future.
-                remoteFragmentInitializationCompletionFuture.complete(null);
-
-                throw th;
-            }
+            return messageService.send(targetNodeName, request);
         }
 
         private void acknowledgeFragment(String nodeName, long fragmentId, @Nullable Throwable ex) {

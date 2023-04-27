@@ -241,6 +241,8 @@ public class ExecutionServiceImplTest {
             } else {
                 original.onMessage(nodeName, msg);
             }
+
+            return CompletableFuture.completedFuture(null);
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
@@ -411,10 +413,12 @@ public class ExecutionServiceImplTest {
 
                     original.onMessage(senderNodeName, msg);
                 });
+
+                return CompletableFuture.completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                throw new IgniteInternalException(Sql.MESSAGE_SEND_ERR,
-                        "Connection refused to " + node.nodeName + ", message " + msg);
+                return CompletableFuture.failedFuture(new IgniteInternalException(Sql.INTERNAL_ERR,
+                        "Connection refused to " + node.nodeName + ", message " + msg));
             }
         }));
 
@@ -422,7 +426,7 @@ public class ExecutionServiceImplTest {
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Connection refused to ")), 10, TimeUnit.SECONDS));
+        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Connection refused to ")), 1000, TimeUnit.SECONDS));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();
@@ -585,9 +589,7 @@ public class ExecutionServiceImplTest {
                     public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
                         TestNode node = nodes.get(nodeName);
 
-                        node.onReceive(TestNode.this.nodeName, msg);
-
-                        return CompletableFuture.completedFuture(null);
+                        return node.onReceive(TestNode.this.nodeName, msg);
                     }
 
                     /** {@inheritDoc} */
@@ -646,7 +648,7 @@ public class ExecutionServiceImplTest {
                 };
             }
 
-            private void onReceive(String senderNodeName, NetworkMessage message) {
+            private CompletableFuture<Void> onReceive(String senderNodeName, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
                     MessageListener listener = msgListeners.get(msg.messageType());
 
@@ -666,15 +668,18 @@ public class ExecutionServiceImplTest {
                 MessageInterceptor interceptor = this.interceptor;
 
                 if (interceptor != null) {
-                    interceptor.intercept(senderNodeName, message, original);
-                } else {
-                    original.onMessage(senderNodeName, message);
+                    return interceptor.intercept(senderNodeName, message, original);
                 }
+
+                original.onMessage(senderNodeName, message);
+
+                return CompletableFuture.completedFuture(null);
             }
         }
 
+        @FunctionalInterface
         interface MessageInterceptor {
-            void intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
+            CompletableFuture<Void> intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
         }
     }
 
