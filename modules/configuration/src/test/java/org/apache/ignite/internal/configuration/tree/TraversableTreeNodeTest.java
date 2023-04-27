@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -264,9 +265,9 @@ public class TraversableTreeNodeTest {
         var parentNode = newParentInstance();
 
         assertThrows(VisitException.class, () ->
-                parentNode.accept("root", new ConfigurationVisitor<Void>() {
+                parentNode.accept(null, "root", new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitInnerNode(String key, InnerNode node) {
+                    public Void visitInnerNode(Field field, String key, InnerNode node) {
                         throw new VisitException();
                     }
                 })
@@ -281,9 +282,9 @@ public class TraversableTreeNodeTest {
         var elementsNode = (TraversableTreeNode) newParentInstance().elements();
 
         assertThrows(VisitException.class, () ->
-                elementsNode.accept("root", new ConfigurationVisitor<Void>() {
+                elementsNode.accept(null, "root", new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitNamedListNode(String key, NamedListNode<?> node) {
+                    public Void visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                         throw new VisitException();
                     }
                 })
@@ -301,7 +302,7 @@ public class TraversableTreeNodeTest {
 
         parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
             @Override
-            public Object visitInnerNode(String key, InnerNode node) {
+            public Object visitInnerNode(Field field, String key, InnerNode node) {
                 assertNull(node);
 
                 assertEquals("child", key);
@@ -310,7 +311,7 @@ public class TraversableTreeNodeTest {
             }
 
             @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> node) {
+            public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 assertEquals("elements", key);
 
                 return keys.add(key);
@@ -326,7 +327,7 @@ public class TraversableTreeNodeTest {
 
         childNode.traverseChildren(new ConfigurationVisitor<Object>() {
             @Override
-            public Object visitLeafNode(String key, Serializable val) {
+            public Object visitLeafNode(Field field, String key, Serializable val) {
                 return keys.add(key);
             }
         }, true);
@@ -346,7 +347,7 @@ public class TraversableTreeNodeTest {
         assertThrows(VisitException.class, () ->
                 parentNode.traverseChild("child", new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitInnerNode(String key, InnerNode node) {
+                    public Void visitInnerNode(Field field, String key, InnerNode node) {
                         assertEquals("child", key);
 
                         throw new VisitException();
@@ -358,7 +359,7 @@ public class TraversableTreeNodeTest {
         assertThrows(VisitException.class, () ->
                 parentNode.traverseChild("elements", new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitNamedListNode(String key, NamedListNode<?> node) {
+                    public Void visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                         assertEquals("elements", key);
 
                         throw new VisitException();
@@ -372,7 +373,7 @@ public class TraversableTreeNodeTest {
         assertThrows(VisitException.class, () ->
                 childNode.traverseChild("intCfg", new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitLeafNode(String key, Serializable val) {
+                    public Void visitLeafNode(Field field, String key, Serializable val) {
                         assertEquals("intCfg", key);
 
                         throw new VisitException();

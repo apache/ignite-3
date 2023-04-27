@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -221,7 +222,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** {@inheritDoc} */
             @Nullable
             @Override
-            public List<KeyPathNode> visitLeafNode(String key, Serializable val) {
+            public List<KeyPathNode> visitLeafNode(Field field, String key, Serializable val) {
                 res.add(new KeyPathNode(key));
 
                 return res;
@@ -230,7 +231,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** {@inheritDoc} */
             @Nullable
             @Override
-            public List<KeyPathNode> visitInnerNode(String key, InnerNode node) {
+            public List<KeyPathNode> visitInnerNode(Field field, String key, InnerNode node) {
                 res.add(new KeyPathNode(key));
 
                 if (keys.size() == idx) {
@@ -245,7 +246,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             /** {@inheritDoc} */
             @Nullable
             @Override
-            public List<KeyPathNode> visitNamedListNode(String key, NamedListNode node) {
+            public List<KeyPathNode> visitNamedListNode(Field field, String key, NamedListNode node) {
                 res.add(new KeyPathNode(key));
 
                 if (keys.size() == idx) {
@@ -271,7 +272,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
             }
         };
 
-        return changer.getRootNode(rootKey).accept(keys.get(0), visitor);
+        return changer.getRootNode(rootKey).accept(null, keys.get(0), visitor);
     }
 
     /**

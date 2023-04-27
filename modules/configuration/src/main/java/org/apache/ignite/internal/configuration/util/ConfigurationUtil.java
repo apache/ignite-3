@@ -159,7 +159,7 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public T visitLeafNode(String key, Serializable val) {
+            public T visitLeafNode(Field field, String key, Serializable val) {
                 if (idx != keys.size()) {
                     throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, idx)) + "' is a leaf");
                 } else {
@@ -169,7 +169,7 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public T visitInnerNode(String key, InnerNode node) {
+            public T visitInnerNode(Field field, String key, InnerNode node) {
                 if (idx == keys.size()) {
                     return (T) node;
                 } else if (node == null) {
@@ -192,18 +192,18 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public T visitNamedListNode(String key, NamedListNode<?> node) {
+            public T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 if (idx == keys.size()) {
                     return (T) node;
                 } else {
                     String name = keys.get(idx++);
 
-                    return visitInnerNode(name, node.getInnerNode(name));
+                    return visitInnerNode(field, name, node.getInnerNode(name));
                 }
             }
         };
 
-        return node.accept(null, visitor);
+        return node.accept(null, null, visitor);
     }
 
     /**
@@ -302,7 +302,7 @@ public class ConfigurationUtil {
         node.traverseChildren(new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
             @Override
-            public Object visitLeafNode(String key, Serializable val) {
+            public Object visitLeafNode(Field field, String key, Serializable val) {
                 // If source value is null then initialise the same value on the destination node.
                 if (val == null) {
                     node.constructDefault(key);
@@ -313,7 +313,7 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public Object visitInnerNode(String key, InnerNode innerNode) {
+            public Object visitInnerNode(Field field, String key, InnerNode innerNode) {
                 // Copy or create the element.
                 node.construct(key, EMPTY_CFG_SRC, true);
 
@@ -326,7 +326,7 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
+            public Object visitNamedListNode(Field field, String key, NamedListNode<?> namedList) {
                 // Copy or create the element.
                 node.construct(key, EMPTY_CFG_SRC, true);
 
@@ -354,14 +354,14 @@ public class ConfigurationUtil {
     public static void dropNulls(InnerNode node) {
         node.traverseChildren(new ConfigurationVisitor<>() {
             @Override
-            public Object visitInnerNode(String key, InnerNode innerNode) {
+            public Object visitInnerNode(Field field, String key, InnerNode innerNode) {
                 dropNulls(innerNode);
 
                 return null;
             }
 
             @Override
-            public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
+            public Object visitNamedListNode(Field field, String key, NamedListNode<?> namedList) {
                 for (String namedListKey : namedList.namedListKeys()) {
                     InnerNode element = namedList.getInnerNode(namedListKey);
 
@@ -385,7 +385,7 @@ public class ConfigurationUtil {
     public static ConfigurationVisitor<Serializable> leafNodeVisitor() {
         return new ConfigurationVisitor<>() {
             @Override
-            public Serializable visitLeafNode(String key, Serializable val) {
+            public Serializable visitLeafNode(Field field, String key, Serializable val) {
                 return val;
             }
         };
@@ -399,7 +399,7 @@ public class ConfigurationUtil {
     public static ConfigurationVisitor<InnerNode> innerNodeVisitor() {
         return new ConfigurationVisitor<>() {
             @Override
-            public InnerNode visitInnerNode(String key, InnerNode node) {
+            public InnerNode visitInnerNode(Field field, String key, InnerNode node) {
                 return node;
             }
         };
@@ -414,7 +414,7 @@ public class ConfigurationUtil {
         return new ConfigurationVisitor<>() {
             /** {@inheritDoc} */
             @Override
-            public NamedListNode<?> visitNamedListNode(String key, NamedListNode<?> node) {
+            public NamedListNode<?> visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 return node;
             }
         };
@@ -774,7 +774,7 @@ public class ConfigurationUtil {
 
                 /** {@inheritDoc} */
                 @Override
-                public T visitLeafNode(String key, Serializable val) {
+                public T visitLeafNode(Field field, String key, Serializable val) {
                     if (idx != pathSize) {
                         throw new KeyNotFoundException("Configuration value '" + joinPath(path.subList(0, idx)) + "' is a leaf");
                     } else {
@@ -784,7 +784,7 @@ public class ConfigurationUtil {
 
                 /** {@inheritDoc} */
                 @Override
-                public T visitInnerNode(String key, InnerNode node) {
+                public T visitInnerNode(Field field, String key, InnerNode node) {
                     if (node == null) {
                         throw new KeyNotFoundException("Configuration node '" + joinPath(path.subList(0, idx)) + "' is null");
                     } else if (idx == pathSize) {
@@ -818,7 +818,7 @@ public class ConfigurationUtil {
 
                 /** {@inheritDoc} */
                 @Override
-                public T visitNamedListNode(String key, NamedListNode<?> node) {
+                public T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                     if (idx == pathSize) {
                         return (T) node;
                     } else {
@@ -834,12 +834,12 @@ public class ConfigurationUtil {
                                 ? pathNode.key
                                 : node.keyByInternalId(UUID.fromString(pathNode.key));
 
-                        return visitInnerNode(name, node.getInnerNode(name));
+                        return visitInnerNode(field, name, node.getInnerNode(name));
                     }
                 }
             };
 
-            return rootNode.accept(null, visitor);
+            return rootNode.accept(null, null, visitor);
         } catch (KeyNotFoundException e) {
             throw new NoSuchElementException(joinPath(path));
         }

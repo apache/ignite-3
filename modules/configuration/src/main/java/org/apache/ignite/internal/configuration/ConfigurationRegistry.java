@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.to
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -245,12 +246,12 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         }
 
         if (node instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) node).accept(null, visitor);
+            return ((TraversableTreeNode) node).accept(null, null, visitor);
         }
 
         assert node == null || node instanceof Serializable;
 
-        return visitor.visitLeafNode(null, (Serializable) node);
+        return visitor.visitLeafNode(null, null, (Serializable) node);
     }
 
     /**
@@ -306,7 +307,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
                 newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitInnerNode(String key, InnerNode newRoot) {
+                    public Void visitInnerNode(Field field, String key, InnerNode newRoot) {
                         DynamicConfiguration<InnerNode, ?> config = (DynamicConfiguration<InnerNode, ?>) configs.get(key);
 
                         assert config != null : key;

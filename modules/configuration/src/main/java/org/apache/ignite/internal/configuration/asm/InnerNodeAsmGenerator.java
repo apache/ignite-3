@@ -21,6 +21,7 @@ import static com.facebook.presto.bytecode.Access.BRIDGE;
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.STATIC;
 import static com.facebook.presto.bytecode.Access.SYNTHETIC;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
@@ -29,6 +30,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.inlineIf;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.isNotNull;
@@ -73,6 +75,7 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -112,13 +115,13 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link Consumer#accept(Object)}. */
     private static final Method ACCEPT;
 
-    /** {@link ConfigurationVisitor#visitLeafNode(String, Serializable)}. */
+    /** {@link ConfigurationVisitor#visitLeafNode(Field, String, Serializable)}. */
     private static final Method VISIT_LEAF;
 
-    /** {@link ConfigurationVisitor#visitInnerNode(String, InnerNode)}. */
+    /** {@link ConfigurationVisitor#visitInnerNode(Field, String, InnerNode)}. */
     private static final Method VISIT_INNER;
 
-    /** {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}. */
+    /** {@link ConfigurationVisitor#visitNamedListNode(Field, String, NamedListNode)}. */
     private static final Method VISIT_NAMED;
 
     /** {@link ConfigurationSource#unwrap(Class)}. */
@@ -163,24 +166,30 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link InnerNode#assertMutability()}. */
     private static final Method ASSERT_MUTABILITY_MTD;
 
+    /** {@link Class#getDeclaredField(String)}. */
+    private static final Method GET_DECLARED_FIELD_MTD;
+
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
 
     /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
     private static final String CONSTRUCT_MTD_NAME = "construct";
 
+    /** {@link Field} to {@link FieldDefinition} map. */
+    private final Map<Field, FieldDefinition> dieldToDieldDefinitionMap = new HashMap<>();
+
     static {
         try {
             ACCEPT = Consumer.class.getDeclaredMethod("accept", Object.class);
 
             VISIT_LEAF = ConfigurationVisitor.class
-                    .getDeclaredMethod("visitLeafNode", String.class, Serializable.class);
+                    .getDeclaredMethod("visitLeafNode", Field.class, String.class, Serializable.class);
 
             VISIT_INNER = ConfigurationVisitor.class
-                    .getDeclaredMethod("visitInnerNode", String.class, InnerNode.class);
+                    .getDeclaredMethod("visitInnerNode", Field.class, String.class, InnerNode.class);
 
             VISIT_NAMED = ConfigurationVisitor.class
-                    .getDeclaredMethod("visitNamedListNode", String.class, NamedListNode.class);
+                    .getDeclaredMethod("visitNamedListNode", Field.class, String.class, NamedListNode.class);
 
             UNWRAP = ConfigurationSource.class.getDeclaredMethod("unwrap", Class.class);
 
@@ -209,6 +218,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             INTERNAL_SCHEMA_TYPES_MTD = InnerNode.class.getDeclaredMethod("internalSchemaTypes");
 
             ASSERT_MUTABILITY_MTD = InnerNode.class.getDeclaredMethod("assertMutability");
+
+            GET_DECLARED_FIELD_MTD = Class.class.getDeclaredMethod("getDeclaredField", String.class);
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
@@ -305,6 +316,14 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 injectedNameFieldDef = fieldDef;
             }
         }
+
+        MethodDefinition classInitializer = innerNodeClassDef.getClassInitializer();
+        dieldToDieldDefinitionMap.forEach((k, v) -> {
+            // get declared field
+            BytecodeExpression invoke = constantClass(k.getDeclaringClass())
+                    .invoke(GET_DECLARED_FIELD_MTD, constantString(k.getName()));
+            classInitializer.getBody().append(BytecodeExpressions.setStatic(v, invoke));
+        });
 
         // org.apache.ignite.internal.configuration.tree.InnerNode#schemaType
         addNodeSchemaTypeMethod(polymorphicTypeIdFieldDef);
@@ -513,6 +532,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         } else {
             throw new IllegalArgumentException("Unsupported field: " + schemaField);
         }
+
+        dieldToDieldDefinitionMap.put(
+                schemaField,
+                innerNodeClassDef.declareField(EnumSet.of(PUBLIC, STATIC, FINAL), fieldName + "FieldDefinition", Field.class)
+        );
 
         return innerNodeClassDef.declareField(EnumSet.of(PUBLIC), fieldName, nodeFieldType);
     }
@@ -1068,7 +1092,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
      * @param fieldDef    Field definition from current class.
      * @return Bytecode block that invokes "visit*" method.
      */
-    private static BytecodeBlock invokeVisit(MethodDefinition mtd, Field schemaField, FieldDefinition fieldDef) {
+    private BytecodeBlock invokeVisit(MethodDefinition mtd, Field schemaField, FieldDefinition fieldDef) {
         Method visitMethod;
 
         if (isValue(schemaField) || isPolymorphicId(schemaField)) {
@@ -1079,8 +1103,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             visitMethod = VISIT_NAMED;
         }
 
+        FieldDefinition definition = dieldToDieldDefinitionMap.get(schemaField);
+
         return new BytecodeBlock().append(mtd.getScope().getVariable("visitor").invoke(
                 visitMethod,
+                getStatic(definition),
                 constantString(schemaField.getName()),
                 mtd.getThis().getField(fieldDef)
         ));
