@@ -97,6 +97,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -316,7 +317,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock);
+            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i));
 
             txMgr.start();
 
@@ -341,7 +342,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         String localNodeName = accRaftClients.get(0).clusterService().topologyService().localMember().name();
 
         if (startClient()) {
-            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock);
+            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1));
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);

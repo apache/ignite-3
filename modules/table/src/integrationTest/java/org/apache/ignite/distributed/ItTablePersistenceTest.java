@@ -86,6 +86,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
@@ -181,12 +182,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
 
         for (int i = 0; i < nodes(); i++) {
-            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
+            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i));
             txManagers.put(i, txManager);
             closeables.add(txManager::stop);
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
+        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1));
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(

@@ -238,7 +238,10 @@ public class LeaseUpdater {
 
                     // The lease is expired or close to this.
                     if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                        ClusterNode candidate = nextLeaseHolder(entry.getValue(), null);
+                        ClusterNode candidate = nextLeaseHolder(
+                                entry.getValue(),
+                                lease.isAccepted() ? lease.getLeaseholder().name() : null
+                        );
 
                         if (candidate == null) {
                             continue;

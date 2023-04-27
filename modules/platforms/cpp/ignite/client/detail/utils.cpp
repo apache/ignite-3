@@ -17,8 +17,6 @@
 
 #include "utils.h"
 
-#include "client_data_type.h"
-
 #include <ignite/common/bits.h>
 #include <ignite/common/uuid.h>
 
@@ -220,7 +218,7 @@ std::vector<std::byte> pack_tuple(
  * @param scale Scale.
  */
 void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
-    builder.claim_int32(client_data_type::from_ignite_type(typ));
+    builder.claim_int32(static_cast<std::int32_t>(typ));
     builder.claim_int32(scale);
 }
 
@@ -232,7 +230,7 @@ void claim_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::i
  * @param scale Scale.
  */
 void append_type_and_scale(binary_tuple_builder &builder, ignite_type typ, std::int32_t scale = 0) {
-    builder.append_int32(client_data_type::from_ignite_type(typ));
+    builder.append_int32(static_cast<std::int32_t>(typ));
     builder.append_int32(scale);
 }
 

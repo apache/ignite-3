@@ -28,11 +28,13 @@ import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.util.subscription.AccumulateException;
+import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
  * Units accumulator with filtering mechanism.
  */
-public class UnitsAccumulator implements Accumulator<List<UnitStatus>> {
+public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatus>> {
     private final Map<String, UnitStatusBuilder> map = new HashMap<>();
 
     private final Predicate<UnitMeta> filter;

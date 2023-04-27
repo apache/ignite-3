@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.table;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.table.MutableTupleBinaryTupleAdapter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -80,9 +79,8 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter {
     @Override
     protected ColumnType schemaColumnType(int columnIndex) {
         NativeTypeSpec spec = schema.column(columnIndex).type().spec();
-        int clientTypeCode = ClientTableCommon.getClientDataType(spec);
 
-        return ClientColumnTypeConverter.clientDataTypeToSqlColumnType(clientTypeCode);
+        return ClientTableCommon.getColumnType(spec);
     }
 
     /** {@inheritDoc} */

@@ -33,19 +33,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -67,8 +63,6 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
@@ -204,11 +198,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
-                () -> completedFuture(peersAndLearners(
-                        new HashMap<>(Map.of(new NetworkAddress("localhost", PORT), clusterService)),
-                        addr -> true,
-                        1)
-                        .peers().stream().map(Peer::consistentId).collect(toSet())),
+                () -> cmgManager.metaStorageNodes(),
                 logicalTopologyService,
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
@@ -275,30 +265,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         anotherClusterService.stop();
         clusterService.stop();
         vaultManager.stop();
-    }
-
-    private static PeersAndLearners peersAndLearners(
-            HashMap<NetworkAddress, ClusterService> clusterServices,
-            Predicate<NetworkAddress> isServerAddress,
-            int nodes
-    ) {
-        return PeersAndLearners.fromConsistentIds(
-                getNetworkAddresses(nodes).stream().filter(isServerAddress)
-                        .map(netAddr -> clusterServices.get(netAddr).topologyService().localMember().name()).collect(
-                                toSet()));
-    }
-
-    /**
-     * Generates a node address for each node.
-     *
-     * @param nodes Node count.
-     * @return List on network addresses.
-     */
-    private static List<NetworkAddress> getNetworkAddresses(int nodes) {
-        List<NetworkAddress> addresses = IntStream.range(PORT, PORT + nodes)
-                .mapToObj(port -> new NetworkAddress("localhost", port))
-                .collect(Collectors.toList());
-        return addresses;
     }
 
     @Test
@@ -461,7 +427,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> leaseGrantReqRef.get() != null, 10_000));
 
         assertEquals(leaseGrantReqRef.get().leaseStartTime(), lease.getStartTime());
-        assertEquals(leaseGrantReqRef.get().leaseExpirationTime(), lease.getExpirationTime());
+        assertTrue(leaseGrantReqRef.get().leaseExpirationTime().compareTo(lease.getExpirationTime()) >= 0);
     }
 
     /**
@@ -550,18 +516,32 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     protected static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
         private final ClusterService clusterService;
 
+        private List<LogicalTopologyEventListener> listeners;
+
         public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
             this.clusterService = clusterService;
+            this.listeners = new ArrayList<>();
         }
 
         @Override
         public void addEventListener(LogicalTopologyEventListener listener) {
-
+            this.listeners.add(listener);
         }
 
         @Override
         public void removeEventListener(LogicalTopologyEventListener listener) {
+            this.listeners.remove(listener);
+        }
 
+        /**
+         * Updates logical topology to the physical one.
+         */
+        public void updateTopology() {
+            if (listeners != null) {
+                var top = clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet());
+
+                listeners.forEach(lnsr -> lnsr.onTopologyLeap(new LogicalTopologySnapshot(2, top)));
+            }
         }
 
         @Override

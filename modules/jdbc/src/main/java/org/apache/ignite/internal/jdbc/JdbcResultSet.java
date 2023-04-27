@@ -56,6 +56,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -209,16 +211,24 @@ public class JdbcResultSet implements ResultSet {
     public boolean next() throws SQLException {
         ensureNotClosed();
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcQueryFetchRequest(cursorId, fetchSize)).join();
+            try {
+                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcQueryFetchRequest(cursorId, fetchSize)).get();
 
-            if (!res.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+                if (!res.hasResults()) {
+                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+                }
+
+                rows = res.items();
+                finished = res.last();
+
+                rowsIter = rows.iterator();
+            } catch (InterruptedException e) {
+                throw new SQLException("Thread was interrupted.", e);
+            } catch (ExecutionException e) {
+                throw new SQLException("Fetch request failed.", e);
+            } catch (CancellationException e) {
+                throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
             }
-
-            rows = res.items();
-            finished = res.last();
-
-            rowsIter = rows.iterator();
         }
 
         if (rowsIter != null) {
@@ -261,12 +271,18 @@ public class JdbcResultSet implements ResultSet {
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).join();
+                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).get();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }
             }
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Unable to close result set.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Close result set request canceled.", e);
         } finally {
             closed = true;
         }
@@ -2195,14 +2211,22 @@ public class JdbcResultSet implements ResultSet {
 
         assert cursorId != null : "Unable to call meta() method for non QUERY result set.";
 
-        if (!metaInit) {
-            JdbcMetaColumnsResult res = cursorHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).join();
+        try {
+            if (!metaInit) {
+                JdbcMetaColumnsResult res = cursorHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).get();
 
-            meta = res.meta();
+                meta = res.meta();
 
-            metaInit = true;
+                metaInit = true;
+            }
+
+            return meta;
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Metadata request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
         }
-
-        return meta;
     }
 }

@@ -67,7 +67,7 @@ public class ResultSelectorCacheKeyTests
         var columns = GetColumns();
         var columns2 = GetColumns();
 
-        columns2[0] = columns2[0] with { Type = SqlColumnType.String };
+        columns2[0] = columns2[0] with { Type = ColumnType.String };
 
         var key1 = new ResultSelectorCacheKey<object>(target, columns);
         var key2 = new ResultSelectorCacheKey<object>(target, columns2);
@@ -114,14 +114,14 @@ public class ResultSelectorCacheKeyTests
         {
             new ColumnMetadata(
                 Name: "c1",
-                Type: SqlColumnType.Date,
+                Type: ColumnType.Date,
                 Precision: 1,
                 Scale: 2,
                 Nullable: true,
                 Origin: null),
             new ColumnMetadata(
                 Name: "c2",
-                Type: SqlColumnType.Float,
+                Type: ColumnType.Float,
                 Precision: 4,
                 Scale: 6,
                 Nullable: false,

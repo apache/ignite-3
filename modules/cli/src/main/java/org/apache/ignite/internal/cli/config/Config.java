@@ -57,7 +57,15 @@ public interface Config {
     void setProperty(String key, String value);
 
     /**
-     * Sets properties to this profile.
+     * Removes a property.
+     *
+     * @param key property to remove
+     * @return removed property, or {@code null} if there was no such property.
+     */
+    String removeProperty(String key);
+
+    /**
+     * Sets properties.
      *
      * @param values map of properties to set
      */

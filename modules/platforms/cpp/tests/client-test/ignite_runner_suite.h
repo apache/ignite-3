@@ -46,6 +46,8 @@ public:
     inline static const std::string PLATFORM_TEST_NODE_RUNNER =
         "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
+    inline static const std::string ENABLE_AUTHN_JOB = PLATFORM_TEST_NODE_RUNNER + "$EnableAuthenticationJob";
+
     inline static const std::string IT_THIN_CLIENT_COMPUTE_TEST =
         "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 

@@ -87,12 +87,13 @@ int main(int argc, char **argv) {
         std::cout << "Tests run in a multi-node mode." << std::endl;
 
     ignite::IgniteRunner runner;
-    if (!check_test_node_connectable(std::chrono::seconds(5))) {
-        set_process_abort_handler([&](int signal) {
-            std::cout << "Caught signal " << signal << " during tests" << std::endl;
+    set_process_abort_handler([&](int signal) {
+        std::cout << "Caught signal " << signal << " during tests" << std::endl;
 
-            runner.stop();
-        });
+        runner.stop();
+    });
+
+    if (!check_test_node_connectable(std::chrono::seconds(5))) {
         runner.start();
         ensure_node_connectable(std::chrono::seconds(60));
     }
