@@ -27,7 +27,7 @@ import java.util.stream.Stream;
  * @param <R> Record type.
  */
 public interface StreamerTarget<R> {
-    // TODO: Can we have async producer AND async consumer? Like IAsyncEnumerable in .NET?
+    // TODO: Can we have async producer AND async consumer? Like IAsyncEnumerable in .NET? - Should be possible with Flow API
     // What if I want to have multiple producers threads on the client - it is not possible with Stream?
     CompletableFuture<Void> streamData(Stream<R> data, DataStreamerOptions options); // Sync producer, async consumer
 
