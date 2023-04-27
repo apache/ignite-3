@@ -29,24 +29,42 @@ import org.apache.ignite.table.Tuple;
 public class DataStreamerExample {
     public static void main(String[] args) throws Exception {
         try (var client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
-            var publisher = new SubmissionPublisher<MyData>();
-
-            CompletableFuture<Void> fut = client.tables()
-                    .table("foo")
-                    .recordView()
-                    .streamData(
-                            publisher,
-                            pojo -> Tuple.create().set("id", pojo.id),
-                            new Receiver(),
-                            new DataStreamerOptions().batchSize(512));
-
-            publisher.submit(new MyData(1, "abc"));
-
-            fut.join();
+            streamDataIntoTable(client);
         }
     }
 
-    static class Receiver implements StreamReceiver<MyData> {
+    private static void streamDataIntoTable(IgniteClient client) {
+        var publisher = new SubmissionPublisher<MyData>();
+
+        CompletableFuture<Void> fut = client.tables()
+                .table("foo")
+                .recordView()
+                .streamData(
+                        publisher,
+                        pojo -> Tuple.create().set("id", pojo.id),
+                        new TableUpdateReceiver(),
+                        new DataStreamerOptions().batchSize(512));
+
+        publisher.submit(new MyData(1, "abc"));
+
+        fut.join();
+    }
+
+    private static void streamDataWithoutTable(IgniteClient client) {
+        var publisher = new SubmissionPublisher<MyData>();
+
+        CompletableFuture<Void> fut = client
+                .streamData(
+                        publisher,
+                        new ProcessAndSendToAnotherServiceReceiver(),
+                        null);
+
+        publisher.submit(new MyData(2, "xyz"));
+
+        fut.join();
+    }
+
+    static class TableUpdateReceiver implements StreamReceiver<MyData> {
         @Override
         public CompletableFuture<Void> receive(Collection<MyData> batch, StreamReceiverContext context) {
             // Transform custom data into tuples and insert.
@@ -71,6 +89,14 @@ public class DataStreamerExample {
             }
 
             return CompletableFuture.completedFuture(null); // Can be a real future in case of async processing.
+        }
+    }
+
+    static class ProcessAndSendToAnotherServiceReceiver implements StreamReceiver<MyData> {
+        @Override
+        public CompletableFuture<Void> receive(Collection<MyData> batch, StreamReceiverContext context) {
+            // Process data, serialize into JSON and send to some web API.
+            return CompletableFuture.completedFuture(null);
         }
     }
 
