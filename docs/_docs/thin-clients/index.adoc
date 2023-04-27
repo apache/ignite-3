@@ -78,7 +78,7 @@ tab:Windows[]
 mkdir cmake-build-release
 cd cmake-build-release
 conan install .. --build=missing -s build_type=Release
-cmake .. -DENABLE_TESTS=OFF
+cmake ..
 cmake --build . -j8
 ----
 
@@ -88,7 +88,7 @@ tab:Linux[]
 mkdir cmake-build-release
 cd cmake-build-release
 conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8
 ----
 
@@ -98,7 +98,7 @@ tab:MacOS[]
 mkdir cmake-build-release
 cd cmake-build-release
 conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libc++
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8
 ----
 
