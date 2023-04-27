@@ -29,6 +29,7 @@ public class DataStreamerExample {
 
             CompletableFuture<Void> fut = client.tables().table("foo").recordView().streamData(publisher, null);
 
+            // TODO: Example with receiver, custom data type, multiple colocated tables.
             publisher.submit(Tuple.create().set("key", 1).set("value", "value1"));
 
             fut.join();
