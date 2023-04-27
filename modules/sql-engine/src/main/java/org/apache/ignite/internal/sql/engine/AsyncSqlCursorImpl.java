@@ -129,11 +129,13 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     }
 
     private static IgniteException preserveExceptionType(IgniteException e, Throwable t) {
-        // Return IgniteException as is
-        if (e.getClass() == IgniteException.class) {
+        if (e == t) {
             return e;
         }
 
+        t = ExceptionUtils.unwrapCause(t);
+
+        // Re-create exception to get correct stacktrace.
         try {
             Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
 
