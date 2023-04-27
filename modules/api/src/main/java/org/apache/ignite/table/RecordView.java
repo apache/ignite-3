@@ -21,6 +21,8 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -350,4 +352,19 @@ public interface RecordView<R> {
      */
     @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs,
             InvokeProcessor<R, R, T> proc);
+
+    // TODO: Can we have async producer AND async consumer? Like IAsyncEnumerable in .NET?
+    // What if I want to have multiple producers threads on the client - it is not possible with Stream?
+    CompletableFuture<Void> streamData(Stream<R> data); // Sync producer, async consumer
+
+    /**
+     * Stream data to the cluster with a receiver.
+     *
+     * @param data Producer stream.
+     * @param keyAccessor Key accessor. Required to determine target node from the entry key.
+     * @param receiver Stream receiver. Will be invoked on the target node.
+     * @return Future that will be completed when the stream is finished.
+     * @param <T> Entry type.
+     */
+    <T> CompletableFuture<Void> streamData(Stream<T> data, Function<T, R> keyAccessor, StreamReceiver<T> receiver);
 }

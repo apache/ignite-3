@@ -19,10 +19,12 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.StreamReceiver;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
