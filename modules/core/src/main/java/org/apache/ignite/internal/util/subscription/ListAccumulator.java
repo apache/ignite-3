@@ -24,6 +24,7 @@ import java.util.function.Function;
 /**
  * Plain list accumulator.
  *
+ * @param <T> Stream elements value type.
  * @param <R> Result value type.
  */
 public class ListAccumulator<T, R> implements Accumulator<T, List<R>> {
