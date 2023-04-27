@@ -64,6 +64,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -485,40 +486,40 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             Set<Assignment> expectedPendingAssignments,
             Set<Assignment> expectedPlannedAssignments
     ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
+        ZoneReplicaGroupId zoneReplicaGroupId = new ZoneReplicaGroupId(1, 1);
 
         if (currentStableAssignments != null) {
-            keyValueStorage.put(stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments));
+            keyValueStorage.put(stablePartAssignmentsKey(zoneReplicaGroupId).bytes(), toBytes(currentStableAssignments));
         }
 
         if (currentPendingAssignments != null) {
-            keyValueStorage.put(pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments));
+            keyValueStorage.put(pendingPartAssignmentsKey(zoneReplicaGroupId).bytes(), toBytes(currentPendingAssignments));
         }
 
         if (currentPlannedAssignments != null) {
-            keyValueStorage.put(plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments));
+            keyValueStorage.put(plannedPartAssignmentsKey(zoneReplicaGroupId).bytes(), toBytes(currentPlannedAssignments));
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(
-                "table1", tablePartitionId, nodesForNewAssignments,
+                "table1", zoneReplicaGroupId, nodesForNewAssignments,
                 replicas, 1, metaStorageManager, partNum, tableCfgAssignments
         );
 
-        byte[] actualStableBytes = keyValueStorage.get(stablePartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualStableBytes = keyValueStorage.get(stablePartAssignmentsKey(zoneReplicaGroupId).bytes()).value();
         Set<Assignment> actualStableAssignments = null;
 
         if (actualStableBytes != null) {
             actualStableAssignments = ByteUtils.fromBytes(actualStableBytes);
         }
 
-        byte[] actualPendingBytes = keyValueStorage.get(pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualPendingBytes = keyValueStorage.get(pendingPartAssignmentsKey(zoneReplicaGroupId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
             actualPendingAssignments = ByteUtils.fromBytes(actualPendingBytes);
         }
 
-        byte[] actualPlannedBytes = keyValueStorage.get(plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualPlannedBytes = keyValueStorage.get(plannedPartAssignmentsKey(zoneReplicaGroupId).bytes()).value();
         Set<Assignment> actualPlannedAssignments = null;
 
         if (actualPlannedBytes != null) {

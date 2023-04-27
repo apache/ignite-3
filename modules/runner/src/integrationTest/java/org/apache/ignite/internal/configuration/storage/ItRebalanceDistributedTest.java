@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
-import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
+import static org.apache.ignite.internal.utils.RebalanceUtil.extractRebalanceZoneId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
@@ -137,6 +137,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -778,15 +779,15 @@ public class ItRebalanceDistributedTest {
 
                 @Override
                 protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-                    TablePartitionId tablePartitionId = getTablePartitionId(evt);
+                    ZoneReplicaGroupId zoneReplicaGroupId = getTablePartitionId(evt);
 
                     return super.handleChangeStableAssignmentEvent(evt)
                             .whenComplete((v, e) -> {
-                                if (tablePartitionId == null) {
+                                if (zoneReplicaGroupId == null) {
                                     return;
                                 }
 
-                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
+                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(zoneReplicaGroupId);
 
                                 if (finishFuture == null) {
                                     return;
@@ -866,7 +867,7 @@ public class ItRebalanceDistributedTest {
             return clusterService.topologyService().localMember().address();
         }
 
-        @Nullable TablePartitionId getTablePartitionId(WatchEvent event) {
+        @Nullable ZoneReplicaGroupId getTablePartitionId(WatchEvent event) {
             assertTrue(event.single(), event.toString());
 
             Entry stableAssignmentsWatchEvent = event.entryEvent().newEntry();
@@ -876,9 +877,9 @@ public class ItRebalanceDistributedTest {
             }
 
             int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-            UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+            int zoneId = extractRebalanceZoneId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
-            return new TablePartitionId(tableId, partitionId);
+            return new ZoneReplicaGroupId(zoneId, partitionId);
         }
 
         TablePartitionId getTablePartitionId(String tableName, int partitionId) {

@@ -32,7 +32,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -45,7 +44,9 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
@@ -102,7 +103,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, TablePartitionId partId, Collection<String> dataNodes,
+            String tableName, ZoneReplicaGroupId partId, Collection<String> dataNodes,
             int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum, Set<Assignment> tableCfgPartAssignments) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -234,7 +235,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partChangeTriggerKey(TablePartitionId partId) {
+    public static ByteArray partChangeTriggerKey(ZoneReplicaGroupId partId) {
         return new ByteArray(partId + ".change.trigger");
     }
 
@@ -245,7 +246,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray pendingPartAssignmentsKey(TablePartitionId partId) {
+    public static ByteArray pendingPartAssignmentsKey(ZoneReplicaGroupId partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -256,7 +257,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray plannedPartAssignmentsKey(TablePartitionId partId) {
+    public static ByteArray plannedPartAssignmentsKey(ZoneReplicaGroupId partId) {
         return new ByteArray("assignments.planned." + partId);
     }
 
@@ -267,7 +268,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
+    public static ByteArray stablePartAssignmentsKey(ZoneReplicaGroupId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -278,7 +279,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray switchReduceKey(TablePartitionId partId) {
+    public static ByteArray switchReduceKey(ZoneReplicaGroupId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
     }
 
@@ -289,32 +290,43 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray switchAppendKey(TablePartitionId partId) {
+    public static ByteArray switchAppendKey(ZoneReplicaGroupId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
     }
 
-    /**
-     * Extract table id from a metastorage key of partition.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    public static UUID extractTableId(byte[] key) {
-        return extractTableId(key, "");
+    public static int extractRebalanceZoneId(byte[] key) {
+        return extractRebalanceZoneId(key, "");
     }
 
-    /**
-     * Extract table id from a metastorage key of partition.
-     *
-     * @param key Key.
-     * @param prefix Key prefix.
-     * @return Table id.
-     */
-    public static UUID extractTableId(byte[] key, String prefix) {
+    public static int extractRebalanceZoneId(byte[] key, String prefix) {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
-        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
+
+//    /**
+//     * Extract table id from a metastorage key of partition.
+//     *
+//     * @param key Key.
+//     * @return Table id.
+//     */
+//    public static UUID extractTableId(byte[] key) {
+//
+//        return extractTableId(key, "");
+//    }
+
+//    /**
+//     * Extract table id from a metastorage key of partition.
+//     *
+//     * @param key Key.
+//     * @param prefix Key prefix.
+//     * @return Table id.
+//     */
+//    public static UUID extractTableId(byte[] key, String prefix) {
+//        String strKey = new String(key, StandardCharsets.UTF_8);
+//
+//        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+//    }
 
     /**
      * Extract partition number from the rebalance key of partition.
@@ -349,7 +361,7 @@ public class RebalanceUtil {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> startPeerRemoval(
-            TablePartitionId partId,
+            ZoneReplicaGroupId partId,
             Assignment peerAssignment,
             MetaStorageManager metaStorageMgr
     ) {
@@ -402,7 +414,7 @@ public class RebalanceUtil {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
+            int replicas, int partNum, ZoneReplicaGroupId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 

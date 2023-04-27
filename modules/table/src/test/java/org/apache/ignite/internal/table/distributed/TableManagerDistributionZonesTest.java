@@ -91,6 +91,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -403,7 +404,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        TablePartitionId partId = new TablePartitionId(new UUID(0, 0), 0);
+        ZoneReplicaGroupId partId = new ZoneReplicaGroupId(1, 0);
 
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
@@ -413,7 +414,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     private void checkAssignments(
             List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables,
             Map<Integer, Set<String>> zoneNodes,
-            Function<TablePartitionId, ByteArray> assignmentFunction
+            Function<ZoneReplicaGroupId, ByteArray> assignmentFunction
     ) {
         for (int i = 0; i < mockedTables.size(); i++) {
             TableView tableView = mockedTables.get(i).get1();
@@ -421,7 +422,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                     getZoneById(distributionZonesConfiguration, tableView.zoneId());
 
             for (int j = 0; j < distributionZoneConfiguration.partitions().value(); j++) {
-                TablePartitionId partId = new TablePartitionId(new UUID(0, i), j);
+                ZoneReplicaGroupId partId = new ZoneReplicaGroupId(1, j);
 
                 byte[] actualAssignmentsBytes = keyValueStorage.get(assignmentFunction.apply(partId).bytes()).value();
 
