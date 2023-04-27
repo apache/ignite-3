@@ -186,6 +186,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
      *     <li>Calling {@link KeyValueView#contains(Transaction, Object)} must return {@code true} for an existing key
      *     and {@code false} if the key doesn't exists.</li>
      * </ul>
+     *
      * @param env Test environment.
      */
     @ParameterizedTest
