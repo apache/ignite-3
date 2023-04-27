@@ -403,8 +403,10 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        publisher.subscribe(new StreamerSubscriber(options));
-        throw new UnsupportedOperationException("Not implemented yet.");
+        StreamerSubscriber subscriber = new StreamerSubscriber(options);
+        publisher.subscribe(subscriber);
+
+        return subscriber.completionFuture();
     }
 
     /** {@inheritDoc} */
@@ -416,6 +418,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     private class StreamerSubscriber implements Subscriber<Tuple> {
         private final DataStreamerOptions options;
+
+        private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
 
         private @Nullable Subscription subscription;
 
@@ -452,6 +456,12 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             if (s != null) {
                 s.cancel();
             }
+
+            completionFut.complete(null);
+        }
+
+        CompletableFuture<Void> completionFuture() {
+            return completionFut;
         }
     }
 }
