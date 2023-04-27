@@ -41,6 +41,8 @@ public class DataStreamerTests : IgniteTestsBase
 
         while (await reader.ReadLineAsync() is { } line)
         {
+            // This code block is executed only when "await foreach" iteration is performed in StreamDataAsync,
+            // so we don't read more data than we need right now.
             var parts = line.Split(',');
 
             yield return new IgniteTuple { ["id"] = parts[0], ["name"] = parts[1] };
