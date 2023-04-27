@@ -422,7 +422,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                     getZoneById(distributionZonesConfiguration, tableView.zoneId());
 
             for (int j = 0; j < distributionZoneConfiguration.partitions().value(); j++) {
-                ZoneReplicaGroupId partId = new ZoneReplicaGroupId(1, j);
+                ZoneReplicaGroupId partId = new ZoneReplicaGroupId(tableView.zoneId(), j);
 
                 byte[] actualAssignmentsBytes = keyValueStorage.get(assignmentFunction.apply(partId).bytes()).value();
 
@@ -477,6 +477,10 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         ConfigurationValue valueId = mock(ConfigurationValue.class);
         when(valueId.value()).thenReturn(new UUID(0, tableNum));
         when(tableCfg.id()).thenReturn(valueId);
+
+        ConfigurationValue zoneIdVal = mock(ConfigurationValue.class);
+        when(zoneIdVal.value()).thenReturn(zoneId);
+        when(tableCfg.zoneId()).thenReturn(zoneIdVal);
 
         List<Set<Assignment>> tableAssignments = new ArrayList<>();
 
