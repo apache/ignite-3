@@ -43,7 +43,7 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     /**
      * Applies changes to the {@link AuthenticationConfiguration} when {@link DistributedConfigurationUpdater#securityConfigurationFuture}
      * is complete.
-     *”
+     *
      * @param configurationToApply Cluster configuration that should be applied.
      * @return Future that will be completed when cluster configuration is updated.
      */
