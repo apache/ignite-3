@@ -42,7 +42,7 @@
         </value>
       </option>
     </AndroidXmlCodeStyleSettings>
-    <JSCodeStyleSettings version="0">
+    <JSCodeStyleSettings>
       <option name="INDENT_CHAINED_CALLS" value="false" />
     </JSCodeStyleSettings>
     <JavaCodeStyleSettings>
