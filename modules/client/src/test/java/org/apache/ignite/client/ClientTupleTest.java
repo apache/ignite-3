@@ -44,8 +44,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
-import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
@@ -60,30 +58,30 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientTupleTest {
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ClientDataType.INT64, false, true, true, 0),
-            new ClientColumn("NAME", ClientDataType.STRING, false, false, false, 1)
+            new ClientColumn("ID", ColumnType.INT64, false, true, true, 0),
+            new ClientColumn("NAME", ColumnType.STRING, false, false, false, 1)
     });
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
-            new ClientColumn("I8", ClientDataType.INT8, false, false, false, 0),
-            new ClientColumn("I16", ClientDataType.INT16, false, false, false, 1),
-            new ClientColumn("I32", ClientDataType.INT32, false, false, false, 2),
-            new ClientColumn("I64", ClientDataType.INT64, false, false, false, 3),
-            new ClientColumn("FLOAT", ClientDataType.FLOAT, false, false, false, 4),
-            new ClientColumn("DOUBLE", ClientDataType.DOUBLE, false, false, false, 5),
-            new ClientColumn("UUID", ClientDataType.UUID, false, false, false, 6),
-            new ClientColumn("STR", ClientDataType.STRING, false, false, false, 7),
-            new ClientColumn("BITS", ClientDataType.BITMASK, false, false, false, 8),
-            new ClientColumn("DATE", ClientDataType.DATE, false, false, false, 9),
-            new ClientColumn("TIME", ClientDataType.TIME, false, false, false, 10),
-            new ClientColumn("DATETIME", ClientDataType.DATETIME, false, false, false, 11),
-            new ClientColumn("TIMESTAMP", ClientDataType.TIMESTAMP, false, false, false, 12),
-            new ClientColumn("BOOL", ClientDataType.BOOLEAN, false, false, false, 13),
-            new ClientColumn("DECIMAL", ClientDataType.DECIMAL, false, false, false, 14),
-            new ClientColumn("BYTES", ClientDataType.BYTES, false, false, false, 15),
-            new ClientColumn("PERIOD", ClientDataType.PERIOD, false, false, false, 16),
-            new ClientColumn("DURATION", ClientDataType.DURATION, false, false, false, 17),
-            new ClientColumn("NUMBER", ClientDataType.NUMBER, false, false, false, 18)
+            new ClientColumn("I8", ColumnType.INT8, false, false, false, 0),
+            new ClientColumn("I16", ColumnType.INT16, false, false, false, 1),
+            new ClientColumn("I32", ColumnType.INT32, false, false, false, 2),
+            new ClientColumn("I64", ColumnType.INT64, false, false, false, 3),
+            new ClientColumn("FLOAT", ColumnType.FLOAT, false, false, false, 4),
+            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, false, false, 5),
+            new ClientColumn("UUID", ColumnType.UUID, false, false, false, 6),
+            new ClientColumn("STR", ColumnType.STRING, false, false, false, 7),
+            new ClientColumn("BITS", ColumnType.BITMASK, false, false, false, 8),
+            new ClientColumn("DATE", ColumnType.DATE, false, false, false, 9),
+            new ClientColumn("TIME", ColumnType.TIME, false, false, false, 10),
+            new ClientColumn("DATETIME", ColumnType.DATETIME, false, false, false, 11),
+            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, false, false, 12),
+            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, false, false, 13),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, false, false, 14),
+            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, false, false, 15),
+            new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, false, 16),
+            new ClientColumn("DURATION", ColumnType.DURATION, false, false, false, 17),
+            new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, false, 18)
     });
 
     private static final UUID GUID = UUID.randomUUID();
@@ -288,7 +286,7 @@ public class ClientTupleTest {
     @Test
     public void testFullSchemaHasAllTypes() {
         Set<ColumnType> schemaTypes = Arrays.stream(FULL_SCHEMA.columns())
-                .map(c -> ClientColumnTypeConverter.clientDataTypeToSqlColumnType(c.type()))
+                .map(ClientColumn::type)
                 .collect(Collectors.toSet());
 
         for (ColumnType columnType : ColumnType.values()) {

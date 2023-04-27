@@ -43,7 +43,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "replicas : {0}")
     @MethodSource("replicas")
     void testBuildIndexOnStableTopology(int replicas) throws Exception {
         sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",

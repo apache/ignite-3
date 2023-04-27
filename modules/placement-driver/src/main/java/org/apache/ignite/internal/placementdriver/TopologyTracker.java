@@ -119,6 +119,11 @@ public class TopologyTracker {
             onUpdate(newTopology);
         }
 
+        @Override
+        public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+            onUpdate(newTopology);
+        }
+
         /**
          * Updates local topology cache.
          *

@@ -21,12 +21,12 @@
 
 namespace ignite::detail {
 
-node_connection::node_connection(
-    uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger)
+node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+    std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg)
     : m_id(id)
     , m_pool(std::move(pool))
-    , m_logger(std::move(logger)) {
-}
+    , m_logger(std::move(logger))
+    , m_configuration(cfg) { }
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
@@ -44,26 +44,35 @@ node_connection::~node_connection() {
 bool node_connection::handshake() {
     static constexpr int8_t CLIENT_TYPE = 2;
 
+    std::map<std::string, std::string> extensions;
+    auto authenticator = m_configuration.get_authenticator();
+    if (authenticator) {
+        extensions.emplace("authn-type", authenticator->get_type());
+        extensions.emplace("authn-identity", authenticator->get_identity());
+        extensions.emplace("authn-secret", authenticator->get_secret());
+    }
+
     std::vector<std::byte> message;
     {
         protocol::buffer_adapter buffer(message);
         buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
 
-        protocol::write_message_to_buffer(buffer, [&context = m_protocol_context](protocol::writer &writer) {
-            auto ver = context.get_version();
+        protocol::write_message_to_buffer(buffer,
+            [&context = m_protocol_context, &extensions](protocol::writer &writer) {
+                auto ver = context.get_version();
 
-            writer.write(ver.major());
-            writer.write(ver.minor());
-            writer.write(ver.patch());
+                writer.write(ver.major());
+                writer.write(ver.minor());
+                writer.write(ver.patch());
 
-            writer.write(CLIENT_TYPE);
+                writer.write(CLIENT_TYPE);
 
-            // Features.
-            writer.write_binary_empty();
+                // Features.
+                writer.write_binary_empty();
 
-            // Extensions.
-            writer.write_map_empty();
-        });
+                // Extensions.
+                writer.write_map(extensions);
+            });
     }
 
     return m_pool->send(m_id, std::move(message));
@@ -121,8 +130,10 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
         return {ignite_error("Unsupported server version: " + ver.to_string())};
 
     auto err = protocol::read_error(reader);
-    if (err)
+    if (err) {
+        m_logger->log_warning("Handshake error: " + err.value().what_str());
         return {ignite_error(err.value())};
+    }
 
     (void) reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
     (void) reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.

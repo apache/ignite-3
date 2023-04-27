@@ -35,7 +35,7 @@ import picocli.CommandLine.Spec;
 
 //TODO: Change org.apache.ignite.cli.commands.CliCommandTestBase after fix https://github.com/remkop/picocli/issues/1733
 @MicronautTest
-@Disabled
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19296")
 class PicocliBugTest {
     @Inject
     private ApplicationContext context;

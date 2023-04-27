@@ -92,7 +92,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @BeforeEach
+    @Override
     public void beforeEach() throws InterruptedException {
+        super.beforeEach();
+
         dropTables(server);
         dropTables(server2);
 

@@ -299,7 +299,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("PUBLIC", columns[0].Origin!.SchemaName);
             Assert.AreEqual("TESTDDLDML", columns[0].Origin!.TableName);
             Assert.IsTrue(columns[0].Nullable);
-            Assert.AreEqual(SqlColumnType.String, columns[0].Type);
+            Assert.AreEqual(ColumnType.String, columns[0].Type);
             Assert.AreEqual(int.MinValue, columns[0].Scale);
             Assert.AreEqual(65536, columns[0].Precision);
 

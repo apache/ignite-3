@@ -96,7 +96,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -233,19 +232,17 @@ public class ExecutionServiceImplTest {
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
-                try {
-                    testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
-                            .queryId(((QueryStartRequest) msg).queryId())
-                            .fragmentId(((QueryStartRequest) msg).fragmentId())
-                            .error(expectedEx)
-                            .build()
-                    );
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
-                }
+                testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(((QueryStartRequest) msg).queryId())
+                        .fragmentId(((QueryStartRequest) msg).fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
             } else {
                 original.onMessage(nodeName, msg);
             }
+
+            return CompletableFuture.completedFuture(null);
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
@@ -416,10 +413,12 @@ public class ExecutionServiceImplTest {
 
                     original.onMessage(senderNodeName, msg);
                 });
+
+                return CompletableFuture.completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                throw new IgniteInternalException(Sql.MESSAGE_SEND_ERR,
-                        "Connection refused to " + node.nodeName + ", message " + msg);
+                return CompletableFuture.failedFuture(new IgniteInternalException(Sql.INTERNAL_ERR,
+                        "Connection refused to " + node.nodeName + ", message " + msg));
             }
         }));
 
@@ -485,7 +484,6 @@ public class ExecutionServiceImplTest {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
-                exchangeService,
                 ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
         );
 
@@ -538,7 +536,6 @@ public class ExecutionServiceImplTest {
         class TestNode {
             private final Map<Short, MessageListener> msgListeners = new ConcurrentHashMap<>();
             private final Queue<RunnableX> pending = new LinkedBlockingQueue<>();
-            private volatile boolean dead = false;
             private volatile List<Object[]> dataset = List.of();
             private volatile MessageInterceptor interceptor = null;
 
@@ -550,14 +547,6 @@ public class ExecutionServiceImplTest {
             public TestNode(String nodeName, QueryTaskExecutor taskExecutor) {
                 this.nodeName = nodeName;
                 this.taskExecutor = taskExecutor;
-            }
-
-            public void dead(boolean dead) {
-                this.dead = dead;
-            }
-
-            public boolean dead() {
-                return dead;
             }
 
             public void dataset(List<Object[]> dataset) {
@@ -597,16 +586,10 @@ public class ExecutionServiceImplTest {
                 return new MessageService() {
                     /** {@inheritDoc} */
                     @Override
-                    public void send(String nodeName, NetworkMessage msg) {
+                    public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
                         TestNode node = nodes.get(nodeName);
 
-                        node.onReceive(TestNode.this.nodeName, msg);
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public boolean alive(String nodeName) {
-                        return !nodes.get(nodeName).dead();
+                        return node.onReceive(TestNode.this.nodeName, msg);
                     }
 
                     /** {@inheritDoc} */
@@ -665,7 +648,7 @@ public class ExecutionServiceImplTest {
                 };
             }
 
-            private void onReceive(String senderNodeName, NetworkMessage message) {
+            private CompletableFuture<Void> onReceive(String senderNodeName, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
                     MessageListener listener = msgListeners.get(msg.messageType());
 
@@ -685,15 +668,18 @@ public class ExecutionServiceImplTest {
                 MessageInterceptor interceptor = this.interceptor;
 
                 if (interceptor != null) {
-                    interceptor.intercept(senderNodeName, message, original);
-                } else {
-                    original.onMessage(senderNodeName, message);
+                    return interceptor.intercept(senderNodeName, message, original);
                 }
+
+                original.onMessage(senderNodeName, message);
+
+                return CompletableFuture.completedFuture(null);
             }
         }
 
+        @FunctionalInterface
         interface MessageInterceptor {
-            void intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
+            CompletableFuture<Void> intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
         }
     }
 

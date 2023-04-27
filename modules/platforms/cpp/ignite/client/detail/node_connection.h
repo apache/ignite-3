@@ -64,11 +64,12 @@ public:
      * @param id Connection ID.
      * @param pool Connection pool.
      * @param logger Logger.
+     * @param cfg Configuration.
      * @return New instance.
      */
-    static std::shared_ptr<node_connection> make_new(
-        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger) {
-        return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger)));
+    static std::shared_ptr<node_connection> make_new(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration& cfg) {
+        return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger), cfg));
     }
 
     /**
@@ -196,9 +197,10 @@ private:
      * @param id Connection ID.
      * @param pool Connection pool.
      * @param logger Logger.
+     * @param cfg Configuration.
      */
-    node_connection(
-        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
+    node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg);
 
     /**
      * Generate next request ID.
@@ -238,6 +240,9 @@ private:
 
     /** Logger. */
     std::shared_ptr<ignite_logger> m_logger;
+
+    /** Configuration. */
+    const ignite_client_configuration& m_configuration;
 };
 
 } // namespace ignite::detail

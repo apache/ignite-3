@@ -64,13 +64,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(DistributionZonesConfiguration.KEY),
-            Set.of(FilterValidator.INSTANCE),
-            new TestConfigurationStorage(DISTRIBUTED),
-            List.of(),
-            List.of(TestPersistStorageConfigurationSchema.class)
-    );
+    private ConfigurationRegistry registry;
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -79,6 +73,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
+        registry = new ConfigurationRegistry(
+                List.of(DistributionZonesConfiguration.KEY),
+                Set.of(FilterValidator.INSTANCE),
+                new TestConfigurationStorage(DISTRIBUTED),
+                List.of(),
+                List.of(TestPersistStorageConfigurationSchema.class)
+        );
+
         registry.start();
 
         registry.initializeDefaults();

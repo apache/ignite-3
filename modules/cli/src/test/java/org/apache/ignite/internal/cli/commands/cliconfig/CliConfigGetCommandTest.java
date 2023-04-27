@@ -55,15 +55,15 @@ class CliConfigGetCommandTest extends CliConfigCommandTestBase {
     }
 
     @Test
-    @DisplayName("Displays empty string for nonexistent key")
+    @DisplayName("Displays error for nonexistent key")
     void nonexistentKey() {
         // When executed with nonexistent key
         execute("nonexistentKey");
 
         assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs(System.lineSeparator()),
-                this::assertErrOutputIsEmpty
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Property nonexistentKey doesn't exist")
         );
     }
 

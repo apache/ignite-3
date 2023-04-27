@@ -33,7 +33,7 @@ public class Cloner {
 
     private List<IgniteReceiver> remotes;
 
-    Cloner(RelOptCluster cluster) {
+    public Cloner(RelOptCluster cluster) {
         this.cluster = cluster;
     }
 
