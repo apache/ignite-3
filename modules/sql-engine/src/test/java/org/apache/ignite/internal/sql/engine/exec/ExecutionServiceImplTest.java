@@ -426,7 +426,7 @@ public class ExecutionServiceImplTest {
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Connection refused to ")), 1000, TimeUnit.SECONDS));
+        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Connection refused to ")), 10, TimeUnit.SECONDS));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();
