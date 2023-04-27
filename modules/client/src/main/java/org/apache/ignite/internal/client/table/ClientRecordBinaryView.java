@@ -25,10 +25,14 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.StreamReceiver;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -391,6 +395,19 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             @NotNull Collection<Tuple> keyRecs,
             InvokeProcessor<Tuple, Tuple, T> proc
     ) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<Void> streamData(Publisher<T> publisher, Function<T, Tuple> keyAccessor, StreamReceiver<T> receiver,
+            @Nullable DataStreamerOptions options) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 }
