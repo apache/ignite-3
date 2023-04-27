@@ -427,13 +427,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         public void onSubscribe(Subscription subscription) {
             this.subscription = subscription;
 
-            // TODO: When do we request more?
             subscription.request(options.batchSize());
         }
 
         @Override
         public void onNext(Tuple objects) {
             // TODO: Update per-node buffers.
+            // TODO: Request more data once current batch is processed.
         }
 
         @Override
