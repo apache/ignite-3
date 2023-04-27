@@ -21,7 +21,6 @@ package org.apache.ignite.internal.configuration;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
-import org.apache.ignite.configuration.annotation.Value;
 
 /** Authentication provider configuration. */
 @PolymorphicConfig
