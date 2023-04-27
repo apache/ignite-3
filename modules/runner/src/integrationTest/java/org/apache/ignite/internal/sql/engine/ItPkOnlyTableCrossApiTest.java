@@ -28,7 +28,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -44,10 +48,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Checks basic operations on a table where all columns belong to the primary key.
- * Test uses a different API for operations on table data.
+ * Tests basic operations using a different API
+ * on a table where all columns belong to the primary key.
  */
 public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
+    /** Storage engine types. */
     private static final String[] ENGINES = {"aipersist", "aimem", "rocksdb"};
 
     @Override
@@ -76,6 +81,13 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    /**
+     * Ensures that {@link RecordView} can operate on a table containing only key columns.
+     *
+     * <p>It is expected that a tuple containing only key columns can be inserted, replaced and found in the table.
+     *
+     * @param env Test environment.
+     */
     @ParameterizedTest
     @MethodSource("parameters")
     public void testRecordView(TestEnvironment env) {
@@ -85,6 +97,8 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
+                    assertThrows(IgniteException.class, () -> view.upsert(rwTx, Tuple.create(key).set("val", 1)));
+
                     view.upsert(rwTx, key);
 
                     // Try to replace.
@@ -105,6 +119,22 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    /**
+     * Ensures that {@code KeyValueView<K, V>} can operate on a table containing only key columns.
+     *
+     * <ul>
+     *     <li>{@code Null} must be specified as a value. Otherwise, an exception should be thrown.</li>
+     *     <li>Re-inserting the same key must not create duplicates.</li>
+     *     <li>Calling {@link KeyValueView#get(Transaction, Object)} on an existing key must throws an exception.</li>
+     *     <li>Calling {@link KeyValueView#get(Transaction, Object)} on non-existing key must return {@code null}.</li>
+     *     <li>Calling {@link KeyValueView#getNullable(Transaction, Object)} on an existing key
+     *     must return {@link NullableValue} with no value.</li>
+     *     <li>Calling {@link KeyValueView#contains(Transaction, Object)} must return {@code true} for an existing key
+     *     and {@code false} if the key doesn't exists.</li>
+     * </ul>
+     *
+     * @param env Test environment.
+     */
     @ParameterizedTest
     @MethodSource("parameters")
     public void testKeyValueView(TestEnvironment env) {
@@ -116,13 +146,22 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
+                    assertThrows(SchemaMismatchException.class,
+                            () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
+
                     kvView.put(rwTx, key, null);
 
                     // Try to replace.
                     kvView.put(rwTx, key, null);
                 },
                 tx -> {
-                    assertNotNull(kvView.getNullable(tx, key));
+                    assertThrows(UnexpectedNullValueException.class, () -> kvView.get(tx, key));
+                    assertNull(kvView.get(tx, new KeyObject(0, "Mary")));
+
+                    NullableValue<Void> val = kvView.getNullable(tx, key);
+                    assertNotNull(val);
+                    assertNull(val.get());
+
                     assertTrue(kvView.contains(tx, key));
                     assertEquals(1, kvView.getAll(tx, Collections.singleton(key)).size());
 
@@ -136,6 +175,19 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    /**
+     * Ensures that binary {@code KeyValueView} can operate on a table containing only key columns.
+     *
+     * <ul>
+     *     <li>An empty tuple must be specified as a value, {@code null} value produces {@link NullPointerException}.</li>
+     *     <li>Re-inserting the same key must not create duplicates.</li>
+     *     <li>Calling {@link KeyValueView#get(Transaction, Object)} on an existing key must return an empty tuple.</li>
+     *     <li>Calling {@link KeyValueView#get(Transaction, Object)} on non-existing key must return {@code null}.</li>
+     *     <li>Calling {@link KeyValueView#contains(Transaction, Object)} must return {@code true} for an existing key
+     *     and {@code false} if the key doesn't exists.</li>
+     * </ul>
+     * @param env Test environment.
+     */
     @ParameterizedTest
     @MethodSource("parameters")
     public void testBinaryView(TestEnvironment env) {
@@ -145,12 +197,16 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
+                    // Try to put null.
+                    assertThrows(NullPointerException.class, () -> binView.put(rwTx, key, null));
+
                     binView.put(rwTx, key, emptyVal);
 
                     // Try to replace.
                     binView.put(rwTx, key, emptyVal);
                 },
                 tx -> {
+                    assertNull(binView.get(tx, Tuple.create(key).set("name", "Mary")));
                     assertEquals(emptyVal, binView.get(tx, key));
                     assertTrue(binView.contains(tx, key));
                     assertEquals(1, binView.getAll(tx, Collections.singleton(key)).size());
@@ -164,6 +220,11 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    /**
+     * Ensures that we can work with a table containing only key columns using the SQL API.
+     *
+     * @param env Test environment.
+     */
     @ParameterizedTest
     @MethodSource("parameters")
     public void testSql(TestEnvironment env) {
@@ -175,6 +236,14 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    /**
+     * Ensures that we can work with a table containing only key columns using a different APIs.
+     *
+     * <p>The test sequentially adds data to the table using record view, kv-view, binary view and SQL.
+     * Then all written data is read using all listed APIs.
+     *
+     * @param env Test environment.
+     */
     @ParameterizedTest
     @MethodSource("parameters")
     public void testMixed(TestEnvironment env) {
@@ -260,11 +329,11 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
     private static class TestEnvironment {
         private final String engine;
-        private final boolean readOnly;
+        private final boolean readOnlyTx;
 
-        private TestEnvironment(String engine, boolean readonly)  {
+        private TestEnvironment(String engine, boolean readOnlyTx)  {
             this.engine = engine;
-            this.readOnly = readonly;
+            this.readOnlyTx = readOnlyTx;
         }
 
         private Table table() {
@@ -274,7 +343,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         private void runInTransaction(Consumer<Transaction> writeOp, Consumer<Transaction> readOp) {
             IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
 
-            if (readOnly) {
+            if (readOnlyTx) {
                 // Start a separate transaction for the write operation.
                 transactions.runInTransaction(writeOp);
                 transactions.runInTransaction(readOp, new TransactionOptions().readOnly(true));
@@ -289,7 +358,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         @Override
         public String toString() {
-            return "engine=" + engine + ", tx=" + (readOnly ? "readonly" : "readwrite");
+            return "engine=" + engine + ", tx=" + (readOnlyTx ? "readonly" : "readwrite");
         }
     }
 }
