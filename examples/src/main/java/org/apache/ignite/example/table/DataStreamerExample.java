@@ -17,22 +17,71 @@
 
 package org.apache.ignite.example.table;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.StreamReceiver;
+import org.apache.ignite.table.StreamReceiverContext;
 import org.apache.ignite.table.Tuple;
 
 public class DataStreamerExample {
     public static void main(String[] args) throws Exception {
         try (var client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
-            var publisher = new SubmissionPublisher<Tuple>();
+            var publisher = new SubmissionPublisher<MyData>();
 
-            CompletableFuture<Void> fut = client.tables().table("foo").recordView().streamData(publisher, null);
+            CompletableFuture<Void> fut = client.tables()
+                    .table("foo")
+                    .recordView()
+                    .streamData(
+                            publisher,
+                            pojo -> Tuple.create().set("id", pojo.id),
+                            new Receiver(),
+                            new DataStreamerOptions().batchSize(512));
 
-            // TODO: Example with receiver, custom data type, multiple colocated tables.
-            publisher.submit(Tuple.create().set("key", 1).set("value", "value1"));
+            publisher.submit(new MyData(1, "abc"));
 
             fut.join();
+        }
+    }
+
+    static class Receiver implements StreamReceiver<MyData> {
+        @Override
+        public CompletableFuture<Void> receive(Collection<MyData> batch, StreamReceiverContext context) {
+            // Transform custom data into tuples and insert.
+            for (MyData row : batch) {
+                Tuple rec = Tuple.create()
+                        .set("id", row.id)
+                        .set("name", row.name);
+
+                // Custom logic: use replace to update existing data only.
+                // Colocated data can be updated in multiple tables.
+                context.table().recordView().replace(null, rec);
+
+                // Update colocated data in another table.
+                Tuple colocatedRec = Tuple.create()
+                        .set("key", row.id)
+                        .set("value", 1);
+
+                context.ignite().tables()
+                        .table("bar")
+                        .recordView()
+                        .upsert(null, colocatedRec);
+            }
+
+            return CompletableFuture.completedFuture(null); // Can be a real future in case of async processing.
+        }
+    }
+
+    static class MyData {
+        public final int id;
+
+        public final String name;
+
+        public MyData(int id, String name) {
+            this.id = id;
+            this.name = name;
         }
     }
 }

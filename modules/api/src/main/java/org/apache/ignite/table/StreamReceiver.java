@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -31,12 +32,12 @@ import java.util.stream.Stream;
 @FunctionalInterface
 public interface StreamReceiver<T> {
     /**
-     * Receive a stream of elements.
+     * Receive a batch of elements.
      * This method is called multiple times on server nodes for each batch of elements.
      *
-     * @param stream Stream of elements.
+     * @param batch Batch of elements.
      * @param context Stream receiver context.
      * @return Future that is completed when the stream is processed.
      */
-    CompletableFuture<Void> receive(Stream<T> stream, StreamReceiverContext context);
+    CompletableFuture<Void> receive(Collection<T> batch, StreamReceiverContext context);
 }
