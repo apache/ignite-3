@@ -20,10 +20,12 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
@@ -46,7 +48,9 @@ import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -61,6 +65,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -87,7 +92,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -138,7 +143,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<String> clusterNodesNames = Set.of(NODE_1.name(), NODE_2.name());
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -166,7 +171,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -197,7 +202,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
         Set<String> clusterNodesNames = Set.of(NODE_1.name(), NODE_2.name());
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -225,7 +230,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -258,7 +263,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -675,7 +680,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testUpdateZoneScaleDownTriggersDataNodePropagation() throws Exception {
         topology.putNode(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
+        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), 1);
 
         startDistributionZoneManager();
 
@@ -771,7 +776,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testScaleDownSetToMaxInt() throws Exception {
         topology.putNode(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1));
+        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), 1);
 
         startDistributionZoneManager();
 
@@ -811,7 +816,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
         ).get();
 
-        assertDataNodesForZone(1, Set.of(), keyValueStorage);
+        topology.putNode(NODE_1);
+
+        assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
 
@@ -823,19 +830,28 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             byte[] key = zoneScaleUpChangeTriggerKey(1).bytes();
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100));
+                keyValueStorage.putAll(
+                        List.of(
+                                key,
+                                zoneDataNodesKey(1).bytes()
+                        ),
+                        List.of(
+                                longToBytes(100),
+                                toBytes(toDataNodesMap(Set.of(NODE_1.name())))
+                        )
+                );
             }
 
             return invocation.callRealMethod();
         }).when(keyValueStorage).invoke(any());
 
-        topology.putNode(NODE_1);
+        topology.putNode(NODE_2);
 
-        assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
+        assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
 
         assertZoneScaleUpChangeTriggerKey(100, 1, keyValueStorage);
 
-        assertDataNodesForZone(1, Set.of(), keyValueStorage);
+        assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
 
     @Test
@@ -843,7 +859,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(NODE_1);
         topology.putNode(NODE_2);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1, NODE_2));
+        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1, NODE_2), 1);
 
         startDistributionZoneManager();
 
@@ -865,7 +881,18 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             byte[] key = zoneScaleDownChangeTriggerKey(1).bytes();
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100));
+                if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+                    keyValueStorage.putAll(
+                            List.of(
+                                    key,
+                                    zoneDataNodesKey(1).bytes()
+                            ),
+                            List.of(
+                                    longToBytes(100),
+                                    toBytes(toDataNodesMap(Set.of(NODE_1.name(), NODE_2.name())))
+                            )
+                    );
+                }
             }
 
             return invocation.callRealMethod();
@@ -1337,7 +1364,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2, NODE_3);
         Set<String> clusterNodesNames = Set.of(NODE_1.name(), NODE_2.name(), NODE_3.name());
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes);
+        mockVaultZonesLogicalTopologyKey(clusterNodes, 1);
 
         startDistributionZoneManager();
 
@@ -1395,11 +1422,16 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertThat(invokeFuture, willBe(true));
     }
 
-    private void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes) {
+    private void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, long topVer) {
         Set<String> nodesNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
 
         byte[] newLogicalTopology = toBytes(nodesNames);
 
-        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
+        Map<ByteArray, byte[]> vals = new HashMap<>();
+
+        vals.put(zonesLogicalTopologyKey(), newLogicalTopology);
+        vals.put(zonesLogicalTopologyVersionKey(), longToBytes(topVer));
+
+        assertThat(vaultMgr.putAll(vals), willCompleteSuccessfully());
     }
 }
