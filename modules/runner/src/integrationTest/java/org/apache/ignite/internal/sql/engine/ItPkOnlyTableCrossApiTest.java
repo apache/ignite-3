@@ -141,16 +141,17 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     public void testBinaryView(TestEnvironment env) {
         KeyValueView<Tuple, Tuple> binView = env.table().keyValueView();
         Tuple key = Tuple.create().set("id", 0);
+        Tuple emptyVal = Tuple.create();
 
         env.runInTransaction(
                 rwTx -> {
-                    binView.put(rwTx, key, null);
+                    binView.put(rwTx, key, emptyVal);
 
                     // Try to replace.
-                    binView.put(rwTx, key, null);
+                    binView.put(rwTx, key, emptyVal);
                 },
                 tx -> {
-                    assertNull(binView.get(tx, key));
+                    assertEquals(emptyVal, binView.get(tx, key));
                     assertTrue(binView.contains(tx, key));
 
                     if (!tx.isReadOnly()) {
@@ -180,34 +181,43 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         RecordView<Tuple> recordView = tab.recordView();
         KeyValueView<Integer, Void> kvView = tab.keyValueView(Integer.class, Void.class);
+        KeyValueView<Tuple, Tuple> binView = tab.keyValueView();
+        String sqlInsert = "insert into " + tab.name() + " values (%d)";
 
         env.runInTransaction(
                 rwTx -> {
                     recordView.upsert(rwTx, Tuple.create().set("id", 0));
 
-                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, "insert into " + tab.name() + " values (0)"));
+                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 0)));
                     assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
                     kvView.put(rwTx, 1, null);
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, "insert into " + tab.name() + " values (1)"));
+                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 1)));
                     assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
 
-                    sql(rwTx, "insert into " + tab.name() + " values (2)");
+                    binView.put(rwTx, Tuple.create().set("id", 2), Tuple.create());
+
+                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 2)));
+                    assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+
+                    sql(rwTx, String.format(sqlInsert, 3));
                 },
                 tx -> {
                     for (int i = 0; i < 3; i++) {
-                        Tuple exp = Tuple.create().set("id", i);
+                        Tuple key = Tuple.create().set("id", i);
 
-                        assertEquals(exp, recordView.get(tx, exp));
+                        assertEquals(key, recordView.get(tx, key));
 
                         assertTrue(kvView.contains(tx, i));
                         assertNotNull(kvView.getNullable(tx, 0));
 
+                        assertTrue(binView.contains(tx, key));
+
                         assertQuery("select * from " + tab.name() + " where id=" + i).returns(i);
                     }
 
-                    assertQuery("select count(*) from " + tab.name()).returns(3);
+                    assertQuery("select count(*) from " + tab.name()).returns(4);
                 }
         );
     }
