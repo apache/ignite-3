@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.type;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -55,7 +54,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,7 +86,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             implementedJavaTypes.put(LocalDateTime.class, () ->
                     createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP), true));
             implementedJavaTypes.put(Instant.class, () ->
-                    createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE), true));
+                    createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP), true));
             implementedJavaTypes.put(Duration.class, () ->
                     createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME), true));
             implementedJavaTypes.put(Period.class, () ->
@@ -140,14 +138,16 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                     return String.class;
                 case DATE:
                 case TIME:
-                case TIME_WITH_LOCAL_TIME_ZONE:
                 case INTEGER:
                 case INTERVAL_YEAR:
                 case INTERVAL_YEAR_MONTH:
                 case INTERVAL_MONTH:
                     return type.isNullable() ? Integer.class : int.class;
-                case TIMESTAMP:
+                case TIME_WITH_LOCAL_TIME_ZONE:
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-19274
+                    throw new IllegalArgumentException("Type is not supported yet: " + type);
+                case TIMESTAMP:
                 case BIGINT:
                 case INTERVAL_DAY:
                 case INTERVAL_DAY_HOUR:
@@ -242,15 +242,15 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case DATE:
                 return NativeTypes.DATE;
             case TIME:
-            case TIME_WITH_LOCAL_TIME_ZONE:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.time() :
                         NativeTypes.time(relType.getPrecision());
             case TIMESTAMP:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.datetime() :
                         NativeTypes.datetime(relType.getPrecision());
+            case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.timestamp() :
-                        NativeTypes.timestamp(relType.getPrecision());
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-19274
+                throw new IllegalArgumentException("Type is not supported yet: " + relType);
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
@@ -306,12 +306,13 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case DATE:
                     return LocalDate.class;
                 case TIME:
-                case TIME_WITH_LOCAL_TIME_ZONE:
                     return LocalTime.class;
                 case TIMESTAMP:
                     return LocalDateTime.class;
+                case TIME_WITH_LOCAL_TIME_ZONE:
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                    return Instant.class;
+                    //TODO: https://issues.apache.org/jira/browse/IGNITE-19274
+                    throw new IllegalArgumentException("Type is not supported yet: " + type);
                 case INTEGER:
                     return type.isNullable() ? Integer.class : int.class;
                 case INTERVAL_YEAR:
@@ -504,17 +505,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         } else {
             return super.createJavaType(clazz);
         }
-    }
-
-    /** {@inheritDoc} **/
-    @Override public RelDataType createSqlType(SqlTypeName typeName) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19274
-        if (typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE ||
-                typeName == SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE) {
-            throw new SqlException(QUERY_INVALID_ERR, "Type '" + typeName.getName() + "' is not supported.");
-        }
-
-        return super.createSqlType(typeName);
     }
 
     /**
