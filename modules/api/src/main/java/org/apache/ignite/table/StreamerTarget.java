@@ -18,28 +18,28 @@
 package org.apache.ignite.table;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.function.Function;
-import java.util.stream.Stream;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Data streamer target.
- *
- * @param <R> Record type.
- */
 public interface StreamerTarget<R> {
-    // TODO: Can we have async producer AND async consumer? Like IAsyncEnumerable in .NET? - Should be possible with Flow API
-    // What if I want to have multiple producers threads on the client - it is not possible with Stream?
-    CompletableFuture<Void> streamData(Stream<R> data, DataStreamerOptions options); // Sync producer, async consumer
+    /**
+     * Streams data into the table.
+     *
+     * @param publisher Producer.
+     * @return Future that will be completed when the stream is finished.
+     */
+    CompletableFuture<Void> streamData(Flow.Publisher<R> publisher, @Nullable DataStreamerOptions options);
 
     /**
-     * Stream data to the cluster with a receiver.
+     * Streams data into the cluster with a receiver.
      *
-     * @param data Producer stream.
+     * @param publisher Producer.
      * @param keyAccessor Key accessor. Required to determine target node from the entry key.
      * @param receiver Stream receiver. Will be invoked on the target node.
      * @return Future that will be completed when the stream is finished.
      * @param <T> Entry type.
      */
     <T> CompletableFuture<Void> streamData(
-            Stream<T> data, Function<T, R> keyAccessor, StreamReceiver<T> receiver, DataStreamerOptions options);
+            Flow.Publisher<T> publisher, Function<T, R> keyAccessor, StreamReceiver<T> receiver, @Nullable DataStreamerOptions options);
 }

@@ -15,15 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
+package org.apache.ignite.example.table;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow;
-import java.util.function.Function;
+import java.util.concurrent.SubmissionPublisher;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.Tuple;
 
-public interface ReactiveStreamerTarget<R> {
-    CompletableFuture<Void> streamData(Flow.Publisher<R> publisher, DataStreamerOptions options);
+public class DataStreamerExample {
+    public static void main(String[] args) throws Exception {
+        try (var client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
+            var publisher = new SubmissionPublisher<Tuple>();
 
-    <T> CompletableFuture<Void> streamData(
-            Flow.Publisher<T> publisher, Function<T, R> keyAccessor, StreamReceiver<T> receiver, DataStreamerOptions options);
+            CompletableFuture<Void> fut = client.tables().table("foo").recordView().streamData(publisher, null);
+
+            publisher.submit(Tuple.create().set("key", 1).set("value", "value1"));
+
+            fut.join();
+        }
+    }
 }
