@@ -285,6 +285,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
                     return null;
                 }
 
+                //TODO IGNITE-19367 With batches, this call would have to become a "tryLock" to prevent deadlocks.
                 locker.lock(gcEntry.getRowId());
 
                 return new BinaryRowAndRowId(vacuum(gcEntry), gcEntry.getRowId());
