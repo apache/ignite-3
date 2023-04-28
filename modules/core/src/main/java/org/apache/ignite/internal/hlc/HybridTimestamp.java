@@ -227,7 +227,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Returns a new hybrid timestamp with incremented physical component.
      */
     public HybridTimestamp addPhysicalTime(long mills) {
-        if (mills < 0 || mills >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+        if (mills >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
             throw new IllegalArgumentException("Physical time is out of bounds: " + mills);
         }
 
