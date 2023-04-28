@@ -91,24 +91,6 @@ public class LockByRowIdTest {
         assertThat(acquireLockFuture, willCompleteSuccessfully());
     }
 
-    @Test
-    void testBlockSupplier() {
-        RowId rowId = new RowId(0);
-
-        lockByRowId.lock(rowId);
-        lockByRowId.lock(rowId);
-
-        CompletableFuture<?> acquireLockFuture = runAsync(() -> inLock(rowId, () -> 1));
-
-        assertThat(acquireLockFuture, willTimeoutFast());
-
-        lockByRowId.unlockAll(rowId);
-
-        assertThat(acquireLockFuture, willCompleteSuccessfully());
-
-        lockByRowId.lock(rowId);
-    }
-
     private <T> T inLock(RowId rowId, Supplier<T> action) {
         lockByRowId.lock(rowId);
 

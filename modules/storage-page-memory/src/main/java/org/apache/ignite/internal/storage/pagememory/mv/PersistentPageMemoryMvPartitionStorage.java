@@ -156,6 +156,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 } finally {
                     THREAD_LOCAL_LOCKER.set(null);
 
+                    // Can't throw any exception, it's safe to do it without try/finally.
                     locker0.unlockAll();
 
                     checkpointTimeoutLock.checkpointReadUnlock();

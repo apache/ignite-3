@@ -25,6 +25,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -194,7 +196,10 @@ public class StorageUpdateHandler {
             if (!nullOrEmpty(rowsToUpdate)) {
                 List<RowId> rowIds = new ArrayList<>();
 
-                for (Map.Entry<UUID, ByteBuffer> entry : rowsToUpdate.entrySet()) {
+                // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
+                SortedMap<UUID, ByteBuffer> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
+
+                for (Map.Entry<UUID, ByteBuffer> entry : sortedRowsToUpdateMap.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
                     BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
 

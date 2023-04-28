@@ -51,8 +51,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * Closure for executing write operations on the storage. All write operations, such as
      * {@link #addWrite(RowId, BinaryRow, UUID, UUID, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
      * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
-     * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)} must hold lock on
-     * corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
+     * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)}) must hold lock on
+     * the corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
      * result.
      *
      * @param <V> Type of the result returned from the closure.
@@ -71,6 +71,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     interface Locker {
         /**
          * Locks passed row ID until the {@link WriteClosure#execute(Locker)} is completed.
+         * If the lock is already held by another thread, current thread will wait until the lock is released to acquire it.
          *
          * @param rowId Row ID to lock.
          */
@@ -248,7 +249,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Returns the head of GC queue.
      *
-     * @param lowWatermark Upper bound for commit timestamp of GC entry.
+     * @param lowWatermark Upper bound for commit timestamp of GC entry, inclusive.
      * @return Queue head or {@code null} if there are no entries below passed low watermark.
      */
     @Nullable GcEntry peek(HybridTimestamp lowWatermark);

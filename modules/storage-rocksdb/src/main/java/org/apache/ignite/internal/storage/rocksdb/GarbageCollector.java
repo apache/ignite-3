@@ -164,8 +164,8 @@ class GarbageCollector {
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
         try (
-                RocksIterator foo = db.newIterator(gcQueueCf, helper.upperBoundReadOpts);
-                RocksIterator gcIt = helper.wrapIterator(foo, gcQueueCf)
+                RocksIterator it = db.newIterator(gcQueueCf, helper.upperBoundReadOpts);
+                RocksIterator gcIt = helper.wrapIterator(it, gcQueueCf)
         ) {
             gcIt.seek(helper.partitionStartPrefix());
 
@@ -174,7 +174,7 @@ class GarbageCollector {
                 return null;
             }
 
-            ByteBuffer gcKeyBuffer = readGcKey(foo);
+            ByteBuffer gcKeyBuffer = readGcKey(gcIt);
 
             GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
@@ -226,11 +226,11 @@ class GarbageCollector {
             batch.delete(gcQueueCf, gcKeyBuffer);
 
             try (
-                    RocksIterator foo = db.newIterator(partCf, helper.upperBoundReadOpts);
-                    RocksIterator it = helper.wrapIterator(foo, partCf)
+                    RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts);
+                    RocksIterator partIt = helper.wrapIterator(it, partCf)
             ) {
                 // Process the element in data cf that triggered the addition to the GC queue.
-                boolean proceed = checkHasNewerRowAndRemoveTombstone(it, batch, gcRowVersion);
+                boolean proceed = checkHasNewerRowAndRemoveTombstone(partIt, batch, gcRowVersion);
 
                 if (!proceed) {
                     // No further processing required.
@@ -238,7 +238,7 @@ class GarbageCollector {
                 }
 
                 // Find the row that should be garbage collected.
-                ByteBuffer dataKey = getRowForGcKey(it, gcRowVersion.getRowId());
+                ByteBuffer dataKey = getRowForGcKey(partIt, gcRowVersion.getRowId());
 
                 if (dataKey == null) {
                     // No row for GC.
@@ -246,7 +246,7 @@ class GarbageCollector {
                 }
 
                 // At this point there's definitely a value that needs to be garbage collected in the iterator.
-                byte[] valueBytes = it.value();
+                byte[] valueBytes = partIt.value();
 
                 assert valueBytes.length > 0; // Can't be a tombstone.
 

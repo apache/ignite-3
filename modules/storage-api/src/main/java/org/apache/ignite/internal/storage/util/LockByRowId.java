@@ -42,6 +42,7 @@ public class LockByRowId {
             }
 
             if (!holder.getLock().isHeldByCurrentThread()) {
+                // It's ok to perform non-thread-safe operation inside of the "compute" closure.
                 holder.incrementHolders();
             }
 
@@ -68,7 +69,7 @@ public class LockByRowId {
 
                 holder.incrementHolders();
 
-                // Locks immediately, because no one else have seen this instance yet.
+                // Locks immediately, because no one else has seen this instance yet.
                 holder.getLock().lock();
 
                 result[0] = true;
@@ -106,6 +107,7 @@ public class LockByRowId {
         lockHolderByRowId.compute(rowId, (id, holder) -> {
             assert holder != null;
 
+            // It's ok to perform non-thread-safe operation inside of the "compute" closure.
             return holder.decrementHolders() ? null : holder;
         });
     }
