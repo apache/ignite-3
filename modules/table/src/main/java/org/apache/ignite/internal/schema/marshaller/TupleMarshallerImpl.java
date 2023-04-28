@@ -70,8 +70,20 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 SchemaDescriptor tupleSchema = ((SchemaAware)tuple).schema();
                 BinaryTupleReader tupleReader = ((BinaryTupleContainer)tuple).binaryTuple();
 
-                if (tupleSchema != null && tupleReader != null && tupleSchema.version() == schema.version()) {
-                    return new Row(schema, RowAssembler.build(tupleReader, schema.version()));
+                if (tupleSchema != null && tupleReader != null) {
+                    if (tupleSchema.version() == schema.version()) {
+                        return new Row(schema, RowAssembler.build(tupleReader, schema.version()));
+                    } else {
+                        // TODO: Should we throw an exception here, according to schema sync proposal?
+                        // This might be problematic for the user, so should only happen when the tuple comes from the client side,
+                        // which will retry with a new schema.
+                        /*
+                        throw new SchemaMismatchException(
+                                String.format("Tuple schema version doesn't match table schema version: " +
+                                                "tupleSchemaVersion=%s, tableSchemaVersion=%s",
+                                        tupleSchema.version(), schema.version()));
+                         */
+                    }
                 }
             }
 
@@ -201,6 +213,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         Map<String, Object> defaults = new HashMap<>();
 
         if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware) tuple).schema(), schema)) {
+            if (tuple instanceof BinaryTupleContainer) {
+                // TODO: Get size and nulls from the binary tuple.
+                // This code path is used when incoming BinaryTuple has outdated schema.
+                // TODO: Write a test for this.
+                // OR should be reject outdated tuple?
+                System.out.println(tuple);
+            }
+
             for (int i = 0, len = columns.length(); i < len; i++) {
                 final Column col = columns.column(i);
                 NativeType colType = col.type();
