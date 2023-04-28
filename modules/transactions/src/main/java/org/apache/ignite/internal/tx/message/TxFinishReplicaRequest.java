@@ -28,6 +28,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction finish replica request that will trigger following actions processing.
@@ -62,8 +63,8 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Transaction commit timestamp.
      */
-    default HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.of(commitTimestampLong());
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return HybridTimestamp.ofNullable(commitTimestampLong());
     }
 
     /**

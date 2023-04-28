@@ -39,7 +39,7 @@ public class HybridTimestamps {
     public static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
         long time = getLong(pageAddr, offset);
 
-        return HybridTimestamp.of(time);
+        return HybridTimestamp.ofNullable(time);
     }
 
     /**

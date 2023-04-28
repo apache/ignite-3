@@ -77,22 +77,41 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         time = (physical << LOGICAL_TIME_BITS_SIZE) | logical;
 
         if (time <= 0) {
-            throw new IllegalArgumentException("time is out of bounds: " + time);
+            throw new IllegalArgumentException("Time is out of bounds: " + time);
         }
     }
 
     private HybridTimestamp(long time) {
         if (time <= 0) {
-            throw new IllegalArgumentException("time is out of bounds: " + time);
+            throw new IllegalArgumentException("Time is out of bounds: " + time);
         }
 
         this.time = time;
     }
 
-    public static @Nullable HybridTimestamp of(long time) {
+    /**
+     * Converts primitive {@code long} representation into a hybrid timestamp instance.
+     * {@link #NULL_HYBRID_TIMESTAMP} is interpreted as {@code null}.
+     *
+     * @throws IllegalArgumentException If timestamp is negative.
+     */
+    public static @Nullable HybridTimestamp ofNullable(long time) {
         return time == NULL_HYBRID_TIMESTAMP ? null : new HybridTimestamp(time);
     }
 
+    /**
+     * Converts primitive {@code long} representation into a hybrid timestamp instance.
+     *
+     * @throws IllegalArgumentException If timestamp is not positive.
+     */
+    public static HybridTimestamp of(long time) {
+        return new HybridTimestamp(time);
+    }
+
+    /**
+     * Converts hybrid timestamp instance to a primitive {@code long} representation.
+     * {@code null} is represented as {@link #NULL_HYBRID_TIMESTAMP}.
+     */
     public static long nullableLongTime(@Nullable HybridTimestamp timestamp) {
         return timestamp == null ? NULL_HYBRID_TIMESTAMP : timestamp.time;
     }

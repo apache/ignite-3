@@ -23,6 +23,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction cleanup replica request that will trigger following actions processing.
@@ -60,8 +61,8 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      *
      * @return Commit timestamp.
      */
-    default HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.of(commitTimestampLong());
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return HybridTimestamp.ofNullable(commitTimestampLong());
     }
 
     /**

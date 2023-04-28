@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.command;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command to cleanup on a transaction commit.
@@ -39,7 +40,7 @@ public interface TxCleanupCommand extends PartitionCommand {
     /**
      * Returns a transaction commit timestamp.
      */
-    default HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.of(commitTimestampLong());
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return HybridTimestamp.ofNullable(commitTimestampLong());
     }
 }

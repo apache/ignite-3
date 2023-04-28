@@ -393,15 +393,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private void writeVersion(ResponseEntry entry, int i) {
         RowId rowId = new RowId(partId(), entry.rowId());
 
-        Long timestamp = i < entry.timestamps().length ? entry.timestamps()[i] : null;
-
         ByteBuffer rowVersion = entry.rowVersions().get(i);
 
         BinaryRow binaryRow = rowVersion == null ? null : new ByteBufferRow(rowVersion.rewind());
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 
-        if (timestamp == null) {
+        if (i == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
             assert entry.commitTableId() != null;
@@ -410,7 +408,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, binaryRow, HybridTimestamp.of(timestamp.longValue()));
+            partition.addWriteCommitted(rowId, binaryRow, HybridTimestamp.of(entry.timestamps()[i]));
         }
     }
 }
