@@ -371,7 +371,7 @@ class WorkDirectoryExtensionTest {
         @WorkDirectory
         private Path workDir;
 
-        @Disabled("https://issues.apache.org/jira/browse/IGNITE_15799")
+        @Disabled("https://issues.apache.org/jira/browse/IGNITE-15799")
         @Test
         void test() {
         }
