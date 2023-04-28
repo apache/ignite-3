@@ -418,6 +418,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             return null;
         }
 
+        // TODO: More logic here? Like, are there any types that require normalization?
+        // TODO: Should this logic be in TupleMarshallerImpl?
         return binaryTuple;
     }
 
