@@ -379,6 +379,7 @@ public class TypeUtils {
             case INTEGER:
                 return ColumnType.INT32;
             case TIMESTAMP:
+                return ColumnType.DATETIME;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return ColumnType.TIMESTAMP;
             case BIGINT:
@@ -503,11 +504,11 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.TIME, time.precision());
             case TIMESTAMP:
-//                assert nativeType instanceof TemporalNativeType;
-//
-//                var ts = (TemporalNativeType) nativeType;
-//
-//                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, ts.precision());
+                assert nativeType instanceof TemporalNativeType;
+
+                var ts = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, ts.precision());
             case DATETIME:
                 assert nativeType instanceof TemporalNativeType;
 

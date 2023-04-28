@@ -68,7 +68,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     @EnumSource(value = ColumnType.class,
             //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
-            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD", "DATETIME"},
+            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
@@ -239,11 +239,12 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
             case DURATION:
                 return Duration.ofNanos(i);
             case DATETIME:
-            case TIMESTAMP:
                 return LocalDateTime.of(
                         (LocalDate) generateValueByType(i, ColumnType.DATE),
                         (LocalTime) generateValueByType(i, ColumnType.TIME)
                 );
+            case TIMESTAMP:
+                return Instant.from(ZonedDateTime.of((LocalDateTime) generateValueByType(i, ColumnType.DATETIME), ZoneId.systemDefault()));
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i % 30);
             case TIME:
@@ -278,8 +279,9 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
             case TIME:
                 return SqlTypeName.TIME.getName();
             case DATETIME:
-            case TIMESTAMP:
                 return SqlTypeName.TIMESTAMP.getName();
+            case TIMESTAMP:
+                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName();
             case UUID:
                 return UuidType.NAME;
             case STRING:
