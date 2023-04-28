@@ -192,8 +192,8 @@ public final class RpcRequests {
 
         long timestampLong();
 
-        default HybridTimestamp timestamp() {
-            return HybridTimestamp.of(timestampLong());
+        default @Nullable HybridTimestamp timestamp() {
+            return HybridTimestamp.ofNullable(timestampLong());
         }
     }
 
