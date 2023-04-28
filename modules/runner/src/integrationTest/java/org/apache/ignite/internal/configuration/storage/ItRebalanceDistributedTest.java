@@ -744,7 +744,6 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
-                    registry,
                     name
             );
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -26,19 +25,14 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -78,15 +72,6 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
-    /** Revision updater. */
-    protected Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
-
-    /**
-     * Revision listener holder.
-     */
-    @InjectRevisionListenerHolder
-    private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
-
     @BeforeEach
     void setUp() {
         vaultMgr = new VaultManager(new InMemoryVaultService());
@@ -105,16 +90,6 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         topology = new LogicalTopologyImpl(clusterStateStorage);
 
-        revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
-            await(function.apply(0L));
-
-            fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
-                log.info("Notify about revision: {}", newStorageRevision);
-
-                return function.apply(newStorageRevision);
-            });
-        };
-
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
@@ -125,7 +100,6 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                revisionUpdater,
                 "test"
         );
 

@@ -74,8 +74,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
@@ -254,7 +252,6 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
-     * @param registry Registry for versioned values.
      * @param nodeName Node name.
      */
     public DistributionZoneManager(
@@ -263,7 +260,6 @@ public class DistributionZoneManager implements IgniteComponent {
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
             String nodeName
     ) {
         this.zonesConfiguration = zonesConfiguration;
@@ -1691,7 +1687,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param id Zone id.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<Void> waitZoneIdLocally(Integer id) {
+    private CompletableFuture<Void> waitZoneIdLocally(int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
         }

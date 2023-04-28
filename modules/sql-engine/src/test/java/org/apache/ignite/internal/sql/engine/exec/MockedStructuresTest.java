@@ -410,7 +410,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         log.info("Creating a table with a non-existent distribution zone.");
 
-        String nonExistZone = "none-exist-zone";
+        String nonExistZone = "non-exist-zone";
 
         when(distributionZoneManager.zoneIdAsyncInternal(nonExistZone)).thenReturn(completedFuture(null));
 

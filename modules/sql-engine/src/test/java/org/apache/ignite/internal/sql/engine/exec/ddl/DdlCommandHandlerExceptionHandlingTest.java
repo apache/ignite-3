@@ -110,7 +110,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 null,
                 null,
                 null,
-                x -> {},
                 "node"
         );
 

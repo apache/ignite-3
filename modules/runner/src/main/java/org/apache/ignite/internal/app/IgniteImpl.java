@@ -464,7 +464,6 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 logicalTopologyService,
                 vaultMgr,
-                registry,
                 name
         );
 
