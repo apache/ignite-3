@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,12 +43,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
+import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -328,6 +334,7 @@ class ItScaleCubeNetworkMessagingTest {
      *
      * @throws Exception in case of errors.
      */
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void nodeCannotReuseOldId(TestInfo testInfo) throws Exception {
         testCluster = new Cluster(3, testInfo);
@@ -338,9 +345,13 @@ class ItScaleCubeNetworkMessagingTest {
 
         knockOutNode(outcastName);
 
-        CountDownLatch appeared = reanimateNode(outcastName);
+        IgniteBiTuple<CountDownLatch, AtomicBoolean> pair = reanimateNode(outcastName);
+        CountDownLatch ready = pair.get1();
+        AtomicBoolean reappeared = pair.get2();
 
-        assertFalse(appeared.await(3, TimeUnit.SECONDS), "Node reappeared");
+        assertTrue(ready.await(10, TimeUnit.SECONDS), "Node neither reappeared, not was rejected");
+
+        assertThat(reappeared.get(), is(false));
     }
 
     private void knockOutNode(String outcastName) throws InterruptedException {
@@ -365,17 +376,35 @@ class ItScaleCubeNetworkMessagingTest {
         assertTrue(disappeared.await(10, TimeUnit.SECONDS), "Node did not disappear in time");
     }
 
-    private CountDownLatch reanimateNode(String outcastName) {
-        CountDownLatch appeared = new CountDownLatch(1);
+    private IgniteBiTuple<CountDownLatch, AtomicBoolean> reanimateNode(String outcastName) {
+        CountDownLatch ready = new CountDownLatch(1);
+        AtomicBoolean reappeared = new AtomicBoolean(false);
 
         testCluster.members.get(0).topologyService().addEventHandler(new TopologyEventHandler() {
             @Override
             public void onAppeared(ClusterNode member) {
                 if (Objects.equals(member.name(), outcastName)) {
-                    appeared.countDown();
+                    reappeared.compareAndSet(false, true);
+
+                    ready.countDown();
                 }
             }
         });
+
+        Handler rejectedHandshakeHandler = new NoOpHandler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getMessage().startsWith("Handshake rejected by ")) {
+                    ready.countDown();
+                }
+            }
+        };
+
+        Logger clientHandshakeManagerLogger = Logger.getLogger(RecoveryClientHandshakeManager.class.getName());
+        clientHandshakeManagerLogger.addHandler(rejectedHandshakeHandler);
+
+        Logger serverHandshakeManagerLogger = Logger.getLogger(RecoveryServerHandshakeManager.class.getName());
+        serverHandshakeManagerLogger.addHandler(rejectedHandshakeHandler);
 
         testCluster.members.stream()
                 .filter(service -> !outcastName.equals(service.nodeName()))
@@ -383,7 +412,8 @@ class ItScaleCubeNetworkMessagingTest {
                     DefaultMessagingService messagingService = (DefaultMessagingService) service.messagingService();
                     messagingService.stopDroppingMessages();
                 });
-        return appeared;
+
+        return new IgniteBiTuple<>(ready, reappeared);
     }
 
     /**
