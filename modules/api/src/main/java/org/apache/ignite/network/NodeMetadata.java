@@ -19,12 +19,16 @@ package org.apache.ignite.network;
 
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Contains metadata of the cluster node.
  */
 public class NodeMetadata implements Serializable {
     private static final long serialVersionUID = 3216463261002854096L;
+
+    /** ID of the node that is changed with every restart. Used internally, should not be published via REST APIs. */
+    private final String launchId;
 
     private final String restHost;
 
@@ -33,10 +37,23 @@ public class NodeMetadata implements Serializable {
     private final int httpsPort;
 
     /** Constructor. */
-    public NodeMetadata(String restHost, int httpPort, int httpsPort) {
+    public NodeMetadata(String launchId) {
+        this.launchId = launchId;
+        this.restHost = null;
+        this.httpPort = -1;
+        this.httpsPort = -1;
+    }
+
+    /** Constructor. */
+    public NodeMetadata(String launchId, String restHost, int httpPort, int httpsPort) {
+        this.launchId = launchId;
         this.restHost = restHost;
         this.httpPort = httpPort;
         this.httpsPort = httpsPort;
+    }
+
+    public String launchId() {
+        return launchId;
     }
 
     public String restHost() {
@@ -62,6 +79,9 @@ public class NodeMetadata implements Serializable {
 
         NodeMetadata that = (NodeMetadata) o;
 
+        if (!Objects.equals(launchId, that.launchId)) {
+            return false;
+        }
         if (httpPort != that.httpPort) {
             return false;
         }
@@ -74,5 +94,10 @@ public class NodeMetadata implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(restHost, httpPort, httpsPort);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

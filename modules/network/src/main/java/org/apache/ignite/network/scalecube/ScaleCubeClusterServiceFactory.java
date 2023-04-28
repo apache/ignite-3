@@ -40,6 +40,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.AbstractClusterService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -54,6 +56,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
@@ -66,6 +69,12 @@ public class ScaleCubeClusterServiceFactory {
     /** Metadata codec. */
     private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
 
+    private final UUID launchId;
+
+    public ScaleCubeClusterServiceFactory(UUID launchId) {
+        this.launchId = launchId;
+    }
+
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
@@ -77,7 +86,8 @@ public class ScaleCubeClusterServiceFactory {
             String consistentId,
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory,
-            MessageSerializationRegistry serializationRegistry
+            MessageSerializationRegistry serializationRegistry,
+            StaleIds staleIds
     ) {
         var messageFactory = new NetworkMessagesFactory();
 
@@ -105,8 +115,6 @@ public class ScaleCubeClusterServiceFactory {
             public void start() {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
-                UUID launchId = UUID.randomUUID();
-
                 NetworkView configView = networkConfiguration.value();
 
                 connectionMgr = new ConnectionManager(
@@ -114,7 +122,8 @@ public class ScaleCubeClusterServiceFactory {
                         serializationService,
                         launchId,
                         consistentId,
-                        nettyBootstrapFactory
+                        nettyBootstrapFactory,
+                        staleIds
                 );
 
                 connectionMgr.start();
@@ -126,6 +135,8 @@ public class ScaleCubeClusterServiceFactory {
                         messageFactory
                 );
 
+                NodeMetadata nodeMetadata = new NodeMetadata(launchId.toString());
+
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
                 cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
@@ -135,7 +146,11 @@ public class ScaleCubeClusterServiceFactory {
                                 topologyService.onMembershipEvent(event);
                             }
                         })
-                        .config(opts -> opts.memberAlias(consistentId).metadataCodec(METADATA_CODEC))
+                        .config(opts -> opts
+                                .memberAlias(consistentId)
+                                .metadataCodec(METADATA_CODEC)
+                                .metadata(nodeMetadata)
+                        )
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
@@ -145,10 +160,25 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.setCluster(cluster);
                 messagingService.setConnectionManager(connectionMgr);
 
+                topologyService.addEventHandler(new TopologyEventHandler() {
+                    @Override
+                    public void onDisappeared(ClusterNode member) {
+                        NodeMetadata metadata = member.nodeMetadata();
+
+                        assert metadata != null;
+
+                        staleIds.markAsStale(metadata.launchId());
+                    }
+                });
+
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
+                MembershipEvent localMembershipEvent = createAdded(
+                        cluster.member(),
+                        METADATA_CODEC.serialize(nodeMetadata),
+                        System.currentTimeMillis()
+                );
                 topologyService.onMembershipEvent(localMembershipEvent);
             }
 
@@ -199,6 +229,7 @@ public class ScaleCubeClusterServiceFactory {
                 cluster.updateMetadata(metadata).subscribe();
                 topologyService.updateLocalMetadata(metadata);
             }
+
         };
     }
 

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -172,7 +173,8 @@ public class ItTruncateSuffixAndRestartTest {
                     nodeName,
                     networkConfiguration,
                     nettyBootstrapFactory,
-                    defaultSerializationRegistry()
+                    defaultSerializationRegistry(),
+                    new InMemoryStaleIds()
             );
 
             clusterSvc.start();

@@ -61,10 +61,7 @@ public class ClusterNode implements Serializable {
      * @param address Node address.
      */
     public ClusterNode(String id, String name, NetworkAddress address) {
-        this.id = id;
-        this.name = name;
-        this.address = address;
-        this.nodeMetadata = null;
+        this(id, name, address, null);
     }
 
     /**
