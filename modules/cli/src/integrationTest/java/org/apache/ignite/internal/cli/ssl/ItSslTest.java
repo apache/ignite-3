@@ -59,4 +59,83 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         );
     }
 
+    @Test
+    @DisplayName("Should show an error message, when key-store password is incorrect")
+    void incorrectKeyStorePassword() {
+        // When set up ssl configuration
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
+        execute("cli", "config", "set", "ignite.rest.key-store.password=wrong-password");
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
+        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.trustStorePassword);
+        resetOutput();
+
+        // And connect via HTTPS
+        execute("connect", "https://localhost:10401");
+
+        // Then
+        assertAll(
+                () -> assertErrOutputContains("Key-store password was incorrect"),
+                this::assertOutputIsEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should show an error message, when trust-store password is incorrect")
+    void incorrectTrustStorePassword() {
+        // When set up ssl configuration
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
+        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
+        execute("cli", "config", "set", "ignite.rest.trust-store.password=wrong-password");
+        resetOutput();
+
+        // And connect via HTTPS
+        execute("connect", "https://localhost:10401");
+
+        // Then
+        assertAll(
+                () -> assertErrOutputContains("Trust-store password was incorrect"),
+                this::assertOutputIsEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should show an error message, when key-store path is incorrect")
+    void incorrectKeyStorePath() {
+        // When set up ssl configuration
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath + "-wrong-path");
+        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
+        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.keyStorePassword);
+        resetOutput();
+
+        // And connect via HTTPS
+        execute("connect", "https://localhost:10401");
+
+        // Then
+        assertAll(
+                () -> assertErrOutputContains("File does not exist or it does not refer to a normal file"),
+                this::assertOutputIsEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should show an error message, when trust-store path is incorrect")
+    void incorrectTrustStorePath() {
+        // When set up ssl configuration
+        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
+        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
+        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath + "-wrong-path");
+        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.keyStorePassword);
+        resetOutput();
+
+        // And connect via HTTPS
+        execute("connect", "https://localhost:10401");
+
+        // Then
+        assertAll(
+                () -> assertErrOutputContains("File does not exist or it does not refer to a normal file"),
+                this::assertOutputIsEmpty
+        );
+    }
 }

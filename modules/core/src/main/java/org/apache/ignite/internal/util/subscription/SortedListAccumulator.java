@@ -15,31 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.util.subscription;
 
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
 
 /**
- * InboxCloseMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Plain list accumulator. The resulted list will be sorted.
+ *
+ * @param <R> Result value type.
  */
-@Transferable(value = SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE)
-public interface InboxCloseMessage extends NetworkMessage, Serializable {
-    /**
-     * Get query ID.
-     */
-    UUID queryId();
+public class SortedListAccumulator<T, R extends Comparable<R>> extends ListAccumulator<T, R> {
 
     /**
-     * Get fragment ID.
+     * Constructor.
+     *
+     * @param mapper Value mapper.
      */
-    long fragmentId();
+    public SortedListAccumulator(Function<T, R> mapper) {
+        super(mapper);
+    }
 
-    /**
-     * Get exchange ID.
-     */
-    long exchangeId();
+    @Override
+    public List<R> get() throws AccumulateException {
+        List<R> result = super.get();
+        Collections.sort(result);
+        return result;
+    }
 }
