@@ -72,7 +72,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 if (tupleSchema != null && tupleReader != null) {
                     if (tupleSchema.version() == schema.version()) {
-                        // TODO: The problem with precision of time values - client does no respect it.
+                        // TODO: The problem with precision of time values - BinaryTupleBuilder.putTime must accept precision.
+                        // Currently, normalization is handled by RowAssembler, which is not correct and can't be reused on the client.
                         return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
                     }
                 }
