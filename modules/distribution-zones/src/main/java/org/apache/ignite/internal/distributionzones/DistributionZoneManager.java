@@ -1711,6 +1711,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                         zonesConfiguration.distributionZones().stopListenElements(this);
                     }
+
                     return completedFuture(null);
                 }
             };

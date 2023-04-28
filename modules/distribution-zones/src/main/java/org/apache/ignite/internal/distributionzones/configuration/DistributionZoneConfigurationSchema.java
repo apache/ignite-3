@@ -74,7 +74,7 @@ public class DistributionZoneConfigurationSchema {
     /** Timeout in seconds between node left topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjustScaleDown = IMMEDIATE_TIMER_VALUE;
+    public int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 
     /**
      * Filter to form nodes which must be included to data nodes of this zone.
