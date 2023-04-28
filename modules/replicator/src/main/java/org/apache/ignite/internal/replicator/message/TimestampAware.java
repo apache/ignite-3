@@ -37,6 +37,7 @@ public interface TimestampAware extends NetworkMessage {
      *
      * @return Gets a hybrid timestamp.
      */
+    //TODO IGNITE-19381 Remove @Nullable annotation and replace "ofNullable(...)" call with "of(...)"
     default @Nullable HybridTimestamp timestamp() {
         return HybridTimestamp.ofNullable(timestampLong());
     }
