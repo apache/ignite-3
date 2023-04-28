@@ -19,6 +19,7 @@ package org.apache.ignite.distributed;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
@@ -52,8 +53,8 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     @AfterEach
     public void after() throws Exception {
         try {
-            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000));
-            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), TimeUnit.SECONDS.toMillis(5)));
+            assertTrue(IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), TimeUnit.SECONDS.toMillis(5)));
         } finally {
             super.after();
         }
