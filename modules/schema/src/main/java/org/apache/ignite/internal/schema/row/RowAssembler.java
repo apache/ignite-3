@@ -32,6 +32,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
@@ -670,6 +671,24 @@ public class RowAssembler {
         ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + tupleBuffer.limit()).order(ORDER);
         buffer.putShort((short) schemaVersion);
         buffer.put(hasValue ? (byte) 1 : 0);
+        buffer.put(tupleBuffer);
+        buffer.position(0);
+        return new ByteBufferRow(buffer);
+    }
+
+    /**
+     * Builds serialized row from an existing BinaryTuple.
+     *
+     * @param reader Binary tuple.
+     * @param schemaVersion Schema version.
+     * @return Created {@link BinaryRow}.
+     */
+    public static BinaryRow build(BinaryTupleReader reader, int schemaVersion) {
+        // TODO: Make sure there is no copying. Maybe introduce a method "BinaryTupleReader.copyTo".
+        ByteBuffer tupleBuffer = reader.byteBuffer();
+        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + tupleBuffer.limit()).order(ORDER);
+        buffer.putShort((short) schemaVersion);
+        buffer.put((byte) 1); // hasValue
         buffer.put(tupleBuffer);
         buffer.position(0);
         return new ByteBufferRow(buffer);

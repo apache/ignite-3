@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -190,6 +191,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         Map<String, Object> defaults = new HashMap<>();
 
         if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware) tuple).schema(), schema)) {
+            if (tuple instanceof BinaryTupleContainer) {
+                // TODO: Get size and nulls from the binary tuple.
+                System.out.println(tuple);
+            }
+
             for (int i = 0, len = columns.length(); i < len; i++) {
                 final Column col = columns.column(i);
                 NativeType colType = col.type();
