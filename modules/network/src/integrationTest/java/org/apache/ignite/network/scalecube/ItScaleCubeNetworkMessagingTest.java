@@ -324,7 +324,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
-     * Tests sending and receiving messages.
+     * Makes sure that a node that dropped out from the Physical Topology cannot reappear with same ID.
      *
      * @throws Exception in case of errors.
      */
