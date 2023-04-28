@@ -113,10 +113,12 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         int internalIndex = schemaColumnIndex(columnName, null);
 
-        return internalIndex < 0
-                || internalIndex >= schemaSize
-                || (noValueSet != null && noValueSet.get(internalIndex))
-                ? defaultValue
+        if (internalIndex < 0 || internalIndex >= schemaSize) {
+            return defaultValue;
+        }
+
+        return (noValueSet != null && noValueSet.get(internalIndex))
+                ? (T)schemaColumnDefaultValue(internalIndex, defaultValue)
                 : value(internalIndex);
     }
 
@@ -408,6 +410,15 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryTupleReader binaryTuple() {
+        if (tuple != null) {
+            return null;
+        }
+
+        if (noValueSet != null && !noValueSet.isEmpty()) {
+            // Can't expose binary tuple if there are unset values.
+            return null;
+        }
+
         return binaryTuple;
     }
 
