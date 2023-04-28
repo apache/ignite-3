@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptListener;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
@@ -1349,7 +1350,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Wrapper for RelOptListener with empty realization for each of their methods. Good choice in case you need implement just one or few
      * methods for listener.
      */
-    static class RelOptListenerWrapper implements RelOptListener {
+    static class NoopRelOptListener implements RelOptListener {
 
         @Override
         public void relEquivalenceFound(RelEquivalenceEvent event) {}
@@ -1370,21 +1371,21 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /**
      * Listener which keeps information about attempts of applying optimization rules.
      */
-    public class RuleAttemptListener extends RelOptListenerWrapper {
-        Set<String> attemptedRules = new HashSet<>();
+    public class RuleAttemptListener extends NoopRelOptListener {
+        Set<RelOptRule> attemptedRules = new HashSet<>();
 
         @Override
-        public void ruleAttempted(final RuleAttemptedEvent event) {
+        public void ruleAttempted(RuleAttemptedEvent event) {
             if (event.isBefore()) {
-                attemptedRules.add(event.getRuleCall().getRule().toString());
+                attemptedRules.add(event.getRuleCall().getRule());
             }
         }
 
-        public boolean isApplied(String rule) {
-            return attemptedRules.stream().anyMatch(r -> r.contains(rule));
+        public boolean isApplied(RelOptRule rule) {
+            return attemptedRules.stream().anyMatch(r -> rule.toString().equals(r.toString()));
         }
 
-        public void resetStatistics() {
+        public void reset() {
             attemptedRules.clear();
         }
     }

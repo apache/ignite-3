@@ -31,10 +31,11 @@ import org.apache.calcite.rel.hint.RelHint;
  * Enumeration of supported SQL hints together with help methods.
  */
 public enum Hints {
-    //Only for test purpose!!! No any product use and not available for user
+    /** Only for test purpose!!! No any product use and not available for user. */
     DISABLE_RULE(true),
-    //Disable commute joins and keeps the join order defined by the user in a query
+    /** Disable commute joins and keeps the join order defined by the user in a query. */
     ENFORCE_JOIN_ORDER,
+    /** Force expanding distinct aggregates to join. */
     EXPAND_DISTINCT_AGG;
 
     private final boolean paramSupport;

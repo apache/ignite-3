@@ -94,7 +94,7 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
-            boolean amountOfJoinsAreBig = amountOfJoinsAreBig(rel);
+            boolean amountOfJoinsAreBig = hasTooMuchJoins(rel);
             boolean enforceJoinOrder = ENFORCE_JOIN_ORDER.present(root.hints);
             if (amountOfJoinsAreBig || enforceJoinOrder) {
                 Set<String> disabledRules = new HashSet<>(DISABLE_RULE.params(root.hints));
@@ -139,7 +139,7 @@ public final class PlannerHelper {
         }
     }
 
-    private static boolean amountOfJoinsAreBig(RelNode rel) {
+    private static boolean hasTooMuchJoins(RelNode rel) {
         JoinSizeFinder joinSizeFinder = new JoinSizeFinder();
 
         joinSizeFinder.visit(rel);

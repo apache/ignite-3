@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -34,6 +33,9 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
+import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
+import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -95,26 +97,29 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         String sqlJoinCommuteOuterWithNoHint = "SELECT COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
         String sqlJoinCommuteOuterWithHint = "SELECT /*+ ENFORCE_JOIN_ORDER */ COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
 
+        JoinConditionPushRule joinConditionPushRule = JoinConditionPushRuleConfig.DEFAULT.toRule();
+        JoinCommuteRule joinCommuteRule = JoinCommuteRule.Config.DEFAULT.toRule();
+
         RuleAttemptListener listener = new RuleAttemptListener();
 
         physicalPlan(sqlJoinCommuteWithNoHint, publicSchema, listener);
-        assertTrue(listener.isApplied("JoinCommute"));
-        assertTrue(listener.isApplied("JoinConditionPushRule"));
+        assertTrue(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
 
-        listener.resetStatistics();
+        listener.reset();
         physicalPlan(sqlJoinCommuteOuterWithNoHint, publicSchema, listener);
-        assertTrue(listener.isApplied("JoinCommute"));
-        assertTrue(listener.isApplied("JoinConditionPushRule"));
+        assertTrue(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
 
-        listener.resetStatistics();
+        listener.reset();
         physicalPlan(sqlJoinCommuteWithHint, publicSchema, listener);
-        assertFalse(listener.isApplied("JoinCommute"));
-        assertTrue(listener.isApplied("JoinConditionPushRule"));
+        assertFalse(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
 
-        listener.resetStatistics();
+        listener.reset();
         physicalPlan(sqlJoinCommuteOuterWithHint, publicSchema, listener);
-        assertFalse(listener.isApplied("JoinCommute"));
-        assertTrue(listener.isApplied("JoinConditionPushRule"));
+        assertFalse(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
     }
 
     @Test
