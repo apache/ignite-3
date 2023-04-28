@@ -560,3 +560,35 @@ SqlLiteral ParseDecimalLiteral():
     return IgniteSqlDecimalLiteral.create(value, getPos());
   }
 }
+
+/**
+* Parse datetime types: date, time, timestamp.
+*
+* TODO Method must be removed after https://issues.apache.org/jira/browse/IGNITE-19274.
+*/
+SqlTypeNameSpec IgniteDateTimeTypeName() :
+{
+    int precision = -1;
+    SqlTypeName typeName;
+    final Span s;
+}
+{
+    <DATE> {
+        typeName = SqlTypeName.DATE;
+        return new SqlBasicTypeNameSpec(typeName, getPos());
+    }
+|
+    <TIME> { s = span(); }
+    precision = PrecisionOpt()
+    {
+        typeName = SqlTypeName.TIME;
+        return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
+    }
+|
+    <TIMESTAMP> { s = span(); }
+    precision = PrecisionOpt()
+    {
+        typeName = SqlTypeName.TIMESTAMP;
+        return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
+    }
+}
