@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.isZoneExist;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -57,7 +58,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -87,8 +87,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.causality.CompletionListener;
-import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -178,9 +176,6 @@ public class DistributionZoneManager implements IgniteComponent {
      * TODO: will be removed after fix of the issue.
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
-
-    /** Versioned store for zones id. */
-    private final IncrementalVersionedValue<Set<Integer>> zonesByIdVv;
 
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
@@ -292,8 +287,6 @@ public class DistributionZoneManager implements IgniteComponent {
         );
 
         topVerTracker = new PendingComparableValuesTracker<>(0L);
-
-        zonesByIdVv = new IncrementalVersionedValue<>(registry, () -> Set.of(DEFAULT_ZONE_ID));
     }
 
     @TestOnly
@@ -885,17 +878,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), logicalTopology);
 
-            return zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
-
-                HashSet<Integer> newZones = new HashSet<>(zones);
-
-                newZones.add(zoneId);
-
-                return completedFuture(newZones);
-            });
+            return completedFuture(null);
         }
 
         @Override
@@ -911,17 +894,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneState.scaleUpRevisionTracker.update(Long.MAX_VALUE);
             zoneState.scaleDownRevisionTracker.update(Long.MAX_VALUE);
 
-            return zonesByIdVv.update(ctx.storageRevision(), (zones, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
-
-                HashSet<Integer> newZones = new HashSet<>(zones);
-
-                newZones.remove(zoneId);
-
-                return completedFuture(newZones);
-            });
+            return completedFuture(null);
         }
     }
 
@@ -1678,8 +1651,14 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             // TODO: IGNITE-16288 directZoneId should use async configuration API
-            return supplyAsync(() -> inBusyLock(busyLock, () -> directZoneIdInternal(zoneName)), executor)
-                    .thenCompose(zoneId -> waitZoneIdLocally(zoneId).thenCompose(ignored -> completedFuture(zoneId)));
+            return supplyAsync(() -> directZoneIdInternal(zoneName), executor)
+                    .thenCompose(zoneId -> {
+                        if (zoneId == null) {
+                            return completedFuture(null);
+                        } else {
+                            return waitZoneIdLocally(zoneId).thenCompose(ignored -> completedFuture(zoneId));
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }
@@ -1687,6 +1666,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
     @Nullable
     private Integer directZoneIdInternal(String zoneName) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
         try {
             DistributionZoneConfiguration zoneCfg = directProxy(zonesConfiguration.distributionZones()).get(zoneName);
 
@@ -1697,13 +1680,15 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         } catch (NoSuchElementException e) {
             return null;
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
     /**
      * Internal method for waiting that the zone is created locally.
      *
-     * @param id Table id.
+     * @param id Zone id.
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<Void> waitZoneIdLocally(Integer id) {
@@ -1712,33 +1697,34 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            if (zonesByIdVv.latest().contains(id)) {
+            if (isZoneExist(zonesConfiguration, id)) {
                 return completedFuture(null);
             }
 
             CompletableFuture<Void> zoneExistFut = new CompletableFuture<>();
 
-            CompletionListener<Set<Integer>> zonesListener = (token, zones, th) -> {
-                if (th == null) {
-                    if (zones.contains(id)) {
+            ConfigurationNamedListListener<DistributionZoneView> awaitZoneListener = new ConfigurationNamedListListener<>() {
+                @Override
+                public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+                    if (ctx.newValue().zoneId() == id) {
                         zoneExistFut.complete(null);
+
+                        zonesConfiguration.distributionZones().stopListenElements(this);
                     }
-                } else {
-                    zoneExistFut.completeExceptionally(th);
+                    return completedFuture(null);
                 }
             };
 
-            zonesByIdVv.whenComplete(zonesListener);
+            zonesConfiguration.distributionZones().listenElements(awaitZoneListener);
 
-            // This check is needed for the case when we have registered zonesListener,
-            // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
-            if (zonesByIdVv.latest().contains(id)) {
-                zonesByIdVv.removeWhenComplete(zonesListener);
+            // This check is needed for the case when we have registered awaitZoneListener, but the zone has already been created.
+            if (isZoneExist(zonesConfiguration, id)) {
+                zonesConfiguration.distributionZones().stopListenElements(awaitZoneListener);
 
                 return completedFuture(null);
             }
 
-            return zoneExistFut.whenComplete((unused, throwable) -> zonesByIdVv.removeWhenComplete(zonesListener));
+            return zoneExistFut;
         } finally {
             busyLock.leaveBusy();
         }
