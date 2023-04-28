@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -64,6 +65,15 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
+
+            if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
+                SchemaDescriptor tupleSchema = ((SchemaAware)tuple).schema();
+                BinaryTupleReader tupleReader = ((BinaryTupleContainer)tuple).binaryTuple();
+
+                if (tupleSchema != null && tupleReader != null && tupleSchema.version() == schema.version()) {
+                    return new Row(schema, RowAssembler.build(tupleReader, schema.version()));
+                }
+            }
 
             InternalTuple keyTuple0 = toInternalTuple(schema, tuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, tuple, false);
@@ -191,11 +201,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         Map<String, Object> defaults = new HashMap<>();
 
         if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware) tuple).schema(), schema)) {
-            if (tuple instanceof BinaryTupleContainer) {
-                // TODO: Get size and nulls from the binary tuple.
-                System.out.println(tuple);
-            }
-
             for (int i = 0, len = columns.length(); i < len; i++) {
                 final Column col = columns.column(i);
                 NativeType colType = col.type();
