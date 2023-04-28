@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
+import java.util.Map;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -40,18 +41,10 @@ public interface DeployUnitRequest extends NetworkMessage {
     String version();
 
     /**
-     * Returns name of deployment unit.
+     * Returns map from file names of deployment unit to their content.
      *
-     * @return name of deployment unit.
+     * @return map from file names of deployment unit to their content.
      */
 
-    String unitName();
-
-    /**
-     * Returns content of deployment unit.
-     *
-     * @return content of deployment unit.
-     */
-
-    byte[] unitContent();
+    Map<String, byte[]> unitContent();
 }

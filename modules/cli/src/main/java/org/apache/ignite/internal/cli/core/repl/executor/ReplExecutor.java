@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
@@ -49,6 +50,7 @@ import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
+import org.jline.widget.AutosuggestionWidgets;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.CommandLine.IDefaultValueProvider;
@@ -59,7 +61,7 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
  */
 public class ReplExecutor {
 
-    private final Parser parser = new DefaultParser();
+    private final Parser parser = new DefaultParser().escapeChars(null);
 
     private final Supplier<Path> workDirProvider = () -> Paths.get(System.getProperty("user.dir"));
 
@@ -86,7 +88,7 @@ public class ReplExecutor {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
-    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
+    private static TailTipWidgets createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
         TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                 TailTipWidgets.TipType.COMPLETER);
         widgets.enable();
@@ -125,9 +127,8 @@ public class ReplExecutor {
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
-            TailTipWidgets widgets = repl.isTailTipWidgetsEnabled() ? createWidgets(registry, reader) : null;
 
-            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));
+            setupWidgets(repl, registry, reader);
 
             repl.onStart();
 
@@ -149,6 +150,34 @@ public class ReplExecutor {
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
         }
+    }
+
+    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
+        Consumer<Boolean> widgetsEnabler;
+        if (repl.isTailTipWidgetsEnabled()) {
+            TailTipWidgets widgets = createTailTipWidgets(registry, reader);
+            widgetsEnabler = enable -> {
+                if (enable) {
+                    widgets.enable();
+                } else {
+                    widgets.disable();
+                }
+            };
+        } else if (repl.isAutosuggestionsWidgetsEnabled()) {
+            AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
+            widgets.enable();
+            widgetsEnabler = enable -> {
+                if (enable) {
+                    widgets.enable();
+                } else {
+                    widgets.disable();
+                }
+            };
+        } else {
+            widgetsEnabler = enable -> {};
+        }
+
+        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgetsEnabler));
     }
 
     private LineReader createReader(Completer completer) {

@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -85,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParseResult;
 import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -414,7 +416,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
                     SqlNode sqlNode = parseResult.statement();
 
-                    validateParsedStatement(context, parseResult, sqlNode, params);
+                    validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
 
                     return sqlNode;
                 })
@@ -591,7 +593,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** Performs additional validation of a parsed statement. **/
-    private static void validateParsedStatement(QueryContext context, ParseResult parseResult, SqlNode node, Object[] params) {
+    private static void validateParsedStatement(
+            QueryContext context,
+            InternalTransaction outerTx,
+            ParseResult parseResult,
+            SqlNode node,
+            Object[] params
+    ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = Commons.getQueryType(node);
 
@@ -607,6 +615,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new QueryValidationException(message);
         }
 
+        if (SqlQueryType.DDL == queryType && outerTx != null) {
+            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "DDL doesn't support transactions.");
+        }
+
         if (parseResult.dynamicParamsCount() != params.length) {
             String message = format(
                     "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
@@ -614,6 +626,15 @@ public class SqlQueryProcessor implements QueryProcessor {
             );
 
             throw new SqlException(QUERY_INVALID_ERR, message);
+        }
+
+        for (Object param : params) {
+            if (!TypeUtils.supportParamInstance(param)) {
+                String message = format(
+                        "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
+
+                throw new SqlException(QUERY_INVALID_ERR, message);
+            }
         }
     }
 }

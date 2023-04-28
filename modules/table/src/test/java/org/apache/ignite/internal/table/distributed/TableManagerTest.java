@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -97,7 +98,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -107,6 +107,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -288,8 +290,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeZoneId(1);
-
-                tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
@@ -670,8 +670,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                         tableChange -> {
                             SchemaConfigurationConverter.convert(scmTbl, tableChange);
 
-                            tableChange.changeDataStorage(c -> c.convert(PersistentPageMemoryDataStorageChange.class));
-
                             // Trigger "onUpdateAssignments"
                             var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
 
@@ -815,6 +813,11 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         TableManager tableManager = new TableManager(
                 "test",
                 revisionUpdater,
@@ -835,7 +838,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                vaultManager
         ) {
 
             @Override
@@ -874,7 +878,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
-                tblsCfg,
+                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
         );
 
@@ -885,7 +889,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private void checkTableDataStorage(NamedListView<TableView> tables, String expDataStorage) {
         for (String tableName : tables.namedListKeys()) {
-            assertThat(tables.get(tableName).dataStorage().name(), equalTo(expDataStorage));
+            String dataStorageName = getZoneById(
+                    distributionZonesConfiguration, tables.get(tableName).zoneId()).dataStorage().name().value();
+            assertThat(dataStorageName, equalTo(expDataStorage));
         }
     }
 }

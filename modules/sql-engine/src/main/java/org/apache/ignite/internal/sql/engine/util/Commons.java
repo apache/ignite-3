@@ -373,7 +373,7 @@ public final class Commons {
             final ICompilerFactory compilerFactory;
 
             try {
-                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory();
+                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(ExpressionFactoryImpl.class.getClassLoader());
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);
@@ -382,7 +382,6 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
-            cbe.setParentClassLoader(ExpressionFactoryImpl.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class

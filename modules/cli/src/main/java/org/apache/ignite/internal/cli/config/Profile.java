@@ -24,66 +24,57 @@ import java.util.Map;
  */
 public interface Profile {
     /**
-     * Gets name of the profile.
+     * Gets name.
      *
      * @return profile name
      */
     String getName();
 
     /**
-     * Gets a {@link Config} stored in this profile.
-     *
-     * @return config
-     */
-    Config getConfig();
-
-    /**
-     * Convenience method to get all properties from this profile.
+     * Gets all properties.
      *
      * @return map of all properties
      */
-    default Map<String, String> getAll() {
-        return getConfig().getAll();
-    }
+    Map<String, String> getAll();
 
     /**
-     * Convenience method to get a property from this profile.
+     * Gets a property.
      *
      * @param key property to get
      * @return property value or {@code null} if config doesn't contain this property
      */
-    default String getProperty(String key) {
-        return getConfig().getProperty(key);
-    }
+    String getProperty(String key);
 
     /**
-     * Convenience method to get a property from this profile.
+     * Gets a property.
      *
      * @param key property to get
      * @param defaultValue default value of the property
      *
      * @return property value or {@code defaultValue} if config doesn't contain this property
      */
-    default String getProperty(String key, String defaultValue) {
-        return getConfig().getProperty(key, defaultValue);
-    }
+    String getProperty(String key, String defaultValue);
 
     /**
-     * Convenience method to set a property to this profile.
+     * Sets a property.
      *
      * @param key property to set
      * @param value value to set
      */
-    default void setProperty(String key, String value) {
-        getConfig().setProperty(key, value);
-    }
+    void setProperty(String key, String value);
 
     /**
-     * Convenience method to set properties to this profile.
+     * Removes a property.
+     *
+     * @param key property to remove
+     * @return removed property, or {@code null} if there was no such property.
+     */
+    String removeProperty(String key);
+
+    /**
+     * Set properties.
      *
      * @param values map of properties to set
      */
-    default void setProperties(Map<String, String> values) {
-        getConfig().setProperties(values);
-    }
+    void setProperties(Map<String, String> values);
 }

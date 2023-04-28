@@ -52,3 +52,19 @@ SELECT a, CASE WHEN a>11 THEN CAST(a AS VARCHAR) ELSE CAST(b AS VARCHAR) END FRO
 12	12
 13	13
 
+query T
+select NULLIF('test', 'test');
+----
+NULL
+
+query T
+select NULLIF(24 + 1, 26 - 1);
+----
+NULL
+
+query T
+SELECT CASE WHEN 24 + 1 = 26 - 1 THEN NULL ELSE 24 + 1 END
+----
+NULL
+
+

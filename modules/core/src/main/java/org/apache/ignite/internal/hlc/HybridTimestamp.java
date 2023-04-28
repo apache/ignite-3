@@ -19,7 +19,6 @@ package org.apache.ignite.internal.hlc;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
@@ -33,6 +32,9 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
     public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE, Integer.MAX_VALUE);
+
+    /** The constant holds the minimum value which {@code HybridTimestamp} might formally have. */
+    public static final HybridTimestamp MIN_VALUE = new HybridTimestamp(1L, -1);
 
     /**
      * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
@@ -63,15 +65,14 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     /**
-     * Compares hybrid timestamps.
+     * Finds maximum hybrid timestamp.
      *
-     * @param times Times for comparing.
+     * @param times Times for comparing. Must not be {@code null} or empty.
      * @return The highest hybrid timestamp.
      */
-    public static @Nullable HybridTimestamp max(HybridTimestamp... times) {
-        if (times.length == 0) {
-            return null;
-        }
+    public static HybridTimestamp max(HybridTimestamp... times) {
+        assert times != null;
+        assert times.length > 0;
 
         HybridTimestamp maxTime = times[0];
 
@@ -106,8 +107,6 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     /**
      * Returns a new hybrid timestamp with incremented logical component.
-     *
-     * @return The hybrid timestamp.
      */
     public HybridTimestamp addTicks(int ticks) {
         return new HybridTimestamp(physical, this.logical + ticks);
@@ -185,5 +184,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     @Override
     public String toString() {
         return S.toString(HybridTimestamp.class, this);
+    }
+
+    /**
+     * Returns a new hybrid timestamp with incremented physical component.
+     */
+    public HybridTimestamp addPhysicalTime(long mills) {
+        return new HybridTimestamp(physical + mills, logical);
     }
 }

@@ -19,11 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -81,13 +79,15 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -162,7 +162,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration("mock.distributionZones.zone123{}")
+    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = " + ENGINE_NAME + ", zoneId = 1}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
@@ -240,7 +240,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         ));
 
         dataStorageManager = new DataStorageManager(
-                tblsCfg,
+                dstZnsCfg,
                 dataStorageModules.createStorageEngines(NODE_NAME, configRegistry, workDir, null)
         );
 
@@ -278,7 +278,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.start();
 
-        tblsCfg.defaultDataStorage().update(ENGINE_NAME).get(1, TimeUnit.SECONDS);
+        dstZnsCfg.defaultDistributionZone().change(ch -> ch.changeDataStorage(d -> d.convert(RocksDbDataStorageChange.class)))
+                .get(1, TimeUnit.SECONDS);
 
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
@@ -447,43 +448,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 () -> readFirst(queryProc.querySingleAsync(
                         sessionId,
                         context,
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 6, method, method)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) WITH %s='%s'", method + 6, method, method)
                 ))
         );
 
         assertThat(exception.getMessage(), containsString("Unexpected table option"));
-    }
-
-    @Test
-    void createTableWithDataStorageOptions() {
-        String method = getCurrentMethodName();
-
-        SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
-
-        assertDoesNotThrow(() -> readFirst(queryProc.querySingleAsync(
-                sessionId,
-                context,
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with dataRegion='default'", method + 0)
-        )));
-
-        assertThat(
-                ((RocksDbDataStorageView) tableView(method + 0).dataStorage()).dataRegion(),
-                equalTo(DEFAULT_DATA_REGION_NAME)
-        );
-
-        assertDoesNotThrow(() -> readFirst(
-                queryProc.querySingleAsync(
-                        sessionId,
-                        context,
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with DATAREGION='test_region'", method + 1)
-                )
-        ));
-
-        assertThat(
-                ((RocksDbDataStorageView) tableView(method + 1).dataStorage()).dataRegion(),
-                equalTo("test_region")
-        );
     }
 
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
@@ -541,6 +510,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
         TableManager tableManager = new TableManager(
                 "",
                 revisionUpdater,
@@ -561,7 +535,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 null,
                 clock,
                 mock(OutgoingSnapshotsManager.class),
-                mock(TopologyAwareRaftGroupServiceFactory.class)
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                vaultManager
         );
 
         tableManager.start();

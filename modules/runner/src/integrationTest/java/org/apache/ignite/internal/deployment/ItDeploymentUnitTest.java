@@ -21,8 +21,8 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -30,7 +30,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -38,9 +37,12 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentInfo;
@@ -72,16 +74,20 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
     private DeployFile bigFile;
 
+    private List<DeployFile> allFiles;
+
     @BeforeEach
     public void generateDummy() throws IOException {
         smallFile = create("small.txt", SMALL_IN_BYTES, BASE_REPLICA_TIMEOUT);
         mediumFile = create("medium.txt", MEDIUM_IN_BYTES, BASE_REPLICA_TIMEOUT * 2);
-        bigFile = create("big.txt", BIG_IN_BYTES, BASE_REPLICA_TIMEOUT * 3);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19009
+        // bigFile = create("big.txt", BIG_IN_BYTES, BASE_REPLICA_TIMEOUT * 3);
+        allFiles = List.of(smallFile, mediumFile);
     }
 
     private DeployFile create(String name, long size, int replicaTimeout) throws IOException {
         DeployFile deployFile = new DeployFile(workDir.resolve(name), size, replicaTimeout);
-        deployFile.ensureExist();
+        deployFile.ensureExists();
         return deployFile;
     }
 
@@ -89,6 +95,21 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testDeploy() {
         String id = "test";
         Unit unit = deployAndVerifySmall(id, Version.parseVersion("1.1.0"), 1);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit);
+
+        UnitStatus status = buildStatus(id, unit);
+
+        await().timeout(2, SECONDS)
+                .pollDelay(500, MILLISECONDS)
+                .until(() -> node(2).deployment().unitsAsync(), willBe(Collections.singletonList(status)));
+    }
+
+    @Test
+    public void deployDirectory() {
+        String id = "test";
+        Unit unit = deployAndVerify(id, Version.parseVersion("1.1.0"), false, allFiles, 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -261,22 +282,35 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerify(String id, Version version, boolean force, DeployFile file, int nodeIndex) {
+        return deployAndVerify(id, version, force, List.of(file), nodeIndex);
+    }
+
+    private Unit deployAndVerify(String id, Version version, boolean force, List<DeployFile> files, int nodeIndex) {
         IgniteImpl entryNode = node(nodeIndex);
 
+        List<Path> paths = files.stream()
+                .map(deployFile -> deployFile.file)
+                .collect(Collectors.toList());
+
         CompletableFuture<Boolean> deploy = entryNode.deployment()
-                .deployAsync(id, version, force, fromPath(file.file));
+                .deployAsync(id, version, force, fromPaths(paths));
 
         assertThat(deploy, willBe(true));
 
-        Unit unit = new Unit(entryNode, id, version, file);
-        Path nodeUnitFile = getNodeUnitFile(unit);
-        assertTrue(Files.exists(nodeUnitFile));
+        Unit unit = new Unit(entryNode, id, version, files);
+
+        Path nodeUnitDirectory = getNodeUnitDirectory(entryNode, id, version);
+
+        for (DeployFile file : files) {
+            Path filePath = nodeUnitDirectory.resolve(file.file.getFileName());
+            assertTrue(Files.exists(filePath));
+        }
 
         return unit;
     }
 
     private Unit deployAndVerifySmall(String id, Version version, int nodeIndex) {
-        return deployAndVerifyMedium(id, version, nodeIndex);
+        return deployAndVerify(id, version, smallFile, nodeIndex);
     }
 
     private Unit deployAndVerifyMedium(String id, Version version, int nodeIndex) {
@@ -287,35 +321,52 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         return deployAndVerify(id, version, bigFile, nodeIndex);
     }
 
-    private Path getNodeUnitFile(Unit unit) {
-        return getNodeUnitFile(unit.deployedNode, unit.id, unit.version, unit.file);
-    }
-
-    private Path getNodeUnitFile(IgniteImpl node, String unitId, Version unitVersion, DeployFile file) {
+    private Path getNodeUnitDirectory(IgniteImpl node, String unitId, Version unitVersion) {
         String deploymentFolder = node.nodeConfiguration()
                 .getConfiguration(DeploymentConfiguration.KEY)
                 .deploymentLocation().value();
         Path resolve = workDir.resolve(node.name()).resolve(deploymentFolder);
         return resolve.resolve(unitId)
-                .resolve(unitVersion.render())
-                .resolve(file.file.getFileName());
+                .resolve(unitVersion.render());
     }
 
     private void waitUnitReplica(IgniteImpl ignite, Unit unit) {
-        Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version, unit.file);
+        Path unitDirectory = getNodeUnitDirectory(ignite, unit.id, unit.version);
 
-        await().timeout(unit.file.replicaTimeout, SECONDS)
+        int combinedTimeout = unit.files.stream().map(file -> file.replicaTimeout).reduce(Integer::sum).get();
+
+        await().timeout(combinedTimeout, SECONDS)
                 .pollDelay(1, SECONDS)
                 .ignoreException(IOException.class)
-                .until(() -> Files.exists(unitPath) && Files.size(unitPath) == unit.file.expectedSize);
+                .until(() -> {
+                    for (DeployFile file : unit.files) {
+                        Path filePath = unitDirectory.resolve(file.file.getFileName());
+                        if (Files.notExists(filePath) || Files.size(filePath) != file.expectedSize) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
     }
 
     private void waitUnitClean(IgniteImpl ignite, Unit unit) {
-        Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version, unit.file);
+        Path unitDirectory = getNodeUnitDirectory(ignite, unit.id, unit.version);
 
-        await().timeout(unit.file.replicaTimeout, SECONDS)
+        int combinedTimeout = unit.files.stream().map(file -> file.replicaTimeout).reduce(Integer::sum).get();
+
+        await().timeout(combinedTimeout, SECONDS)
                 .pollDelay(2, SECONDS)
-                .until(() -> !Files.exists(unitPath));
+                .until(() -> {
+                    for (DeployFile file : unit.files) {
+                        Path filePath = unitDirectory.resolve(file.file.getFileName());
+                        if (Files.exists(filePath)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
     }
 
     class Unit {
@@ -325,13 +376,13 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         private final Version version;
 
-        private final DeployFile file;
+        private final List<DeployFile> files;
 
-        Unit(IgniteImpl deployedNode, String id, Version version, DeployFile file) {
+        Unit(IgniteImpl deployedNode, String id, Version version, List<DeployFile> files) {
             this.deployedNode = deployedNode;
             this.id = id;
             this.version = version;
-            this.file = file;
+            this.files = files;
         }
 
         CompletableFuture<Void> undeployAsync() {
@@ -357,7 +408,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
             this.replicaTimeout = replicaTimeout;
         }
 
-        public void ensureExist() throws IOException {
+        public void ensureExists() throws IOException {
             ensureFile(file, expectedSize);
         }
 
@@ -374,23 +425,16 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private static DeploymentUnit fromPath(Path path) {
-        Objects.requireNonNull(path);
-        return new DeploymentUnit() {
-
-            @Override
-            public String name() {
-                return path.getFileName().toString();
+    private static DeploymentUnit fromPaths(List<Path> paths) {
+        Objects.requireNonNull(paths);
+        Map<String, InputStream> map = new HashMap<>();
+        try {
+            for (Path path : paths) {
+                map.put(path.getFileName().toString(), Files.newInputStream(path));
             }
-
-            @Override
-            public InputStream content() {
-                try {
-                    return new FileInputStream(path.toFile());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return () -> map;
     }
 }

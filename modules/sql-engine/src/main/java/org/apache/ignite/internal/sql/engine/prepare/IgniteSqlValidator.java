@@ -169,6 +169,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
         final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
+        if (table == null) {
+            // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
+            throw newValidationError(call.getTargetTable(), RESOURCE.objectNotFound(targetTable.toString()));
+        }
+
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
@@ -208,7 +213,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     @Override
     protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
-        final SqlValidatorTable table = getCatalogReader().getTable(((SqlIdentifier) call.getTargetTable()).names);
+        final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
+        final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
+
+        if (table == null) {
+            // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
+            throw newValidationError(targetTable, RESOURCE.objectNotFound(targetTable.toString()));
+        }
 
         table.unwrap(IgniteTable.class).descriptor().deleteRowType((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
@@ -544,12 +555,21 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
-        if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
+        if (node instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
-
             RelDataType type = inferDynamicParamType(dynamicParam);
-            setValidatedNodeType(node, type);
-        } else if (node instanceof SqlCall) {
+
+            boolean narrowType = inferredType.equals(unknownType) || SqlTypeUtil.canCastFrom(inferredType, type, true)
+                    && SqlTypeUtil.comparePrecision(inferredType.getPrecision(), type.getPrecision()) > 0;
+
+            if (narrowType) {
+                setValidatedNodeType(node, type);
+
+                return;
+            }
+        }
+
+        if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
             if (newScope != null) {

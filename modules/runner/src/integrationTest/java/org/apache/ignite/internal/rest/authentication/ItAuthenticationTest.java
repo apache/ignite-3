@@ -125,7 +125,7 @@ public class ItAuthenticationTest {
                 + "        {\n"
                 + "          \"name\": \"basic\",\n"
                 + "          \"type\": \"basic\",\n"
-                + "          \"login\": \"admin\",\n"
+                + "          \"username\": \"admin\",\n"
                 + "          \"password\": \"password\"\n"
                 + "        }\n"
                 + "      ]\n"
@@ -160,7 +160,7 @@ public class ItAuthenticationTest {
                 + "                {\n"
                 + "                    \"name\": \"basic\",\n"
                 + "                    \"type\": \"basic\",\n"
-                + "                    \"login\": \"admin\",\n"
+                + "                    \"username\": \"admin\",\n"
                 + "                    \"password\": \"new-password\"\n"
                 + "                }\n"
                 + "            ]\n"
@@ -199,7 +199,7 @@ public class ItAuthenticationTest {
                 + "        {\n"
                 + "          \"name\": \"basic\",\n"
                 + "          \"type\": \"basic\",\n"
-                + "          \"login\": \"admin\",\n"
+                + "          \"username\": \"admin\",\n"
                 + "          \"password\": \"password\"\n"
                 + "        }\n"
                 + "      ]\n"
@@ -253,11 +253,11 @@ public class ItAuthenticationTest {
         waitForAllNodesStarted(nodes);
     }
 
-    private void updateClusterConfiguration(String baseUrl, String login, String password, String configToApply) {
+    private void updateClusterConfiguration(String baseUrl, String username, String password, String configToApply) {
         URI updateClusterConfigUri = URI.create(baseUrl + "/management/v1/configuration/cluster/");
         HttpRequest updateClusterConfigRequest = HttpRequest.newBuilder(updateClusterConfigUri)
                 .header("content-type", "text/plain")
-                .header("Authorization", basicAuthenticationHeader(login, password))
+                .header("Authorization", basicAuthenticationHeader(username, password))
                 .method("PATCH", BodyPublishers.ofString(configToApply))
                 .build();
 
@@ -265,14 +265,14 @@ public class ItAuthenticationTest {
         assertThat(updateClusterConfigResponse.statusCode(), is(200));
     }
 
-    private boolean isRestNotAvailable(String baseUrl, String login, String password) {
-        return !isRestAvailable(baseUrl, login, password);
+    private boolean isRestNotAvailable(String baseUrl, String username, String password) {
+        return !isRestAvailable(baseUrl, username, password);
     }
 
-    private boolean isRestAvailable(String baseUrl, String login, String password) {
+    private boolean isRestAvailable(String baseUrl, String username, String password) {
         URI clusterConfigUri = URI.create(baseUrl + "/management/v1/configuration/cluster/");
         HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
-                .header("Authorization", basicAuthenticationHeader(login, password))
+                .header("Authorization", basicAuthenticationHeader(username, password))
                 .build();
         int code = sendRequest(client, clusterConfigRequest).statusCode();
         if (code == 200) {

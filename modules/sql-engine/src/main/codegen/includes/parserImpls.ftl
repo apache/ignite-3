@@ -180,7 +180,6 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final SqlNodeList columnList;
     SqlNodeList optionList = null;
     SqlNodeList colocationColumns = null;
-    SqlIdentifier engine = null;
 }
 {
     <TABLE>
@@ -192,13 +191,10 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             colocationColumns = ParenthesizedSimpleIdentifierList()
     ]
     [
-            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
-    ]
-    [
         <WITH> { s.add(this); } optionList = CreateTableOptionList()
     ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, engine, columnList, colocationColumns, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
     }
 }
 
@@ -442,16 +438,20 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         final boolean ifNotExists;
         final SqlIdentifier id;
         SqlNodeList optionList = null;
+        SqlIdentifier engine = null;
 }
 {
     <ZONE>
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
     [
+            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
+    ]
+    [
         <WITH> { s.add(this); } optionList = CreateZoneOptionList()
     ]
     {
-        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList, engine);
     }
 }
 
@@ -473,65 +473,16 @@ SqlNodeList CreateZoneOptionList() :
 void CreateZoneOption(List<SqlNode> list) :
 {
     final Span s;
-    final SqlLiteral key;
+    final SqlIdentifier key;
     final SqlNode val;
 }
 {
-    (
-        (
-            key = CreateNumericZoneOptionKey() { s = span(); }
-            <EQ>
-            val = NumericLiteral()
-        )
-        |
-        (
-            key = CreateStringZoneOptionKey() { s = span(); }
-            <EQ>
-            val = StringLiteral()
-        )
-    )
+    key = SimpleIdentifier() { s = span(); }
+    <EQ>
+    val = Literal()
     {
         list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
     }
-}
-
-SqlLiteral CreateNumericZoneOptionKey() :
-{
-}
-{
-    <PARTITIONS>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.PARTITIONS, getPos());
-    }
-|
-    <REPLICAS>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.REPLICAS, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_UP>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_DOWN>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, getPos());
-    }
-}
-
-SqlLiteral CreateStringZoneOptionKey() :
-{
-}
-{
-    <AFFINITY_FUNCTION> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION, getPos()); }
-|
-    <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
 }
 
 SqlDrop SqlDropZone(Span s, boolean replace) :
@@ -587,58 +538,16 @@ SqlNodeList AlterZoneOptions() :
 void AlterZoneOption(List<SqlNode> list) :
 {
     final Span s;
-    final SqlLiteral key;
+    final SqlIdentifier key;
     final SqlNode val;
 }
 {
-  (
-    (
-        key = AlterZoneNumericOptionKey() { s = span(); }
-        <EQ>
-        val = NumericLiteral()
-    )
-    |
-    (
-        key = AlterZoneStringOptionKey() { s = span(); }
-        <EQ>
-        val = StringLiteral()
-    )
-  )
+  key = SimpleIdentifier() { s = span(); }
+  <EQ>
+  val = Literal()
   {
       list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
   }
-}
-
-SqlLiteral AlterZoneNumericOptionKey() :
-{
-}
-{
-    <REPLICAS>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.REPLICAS, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_UP>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, getPos());
-    }
-|
-    <DATA_NODES_AUTO_ADJUST_SCALE_DOWN>
-    {
-        return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, getPos());
-    }
-}
-
-SqlLiteral AlterZoneStringOptionKey() :
-{
-}
-{
-    <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
 }
 
 SqlLiteral ParseDecimalLiteral():

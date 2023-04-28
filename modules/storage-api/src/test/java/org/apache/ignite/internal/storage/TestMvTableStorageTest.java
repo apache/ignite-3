@@ -33,9 +33,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
     void setUp(
-            @InjectConfiguration("mock.tables.foo{ dataStorage.name = " + TestStorageEngine.ENGINE_NAME + "}")
+            @InjectConfiguration("mock.tables.foo {}")
             TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock.partitions = 512")
+            @InjectConfiguration("mock { partitions = 512, dataStorage.name = " + TestStorageEngine.ENGINE_NAME + " }")
             DistributionZoneConfiguration distributionZoneConfiguration
     ) {
         initialize(new TestStorageEngine(), tablesConfig, distributionZoneConfiguration);

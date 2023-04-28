@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
-import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -215,15 +214,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         if (marshaller == null) {
             for (int i = 0; i < size; i++) {
-                var row = new ArrayList<>(rowSize);
-                var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
+                var tupleReader = new BinaryTupleReader(rowSize, in.readBinary());
 
-                for (int j = 0; j < rowSize; j++) {
-                    var col = metadata.columns().get(j);
-                    row.add(readValue(tupleReader, j, col));
-                }
-
-                res.add((T) new ClientSqlRow(row, metadata));
+                res.add((T) new ClientSqlRow(tupleReader, metadata));
             }
         } else {
             try {
@@ -322,7 +315,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
             var schemaColumn = new ClientColumn(
                     metaColumn.name(),
-                    ClientColumnTypeConverter.columnTypeToOrdinal(metaColumn.type()),
+                    metaColumn.type(),
                     metaColumn.nullable(),
                     true,
                     false,

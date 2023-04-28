@@ -192,6 +192,18 @@ public class IgniteInternalException extends RuntimeException {
     }
 
     /**
+     * Creates a new exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param messagePattern Error message pattern.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public IgniteInternalException(int code, String messagePattern, Object... params) {
+        this(code, IgniteStringFormatter.format(messagePattern, params));
+    }
+
+    /**
      * Returns a group name of this error.
      *
      * @see #groupCode()

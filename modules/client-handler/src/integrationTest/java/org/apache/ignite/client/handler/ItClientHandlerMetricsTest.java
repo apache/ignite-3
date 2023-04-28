@@ -54,7 +54,8 @@ public class ItClientHandlerMetricsTest {
                 TestSslConfig.builder()
                         .keyStorePath(ItClientHandlerTestUtils.generateKeystore(workDir))
                         .keyStorePassword("changeit")
-                        .build()
+                        .build(),
+                null
         );
 
         var serverModule = testServer.start(testInfo);
@@ -68,7 +69,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsRejected(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, null);
         var serverModule = testServer.start(testInfo);
 
         // Bad MAGIC.
@@ -89,7 +90,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsRejectedTimeout(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, null);
         testServer.idleTimeout(300);
         var serverModule = testServer.start(testInfo);
 
@@ -106,7 +107,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsAccepted(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, null);
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
@@ -115,7 +116,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsActive(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, null);
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
@@ -127,7 +128,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testBytesSentReceived(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null);
+        testServer = new TestServer(null, null);
         var serverModule = testServer.start(testInfo);
 
         assertEquals(0, testServer.metrics().bytesSent());

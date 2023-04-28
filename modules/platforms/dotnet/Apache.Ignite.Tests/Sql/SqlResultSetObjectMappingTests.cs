@@ -54,7 +54,8 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
                 new LocalDateTime(2022, 12, 19, 11, i + 1),
                 Instant.FromUnixTimeSeconds(i + 1),
                 new byte[] { 1, 2 },
-                i + 7.7m);
+                i + 7.7m,
+                new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, (byte)(i + 1)));
 
             await PocoAllColumnsSqlNullableView.UpsertAsync(null, poco);
         }
@@ -108,8 +109,19 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(Instant.FromUnixTimeSeconds(2), rows[1].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, rows[1].Blob);
         Assert.AreEqual(8.7m, rows[1].Decimal);
+        Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 2), rows[1].Uuid);
 
         Assert.AreEqual(new PocoAllColumnsSqlNullable(100), rows[Count]);
+    }
+
+    [Test]
+    public async Task TestSelectUuid()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<Guid>(null, "select MAX(UUID) from TBL_ALL_COLUMNS_SQL WHERE UUID <> ?", Guid.Empty);
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(1, rows.Count);
+        Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, Count), rows[0]);
     }
 
     [Test]

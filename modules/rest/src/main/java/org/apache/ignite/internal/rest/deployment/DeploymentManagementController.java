@@ -19,21 +19,20 @@ package org.apache.ignite.internal.rest.deployment;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
-import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.version.UnitVersion;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
-import org.apache.ignite.internal.rest.api.deployment.UnitStatusDto;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
+import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
+import org.reactivestreams.Publisher;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -47,30 +46,19 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, CompletedFileUpload unitContent) {
-        try {
-            DeploymentUnit deploymentUnit = toDeploymentUnit(unitContent);
-            if (unitVersion == null || unitVersion.isBlank()) {
-                return deployment.deployAsync(unitId, Version.LATEST, deploymentUnit);
-            }
-            return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit);
-        } catch (IOException e) {
-            return CompletableFuture.failedFuture(e);
-        }
+    public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
+        CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
+        unitContent.subscribe(new CompletedFileUploadSubscriber(result));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, UnitVersion.parse(unitVersion), deploymentUnit));
     }
 
     @Override
     public CompletableFuture<Void> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
+        return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
     }
 
     @Override
-    public CompletableFuture<Void> undeploy(String unitId) {
-        return deployment.undeployAsync(unitId);
-    }
-
-    @Override
-    public CompletableFuture<Collection<UnitStatusDto>> units() {
+    public CompletableFuture<Collection<UnitStatus>> units() {
         return deployment.unitsAsync().thenApply(statuses -> statuses.stream().map(DeploymentManagementController::fromUnitStatus)
                 .collect(Collectors.toList()));
     }
@@ -82,31 +70,15 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<UnitStatusDto> status(String unitId) {
+    public CompletableFuture<UnitStatus> status(String unitId) {
         return deployment.statusAsync(unitId).thenApply(DeploymentManagementController::fromUnitStatus);
     }
 
     @Override
-    public CompletableFuture<Collection<UnitStatusDto>> findByConsistentId(String consistentId) {
+    public CompletableFuture<Collection<UnitStatus>> findByConsistentId(String consistentId) {
         return deployment.findUnitByConsistentIdAsync(consistentId)
                 .thenApply(units -> units.stream().map(DeploymentManagementController::fromUnitStatus)
                         .collect(Collectors.toList()));
-    }
-
-    private static DeploymentUnit toDeploymentUnit(CompletedFileUpload unitContent) throws IOException {
-        String fileName = unitContent.getFilename();
-        InputStream is = unitContent.getInputStream();
-        return new DeploymentUnit() {
-            @Override
-            public String name() {
-                return fileName;
-            }
-
-            @Override
-            public InputStream content() {
-                return is;
-            }
-        };
     }
 
     /**
@@ -115,12 +87,13 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @param status Unit status.
      * @return Unit status DTO.
      */
-    public static UnitStatusDto fromUnitStatus(UnitStatus status) {
-        Map<String, List<String>> versionToConsistentIds = new HashMap<>();
+    private static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
+        Map<String, DeploymentInfo> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = status.versions();
         for (Version version : versions) {
-            versionToConsistentIds.put(version.render(), status.consistentIds(version));
+            DeploymentInfo info = new DeploymentInfo(status.status(version), status.consistentIds(version));
+            versionToDeploymentStatus.put(version.render(), info);
         }
-        return new UnitStatusDto(status.id(), versionToConsistentIds);
+        return new UnitStatus(status.id(), versionToDeploymentStatus);
     }
 }

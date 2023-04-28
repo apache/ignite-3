@@ -30,7 +30,7 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets the column type.
         /// </summary>
-        SqlColumnType Type { get; }
+        ColumnType Type { get; }
 
         /// <summary>
         /// Gets the column precision, or -1 when not applicable to the current column type.

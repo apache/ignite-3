@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
@@ -330,28 +329,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return row.timestampValue(col.schemaIndex());
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<>() {
-            /** Current column index. */
-            private int cur;
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return cur < row.schema().length();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Object next() {
-                return hasNext() ? value(cur++) : null;
-            }
-        };
     }
 
     /** {@inheritDoc} */

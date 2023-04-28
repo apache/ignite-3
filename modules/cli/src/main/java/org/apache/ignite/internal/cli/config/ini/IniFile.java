@@ -26,7 +26,7 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
-import org.apache.ignite.internal.cli.config.ConfigStoringException;
+import org.apache.ignite.internal.cli.config.exception.ConfigStoringException;
 
 /**
  * Representation of INI file.

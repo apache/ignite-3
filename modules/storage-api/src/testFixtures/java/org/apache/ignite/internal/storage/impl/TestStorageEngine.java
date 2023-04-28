@@ -56,7 +56,7 @@ public class TestStorageEngine implements StorageEngine {
     public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
             DistributionZoneConfiguration distributionZoneCfg)
             throws StorageException {
-        String dataStorageName = tableCfg.dataStorage().name().value();
+        String dataStorageName = distributionZoneCfg.dataStorage().name().value();
 
         assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 

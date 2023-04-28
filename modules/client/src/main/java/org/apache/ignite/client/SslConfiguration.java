@@ -37,17 +37,11 @@ public interface SslConfiguration {
     /** Keystore password that will be used to setup the SSL connection. */
     @Nullable String keyStorePassword();
 
-    /** Keystore type that will be used to setup the SSL connection. */
-    String keyStoreType();
-
     /** Truststore path that will be used to setup the SSL connection. */
     @Nullable String trustStorePath();
 
     /** Truststore password that will be used to setup the SSL connection. */
     @Nullable String trustStorePassword();
-
-    /** Truststore type that will be used to setup the SSL connection. */
-    String trustStoreType();
 
     /** SSL configuration builder. */
     static SslConfigurationBuilder builder() {

@@ -59,6 +59,7 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
@@ -506,7 +507,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
             if (partitionStorage == null) {
-                throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
             return storages.getOrCreateStorage(partitionStorage);
@@ -740,5 +741,28 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     private List<RocksDbSortedIndexStorage> getSortedIndexStorages(int partitionId) {
         return sortedIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
+    }
+
+    @Override
+    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+        return inBusyLock(busyLock, () -> {
+            if (mvPartitionStorages.get(partitionId) == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            HashIndex hashIndex = hashIndices.get(indexId);
+
+            if (hashIndex != null) {
+                return hashIndex.get(partitionId);
+            }
+
+            SortedIndex sortedIndex = sortedIndices.get(indexId);
+
+            if (sortedIndex != null) {
+                return sortedIndex.get(partitionId);
+            }
+
+            return (IndexStorage) null;
+        });
     }
 }

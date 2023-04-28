@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,6 +48,38 @@ public class CreateZoneCommand extends AbstractZoneDdlCommand {
 
     /** Data nodes auto adjust scale down timeout. */
     private Integer dataNodesAutoAdjustScaleDown;
+
+    /** Data storage. */
+    private String dataStorage;
+
+    /** Data storage options. */
+    private Map<String, Object> dataStorageOptions;
+
+    @Nullable public String dataStorage() {
+        return dataStorage;
+    }
+
+    public void dataStorage(String dataStorage) {
+        this.dataStorage = dataStorage;
+    }
+
+    public Map<String, Object> dataStorageOptions() {
+        return (dataStorageOptions == null) ? Map.of() : dataStorageOptions;
+    }
+
+    /**
+     * Add data storage option.
+     *
+     * @param name Name of the option.
+     * @param value Value of the option.
+     */
+    public void addDataStorageOption(String name, Object value) {
+        if (dataStorageOptions == null) {
+            dataStorageOptions = new HashMap<>();
+        }
+
+        dataStorageOptions.put(name, value);
+    }
 
     public boolean ifNotExists() {
         return ifNotExists;

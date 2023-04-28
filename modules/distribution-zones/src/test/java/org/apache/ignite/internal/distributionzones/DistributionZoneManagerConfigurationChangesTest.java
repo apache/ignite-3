@@ -18,29 +18,31 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -51,10 +53,11 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,35 +88,37 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private TablesConfiguration tablesConfiguration;
 
     @BeforeEach
-    public void setUp() throws NodeStoppingException {
+    public void setUp() throws Exception {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of()
+                List.of(TestPersistStorageConfigurationSchema.class)
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
         // Mock logical topology for distribution zone.
-        //TODO https://issues.apache.org/jira/browse/IGNITE-19104 We may get stale value, due to asynchronous read from Vault.
-        // vaultMgr = new VaultManager(new InMemoryVaultService());
-        // vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes));
-
-        vaultMgr = mock(VaultManager.class);
-        when(vaultMgr.get(any())).thenReturn(completedFuture(null));
-        // TODO: IGNITE-19104 Already completed future workaround the race.
-        when(vaultMgr.get(zonesLogicalTopologyKey()))
-                .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), toBytes(nodes))));
+        vaultMgr = new VaultManager(new InMemoryVaultService());
+        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), toBytes(nodes)), willCompleteSuccessfully());
+        assertThat(vaultMgr.put(zonesLogicalTopologyVersionKey(), longToBytes(0)), willCompleteSuccessfully());
 
         LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
-        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, Set.of())));
+
+        Set<LogicalNode> logicalTopology = nodes.stream()
+                .map(n -> new LogicalNode(n, n, new NetworkAddress(n, 10_000)))
+                .collect(toSet());
+
+        when(logicalTopologyService.logicalTopologyOnLeader())
+                .thenReturn(completedFuture(new LogicalTopologySnapshot(0, logicalTopology)));
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
+
+        metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -187,8 +192,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
-
         assertZonesChangeTriggerKey(100, 1, keyValueStorage);
 
         assertDataNodesForZone(1, null, keyValueStorage);
@@ -203,8 +206,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
-
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
         assertDataNodesForZone(1, nodes, keyValueStorage);
     }

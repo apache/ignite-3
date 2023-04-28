@@ -35,7 +35,10 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -174,10 +177,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
     private void push() throws Exception {
         if (remoteSources == null) {
-            for (String node : srcNodeNames) {
-                checkNode(node);
-            }
-
             remoteSources = new ArrayList<>(srcNodeNames.size());
 
             for (String nodeName : srcNodeNames) {
@@ -334,8 +333,20 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
     }
 
-    private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) throws IgniteInternalCheckedException {
-        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state);
+    private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) {
+        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
+                .whenComplete((ignored, ex) -> {
+                    if (ex != null) {
+                        IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                                IgniteInternalException::new,
+                                Sql.INTERNAL_ERR,
+                                "Unable to request next batch: " + ex.getMessage(),
+                                ex
+                        );
+
+                        context().execute(() -> onError(wrapperEx), this::onError);
+                    }
+                });
     }
 
     /**
@@ -354,12 +365,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         checkState();
 
         if (perNodeBuffers.get(nodeName).check() != State.END) {
-            throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
-        }
-    }
-
-    private void checkNode(String nodeName) throws IgniteInternalCheckedException {
-        if (!exchange.alive(nodeName)) {
             throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
@@ -537,15 +542,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
          * is less or equal than half of {@link #IO_BATCH_CNT}.
          */
         void requestNextBatchIfNeeded() throws IgniteInternalCheckedException {
-            int inFlightCount = lastRequested - lastEnqueued;
+            int maxInFlightCount = Math.max(IO_BATCH_CNT, 1);
+            int currentInFlightCount = lastRequested - lastEnqueued;
 
-            // IO_BATCH_CNT should never be less than 1, but we don't have validation
-            if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
-                batchRequester.request(1, sharedStateHolder);
-                // shared state should be send only once until next rewind
-                sharedStateHolder = null;
-            } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
-                int countOfBatches = IO_BATCH_CNT - inFlightCount;
+            if (maxInFlightCount / 2 >= currentInFlightCount) {
+                int countOfBatches = maxInFlightCount - currentInFlightCount;
 
                 lastRequested += countOfBatches;
 

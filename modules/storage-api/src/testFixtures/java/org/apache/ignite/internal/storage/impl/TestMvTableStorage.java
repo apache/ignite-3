@@ -36,6 +36,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -281,6 +282,27 @@ public class TestMvTableStorage implements MvTableStorage {
 
             return completedFuture(null);
         });
+    }
+
+    @Override
+    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+        if (mvPartitionStorages.get(partitionId) == null) {
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        HashIndices hashIndices = hashIndicesById.get(indexId);
+
+        if (hashIndices != null) {
+            return hashIndices.storageByPartitionId.get(partitionId);
+        }
+
+        SortedIndices sortedIndices = sortedIndicesById.get(indexId);
+
+        if (sortedIndices != null) {
+            return sortedIndices.storageByPartitionId.get(partitionId);
+        }
+
+        return null;
     }
 
     private Stream<TestHashIndexStorage> testHashIndexStorageStream(Integer partitionId) {

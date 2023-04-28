@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -34,17 +35,21 @@ class ClientContext {
     /** Feature set. */
     private final BitSet features;
 
+    private final UserDetails userDetails;
+
     /**
      * Constructor.
      *
-     * @param version    Version.
+     * @param version Version.
      * @param clientCode Client type code.
-     * @param features   Feature set.
+     * @param features Feature set.
+     * @param userDetails User details.
      */
-    ClientContext(ProtocolVersion version, int clientCode, BitSet features) {
+    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails) {
         this.version = version;
         this.clientCode = clientCode;
         this.features = features;
+        this.userDetails = userDetails;
     }
 
     /**
@@ -72,6 +77,10 @@ class ClientContext {
      */
     public BitSet features() {
         return features;
+    }
+
+    public UserDetails userDetails() {
+        return userDetails;
     }
 
     /** {@inheritDoc} */

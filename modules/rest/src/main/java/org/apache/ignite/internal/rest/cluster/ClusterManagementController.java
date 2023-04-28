@@ -28,24 +28,20 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
-import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
-import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
+import org.apache.ignite.internal.rest.api.cluster.ClusterState;
+import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
-import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfigDto;
-import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationProviderConfigDto;
-import org.apache.ignite.internal.rest.api.cluster.authentication.BasicAuthenticationProviderConfigDto;
+import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfig;
+import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationProviderConfig;
+import org.apache.ignite.internal.rest.api.cluster.authentication.BasicAuthenticationProviderConfig;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.security.AuthenticationConfig;
-import org.apache.ignite.security.AuthenticationProviderConfig;
 import org.apache.ignite.security.AuthenticationType;
-import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /**
  * Cluster management controller implementation.
@@ -71,7 +67,7 @@ public class ClusterManagementController implements ClusterManagementApi {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ClusterStateDto> clusterState() {
+    public CompletableFuture<ClusterState> clusterState() {
         return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
     }
 
@@ -83,8 +79,8 @@ public class ClusterManagementController implements ClusterManagementApi {
                     initCommand.cmgNodes());
         }
 
-        AuthenticationConfigDto authenticationConfigDto = initCommand.authenticationConfig();
-        AuthenticationConfig authenticationConfig = authenticationConfigDto == null
+        AuthenticationConfig authenticationConfigDto = initCommand.authenticationConfig();
+        org.apache.ignite.security.AuthenticationConfig authenticationConfig = authenticationConfigDto == null
                 ? disabled()
                 : authnConfigDtoToRestAuthnConfig(authenticationConfigDto);
 
@@ -99,16 +95,16 @@ public class ClusterManagementController implements ClusterManagementApi {
                 });
     }
 
-    private ClusterStateDto mapClusterState(ClusterState clusterState) {
+    private ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
         if (clusterState == null) {
             throw new ClusterNotInitializedException();
         }
 
-        return new ClusterStateDto(
+        return new ClusterState(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
                 clusterState.igniteVersion().toString(),
-                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
+                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId())
         );
     }
 
@@ -127,11 +123,11 @@ public class ClusterManagementController implements ClusterManagementApi {
         return new IgniteException(ex);
     }
 
-    private AuthenticationConfig authnConfigDtoToRestAuthnConfig(AuthenticationConfigDto configDto) {
-        return new AuthenticationConfig(configDto.enabled(), authnProviders(configDto.providers()));
+    private org.apache.ignite.security.AuthenticationConfig authnConfigDtoToRestAuthnConfig(AuthenticationConfig configDto) {
+        return new org.apache.ignite.security.AuthenticationConfig(configDto.enabled(), authnProviders(configDto.providers()));
     }
 
-    private List<AuthenticationProviderConfig> authnProviders(List<AuthenticationProviderConfigDto> providers) {
+    private List<org.apache.ignite.security.AuthenticationProviderConfig> authnProviders(List<AuthenticationProviderConfig> providers) {
         if (providers == null) {
             return Collections.emptyList();
         } else {
@@ -141,13 +137,14 @@ public class ClusterManagementController implements ClusterManagementApi {
         }
     }
 
-    private AuthenticationProviderConfig authnProviderConfigDtoToAuthnProviderConfig(AuthenticationProviderConfigDto configDto) {
+    private org.apache.ignite.security.AuthenticationProviderConfig authnProviderConfigDtoToAuthnProviderConfig(
+            AuthenticationProviderConfig configDto) {
         AuthenticationType type = configDto.type();
         if (type == AuthenticationType.BASIC) {
-            BasicAuthenticationProviderConfigDto basicAuthenticationProviderConfigDto = (BasicAuthenticationProviderConfigDto) configDto;
-            return new BasicAuthenticationProviderConfig(
+            BasicAuthenticationProviderConfig basicAuthenticationProviderConfigDto = (BasicAuthenticationProviderConfig) configDto;
+            return new org.apache.ignite.security.BasicAuthenticationProviderConfig(
                     basicAuthenticationProviderConfigDto.name(),
-                    basicAuthenticationProviderConfigDto.login(),
+                    basicAuthenticationProviderConfigDto.username(),
                     basicAuthenticationProviderConfigDto.password()
             );
         } else {

@@ -65,7 +65,6 @@ import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
-import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -104,7 +103,7 @@ public class UrlOptionsNegativeTest {
     NodeNameRegistry nodeNameRegistry;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory)
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
@@ -139,7 +138,7 @@ public class UrlOptionsNegativeTest {
                 arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19090
                 // arguments(UnitDeployCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
                 arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
@@ -164,7 +163,7 @@ public class UrlOptionsNegativeTest {
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19090
                 // arguments(UnitDeployReplCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(UnitStatusReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
                 arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
@@ -287,7 +286,7 @@ public class UrlOptionsNegativeTest {
 
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createEmptyConfig());
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createEmptyConfig());
         setUp(ConnectReplCommand.class);
         cmd.execute();
 
