@@ -59,7 +59,7 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
@@ -142,9 +142,9 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy(Hints.ENFORCE_JOIN_ORDER.name(), (hint, rel) -> true)
+                                    .hintStrategy(Hints.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
                                     .hintStrategy(Hints.DISABLE_RULE.name(), (hint, rel) -> true)
-                                    .hintStrategy(Hints.EXPAND_DISTINCT_AGG.name(), (hint, rel) -> rel instanceof Aggregate)
+                                    .hintStrategy(Hints.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
                                     .build()
                     )
             )
