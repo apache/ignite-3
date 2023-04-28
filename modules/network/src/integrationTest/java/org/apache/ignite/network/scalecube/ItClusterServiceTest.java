@@ -22,6 +22,7 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,7 +82,8 @@ public class ItClusterServiceTest {
         assertTrue(waitForCondition(() -> service1.topologyService().allMembers().size() == 2, 1000));
         assertTrue(waitForCondition(() -> service2.topologyService().allMembers().size() == 2, 1000));
         try {
-            assertThat(service1.topologyService().localMember().nodeMetadata(), is(nullValue()));
+            assertThat(service1.topologyService().localMember().nodeMetadata(), is(not(nullValue())));
+            assertThat(service1.topologyService().localMember().nodeMetadata().launchId(), is(not(nullValue())));
             var meta1 = new NodeMetadata("id1", "foo", 123, 321);
             var meta2 = new NodeMetadata("id2", "bar", 456, 654);
             service1.updateMetadata(meta1);
