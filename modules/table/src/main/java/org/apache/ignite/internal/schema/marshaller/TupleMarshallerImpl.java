@@ -73,7 +73,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 if (tupleSchema != null && tupleReader != null) {
                     if (tupleSchema.version() == schema.version()) {
                         // TODO: The problem with precision of time values - client does no respect it.
-                        return new Row(schema, RowAssembler.build(tupleReader, schema.version()));
+                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
                     }
                 }
             }

@@ -666,31 +666,25 @@ public class RowAssembler {
      */
     public BinaryRow build() {
         boolean hasValue = flush();
-
         ByteBuffer tupleBuffer = builder.build();
-        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + tupleBuffer.limit()).order(ORDER);
-        buffer.putShort((short) schemaVersion);
-        buffer.put(hasValue ? (byte) 1 : 0);
-        buffer.put(tupleBuffer);
-        buffer.position(0);
-        return new ByteBufferRow(buffer);
+
+        return build(tupleBuffer, schemaVersion, hasValue);
     }
 
     /**
-     * Builds serialized row from an existing BinaryTuple.
+     * Builds serialized row from a BinaryTuple.
      *
-     * @param reader Binary tuple.
+     * @param binTupleBuffer Binary tuple buffer.
      * @param schemaVersion Schema version.
      * @return Created {@link BinaryRow}.
      */
-    public static BinaryRow build(BinaryTupleReader reader, int schemaVersion) {
-        // TODO: Make sure there is no copying. Maybe introduce a method "BinaryTupleReader.copyTo".
-        ByteBuffer tupleBuffer = reader.byteBuffer();
-        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + tupleBuffer.limit()).order(ORDER);
+    public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
+        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + binTupleBuffer.limit()).order(ORDER);
         buffer.putShort((short) schemaVersion);
-        buffer.put((byte) 1); // hasValue
-        buffer.put(tupleBuffer);
+        buffer.put(hasValue ? (byte) 1 : 0);
+        buffer.put(binTupleBuffer);
         buffer.position(0);
+
         return new ByteBufferRow(buffer);
     }
 
