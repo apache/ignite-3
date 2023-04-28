@@ -73,7 +73,8 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param event Membership event.
      */
     void onMembershipEvent(MembershipEvent event) {
-        NodeMetadata metadata = deserializeMetadata(event.newMetadata());
+        ByteBuffer relevantMetadata = event.isRemoved() ? event.oldMetadata() : event.newMetadata();
+        NodeMetadata metadata = deserializeMetadata(relevantMetadata);
         ClusterNode member = fromMember(event.member(), metadata);
 
         if (event.isAdded()) {

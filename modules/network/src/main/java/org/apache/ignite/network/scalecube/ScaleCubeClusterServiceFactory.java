@@ -69,6 +69,12 @@ public class ScaleCubeClusterServiceFactory {
     /** Metadata codec. */
     private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
 
+    private final UUID launchId;
+
+    public ScaleCubeClusterServiceFactory(UUID launchId) {
+        this.launchId = launchId;
+    }
+
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
@@ -109,8 +115,6 @@ public class ScaleCubeClusterServiceFactory {
             public void start() {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
-                UUID launchId = UUID.randomUUID();
-
                 NetworkView configView = networkConfiguration.value();
 
                 connectionMgr = new ConnectionManager(
@@ -131,6 +135,8 @@ public class ScaleCubeClusterServiceFactory {
                         messageFactory
                 );
 
+                NodeMetadata nodeMetadata = new NodeMetadata(launchId.toString());
+
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
                 cluster = new ClusterImpl(clusterConfig(configView.membership()))
                         .handler(cl -> new ClusterMessageHandler() {
@@ -141,9 +147,9 @@ public class ScaleCubeClusterServiceFactory {
                             }
                         })
                         .config(opts -> opts
-                                .memberId(launchId.toString())
                                 .memberAlias(consistentId)
                                 .metadataCodec(METADATA_CODEC)
+                                .metadata(nodeMetadata)
                         )
                         .transport(opts -> opts.transportFactory(transportConfig -> transport))
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
@@ -157,14 +163,22 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
                     public void onDisappeared(ClusterNode member) {
-                        staleIds.markAsStale(member.id());
+                        NodeMetadata metadata = member.nodeMetadata();
+
+                        assert metadata != null;
+
+                        staleIds.markAsStale(metadata.launchId());
                     }
                 });
 
                 cluster.startAwait();
 
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
+                MembershipEvent localMembershipEvent = createAdded(
+                        cluster.member(),
+                        METADATA_CODEC.serialize(nodeMetadata),
+                        System.currentTimeMillis()
+                );
                 topologyService.onMembershipEvent(localMembershipEvent);
             }
 

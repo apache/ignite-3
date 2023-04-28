@@ -119,11 +119,6 @@ subprojects {
                 releasesOnly()
             }
         }
-
-        maven {
-            // TODO: IGNITE-19386 - switch to io.scalecube:scalecube-cluster
-            url "https://jitpack.io"
-        }
     }
 
     tasks.register('printSubDependencies', DependencyReportTask)

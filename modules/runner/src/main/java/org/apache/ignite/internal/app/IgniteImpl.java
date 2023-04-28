@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -194,6 +195,8 @@ public class IgniteImpl implements Ignite {
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
 
+    private final UUID launchId = UUID.randomUUID();
+
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
 
@@ -316,7 +319,7 @@ public class IgniteImpl implements Ignite {
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
-        clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
+        clusterSvc = new ScaleCubeClusterServiceFactory(launchId).createClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -663,7 +666,9 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort()));
+            clusterSvc.updateMetadata(
+                    new NodeMetadata(launchId.toString(), restComponent.host(), restComponent.httpPort(), restComponent.httpsPort())
+            );
 
             restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 

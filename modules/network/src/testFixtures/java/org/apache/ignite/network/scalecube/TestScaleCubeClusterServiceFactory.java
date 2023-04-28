@@ -18,12 +18,17 @@
 package org.apache.ignite.network.scalecube;
 
 import io.scalecube.cluster.ClusterConfig;
+import java.util.UUID;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 
 /**
  * Scalecube test factory. Provides fast detection time.
  */
 public class TestScaleCubeClusterServiceFactory extends ScaleCubeClusterServiceFactory {
+    public TestScaleCubeClusterServiceFactory() {
+        super(UUID.randomUUID());
+    }
+
     /** {@inheritDoc} */
     @Override
     protected ClusterConfig clusterConfig(ClusterMembershipView unused) {
