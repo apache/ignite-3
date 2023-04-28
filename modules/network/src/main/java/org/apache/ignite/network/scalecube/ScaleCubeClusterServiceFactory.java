@@ -19,11 +19,9 @@ package org.apache.ignite.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
 
-import io.scalecube.cluster.Cluster;
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
-import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
@@ -33,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -61,7 +58,6 @@ import org.apache.ignite.network.NodeFinderFactory;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Cluster service factory that uses ScaleCube for messaging and topology services.
@@ -220,24 +216,6 @@ public class ScaleCubeClusterServiceFactory {
                 topologyService.updateLocalMetadata(metadata);
             }
 
-            private String notNullClusterMemberId() {
-                while (true) {
-                    // clusterMemberId() reads a volatile variable, so we actually read the member when it gets assigned.
-                    String memberId = clusterMemberId();
-                    if (memberId != null) {
-                        return memberId;
-                    }
-
-                    LockSupport.parkNanos(10_000_000);
-                }
-            }
-
-            @Nullable
-            private String clusterMemberId() {
-                Cluster currentCluster = cluster;
-                Member member = currentCluster == null ? null : currentCluster.member();
-                return member == null ? null : member.id();
-            }
         };
     }
 
