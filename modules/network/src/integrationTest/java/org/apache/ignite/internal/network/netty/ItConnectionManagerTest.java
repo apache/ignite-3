@@ -340,7 +340,7 @@ public class ItConnectionManagerTest {
             var manager = new ConnectionManager(
                     cfg,
                     new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                    launchId::toString,
+                    launchId,
                     consistentId,
                     bootstrapFactory,
                     new AllIdsAreFresh()

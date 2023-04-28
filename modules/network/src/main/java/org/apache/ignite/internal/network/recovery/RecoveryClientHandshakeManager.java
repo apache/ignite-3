@@ -24,8 +24,8 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -54,8 +54,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /** Message factory. */
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
-    /** Launch id supplier. */
-    private final Supplier<String> launchIdSupplier;
+    /** Launch id. */
+    private final UUID launchId;
 
     /** Consistent id. */
     private final String consistentId;
@@ -73,7 +73,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
     /** Remote node's launch id. */
-    private String remoteLaunchId;
+    private UUID remoteLaunchId;
 
     /** Remote node's consistent id. */
     private String remoteConsistentId;
@@ -95,18 +95,18 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     /**
      * Constructor.
      *
-     * @param launchIdSupplier Launch id supplier.
+     * @param launchId Launch id.
      * @param consistentId Consistent id.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      */
     public RecoveryClientHandshakeManager(
-            Supplier<String> launchIdSupplier,
+            UUID launchId,
             String consistentId,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             StaleIdDetector staleIdDetector
     ) {
-        this.launchIdSupplier = launchIdSupplier;
+        this.launchId = launchId;
         this.consistentId = consistentId;
         this.connectionId = connectionId;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
@@ -127,7 +127,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         if (message instanceof HandshakeStartMessage) {
             HandshakeStartMessage msg = (HandshakeStartMessage) message;
 
-            if (staleIdDetector.isIdStale(msg.launchId())) {
+            if (staleIdDetector.isIdStale(msg.launchId().toString())) {
                 handleStaleServerId(msg);
 
                 return;
@@ -226,7 +226,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
 
         HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
-                .launchId(launchIdSupplier.get())
+                .launchId(launchId)
                 .consistentId(consistentId)
                 .receivedCount(descriptor.receivedCount())
                 .connectionId(connectionId)

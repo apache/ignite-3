@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
+import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -31,7 +32,7 @@ public interface HandshakeStartMessage extends InternalMessage {
      *
      * @return Launch id.
      */
-    String launchId();
+    UUID launchId();
 
     /**
      * Returns consistent id.

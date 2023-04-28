@@ -25,13 +25,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -85,8 +85,8 @@ public class ConnectionManager {
     /** Node consistent id. */
     private final String consistentId;
 
-    /** Supplies node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
-    private final Supplier<String> launchIdSupplier;
+    /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
+    private final UUID launchId;
 
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
@@ -111,7 +111,7 @@ public class ConnectionManager {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchIdSupplier              Supplier of launch id of this node.
+     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
@@ -119,7 +119,7 @@ public class ConnectionManager {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            Supplier<String> launchIdSupplier,
+            UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector
@@ -127,7 +127,7 @@ public class ConnectionManager {
         this(
                 networkConfiguration,
                 serializationService,
-                launchIdSupplier,
+                launchId,
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
@@ -140,7 +140,7 @@ public class ConnectionManager {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchIdSupplier              Supplier of launch id of this node.
+     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
@@ -149,14 +149,14 @@ public class ConnectionManager {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            Supplier<String> launchIdSupplier,
+            UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
     ) {
         this.serializationService = serializationService;
-        this.launchIdSupplier = launchIdSupplier;
+        this.launchId = launchId;
         this.consistentId = consistentId;
         this.staleIdDetector = staleIdDetector;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
@@ -345,7 +345,7 @@ public class ConnectionManager {
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
         return clientHandshakeManagerFactory.create(
-                launchIdSupplier,
+                launchId,
                 consistentId,
                 connectionId,
                 descriptorProvider
@@ -353,7 +353,7 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createServerHandshakeManager() {
-        return new RecoveryServerHandshakeManager(launchIdSupplier, consistentId, FACTORY, descriptorProvider, staleIdDetector);
+        return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider, staleIdDetector);
     }
 
     /**
@@ -401,18 +401,12 @@ public class ConnectionManager {
         }
 
         @Override
-        public RecoveryClientHandshakeManager create(Supplier<String> launchIdSupplier,
+        public RecoveryClientHandshakeManager create(UUID launchId,
                 String consistentId,
                 short connectionId,
                 RecoveryDescriptorProvider recoveryDescriptorProvider
         ) {
-            return new RecoveryClientHandshakeManager(
-                    launchIdSupplier,
-                    consistentId,
-                    connectionId,
-                    recoveryDescriptorProvider,
-                    staleIdDetector
-            );
+            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider, staleIdDetector);
         }
     }
 }

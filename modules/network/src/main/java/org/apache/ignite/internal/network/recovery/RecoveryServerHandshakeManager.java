@@ -23,8 +23,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -50,8 +50,8 @@ import org.jetbrains.annotations.TestOnly;
 public class RecoveryServerHandshakeManager implements HandshakeManager {
     private static final IgniteLogger LOG = Loggers.forClass(RecoveryServerHandshakeManager.class);
 
-    /** Launch id supplier. */
-    private final Supplier<String> launchIdSupplier;
+    /** Launch id. */
+    private final UUID launchId;
 
     /** Consistent id. */
     private final String consistentId;
@@ -63,7 +63,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
     /** Remote node's launch id. */
-    private String remoteLaunchId;
+    private UUID remoteLaunchId;
 
     /** Remote node's consistent id. */
     private String remoteConsistentId;
@@ -96,19 +96,19 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /**
      * Constructor.
      *
-     * @param launchIdSupplier Launch id supplier.
+     * @param launchId Launch id.
      * @param consistentId Consistent id.
      * @param messageFactory Message factory.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      */
     public RecoveryServerHandshakeManager(
-            Supplier<String> launchIdSupplier,
+            UUID launchId,
             String consistentId,
             NetworkMessagesFactory messageFactory,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             StaleIdDetector staleIdDetector
     ) {
-        this.launchIdSupplier = launchIdSupplier;
+        this.launchId = launchId;
         this.consistentId = consistentId;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
@@ -127,7 +127,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
-                .launchId(launchIdSupplier.get())
+                .launchId(launchId)
                 .consistentId(consistentId)
                 .build();
 
@@ -148,7 +148,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         if (message instanceof HandshakeStartResponseMessage) {
             HandshakeStartResponseMessage msg = (HandshakeStartResponseMessage) message;
 
-            if (staleIdDetector.isIdStale(msg.launchId())) {
+            if (staleIdDetector.isIdStale(msg.launchId().toString())) {
                 handleStaleClientId(msg);
 
                 return;
@@ -277,7 +277,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId, remoteConsistentId, remoteChannelId));
+        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId));
     }
 
     @TestOnly

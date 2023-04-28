@@ -109,8 +109,7 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
         UUID clientLaunchId = UUID.randomUUID();
-        RecoveryDescriptor serverRecoveryDescriptor = serverRecovery.getRecoveryDescriptor("client", clientLaunchId.toString(),
-                CONNECTION_ID, true);
+        RecoveryDescriptor serverRecoveryDescriptor = serverRecovery.getRecoveryDescriptor("client", clientLaunchId, CONNECTION_ID, true);
         addUnacknowledgedMessages(serverRecoveryDescriptor);
 
         RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager("client", clientLaunchId,
@@ -163,8 +162,7 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
         UUID serverLaunchId = UUID.randomUUID();
-        RecoveryDescriptor clientRecoveryDescriptor = clientRecovery.getRecoveryDescriptor("server", serverLaunchId.toString(),
-                CONNECTION_ID, false);
+        RecoveryDescriptor clientRecoveryDescriptor = clientRecovery.getRecoveryDescriptor("server", serverLaunchId, CONNECTION_ID, false);
         addUnacknowledgedMessages(clientRecoveryDescriptor);
 
         RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
@@ -536,7 +534,7 @@ public class RecoveryHandshakeTest {
 
     private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryClientHandshakeManager(launchId::toString, consistentId, CONNECTION_ID, provider, staleIdDetector);
+        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider, staleIdDetector);
     }
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(RecoveryDescriptorProvider provider) {
@@ -550,7 +548,7 @@ public class RecoveryHandshakeTest {
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryServerHandshakeManager(launchId::toString, consistentId, MESSAGE_FACTORY, provider, staleIdDetector);
+        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider, staleIdDetector);
     }
 
     private RecoveryDescriptorProvider createRecoveryDescriptorProvider() {

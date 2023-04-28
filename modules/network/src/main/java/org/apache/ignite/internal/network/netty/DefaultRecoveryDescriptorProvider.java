@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
@@ -35,7 +36,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
 
     /** {@inheritDoc} */
     @Override
-    public RecoveryDescriptor getRecoveryDescriptor(String consistentId, String launchId, short connectionIndex, boolean inbound) {
+    public RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound) {
         var key = new ChannelKey(consistentId, launchId, connectionIndex, inbound);
 
         return recoveryDescriptors.computeIfAbsent(key, channelKey -> new RecoveryDescriptor(DEFAULT_QUEUE_LIMIT));
@@ -47,7 +48,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
         private final String consistentId;
 
         /** Remote node's launch id. */
-        private final String launchId;
+        private final UUID launchId;
 
         /**
          * Connection id. Every connection between this node and a remote node has a unique connection id,
@@ -58,7 +59,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
         /** {@code true} if channel is inbound, {@code false} otherwise. */
         private final boolean inbound;
 
-        private ChannelKey(String consistentId, String launchId, short connectionId, boolean inbound) {
+        private ChannelKey(String consistentId, UUID launchId, short connectionId, boolean inbound) {
             this.consistentId = consistentId;
             this.launchId = launchId;
             this.connectionId = connectionId;

@@ -35,7 +35,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -298,7 +297,7 @@ class DefaultMessagingServiceTest {
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
                 serializationService,
-                launchId::toString,
+                launchId,
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
@@ -316,12 +315,12 @@ class DefaultMessagingServiceTest {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
-                    Supplier<String> launchIdSupplier,
+                    UUID launchId,
                     String consistentId,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider) {
                 return new RecoveryClientHandshakeManager(
-                        launchIdSupplier,
+                        launchId,
                         consistentId,
                         connectionId,
                         recoveryDescriptorProvider,
