@@ -564,7 +564,7 @@ SqlLiteral ParseDecimalLiteral():
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method must be removed after https://issues.apache.org/jira/browse/IGNITE-19274.
+* TODO Method doesn't recognize '*_WITH_LOCAL_TIME_ZONE' types and should be removed after IGNITE-19274.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {
