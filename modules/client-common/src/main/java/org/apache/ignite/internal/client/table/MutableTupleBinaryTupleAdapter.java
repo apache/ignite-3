@@ -414,6 +414,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
         if (noValueSet != null && !noValueSet.isEmpty()) {
             // Can't expose binary tuple if there are unset values.
+            // On the server, DefaultValueProvider should be used to replace unset values with proper defaults.
             return null;
         }
 
