@@ -54,6 +54,7 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryTupleReader binaryTuple() {
+        // TODO: We should not expose BinaryTuple when noValueSet is present, because it can't go to storage like this?
         return super.binaryTuple();
     }
 

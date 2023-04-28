@@ -75,6 +75,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                         // TODO: The problem with default vs null values.
                         // Client sends noValueSet for default values, but server should substitute default values from the schema.
                         // Should we include default values in the client schema to get rid of noValueSet?
+                        // - No, we can not send DefaultValueProvider to the client.
                         return new Row(schema, RowAssembler.build(tupleReader, schema.version()));
                     } else {
                         // TODO: Should we throw an exception here, according to schema sync proposal?
