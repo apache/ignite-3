@@ -119,6 +119,10 @@ subprojects {
                 releasesOnly()
             }
         }
+
+        maven {
+            url "https://jitpack.io"
+        }
     }
 
     tasks.register('printSubDependencies', DependencyReportTask)
