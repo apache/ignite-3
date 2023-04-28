@@ -68,6 +68,11 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
         return schema.columns()[columnIndex].scale();
     }
 
+    @Override
+    protected Object schemaColumnDefaultValue(int columnIndex, Object defaultValue) {
+        return defaultValue;
+    }
+
     @Nullable
     private ClientColumn column(@NotNull String columnName) {
         return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));

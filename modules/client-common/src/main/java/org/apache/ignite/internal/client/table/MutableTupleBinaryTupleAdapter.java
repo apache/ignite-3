@@ -417,6 +417,8 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     protected abstract int schemaDecimalScale(int columnIndex);
 
+    protected abstract Object schemaColumnDefaultValue(int columnIndex, Object defaultValue);
+
     protected abstract int schemaColumnIndex(@NotNull String columnName);
 
     private int schemaColumnIndex(@NotNull String columnName, @Nullable ColumnType type) {

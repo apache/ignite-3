@@ -96,4 +96,10 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
     protected int schemaDecimalScale(int columnIndex) {
         return ClientTableCommon.getDecimalScale(schema.column(columnIndex).type());
     }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Object schemaColumnDefaultValue(int columnIndex, Object defaultValue) {
+        return schema.column(columnIndex).defaultValue();
+    }
 }

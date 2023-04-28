@@ -97,6 +97,12 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
 
     /** {@inheritDoc} */
     @Override
+    protected Object schemaColumnDefaultValue(int columnIndex, Object defaultValue) {
+        return defaultValue;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public ResultSetMetadata metadata() {
         return metadata;
     }
