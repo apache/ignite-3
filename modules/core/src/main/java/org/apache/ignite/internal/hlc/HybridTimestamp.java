@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.hlc;
 
-import static java.lang.Math.addExact;
-
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -67,11 +65,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     public HybridTimestamp(long physical, int logical) {
         if (physical < 0 || physical >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
-            throw new IllegalArgumentException("physical time is out of bounds: " + physical);
+            throw new IllegalArgumentException("Physical time is out of bounds: " + physical);
         }
 
         if (logical < 0 || logical >= (1L << LOGICAL_TIME_BITS_SIZE)) {
-            throw new IllegalArgumentException("logical time is out of bounds: " + logical);
+            throw new IllegalArgumentException("Logical time is out of bounds: " + logical);
         }
 
         time = (physical << LOGICAL_TIME_BITS_SIZE) | logical;
@@ -155,21 +153,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         return (int) (time << PHYSICAL_TIME_BITS_SIZE >>> PHYSICAL_TIME_BITS_SIZE);
     }
 
+    /**
+     * Returns a compressed representation as a primitive {@code long} value.
+     */
     public long longValue() {
         return time;
-    }
-
-    /**
-     * Returns a new hybrid timestamp with incremented logical component.
-     *
-     * @return The hybrid timestamp.
-     *
-     * @throws ArithmeticException on the long overflow.
-     */
-    public HybridTimestamp addTicks(int ticks) {
-        assert ticks >= 0;
-
-        return new HybridTimestamp(addExact(time, ticks));
     }
 
     @Override
@@ -239,6 +227,10 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Returns a new hybrid timestamp with incremented physical component.
      */
     public HybridTimestamp addPhysicalTime(long mills) {
-        return new HybridTimestamp(addExact(getPhysical(), mills), getLogical());
+        if (mills < 0 || mills >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + mills);
+        }
+
+        return new HybridTimestamp(time + (mills << LOGICAL_TIME_BITS_SIZE));
     }
 }
