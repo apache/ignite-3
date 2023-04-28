@@ -72,21 +72,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 if (tupleSchema != null && tupleReader != null) {
                     if (tupleSchema.version() == schema.version()) {
-                        // TODO: The problem with default vs null values.
-                        // Client sends noValueSet for default values, but server should substitute default values from the schema.
-                        // Should we include default values in the client schema to get rid of noValueSet?
-                        // - No, we can not send DefaultValueProvider to the client.
+                        // TODO: The problem with precision of time values - client does no respect it.
                         return new Row(schema, RowAssembler.build(tupleReader, schema.version()));
-                    } else {
-                        // TODO: Should we throw an exception here, according to schema sync proposal?
-                        // This might be problematic for the user, so should only happen when the tuple comes from the client side,
-                        // which will retry with a new schema.
-                        /*
-                        throw new SchemaMismatchException(
-                                String.format("Tuple schema version doesn't match table schema version: " +
-                                                "tupleSchemaVersion=%s, tableSchemaVersion=%s",
-                                        tupleSchema.version(), schema.version()));
-                         */
                     }
                 }
             }
@@ -217,14 +204,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         Map<String, Object> defaults = new HashMap<>();
 
         if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware) tuple).schema(), schema)) {
-            if (tuple instanceof BinaryTupleContainer) {
-                // TODO: Get size and nulls from the binary tuple.
-                // This code path is used when incoming BinaryTuple has outdated schema.
-                // TODO: Write a test for this.
-                // OR should be reject outdated tuple?
-                System.out.println(tuple);
-            }
-
             for (int i = 0, len = columns.length(); i < len; i++) {
                 final Column col = columns.column(i);
                 NativeType colType = col.type();
