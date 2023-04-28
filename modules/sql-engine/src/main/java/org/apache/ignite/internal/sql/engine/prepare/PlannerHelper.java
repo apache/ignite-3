@@ -94,11 +94,7 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
-            JoinSizeFinder joinSizeFinder = new JoinSizeFinder();
-
-            joinSizeFinder.visit(rel);
-
-            boolean amountOfJoinsAreBig = joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE;
+            boolean amountOfJoinsAreBig = amountOfJoinsAreBig(rel);
             boolean enforceJoinOrder = ENFORCE_JOIN_ORDER.present(root.hints);
             if (amountOfJoinsAreBig || enforceJoinOrder) {
                 Set<String> disabledRules = new HashSet<>(DISABLE_RULE.params(root.hints));
@@ -141,6 +137,14 @@ public final class PlannerHelper {
 
             throw ex;
         }
+    }
+
+    private static boolean amountOfJoinsAreBig(RelNode rel) {
+        JoinSizeFinder joinSizeFinder = new JoinSizeFinder();
+
+        joinSizeFinder.visit(rel);
+
+        return joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE;
     }
 
     /**
