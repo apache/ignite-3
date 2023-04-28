@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
@@ -119,7 +120,9 @@ public class ExchangeServiceImpl implements ExchangeService {
                 FACTORY.errorMessage()
                         .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .error(errorWithCode)
+                        .traceId(errorWithCode.traceId())
+                        .code(errorWithCode.code())
+                        .message(errorWithCode.getMessage())
                         .build()
         );
     }
@@ -129,6 +132,14 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         if (cause instanceof IgniteException) {
             return IgniteException.wrap(t);
+        } else  if (cause instanceof IgniteInternalException) {
+            IgniteInternalException iex = (IgniteInternalException) cause;
+
+            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+        } else  if (cause instanceof IgniteInternalCheckedException) {
+            IgniteInternalCheckedException iex = (IgniteInternalCheckedException) cause;
+
+            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
         } else {
             return new SqlException(UNEXPECTED_ERR, cause);
         }

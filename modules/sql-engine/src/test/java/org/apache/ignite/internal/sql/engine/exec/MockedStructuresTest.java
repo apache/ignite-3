@@ -24,7 +24,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -85,6 +84,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -382,14 +382,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.getZoneId(zoneName)).thenThrow(DistributionZoneNotFoundException.class);
 
-        Exception exception = assertThrows(
-                IgniteException.class,
+        Throwable exception = assertThrows(
+                Throwable.class,
                 () -> readFirst(queryProc.querySingleAsync(sessionId, context,
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                                 + "with primary_zone='%s'", tableName, zoneName)))
         );
 
-        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
+        assertTrue(IgniteTestUtils.hasCause(exception.getCause(), DistributionZoneNotFoundException.class, null));
     }
 
     /**

@@ -1504,7 +1504,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ex = t;
         }
 
-        return ex instanceof IgniteException ? (IgniteException) ex : new IgniteException(ex);
+        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteException.wrap(ex);
     }
 
     /**
