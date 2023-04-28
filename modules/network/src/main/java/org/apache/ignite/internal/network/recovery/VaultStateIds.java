@@ -52,11 +52,15 @@ public class VaultStateIds implements StaleIds {
 
     @Override
     public synchronized boolean isIdStale(String nodeId) {
+        loadFromVaultIfFirstOperation();
+
+        return staleIds.contains(nodeId);
+    }
+
+    private void loadFromVaultIfFirstOperation() {
         if (staleIds == null) {
             staleIds = loadStaleIdsFromVault();
         }
-
-        return staleIds.contains(nodeId);
     }
 
     private Set<String> loadStaleIdsFromVault() {
@@ -77,9 +81,7 @@ public class VaultStateIds implements StaleIds {
 
     @Override
     public synchronized void markAsStale(String nodeId) {
-        if (staleIds == null) {
-            staleIds = new LinkedHashSet<>();
-        }
+        loadFromVaultIfFirstOperation();
 
         staleIds.add(nodeId);
 

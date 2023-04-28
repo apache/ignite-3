@@ -25,6 +25,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -77,6 +78,7 @@ class VaultStateIdsTest {
 
     @Test
     void savesNewStaleIdsToVault() {
+        doReturn(completedFuture(null)).when(vaultManager).get(staleIdsKey);
         doReturn(completedFuture(null))
                 .when(vaultManager).put(staleIdsKey, "id2".getBytes(UTF_8));
         doReturn(completedFuture(null))
@@ -89,6 +91,8 @@ class VaultStateIdsTest {
     @Test
     void respectsMaxIdsLimit() {
         staleIds = new VaultStateIds(vaultManager, 2);
+
+        doReturn(completedFuture(null)).when(vaultManager).get(staleIdsKey);
 
         AtomicReference<String> lastSavedIds = new AtomicReference<>();
 
@@ -105,5 +109,16 @@ class VaultStateIdsTest {
         staleIds.markAsStale("id1");
 
         assertThat(lastSavedIds.get(), is("id2\nid1"));
+    }
+
+    @Test
+    void loadsBeforeDoingFirstSave() {
+        lenient().doReturn(completedFuture(new VaultEntry(staleIdsKey, "id1".getBytes(UTF_8))))
+                .when(vaultManager).get(staleIdsKey);
+        doReturn(completedFuture(null)).when(vaultManager).put(eq(staleIdsKey), any());
+
+        staleIds.markAsStale("id2");
+
+        verify(vaultManager).put(staleIdsKey, "id1\nid2".getBytes(UTF_8));
     }
 }
