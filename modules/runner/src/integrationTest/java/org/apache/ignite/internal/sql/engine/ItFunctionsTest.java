@@ -19,10 +19,14 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -267,16 +271,40 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT TYPEOF('a'::varchar(1))").returns("VARCHAR(1)").check();
         assertQuery("SELECT TYPEOF(NULL)").returns("NULL").check();
         assertQuery("SELECT TYPEOF(NULL::VARCHAR(100))").returns("VARCHAR(100)").check();
+        // compound expression
+        assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
+
+        // Runtime error
+        IgniteException failed = assertThrows(IgniteException.class, () -> assertQuery("SELECT typeof(CAST('NONE' as INTEGER))").check());
+        assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
+        assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));
+
         try {
             sql("SELECT TYPEOF()");
+            fail();
         } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
+            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"), e.toString());
         }
 
         try {
             sql("SELECT TYPEOF(1, 2)");
+            fail();
         } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
+            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"), e.toString());
+        }
+
+        try {
+            sql("SELECT TYPEOF(SELECT 1, '2')");
+            fail();
+        } catch (Exception e) {
+            assertInstanceOf(SqlValidatorException.class, e.getCause());
+        }
+
+        try {
+            sql("SELECT TYPEOF(SELECT 1, 2)");
+            fail();
+        } catch (Exception e) {
+            assertInstanceOf(SqlValidatorException.class, e.getCause());
         }
     }
 

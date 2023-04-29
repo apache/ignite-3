@@ -102,7 +102,10 @@ public enum IgniteMethod {
 
     /** See {@link IgniteSqlFunctions#genRandomUuid()}. */
     // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
-    GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid");
+    GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid"),
+
+    /** See {@link IgniteSqlFunctions#returnFirstArgument(Object, Object)}. **/
+    RETURN_FIRST_ARGUMENT(IgniteSqlFunctions.class, "returnFirstArgument", Object.class, Object.class);
 
     private final Method method;
 
