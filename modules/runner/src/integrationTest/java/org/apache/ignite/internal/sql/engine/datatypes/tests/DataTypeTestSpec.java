@@ -23,7 +23,7 @@ import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.sql.ColumnType;
 
 /**
- * {@code DataTypeTestSpec} describes a data type, provides convenient methods to test.
+ * {@code DataTypeTestSpec} describes a data type, provides convenient methods for testing.
  *
  * <ul>
  *     <li>If {@code storageType} is not {@link Comparable} must use provide implementation of
@@ -91,7 +91,7 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
 
     /**
      * Converts the given value to its string representation.
-     * This value is used by {@link TestTypeArguments#stringValue(int)}.
+     * A result is used to check type conversion from a string to value of this data type.
      *
      * @param value A value.
      * @return A string representation of the given value.

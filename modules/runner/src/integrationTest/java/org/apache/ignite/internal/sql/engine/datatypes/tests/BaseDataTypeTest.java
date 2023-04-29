@@ -53,7 +53,7 @@ import org.junit.jupiter.params.provider.Arguments;
  *
  * <p>Query string support the following template variables:
  * <ul>
- *     <li>{@code <type>} - an SQL name of custom data type.</li>
+ *     <li>{@code <type>} - an SQL name of a data type.</li>
  *     <li>{@code $N} - the {@code N-th} value from sample values (0-based), converted to an SQL expression by
  *     {@link DataTypeTestSpec#toValueExpr(Comparable)} call (0-based)</li>
  *     <li>{@code $N_lit} - the {@code N-th} value from sample values (0-based) in form of an SQL literal.</li>
@@ -62,7 +62,7 @@ import org.junit.jupiter.params.provider.Arguments;
  * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
  * that their {@link ColumnType column type} is equal to {@code columnType} defined by {@link DataTypeTestSpec}.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterPerClassIntegrationTest {
 
@@ -131,7 +131,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
     }
 
     /**
-     * Use this method instead of {@link #sql(String, Object...)} because it replaces every {@code <type>} with the name of a custom data
+     * Use this method instead of {@link #sql(String, Object...)} because it replaces every {@code <type>} with the name of a data
      * type under test, and {@code $N} with corresponding values, where {@code N} is 1-indexed.
      *
      * @param query A query.

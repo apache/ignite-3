@@ -27,9 +27,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test cases for {@code JOIN} operator for a custom data type.
+ * Test cases for {@code JOIN} operator.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public abstract class BaseJoinDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 

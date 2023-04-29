@@ -30,9 +30,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Provides method for generating arguments for {@link BaseDataTypeTest custom data type tests}.
+ * Provides method for generating arguments for {@link BaseDataTypeTest data type tests}.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public final class TestTypeArguments<T extends Comparable<T>> {
 

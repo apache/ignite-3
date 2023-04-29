@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * A set of test cases for DML operations.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 

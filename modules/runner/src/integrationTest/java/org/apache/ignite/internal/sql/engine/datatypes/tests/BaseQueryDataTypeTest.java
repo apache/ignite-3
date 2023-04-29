@@ -26,7 +26,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test cases for custom data type in {@code WHERE} clause of a query.
+ * Test cases for predicates in {@code WHERE} clause of a query.
  */
 public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 

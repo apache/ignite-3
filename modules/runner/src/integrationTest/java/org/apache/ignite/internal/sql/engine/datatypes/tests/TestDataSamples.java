@@ -31,7 +31,8 @@ import java.util.function.Function;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 /**
- * Values used in tests.
+ * Values used in data type tests.
+ * @see BaseDmlDataTypeTest
  */
 public final class TestDataSamples<T extends Comparable<T>> {
 

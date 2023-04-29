@@ -29,7 +29,10 @@ public interface NativeTypeWrapper<T extends NativeTypeWrapper<T>> extends Compa
     /** Returns a value of a native type. */
     Object get();
 
-    /** If the given value is native type wrapper, unwraps it. Otherwise returns the same value. */
+    /**
+     * If the given value is an instance of a native type wrapper, this method returns a value of a native type.
+     * Otherwise it returns an input value.
+     */
     static Object unwrap(Object value) {
         if (value instanceof NativeTypeWrapper) {
             return ((NativeTypeWrapper<?>) value).get();

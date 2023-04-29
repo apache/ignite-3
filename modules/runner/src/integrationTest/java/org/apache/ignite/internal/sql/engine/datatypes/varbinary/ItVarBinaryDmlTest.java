@@ -25,7 +25,7 @@ import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for expressions for {@link SqlTypeName#VARBINARY} type.
+ * Tests for DML operations for {@link SqlTypeName#VARBINARY} type.
  */
 public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
 

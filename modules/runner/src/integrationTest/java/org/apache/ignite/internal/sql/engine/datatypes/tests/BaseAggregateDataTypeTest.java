@@ -29,9 +29,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test cases for aggregate functions for custom data type.
+ * Test cases for aggregate functions.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type for a data type.
  */
 public abstract class BaseAggregateDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 

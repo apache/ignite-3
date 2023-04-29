@@ -32,7 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for {@code SELECT} operator for {@link UuidType UUID data type}.
+ * Tests for {@code SELECT} operations for {@link UuidType UUID data type}.
  */
 public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
 

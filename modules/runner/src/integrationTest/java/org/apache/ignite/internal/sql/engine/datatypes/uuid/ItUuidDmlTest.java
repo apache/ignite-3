@@ -24,7 +24,7 @@ import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
- * Tests for DML operators for {@link UuidType UUID data type}.
+ * Tests for DML statements for {@link UuidType UUID data type}.
  */
 public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
 

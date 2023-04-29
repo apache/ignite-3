@@ -33,9 +33,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test cases for custom data type in expressions.
+ * Test cases for data type in expressions.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
@@ -219,7 +219,7 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
 
     /** Data type from string. **/
     @Test
-    public void testCastFromFromString() {
+    public void testCastFromString() {
         T value = dataSamples.values().get(0);
         String stringValue = testTypeSpec.toStringValue(value);
 

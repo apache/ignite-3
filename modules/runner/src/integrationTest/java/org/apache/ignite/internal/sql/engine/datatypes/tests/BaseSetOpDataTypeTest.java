@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test cases for set operators for custom data type.
+ * Test cases for set operators for a data type.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public abstract class BaseSetOpDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 

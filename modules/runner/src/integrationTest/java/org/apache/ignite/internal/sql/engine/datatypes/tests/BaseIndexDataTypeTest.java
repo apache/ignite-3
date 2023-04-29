@@ -28,9 +28,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for indexes with custom data type columns.
+ * Tests for indexes.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
 public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
