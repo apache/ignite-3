@@ -271,10 +271,10 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT TYPEOF('a'::varchar(1))").returns("VARCHAR(1)").check();
         assertQuery("SELECT TYPEOF(NULL)").returns("NULL").check();
         assertQuery("SELECT TYPEOF(NULL::VARCHAR(100))").returns("VARCHAR(100)").check();
-        // compound expression
+        // A compound expression
         assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
-        // Runtime error
+        // An expression that produces an error
         IgniteException failed = assertThrows(IgniteException.class, () -> assertQuery("SELECT typeof(CAST('NONE' as INTEGER))").check());
         assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
         assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));

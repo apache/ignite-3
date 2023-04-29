@@ -1651,14 +1651,16 @@ public class RexImpTable {
         return createImplementor(new NotNullImplementor() {
             @Override
             public Expression implement(RexToLixTranslator translator, RexCall call, List<Expression> translatedOperands) {
-                Method method = IgniteMethod.RETURN_FIRST_ARGUMENT.method();
+                Method method = IgniteMethod.CONSUME_FIRST_ARGUMENT.method();
 
                 RexNode operand = call.getOperands().get(0);
                 String operandType = operand.getType().toString();
 
                 List<Expression> finalOperands = new ArrayList<>(2);
-                finalOperands.add(Expressions.constant(operandType));
+                // The first argument is an arbitrary expression (must be evaluated).
+                // The second argument is a type of the first expression (a constant).
                 finalOperands.add(translatedOperands.get(0));
+                finalOperands.add(Expressions.constant(operandType));
 
                 return Expressions.call(method, finalOperands);
             }
