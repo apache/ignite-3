@@ -20,6 +20,7 @@ package org.apache.ignite.network;
 import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains metadata of the cluster node.
@@ -45,17 +46,19 @@ public class NodeMetadata implements Serializable {
     }
 
     /** Constructor. */
-    public NodeMetadata(String launchId, String restHost, int httpPort, int httpsPort) {
+    public NodeMetadata(@Nullable String launchId, String restHost, int httpPort, int httpsPort) {
         this.launchId = launchId;
         this.restHost = restHost;
         this.httpPort = httpPort;
         this.httpsPort = httpsPort;
     }
 
+    @Nullable
     public String launchId() {
         return launchId;
     }
 
+    @Nullable
     public String restHost() {
         return restHost;
     }

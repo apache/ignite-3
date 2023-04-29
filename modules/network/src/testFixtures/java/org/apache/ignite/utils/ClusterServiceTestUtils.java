@@ -39,7 +39,6 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -149,8 +148,8 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public void updateMetadata(NodeMetadata metadata) {
-                clusterSvc.updateMetadata(metadata);
+            public void updateMetadata(String restHost, int httpPort, int httpsPort) {
+                clusterSvc.updateMetadata(restHost, httpPort, httpsPort);
             }
 
             @Override

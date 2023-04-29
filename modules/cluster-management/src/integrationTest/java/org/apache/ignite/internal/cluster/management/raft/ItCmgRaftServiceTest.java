@@ -29,6 +29,7 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -442,15 +443,17 @@ public class ItCmgRaftServiceTest {
 
         // Node has not passed validation.
         String errMsg = String.format(
-                "JoinReady request denied, reason: Node \"%s\" has not yet passed the validation step",
+                "JoinReady request denied, reason: Node ",
                 cluster.get(0).clusterService.topologyService().localMember()
         );
 
-        assertThrowsWithCause(
+        Throwable ex = assertThrowsWithCause(
                 () -> raftService.completeJoinCluster(Collections.emptyMap()).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 errMsg
         );
+        assertThat(ex.getMessage(), containsString("has not yet passed the validation step"));
+        assertThat(ex.getMessage(), containsString(cluster.get(0).clusterService.topologyService().localMember().id()));
 
         assertThat(raftService.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
 

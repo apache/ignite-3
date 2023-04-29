@@ -84,10 +84,10 @@ public class ItClusterServiceTest {
         try {
             assertThat(service1.topologyService().localMember().nodeMetadata(), is(not(nullValue())));
             assertThat(service1.topologyService().localMember().nodeMetadata().launchId(), is(not(nullValue())));
-            var meta1 = new NodeMetadata("id1", "foo", 123, 321);
-            var meta2 = new NodeMetadata("id2", "bar", 456, 654);
-            service1.updateMetadata(meta1);
-            service2.updateMetadata(meta2);
+            var meta1 = new NodeMetadata(service1.topologyService().localMember().nodeMetadata().launchId(), "foo", 123, 321);
+            var meta2 = new NodeMetadata(service2.topologyService().localMember().nodeMetadata().launchId(), "bar", 456, 654);
+            service1.updateMetadata("foo", 123, 321);
+            service2.updateMetadata("bar", 456, 654);
             checkLocalMeta(service1, meta1);
             checkLocalMeta(service2, meta2);
             checkRemoteMeta(service1, service2, meta1);

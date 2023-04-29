@@ -64,8 +64,6 @@ public interface ClusterService extends IgniteComponent {
 
     /**
      * Updates metadata of this cluster node and sends update events to other members.
-     *
-     * @param metadata new metadata.
      */
-    void updateMetadata(NodeMetadata metadata);
+    void updateMetadata(String restHost, int httpPort, int httpsPort);
 }

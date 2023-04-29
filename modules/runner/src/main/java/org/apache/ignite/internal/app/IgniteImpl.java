@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -138,7 +137,6 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
@@ -194,8 +192,6 @@ public class IgniteImpl implements Ignite {
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
-
-    private final UUID launchId = UUID.randomUUID();
 
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
@@ -319,7 +315,7 @@ public class IgniteImpl implements Ignite {
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
-        clusterSvc = new ScaleCubeClusterServiceFactory(launchId).createClusterService(
+        clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -666,9 +662,7 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(
-                    new NodeMetadata(launchId.toString(), restComponent.host(), restComponent.httpPort(), restComponent.httpsPort())
-            );
+            clusterSvc.updateMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort());
 
             restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 

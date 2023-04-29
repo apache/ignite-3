@@ -35,7 +35,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -92,7 +91,7 @@ public class ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public void updateMetadata(NodeMetadata metadata) {
+            public void updateMetadata(String restHost, int httpPort, int httpsPort) {
                 throw new AssertionError("Should not be called");
             }
 

@@ -69,16 +69,10 @@ public class ScaleCubeClusterServiceFactory {
     /** Metadata codec. */
     private static final MetadataCodec METADATA_CODEC = MetadataCodec.INSTANCE;
 
-    private final UUID launchId;
-
-    public ScaleCubeClusterServiceFactory(UUID launchId) {
-        this.launchId = launchId;
-    }
-
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
-     * @param networkConfiguration  Network configuration.
+     * @param networkConfiguration Network configuration.
      * @param nettyBootstrapFactory Bootstrap factory.
      * @return New cluster service.
      */
@@ -116,6 +110,8 @@ public class ScaleCubeClusterServiceFactory {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 NetworkView configView = networkConfiguration.value();
+
+                UUID launchId = UUID.randomUUID();
 
                 connectionMgr = new ConnectionManager(
                         configView,
@@ -166,6 +162,7 @@ public class ScaleCubeClusterServiceFactory {
                         NodeMetadata metadata = member.nodeMetadata();
 
                         assert metadata != null;
+                        assert metadata.launchId() != null;
 
                         staleIds.markAsStale(metadata.launchId());
                     }
@@ -225,7 +222,15 @@ public class ScaleCubeClusterServiceFactory {
             }
 
             @Override
-            public void updateMetadata(NodeMetadata metadata) {
+            public void updateMetadata(String restHost, int httpPort, int httpsPort) {
+                NodeMetadata existingMetadata = cluster.<NodeMetadata>metadata().orElse(null);
+                NodeMetadata metadata = new NodeMetadata(
+                        existingMetadata != null ? existingMetadata.launchId() : null,
+                        restHost,
+                        httpPort,
+                        httpsPort
+                );
+
                 cluster.updateMetadata(metadata).subscribe();
                 topologyService.updateLocalMetadata(metadata);
             }
