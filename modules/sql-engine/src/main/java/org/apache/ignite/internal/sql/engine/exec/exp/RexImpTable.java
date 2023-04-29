@@ -1657,8 +1657,6 @@ public class RexImpTable {
                 String operandType = operand.getType().toString();
 
                 List<Expression> finalOperands = new ArrayList<>(2);
-                // An expression must be evaluated because it can produce an error.
-                // And if that happens a call should return that error as well.
                 finalOperands.add(Expressions.constant(operandType));
                 finalOperands.add(translatedOperands.get(0));
 
