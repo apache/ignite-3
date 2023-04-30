@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -335,6 +337,27 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             // Stop the second node manually, because it couldn't start successfully.
             IgnitionManager.stop(testNodeName(testInfo, 1));
         }
+    }
+
+    @Test
+    void nodeLeavesLogicalTopologyOnStop() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        stopNode(1);
+
+        assertTrue(waitForCondition(() -> !events.isEmpty(), 10_000), "Did not see any events in time");
+
+        assertThat(events, hasSize(1));
+
+        Event leaveEvent = events.poll();
+        assertThat(leaveEvent, is(notNullValue()));
+
+        assertThat(leaveEvent.eventType, is(EventType.LEFT));
+        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
     }
 
     private static void setInfiniteClusterFailoverTimeout(IgniteImpl node) throws Exception {
