@@ -47,7 +47,7 @@ namespace ignite
 {
     namespace odbc
     {
-        HandshakeRequest::HandshakeRequest(const config::Configuration& config) :
+        HandshakeRequest::HandshakeRequest(const config::configuration& config) :
             config(config)
         {
             // No-op.

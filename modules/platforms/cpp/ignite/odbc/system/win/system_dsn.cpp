@@ -26,9 +26,9 @@
 #include "ignite/odbc/system/ui/dsn_configuration_window.h"
 #include "ui/window.h"
 
-using ignite::config::Configuration;
+using ignite::config::configuration;
 
-bool DisplayConnectionWindow(void* windowParent, Configuration& config)
+bool DisplayConnectionWindow(void* windowParent, configuration& config)
 {
     using namespace ignite::system::ui;
 
@@ -73,12 +73,12 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config)
  * @param driver Driver.
  * @return True on success and false on fail.
  */
-bool RegisterDsn(const Configuration& config, LPCSTR driver)
+bool RegisterDsn(const configuration& config, LPCSTR driver)
 {
     using namespace ignite::config;
-    using ignite::LexicalCast;
+    using ignite::lexical_cast;
 
-    typedef Configuration::ArgumentMap ArgMap;
+    typedef configuration::argument_map ArgMap;
 
     const char* dsn = config.GetDsn().c_str();
 
@@ -89,7 +89,7 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver)
 
         ArgMap map;
         
-        config.ToMap(map);
+        config.to_map(map);
 
         map.erase(ConnectionStringParser::Key::dsn);
         map.erase(ConnectionStringParser::Key::driver);
@@ -145,7 +145,7 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
     LOG_MSG("ConfigDSN called");
 
-    Configuration config;
+    configuration config;
 
     LOG_MSG("Attributes: " << attributes);
 
@@ -182,7 +182,7 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
             std::string dsn = config.GetDsn();
 
-            Configuration loaded(config);
+            configuration loaded(config);
 
             ReadDsnConfiguration(dsn.c_str(), loaded, &diag);
 

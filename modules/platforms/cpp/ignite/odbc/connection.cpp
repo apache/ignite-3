@@ -111,7 +111,7 @@ namespace ignite
 
         sql_result connection::InternalEstablish(const std::string& connectStr, void* parentWindow)
         {
-            config::Configuration config;
+            config::configuration config;
             config::ConnectionStringParser parser(config);
             parser.ParseConnectionString(connectStr, &get_diagnostic_records());
 
@@ -136,7 +136,7 @@ namespace ignite
             return InternalEstablish(config);
         }
 
-        void connection::Establish(const config::Configuration& cfg)
+        void connection::Establish(const config::configuration& cfg)
         {
             IGNITE_ODBC_API_CALL(InternalEstablish(cfg));
         }
@@ -175,7 +175,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        sql_result connection::InternalEstablish(const config::Configuration& cfg)
+        sql_result connection::InternalEstablish(const config::configuration& cfg)
         {
             using ssl::ssl_mode;
 
@@ -188,7 +188,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (!config.IsHostSet() && config.IsAddressesSet() && config.GetAddresses().empty())
+            if (!config.IsHostSet() && config.is_addresses_set() && config.get_addresses().empty())
             {
                 add_status_record("No valid address to connect.");
 
@@ -397,7 +397,7 @@ namespace ignite
             return config.GetSchema();
         }
 
-        const config::Configuration& connection::GetConfiguration() const
+        const config::configuration& connection::GetConfiguration() const
         {
             return config;
         }
@@ -775,20 +775,20 @@ namespace ignite
             return connected;
         }
 
-        void connection::CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& end_points)
+        void connection::CollectAddresses(const config::configuration& cfg, std::vector<EndPoint>& end_points)
         {
             end_points.clear();
 
-            if (!cfg.IsAddressesSet())
+            if (!cfg.is_addresses_set())
             {
                 LOG_MSG("'Address' is not set. Using legacy connection method.");
 
-                end_points.push_back(EndPoint(cfg.GetHost(), cfg.GetTcpPort()));
+                end_points.push_back(EndPoint(cfg.GetHost(), cfg.get_tcp_port()));
 
                 return;
             }
 
-            end_points = cfg.GetAddresses();
+            end_points = cfg.get_addresses();
 
             std::random_shuffle(end_points.begin(), end_points.end());
         }

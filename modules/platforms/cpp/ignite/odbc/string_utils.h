@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <sstream>
+
 namespace ignite {
 
 /**
@@ -88,6 +90,38 @@ std::string strip_surrounding_whitespaces(Iterator begin, Iterator end)
     res.reserve(skipped_trailing - skipped_leading);
 
     std::copy(skipped_leading, skipped_trailing, std::back_inserter(res));
+
+    return res;
+}
+
+
+/**
+ * Casts value of one type to another type, using string stream.
+ *
+ * @param val Input value.
+ * @param res Resulted value.
+ */
+template<typename T1, typename T2>
+void lexical_cast(const T2& val, T1& res)
+{
+    std::stringstream converter;
+
+    converter << val;
+    converter >> res;
+}
+
+/**
+ * Casts value of one type to another type, using string stream.
+ *
+ * @param val Input value.
+ * @return Resulted value.
+ */
+template<typename T1, typename T2>
+T1 lexical_cast(const T2 &val)
+{
+    T1 res;
+
+    lexical_cast<T1, T2>(val, res);
 
     return res;
 }

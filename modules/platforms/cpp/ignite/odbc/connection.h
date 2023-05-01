@@ -99,7 +99,7 @@ namespace ignite
              *
              * @param cfg Configuration.
              */
-            void Establish(const config::Configuration& cfg);
+            void Establish(const config::configuration& cfg);
 
             /**
              * Release established connection.
@@ -167,7 +167,7 @@ namespace ignite
              *
              * @return Connection configuration.
              */
-            const config::Configuration& GetConfiguration() const;
+            const config::configuration& GetConfiguration() const;
 
             /**
              * Is auto commit.
@@ -373,7 +373,7 @@ namespace ignite
              * @param cfg Configuration.
              * @return Operation result.
              */
-            sql_result InternalEstablish(const config::Configuration& cfg);
+            sql_result InternalEstablish(const config::configuration& cfg);
 
             /**
              * Release established connection.
@@ -496,7 +496,7 @@ namespace ignite
              * @param cfg Configuration.
              * @param end_points End points.
              */
-            static void CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& end_points);
+            static void CollectAddresses(const config::configuration& cfg, std::vector<EndPoint>& end_points);
 
             /**
              * Retrieve timeout from parameter.
@@ -530,7 +530,7 @@ namespace ignite
             Parser parser;
 
             /** Configuration. */
-            config::Configuration config;
+            config::configuration config;
 
             /** Connection info. */
             config::ConnectionInfo info;

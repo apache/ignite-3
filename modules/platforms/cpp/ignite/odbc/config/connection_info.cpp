@@ -578,7 +578,7 @@ namespace ignite
 
 #undef DBG_STR_CASE
 
-            ConnectionInfo::ConnectionInfo(const Configuration& config) :
+            ConnectionInfo::ConnectionInfo(const configuration& config) :
                 strParams(),
                 intParams(),
                 shortParams(),

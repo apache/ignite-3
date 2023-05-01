@@ -54,7 +54,7 @@ namespace ignite
                  *
                  * @param config Configuration.
                  */
-                ConnectionInfo(const Configuration& config);
+                ConnectionInfo(const configuration& config);
 
                 /**
                  * Destructor.
@@ -93,7 +93,7 @@ namespace ignite
                 UshortInfoMap shortParams;
 
                 /** Configuration. */
-                const Configuration& config;
+                const configuration& config;
             };
         }
     }

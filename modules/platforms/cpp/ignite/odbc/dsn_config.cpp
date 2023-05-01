@@ -52,11 +52,11 @@ namespace ignite
                 ThrowLastSetupError();
         }
 
-        SettableValue<std::string> ReadDsnString(const char* dsn, const std::string& key, const std::string& dflt = "")
+        settable_value<std::string> ReadDsnString(const char* dsn, const std::string& key, const std::string& dflt = "")
         {
             static const char* unique = "35a920dd-8837-43d2-a846-e01a2e7b5f84";
 
-            SettableValue<std::string> val(dflt);
+            settable_value<std::string> val(dflt);
 
             FixedSizeArray<char> buf(BUFFER_SIZE);
 
@@ -72,153 +72,153 @@ namespace ignite
             std::string res(buf.get_data());
 
             if (res != unique)
-                val.SetValue(res);
+                val.set_value(res);
 
             return val;
         }
 
-        SettableValue<int32_t> ReadDsnInt(const char* dsn, const std::string& key, int32_t dflt = 0)
+        settable_value<int32_t> ReadDsnInt(const char* dsn, const std::string& key, int32_t dflt = 0)
         {
-            SettableValue<std::string> str = ReadDsnString(dsn, key, "");
+            settable_value<std::string> str = ReadDsnString(dsn, key, "");
 
-            SettableValue<int32_t> res(dflt);
+            settable_value<int32_t> res(dflt);
 
-            if (str.IsSet())
-                res.SetValue(LexicalCast<int, std::string>(str.GetValue()));
+            if (str.is_set())
+                res.set_value(lexical_cast<int, std::string>(str.get_value()));
 
             return res;
         }
 
-        SettableValue<bool> ReadDsnBool(const char* dsn, const std::string& key, bool dflt = false)
+        settable_value<bool> ReadDsnBool(const char* dsn, const std::string& key, bool dflt = false)
         {
-            SettableValue<std::string> str = ReadDsnString(dsn, key, "");
+            settable_value<std::string> str = ReadDsnString(dsn, key, "");
 
-            SettableValue<bool> res(dflt);
+            settable_value<bool> res(dflt);
 
-            if (str.IsSet())
-                res.SetValue(str.GetValue() == "true");
+            if (str.is_set())
+                res.set_value(str.get_value() == "true");
 
             return res;
         }
 
-        void ReadDsnConfiguration(const char* dsn, Configuration& config, diagnostic_record_storage* diag)
+        void ReadDsnConfiguration(const char* dsn, configuration& config, diagnostic_record_storage* diag)
         {
-            SettableValue<std::string> address = ReadDsnString(dsn, ConnectionStringParser::Key::address);
+            settable_value<std::string> address = ReadDsnString(dsn, ConnectionStringParser::Key::address);
 
-            if (address.IsSet() && !config.IsAddressesSet())
+            if (address.is_set() && !config.is_addresses_set())
             {
                 std::vector<EndPoint> end_points;
 
-                parse_address(address.GetValue(), end_points, diag);
+                parse_address(address.get_value(), end_points, diag);
 
-                config.SetAddresses(end_points);
+                config.set_addresses(end_points);
             }
 
-            SettableValue<std::string> server = ReadDsnString(dsn, ConnectionStringParser::Key::server);
+            settable_value<std::string> server = ReadDsnString(dsn, ConnectionStringParser::Key::server);
 
-            if (server.IsSet() && !config.IsHostSet())
-                config.SetHost(server.GetValue());
+            if (server.is_set() && !config.IsHostSet())
+                config.SetHost(server.get_value());
 
-            SettableValue<int32_t> port = ReadDsnInt(dsn, ConnectionStringParser::Key::port);
+            settable_value<int32_t> port = ReadDsnInt(dsn, ConnectionStringParser::Key::port);
 
-            if (port.IsSet() && !config.IsTcpPortSet())
-                config.SetTcpPort(static_cast<uint16_t>(port.GetValue()));
+            if (port.is_set() && !config.is_tcp_port_set())
+                config.set_tcp_port(static_cast<uint16_t>(port.get_value()));
 
-            SettableValue<std::string> schema = ReadDsnString(dsn, ConnectionStringParser::Key::schema);
+            settable_value<std::string> schema = ReadDsnString(dsn, ConnectionStringParser::Key::schema);
 
-            if (schema.IsSet() && !config.IsSchemaSet())
-                config.SetSchema(schema.GetValue());
+            if (schema.is_set() && !config.IsSchemaSet())
+                config.SetSchema(schema.get_value());
 
-            SettableValue<bool> distributedJoins = ReadDsnBool(dsn, ConnectionStringParser::Key::distributedJoins);
+            settable_value<bool> distributedJoins = ReadDsnBool(dsn, ConnectionStringParser::Key::distributedJoins);
 
-            if (distributedJoins.IsSet() && !config.IsDistributedJoinsSet())
-                config.SetDistributedJoins(distributedJoins.GetValue());
+            if (distributedJoins.is_set() && !config.IsDistributedJoinsSet())
+                config.SetDistributedJoins(distributedJoins.get_value());
 
-            SettableValue<bool> enforceJoinOrder = ReadDsnBool(dsn, ConnectionStringParser::Key::enforceJoinOrder);
+            settable_value<bool> enforceJoinOrder = ReadDsnBool(dsn, ConnectionStringParser::Key::enforceJoinOrder);
 
-            if (enforceJoinOrder.IsSet() && !config.IsEnforceJoinOrderSet())
-                config.SetEnforceJoinOrder(enforceJoinOrder.GetValue());
+            if (enforceJoinOrder.is_set() && !config.IsEnforceJoinOrderSet())
+                config.SetEnforceJoinOrder(enforceJoinOrder.get_value());
 
-            SettableValue<bool> replicatedOnly = ReadDsnBool(dsn, ConnectionStringParser::Key::replicatedOnly);
+            settable_value<bool> replicatedOnly = ReadDsnBool(dsn, ConnectionStringParser::Key::replicatedOnly);
 
-            if (replicatedOnly.IsSet() && !config.IsReplicatedOnlySet())
-                config.SetReplicatedOnly(replicatedOnly.GetValue());
+            if (replicatedOnly.is_set() && !config.IsReplicatedOnlySet())
+                config.SetReplicatedOnly(replicatedOnly.get_value());
 
-            SettableValue<bool> collocated = ReadDsnBool(dsn, ConnectionStringParser::Key::collocated);
+            settable_value<bool> collocated = ReadDsnBool(dsn, ConnectionStringParser::Key::collocated);
 
-            if (collocated.IsSet() && !config.IsCollocatedSet())
-                config.SetCollocated(collocated.GetValue());
+            if (collocated.is_set() && !config.IsCollocatedSet())
+                config.SetCollocated(collocated.get_value());
 
-            SettableValue<bool> lazy = ReadDsnBool(dsn, ConnectionStringParser::Key::lazy);
+            settable_value<bool> lazy = ReadDsnBool(dsn, ConnectionStringParser::Key::lazy);
 
-            if (lazy.IsSet() && !config.IsLazySet())
-                config.SetLazy(lazy.GetValue());
+            if (lazy.is_set() && !config.IsLazySet())
+                config.SetLazy(lazy.get_value());
 
-            SettableValue<bool> skipReducerOnUpdate = ReadDsnBool(dsn, ConnectionStringParser::Key::skipReducerOnUpdate);
+            settable_value<bool> skipReducerOnUpdate = ReadDsnBool(dsn, ConnectionStringParser::Key::skipReducerOnUpdate);
 
-            if (skipReducerOnUpdate.IsSet() && !config.IsSkipReducerOnUpdateSet())
-                config.SetSkipReducerOnUpdate(skipReducerOnUpdate.GetValue());
+            if (skipReducerOnUpdate.is_set() && !config.IsSkipReducerOnUpdateSet())
+                config.SetSkipReducerOnUpdate(skipReducerOnUpdate.get_value());
 
-            SettableValue<std::string> versionStr = ReadDsnString(dsn, ConnectionStringParser::Key::protocolVersion);
+            settable_value<std::string> versionStr = ReadDsnString(dsn, ConnectionStringParser::Key::protocolVersion);
 
-            if (versionStr.IsSet() && !config.IsProtocolVersionSet())
+            if (versionStr.is_set() && !config.IsProtocolVersionSet())
             {
-                ProtocolVersion version = ProtocolVersion::FromString(versionStr.GetValue());
+                ProtocolVersion version = ProtocolVersion::FromString(versionStr.get_value());
 
                 if (!version.IsSupported())
-                    version = Configuration::DefaultValue::protocolVersion;
+                    version = configuration::default_value::protocolVersion;
 
                 config.SetProtocolVersion(version);
             }
 
-            SettableValue<int32_t> pageSize = ReadDsnInt(dsn, ConnectionStringParser::Key::pageSize);
+            settable_value<int32_t> pageSize = ReadDsnInt(dsn, ConnectionStringParser::Key::pageSize);
 
-            if (pageSize.IsSet() && !config.IsPageSizeSet() && pageSize.GetValue() > 0)
-                config.SetPageSize(pageSize.GetValue());
+            if (pageSize.is_set() && !config.is_page_size_set() && pageSize.get_value() > 0)
+                config.set_page_size(pageSize.get_value());
 
-            SettableValue<std::string> sslModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::sslMode);
+            settable_value<std::string> sslModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::sslMode);
 
-            if (sslModeStr.IsSet() && !config.IsSslModeSet())
+            if (sslModeStr.is_set() && !config.IsSslModeSet())
             {
-                ssl::ssl_mode sslMode = ssl::ssl_mode_from_string(sslModeStr.GetValue(), ssl::ssl_mode::DISABLE);
+                ssl::ssl_mode sslMode = ssl::ssl_mode_from_string(sslModeStr.get_value(), ssl::ssl_mode::DISABLE);
 
                 config.SetSslMode(sslMode);
             }
 
-            SettableValue<std::string> sslKeyFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslKeyFile);
+            settable_value<std::string> sslKeyFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslKeyFile);
 
-            if (sslKeyFile.IsSet() && !config.IsSslKeyFileSet())
-                config.SetSslKeyFile(sslKeyFile.GetValue());
+            if (sslKeyFile.is_set() && !config.IsSslKeyFileSet())
+                config.SetSslKeyFile(sslKeyFile.get_value());
 
-            SettableValue<std::string> sslCertFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslCertFile);
+            settable_value<std::string> sslCertFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslCertFile);
 
-            if (sslCertFile.IsSet() && !config.IsSslCertFileSet())
-                config.SetSslCertFile(sslCertFile.GetValue());
+            if (sslCertFile.is_set() && !config.IsSslCertFileSet())
+                config.SetSslCertFile(sslCertFile.get_value());
 
-            SettableValue<std::string> sslCaFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslCaFile);
+            settable_value<std::string> sslCaFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslCaFile);
 
-            if (sslCaFile.IsSet() && !config.IsSslCaFileSet())
-                config.SetSslCaFile(sslCaFile.GetValue());
+            if (sslCaFile.is_set() && !config.IsSslCaFileSet())
+                config.SetSslCaFile(sslCaFile.get_value());
 
-            SettableValue<std::string> user = ReadDsnString(dsn, ConnectionStringParser::Key::user);
+            settable_value<std::string> user = ReadDsnString(dsn, ConnectionStringParser::Key::user);
 
-            if (user.IsSet() && !config.IsUserSet())
-                config.SetUser(user.GetValue());
+            if (user.is_set() && !config.IsUserSet())
+                config.SetUser(user.get_value());
 
-            SettableValue<std::string> password = ReadDsnString(dsn, ConnectionStringParser::Key::password);
+            settable_value<std::string> password = ReadDsnString(dsn, ConnectionStringParser::Key::password);
 
-            if (password.IsSet() && !config.IsPasswordSet())
-                config.SetPassword(password.GetValue());
+            if (password.is_set() && !config.IsPasswordSet())
+                config.SetPassword(password.get_value());
 
-            SettableValue<std::string> nestedTxModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::nestedTxMode);
+            settable_value<std::string> nestedTxModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::nestedTxMode);
 
-            if (nestedTxModeStr.IsSet() && !config.IsNestedTxModeSet())
-                config.SetNestedTxMode(nested_tx_mode::FromString(nestedTxModeStr.GetValue(), config.GetNestedTxMode()));
+            if (nestedTxModeStr.is_set() && !config.IsNestedTxModeSet())
+                config.SetNestedTxMode(nested_tx_mode::FromString(nestedTxModeStr.get_value(), config.GetNestedTxMode()));
 
-            SettableValue<std::string> engineModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::engineMode);
+            settable_value<std::string> engineModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::engineMode);
 
-            if (engineModeStr.IsSet() && !config.IsEngineModeSet())
-                config.SetEngineMode(EngineMode::FromString(engineModeStr.GetValue(), config.GetEngineMode()));
+            if (engineModeStr.is_set() && !config.IsEngineModeSet())
+                config.SetEngineMode(EngineMode::FromString(engineModeStr.get_value(), config.GetEngineMode()));
         }
     }
 }

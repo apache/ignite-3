@@ -40,7 +40,7 @@
  * @param config Configuration.
  * @return @c true on success and @c false otherwise.
  */
-bool HandleParentWindow(SQLHWND windowHandle, ignite::config::Configuration &config)
+bool HandleParentWindow(SQLHWND windowHandle, ignite::config::configuration &config)
 {
 #ifdef _WIN32
     if (windowHandle)
@@ -326,7 +326,7 @@ namespace ignite
         IGNITE_UNUSED(authLen);
 
         using connection;
-        using config::Configuration;
+        using config::configuration;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLConnect called\n");
@@ -336,7 +336,7 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        config::Configuration config;
+        config::configuration config;
 
         std::string dsn = SqlStringToString(server_name, serverNameLen);
 

@@ -56,7 +56,7 @@ namespace ignite
             const std::string ConnectionStringParser::Key::nestedTxMode           = "nested_tx_mode";
             const std::string ConnectionStringParser::Key::engineMode             = "query_engine";
 
-            ConnectionStringParser::ConnectionStringParser(Configuration& cfg):
+            ConnectionStringParser::ConnectionStringParser(configuration& cfg):
                 cfg(cfg)
             {
                 // No-op.
@@ -152,7 +152,7 @@ namespace ignite
 
                     parse_address(value, end_points, diag);
 
-                    cfg.SetAddresses(end_points);
+                    cfg.set_addresses(end_points);
                 }
                 else if (lKey == Key::server)
                 {
@@ -212,7 +212,7 @@ namespace ignite
                         return;
                     }
 
-                    cfg.SetTcpPort(static_cast<uint16_t>(numValue));
+                    cfg.set_tcp_port(static_cast<uint16_t>(numValue));
                 }
                 else if (lKey == Key::distributedJoins)
                 {
@@ -317,7 +317,7 @@ namespace ignite
                         return;
                     }
 
-                    cfg.SetPageSize(static_cast<int32_t>(numValue));
+                    cfg.set_page_size(static_cast<int32_t>(numValue));
                 }
                 else if (lKey == Key::replicatedOnly)
                 {
@@ -418,7 +418,7 @@ namespace ignite
                 }
                 else if (lKey == Key::driver)
                 {
-                    cfg.SetDriver(value);
+                    cfg.set_driver(value);
                 }
                 else if (lKey == Key::user || lKey == Key::uid)
                 {

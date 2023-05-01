@@ -15,87 +15,66 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_CONFIG_SETTABLE_VALUE
-#define _IGNITE_ODBC_CONFIG_SETTABLE_VALUE
+#pragma once
 
-namespace ignite
+namespace ignite {
+
+/**
+ * Simple abstraction for value, that have default value but can be set to a different value.
+ *
+ * @tparam T Type of the value.
+ */
+template<typename T>
+class settable_value
 {
-    namespace odbc
+public:
+    /** Type of the value. */
+    typedef T value_type;
+
+    /**
+     * Constructor.
+     *
+     * @param default_value Default value to return when is not set.
+     */
+    explicit settable_value(const value_type& default_value)
+        : m_value(default_value) { }
+
+    /**
+     * Set non-default value.
+     *
+     * @param value Value.
+     * @param dflt Set value as default or not.
+     */
+    void set_value(const value_type& value, bool dflt = false)
     {
-        namespace config
-        {
-            /**
-             * Simple abstraction for value, that have default value but can be
-             * set to a different value.
-             *
-             * @tparam T Type of the value.
-             */
-            template<typename T>
-            class SettableValue
-            {
-            public:
-                /** Type of the value. */
-                typedef T ValueType;
-
-                /**
-                 * Constructor.
-                 *
-                 * @param defaultValue Default value to return when is not set.
-                 */
-                SettableValue(const ValueType& defaultValue) :
-                    val(defaultValue),
-                    set(false)
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Destructor.
-                 */
-                ~SettableValue()
-                {
-                    // No-op.
-                }
-                
-                /**
-                 * Set non-default value.
-                 *
-                 * @param value Value.
-                 * @param dflt Set value as default or not.
-                 */
-                void SetValue(const ValueType& value, bool dflt = false)
-                {
-                    val = value;
-                    set = !dflt;
-                }
-
-                /**
-                 * Get value.
-                 *
-                 * @return Value or default value if not set.
-                 */
-                const ValueType& GetValue() const
-                {
-                    return val;
-                }
-
-                /**
-                 * Check whether value is set to non-default.
-                 */
-                bool IsSet() const
-                {
-                    return set;
-                }
-
-            private:
-                /** Current value. */
-                ValueType val;
-
-                /** Flag showing whether value was set to non-default value. */
-                bool set;
-            };
-        }
+        m_value = value;
+        m_set = !dflt;
     }
-}
 
-#endif //_IGNITE_ODBC_CONFIG_SETTABLE_VALUE
+    /**
+     * Get value.
+     *
+     * @return Value or default value if not set.
+     */
+    const value_type& get_value() const
+    {
+        return m_value;
+    }
+
+    /**
+     * Check whether value is set to non-default.
+     */
+    [[nodiscard]] bool is_set() const
+    {
+        return m_set;
+    }
+
+private:
+    /** Current value. */
+    value_type m_value{};
+
+    /** Flag showing whether value was set to non-default value. */
+    bool m_set{false};
+};
+
+} // namespace ignite

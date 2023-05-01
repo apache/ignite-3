@@ -27,7 +27,7 @@ TEST(connection_info_test, supported_info)
     char buffer[4096];
     short reslen = 0;
 
-    Configuration cfg;
+    configuration cfg;
     ConnectionInfo info(cfg);
 
     sql_result result;

@@ -116,7 +116,7 @@ namespace ignite
                  *
                  * @param cfg Configuration.
                  */
-                ConnectionStringParser(Configuration& cfg);
+                ConnectionStringParser(configuration& cfg);
 
                 /**
                  * Destructor.
@@ -196,7 +196,7 @@ namespace ignite
                     const std::string& value);
 
                 /** Configuration. */
-                Configuration& cfg;
+                configuration& cfg;
             };
         }
 

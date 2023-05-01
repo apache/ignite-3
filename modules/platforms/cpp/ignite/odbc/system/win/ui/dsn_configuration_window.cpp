@@ -33,7 +33,7 @@ namespace ignite
         {
             namespace ui
             {
-                DsnConfigurationWindow::DsnConfigurationWindow(Window* parent, config::Configuration& config):
+                DsnConfigurationWindow::DsnConfigurationWindow(Window* parent, config::configuration& config):
                     CustomWindow(parent, "IgniteConfigureDsn", "Configure Apache Ignite DSN"),
                     width(360),
                     height(620),
@@ -136,7 +136,7 @@ namespace ignite
 
                     rowPos += INTERVAL + ROW_HEIGHT;
 
-                    std::string addr = config::addresses_to_string(config.GetAddresses());
+                    std::string addr = config::addresses_to_string(config.get_addresses());
 
                     val = addr.c_str();
                     addressLabel = CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
@@ -304,7 +304,7 @@ namespace ignite
 
                     int rowPos = posY + 2 * INTERVAL;
 
-                    std::string tmp = LexicalCast<std::string>(config.GetPageSize());
+                    std::string tmp = lexical_cast<std::string>(config.get_page_size());
                     const char* val = tmp.c_str();
                     pageSizeLabel = CreateLabel(labelPosX, rowPos, LABEL_WIDTH,
                         ROW_HEIGHT, "Page size:", ChildId::PAGE_SIZE_LABEL);
@@ -525,7 +525,7 @@ namespace ignite
                     return true;
                 }
 
-                void DsnConfigurationWindow::RetrieveParameters(config::Configuration& cfg) const
+                void DsnConfigurationWindow::RetrieveParameters(config::configuration& cfg) const
                 {
                     RetrieveConnectionParameters(cfg);
                     RetrieveAuthParameters(cfg);
@@ -533,7 +533,7 @@ namespace ignite
                     RetrieveAdditionalParameters(cfg);
                 }
 
-                void DsnConfigurationWindow::RetrieveConnectionParameters(config::Configuration& cfg) const
+                void DsnConfigurationWindow::RetrieveConnectionParameters(config::configuration& cfg) const
                 {
                     std::string dsnStr;
                     std::string addressStr;
@@ -576,12 +576,12 @@ namespace ignite
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Protocol version is not supported.");
 
                     cfg.SetDsn(dsnStr);
-                    cfg.SetAddresses(addresses);
+                    cfg.set_addresses(addresses);
                     cfg.SetSchema(schemaStr);
                     cfg.SetProtocolVersion(version);
                 }
 
-                void DsnConfigurationWindow::RetrieveAuthParameters(config::Configuration& cfg) const
+                void DsnConfigurationWindow::RetrieveAuthParameters(config::configuration& cfg) const
                 {
                     std::string user;
                     std::string password;
@@ -593,7 +593,7 @@ namespace ignite
                     cfg.SetPassword(password);
                 }
 
-                void DsnConfigurationWindow::RetrieveSslParameters(config::Configuration& cfg) const
+                void DsnConfigurationWindow::RetrieveSslParameters(config::configuration& cfg) const
                 {
                     std::string sslModeStr;
                     std::string sslKeyStr;
@@ -619,16 +619,16 @@ namespace ignite
                     cfg.SetSslCaFile(sslCaStr);
                 }
 
-                void DsnConfigurationWindow::RetrieveAdditionalParameters(config::Configuration& cfg) const
+                void DsnConfigurationWindow::RetrieveAdditionalParameters(config::configuration& cfg) const
                 {
                     std::string pageSizeStr;
 
                     pageSizeEdit->GetText(pageSizeStr);
 
-                    int32_t pageSize = LexicalCast<int32_t>(pageSizeStr);
+                    int32_t pageSize = lexical_cast<int32_t>(pageSizeStr);
 
                     if (pageSize <= 0)
-                        pageSize = config.GetPageSize();
+                        pageSize = config.get_page_size();
 
                     std::string nestedTxModeStr;
 
@@ -661,7 +661,7 @@ namespace ignite
                     LOG_MSG("Lazy:                   " << (lazy ? "true" : "false"));
                     LOG_MSG("Skip reducer on update: " << (skipReducerOnUpdate ? "true" : "false"));
 
-                    cfg.SetPageSize(pageSize);
+                    cfg.set_page_size(pageSize);
                     cfg.SetEngineMode(engineMode);
                     cfg.SetNestedTxMode(nestedTxMode);
                     cfg.SetDistributedJoins(distributedJoins);

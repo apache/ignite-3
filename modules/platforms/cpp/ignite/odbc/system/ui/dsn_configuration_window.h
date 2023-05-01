@@ -103,7 +103,7 @@ namespace ignite
                      *
                      * @param parent Parent window handle.
                      */
-                    explicit DsnConfigurationWindow(Window* parent, config::Configuration& config);
+                    explicit DsnConfigurationWindow(Window* parent, config::configuration& config);
 
                     /**
                      * Destructor.
@@ -134,7 +134,7 @@ namespace ignite
                      *
                      * @param cfg Configuration.
                      */
-                    void RetrieveParameters(config::Configuration& cfg) const;
+                    void RetrieveParameters(config::configuration& cfg) const;
 
                     /**
                      * Retrieves current values from the connection UI group and
@@ -142,7 +142,7 @@ namespace ignite
                      *
                      * @param cfg Configuration.
                      */
-                    void RetrieveConnectionParameters(config::Configuration& cfg) const;
+                    void RetrieveConnectionParameters(config::configuration& cfg) const;
 
                     /**
                      * Retrieves current values from the Authentication UI group and
@@ -150,7 +150,7 @@ namespace ignite
                      *
                      * @param cfg Configuration.
                      */
-                    void RetrieveAuthParameters(config::Configuration& cfg) const;
+                    void RetrieveAuthParameters(config::configuration& cfg) const;
 
                     /**
                      * Retrieves current values from the SSL UI group and
@@ -158,7 +158,7 @@ namespace ignite
                      *
                      * @param cfg Configuration.
                      */
-                    void RetrieveSslParameters(config::Configuration& cfg) const;
+                    void RetrieveSslParameters(config::configuration& cfg) const;
 
                     /**
                      * Retrieves current values from the additional UI group and
@@ -166,7 +166,7 @@ namespace ignite
                      *
                      * @param cfg Configuration.
                      */
-                    void RetrieveAdditionalParameters(config::Configuration& cfg) const;
+                    void RetrieveAdditionalParameters(config::configuration& cfg) const;
 
                     /**
                      * Create connection settings group box.
@@ -329,7 +329,7 @@ namespace ignite
                     std::auto_ptr<Window> nestedTxModeComboBox;
 
                     /** Configuration. */
-                    config::Configuration& config;
+                    config::configuration& config;
 
                     /** Flag indicating whether OK option was selected. */
                     bool accepted;

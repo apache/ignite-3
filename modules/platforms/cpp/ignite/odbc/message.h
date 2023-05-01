@@ -88,7 +88,7 @@ namespace ignite
              *
              * @param config Configuration.
              */
-            HandshakeRequest(const config::Configuration& config);
+            HandshakeRequest(const config::configuration& config);
 
             /**
              * Destructor.
@@ -103,7 +103,7 @@ namespace ignite
 
         private:
             /** Configuration. */
-            const config::Configuration& config;
+            const config::configuration& config;
         };
 
         /**

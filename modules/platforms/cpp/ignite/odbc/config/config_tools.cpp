@@ -94,7 +94,7 @@ bool parse_single_address(const std::string& value, network::tcp_range& end_poin
     if (colon_num == 0)
     {
         end_point.host = value;
-        end_point.port = Configuration::DefaultValue::port;
+        end_point.port = configuration::default_value::port;
 
         return true;
     }

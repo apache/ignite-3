@@ -193,7 +193,7 @@ namespace ignite
                 if (affected >= 0)
                     return affected;
 
-                return connection.GetConfiguration().GetPageSize();
+                return connection.GetConfiguration().get_page_size();
             }
 
             sql_result DataQuery::NextResultSet()
@@ -310,7 +310,7 @@ namespace ignite
             {
                 std::auto_ptr<ResultPage> resultPage(new ResultPage());
 
-                QueryFetchRequest req(cursor->GetQueryId(), connection.GetConfiguration().GetPageSize());
+                QueryFetchRequest req(cursor->GetQueryId(), connection.GetConfiguration().get_page_size());
                 QueryFetchResponse rsp(*resultPage);
 
                 try
@@ -351,7 +351,7 @@ namespace ignite
             {
                 std::auto_ptr<ResultPage> resultPage(new ResultPage());
 
-                QueryMoreResultsRequest req(cursor->GetQueryId(), connection.GetConfiguration().GetPageSize());
+                QueryMoreResultsRequest req(cursor->GetQueryId(), connection.GetConfiguration().get_page_size());
                 QueryMoreResultsResponse rsp(*resultPage);
 
                 try
