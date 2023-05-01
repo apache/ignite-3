@@ -178,12 +178,12 @@ namespace ignite
             return sql_result::AI_ERROR;
         }
 
-        void Environment::GetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer)
+        void Environment::GetAttribute(int32_t attr, application_data_buffer& buffer)
         {
             IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buffer));
         }
 
-        sql_result Environment::InternalGetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer)
+        sql_result Environment::InternalGetAttribute(int32_t attr, application_data_buffer& buffer)
         {
             environment_attribute attribute = environment_attribute_to_internal(attr);
 
@@ -191,14 +191,14 @@ namespace ignite
             {
                 case environment_attribute::ODBC_VERSION:
                 {
-                    buffer.PutInt32(odbcVersion);
+                    buffer.put_int32(odbcVersion);
 
                     return sql_result::AI_SUCCESS;
                 }
 
                 case environment_attribute::OUTPUT_NTS:
                 {
-                    buffer.PutInt32(odbcNts);
+                    buffer.put_int32(odbcNts);
 
                     return sql_result::AI_SUCCESS;
                 }

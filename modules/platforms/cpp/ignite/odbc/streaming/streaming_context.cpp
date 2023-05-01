@@ -76,13 +76,13 @@ namespace ignite
                 return res;
             }
 
-            sql_result StreamingContext::Execute(const std::string& sql, const app::ParameterSet& params)
+            sql_result StreamingContext::Execute(const std::string& sql, const ParameterSet& params)
             {
                 assert(enabled);
 
                 currentBatch.AddRow(sql, params);
 
-                if (currentBatch.GetSize() < batchSize)
+                if (currentBatch.get_size() < batchSize)
                     return sql_result::AI_SUCCESS;
 
                 return Flush(false);
@@ -92,7 +92,7 @@ namespace ignite
             {
                 LOG_MSG("Flushing data");
 
-                if (currentBatch.GetSize() == 0 && !last)
+                if (currentBatch.get_size() == 0 && !last)
                     return sql_result::AI_SUCCESS;
 
                 sql_result res = MakeRequestStreamingBatch(last);

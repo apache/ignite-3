@@ -15,109 +15,123 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_LOG
-#define _IGNITE_ODBC_LOG
+#pragma once
 
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <mutex>
 
-#include "ignite/common/common.h"
-#include "ignite/common/concurrent.h"
-
-#   define LOG_MSG(param)                                      \
-    if (ignite::odbc::Logger* p = ignite::odbc::Logger::Get()) \
-    {                                                          \
-        ignite::odbc::LogStream lstream(p);                    \
-        lstream << __FUNCTION__ << ": " << param;              \
-    }
+#define LOG_MSG(param)                                              \
+    do {                                                            \
+        if (ignite::odbc_logger* p = ignite::odbc_logger::get()) {  \
+            ignite::log_stream lstream(p);                          \
+            lstream << __FUNCTION__ << ": " << param;               \
+        }                                                           \
+    } while (false)
 
 namespace ignite
 {
-    namespace odbc
+
+/* Forward declaration */
+class odbc_logger;
+
+/**
+ * Helper object providing stream operations for single log line.
+ * Writes resulting string to odbc_logger object upon destruction.
+ */
+class log_stream: public std::basic_ostream<char>
+{
+public:
+    // Delete
+    log_stream(log_stream &&) = delete;
+    log_stream(const log_stream &) = delete;
+    log_stream &operator=(log_stream &&) = delete;
+    log_stream &operator=(const log_stream &) = delete;
+
+    /**
+     * Constructor.
+     * @param parent pointer to odbc_logger.
+     */
+    explicit log_stream(odbc_logger* parent)
+        : std::basic_ostream<char>(nullptr)
+        , m_string_buf()
+        , m_logger(parent)
     {
-        /* Forward declaration */
-        class Logger;
-
-        /**
-         * Helper object providing stream operations for single log line.
-         * Writes resulting string to Logger object upon destruction.
-         */
-        class LogStream: public std::basic_ostream<char>
-        {
-        public:
-            /**
-             * Constructor.
-             * @param parent pointer to Logger.
-             */
-            LogStream(Logger* parent);
-
-            /**
-             * Conversion operator helpful to determine if log is enabled
-             * @return True if logger is enabled
-             */
-            bool operator()();
-
-            /**
-             * Destructor.
-             */
-            virtual ~LogStream();
-
-        private:
-            IGNITE_NO_COPY_ASSIGNMENT(LogStream);
-
-            /** String buffer. */
-            std::basic_stringbuf<char> strbuf;
-
-            /** Parent logger object */
-            Logger* logger;
-        };
-
-        /**
-         * Logging facility.
-         */
-        class Logger
-        {
-        public:
-            /**
-             * Get instance of Logger, if enabled.
-             * @return Logger instance if logging is enabled. Null otherwise.
-             */
-            static Logger* Get();
-
-            /**
-             * Checks if logging is enabled.
-             * @return True, if logging is enabled.
-             */
-            bool IsEnabled() const;
-
-            /**
-             * Outputs the message to log file
-             * @param message The message to write
-             */
-            void WriteMessage(std::string const& message);
-
-        private:
-            /**
-             * Constructor.
-             * @param path to log file.
-             */
-            Logger(const char* path);
-
-            /**
-             * Destructor.
-             */
-            ~Logger();
-
-            IGNITE_NO_COPY_ASSIGNMENT(Logger);
-
-            /** Mutex for writes synchronization. */
-            ignite::concurrent::CriticalSection mutex;
-
-            /** File stream. */
-            std::ofstream stream;
-        };
+        init(&m_string_buf);
     }
-}
 
-#endif //_IGNITE_ODBC_LOG
+    /**
+     * Conversion operator helpful to determine if log is enabled
+     * @return True if logger is enabled
+     */
+    bool operator()() {
+        return m_logger != nullptr;
+    }
+
+    /**
+     * Destructor.
+     */
+    ~log_stream() override;
+
+private:
+    /** String buffer. */
+    std::basic_stringbuf<char> m_string_buf{};
+
+    /** Parent logger object */
+    odbc_logger* m_logger{nullptr};
+};
+
+/**
+ * Logging facility.
+ */
+class odbc_logger
+{
+public:
+    // Delete
+    odbc_logger(odbc_logger &&) = delete;
+    odbc_logger(const odbc_logger &) = delete;
+    odbc_logger &operator=(odbc_logger &&) = delete;
+    odbc_logger &operator=(const odbc_logger &) = delete;
+
+    /**
+     * Get instance of odbc_logger, if enabled.
+     *
+     * @return odbc_logger instance if logging is enabled. Null otherwise.
+     */
+    static odbc_logger* get();
+
+    /**
+     * Checks if logging is enabled.
+     *
+     * @return True, if logging is enabled.
+     */
+    [[nodiscard]] bool is_enabled() const;
+
+    /**
+     * Outputs the message to log file
+     * @param message The message to write
+     */
+    void write_message(std::string const& message);
+
+private:
+    /**
+     * Constructor.
+     *
+     * @param path to log file.
+     */
+    explicit odbc_logger(const char* path);
+
+    /**
+     * Destructor.
+     */
+    ~odbc_logger() = default;
+
+    /** Mutex for writes synchronization. */
+    std::mutex m_mutex{};
+
+    /** File stream. */
+    std::ofstream m_stream{};
+};
+
+} // namespace ignite

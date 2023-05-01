@@ -29,7 +29,7 @@ namespace ignite
         namespace query
         {
             DataQuery::DataQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
-                const app::ParameterSet& params, int32_t& timeout) :
+                const ParameterSet& params, int32_t& timeout) :
                 Query(diag, QueryType::DATA),
                 connection(connection),
                 sql(sql),
@@ -71,7 +71,7 @@ namespace ignite
                 return &resultMeta;
             }
 
-            sql_result DataQuery::FetchNextRow(app::ColumnBindingMap& columnBindings)
+            sql_result DataQuery::FetchNextRow(column_binding_map& columnBindings)
             {
                 if (!cursor.get())
                 {
@@ -110,14 +110,14 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                for (int32_t i = 1; i < row->GetSize() + 1; ++i)
+                for (int32_t i = 1; i < row->get_size() + 1; ++i)
                 {
-                    app::ColumnBindingMap::iterator it = columnBindings.find(i);
+                    column_binding_map::iterator it = columnBindings.find(i);
 
                     if (it == columnBindings.end())
                         continue;
 
-                    app::ConversionResult::Type convRes = row->ReadColumnToBuffer(i, it->second);
+                    conversion_result convRes = row->ReadColumnToBuffer(i, it->second);
 
                     sql_result result = ProcessConversionResult(convRes, 0, i);
 
@@ -128,7 +128,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            sql_result DataQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+            sql_result DataQuery::GetColumn(uint16_t columnIdx, application_data_buffer& buffer)
             {
                 if (!cursor.get())
                 {
@@ -147,7 +147,7 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                app::ConversionResult::Type convRes = row->ReadColumnToBuffer(columnIdx, buffer);
+                conversion_result convRes = row->ReadColumnToBuffer(columnIdx, buffer);
 
                 sql_result result = ProcessConversionResult(convRes, 0, columnIdx);
 
@@ -339,7 +339,7 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                LOG_MSG("Page size:    " << resultPage->GetSize());
+                LOG_MSG("Page size:    " << resultPage->get_size());
                 LOG_MSG("Page is last: " << resultPage->IsLast());
 
                 cursor->UpdateData(resultPage);
@@ -380,7 +380,7 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                LOG_MSG("Page size:    " << resultPage->GetSize());
+                LOG_MSG("Page size:    " << resultPage->get_size());
                 LOG_MSG("Page is last: " << resultPage->IsLast());
 
                 cachedNextPage = resultPage;
@@ -427,22 +427,22 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            sql_result DataQuery::ProcessConversionResult(app::ConversionResult::Type convRes, int32_t rowIdx,
+            sql_result DataQuery::ProcessConversionResult(conversion_result convRes, int32_t rowIdx,
                 int32_t columnIdx)
             {
                 switch (convRes)
                 {
-                    case app::ConversionResult::AI_SUCCESS:
+                    case conversion_result::AI_SUCCESS:
                     {
                         return sql_result::AI_SUCCESS;
                     }
 
-                    case app::ConversionResult::AI_NO_DATA:
+                    case conversion_result::AI_NO_DATA:
                     {
                         return sql_result::AI_NO_DATA;
                     }
 
-                    case app::ConversionResult::AI_VARLEN_DATA_TRUNCATED:
+                    case conversion_result::AI_VARLEN_DATA_TRUNCATED:
                     {
                         diag.AddStatusRecord(sql_state::S01004_DATA_TRUNCATED,
                             "Buffer is too small for the column data. Truncated from the right.", rowIdx, columnIdx);
@@ -450,7 +450,7 @@ namespace ignite
                         return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    case app::ConversionResult::AI_FRACTIONAL_TRUNCATED:
+                    case conversion_result::AI_FRACTIONAL_TRUNCATED:
                     {
                         diag.AddStatusRecord(sql_state::S01S07_FRACTIONAL_TRUNCATION,
                             "Buffer is too small for the column data. Fraction truncated.", rowIdx, columnIdx);
@@ -458,7 +458,7 @@ namespace ignite
                         return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    case app::ConversionResult::AI_INDICATOR_NEEDED:
+                    case conversion_result::AI_INDICATOR_NEEDED:
                     {
                         diag.AddStatusRecord(sql_state::S22002_INDICATOR_NEEDED,
                             "Indicator is needed but not suplied for the column buffer.", rowIdx, columnIdx);
@@ -466,7 +466,7 @@ namespace ignite
                         return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    case app::ConversionResult::AI_UNSUPPORTED_CONVERSION:
+                    case conversion_result::AI_UNSUPPORTED_CONVERSION:
                     {
                         diag.AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Data conversion is not supported.", rowIdx, columnIdx);
@@ -474,7 +474,7 @@ namespace ignite
                         return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    case app::ConversionResult::AI_FAILURE:
+                    case conversion_result::AI_FAILURE:
                     default:
                     {
                         diag.AddStatusRecord(sql_state::S01S01_ERROR_IN_ROW,

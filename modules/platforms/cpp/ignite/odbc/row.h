@@ -51,7 +51,7 @@ namespace ignite
              *
              * @return Row size.
              */
-            int32_t GetSize() const
+            int32_t get_size() const
             {
                 return size;
             }
@@ -63,7 +63,7 @@ namespace ignite
              * @param dataBuf Application data buffer.
              * @return Conversion result.
              */
-            app::ConversionResult::Type ReadColumnToBuffer(uint16_t columnIdx, app::ApplicationDataBuffer& dataBuf);
+            conversion_result ReadColumnToBuffer(uint16_t columnIdx, application_data_buffer& dataBuf);
 
             /**
              * Move to next row.

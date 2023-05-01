@@ -120,7 +120,7 @@ namespace ignite
                 LOG_MSG("Parent window is passed. Creating configuration window.");
                 if (!DisplayConnectionWindow(parentWindow, config))
                 {
-                    AddStatusRecord(odbc::sql_state::SHY008_OPERATION_CANCELED, "Connection canceled by user");
+                    AddStatusRecord(sql_state::SHY008_OPERATION_CANCELED, "Connection canceled by user");
 
                     return sql_result::AI_ERROR;
                 }
@@ -277,13 +277,13 @@ namespace ignite
 
             FixedSizeArray<int8_t> msg(newLen);
 
-            OdbcProtocolHeader *hdr = reinterpret_cast<OdbcProtocolHeader*>(msg.GetData());
+            OdbcProtocolHeader *hdr = reinterpret_cast<OdbcProtocolHeader*>(msg.get_data());
 
             hdr->len = static_cast<int32_t>(len);
 
-            memcpy(msg.GetData() + sizeof(OdbcProtocolHeader), data, len);
+            memcpy(msg.get_data() + sizeof(OdbcProtocolHeader), data, len);
 
-            OperationResult::T res = SendAll(msg.GetData(), msg.GetSize(), timeout);
+            OperationResult::T res = SendAll(msg.get_data(), msg.get_size(), timeout);
 
             if (res == OperationResult::TIMEOUT)
                 return false;
@@ -292,7 +292,7 @@ namespace ignite
                 throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
 #ifdef PER_BYTE_DEBUG
-            LOG_MSG("message sent: (" <<  msg.GetSize() << " bytes)" << HexDump(msg.GetData(), msg.GetSize()));
+            LOG_MSG("message sent: (" <<  msg.get_size() << " bytes)" << HexDump(msg.get_data(), msg.get_size()));
 #endif //PER_BYTE_DEBUG
 
             return true;
@@ -422,7 +422,7 @@ namespace ignite
         {
             std::string schema = config.GetSchema();
 
-            app::ParameterSet empty;
+            ParameterSet empty;
 
             QueryExecuteRequest req(schema, "COMMIT", empty, timeout, autoCommit);
             QueryExecuteResponse rsp;
@@ -463,7 +463,7 @@ namespace ignite
         {
             std::string schema = config.GetSchema();
 
-            app::ParameterSet empty;
+            ParameterSet empty;
 
             QueryExecuteRequest req(schema, "ROLLBACK", empty, timeout, autoCommit);
             QueryExecuteResponse rsp;

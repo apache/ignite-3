@@ -42,7 +42,7 @@ namespace ignite
             if (columns.size() >= columnIdx)
                 return true;
 
-            if (columnIdx > GetSize() || columnIdx < 1)
+            if (columnIdx > get_size() || columnIdx < 1)
                 return false;
 
             if (columns.empty())
@@ -72,10 +72,10 @@ namespace ignite
             return true;
         }
 
-        app::ConversionResult::Type Row::ReadColumnToBuffer(uint16_t columnIdx, app::ApplicationDataBuffer& dataBuf)
+        conversion_result Row::ReadColumnToBuffer(uint16_t columnIdx, application_data_buffer& dataBuf)
         {
             if (!EnsureColumnDiscovered(columnIdx))
-                return app::ConversionResult::AI_FAILURE;
+                return conversion_result::AI_FAILURE;
 
             Column& column = GetColumn(columnIdx);
 
@@ -84,7 +84,7 @@ namespace ignite
 
         bool Row::MoveToNext()
         {
-            int32_t lastColumnIdx = GetSize();
+            int32_t lastColumnIdx = get_size();
 
             if (!EnsureColumnDiscovered(lastColumnIdx))
                 return false;

@@ -51,18 +51,18 @@ public:
      *
      * @return The most significant 64 bits of this instance.
      */
-    [[nodiscard]] constexpr std::int64_t getMostSignificantBits() const noexcept { return most; }
+    [[nodiscard]] constexpr std::int64_t get_most_significant_bits() const noexcept { return most; }
 
     /**
      * Returns the least significant 64 bits of this instance.
      *
      * @return The least significant 64 bits of this instance.
      */
-    [[nodiscard]] constexpr std::int64_t getLeastSignificantBits() const noexcept { return least; }
+    [[nodiscard]] constexpr std::int64_t get_least_significant_bits() const noexcept { return least; }
 
     /**
      * The version number associated with this instance.  The version
-     * number describes how this Guid was generated.
+     * number describes how this uuid was generated.
      *
      * The version number has the following meaning:
      * 1    Time-based UUID;
@@ -78,7 +78,7 @@ public:
 
     /**
      * The variant number associated with this instance. The variant
-     * number describes the layout of the Guid.
+     * number describes the layout of the uuid.
      *
      * The variant number has the following meaning:
      * 0    Reserved for NCS backward compatibility;
@@ -192,8 +192,8 @@ constexpr bool operator>=(const uuid &lhs, const uuid &rhs) noexcept {
  */
 template<typename C, typename T>
 ::std::basic_ostream<C, T> &operator<<(std::basic_ostream<C, T> &os, const uuid &uuid) {
-    auto msb = uuid.getMostSignificantBits();
-    auto lsb = uuid.getLeastSignificantBits();
+    auto msb = uuid.get_most_significant_bits();
+    auto lsb = uuid.get_least_significant_bits();
 
     auto part1 = static_cast<std::uint32_t>(msb >> 32);
     auto part2 = static_cast<std::uint16_t>(msb >> 16);

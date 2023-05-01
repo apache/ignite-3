@@ -59,7 +59,7 @@ namespace ignite
                  * @param sql Sql.
                  * @param params Parameters.
                  */
-                void AddRow(const std::string& sql, const app::ParameterSet& params);
+                void AddRow(const std::string& sql, const ParameterSet& params);
 
                 /**
                  * Clear the batch data. 
@@ -71,7 +71,7 @@ namespace ignite
                  *
                  * @return Data.
                  */
-                const int8_t* GetData() const
+                const int8_t* get_data() const
                 {
                     return data.Data();
                 }
@@ -91,7 +91,7 @@ namespace ignite
                  *
                  * @return Number of rows in batch.
                  */
-                int32_t GetSize() const
+                int32_t get_size() const
                 {
                     return size;
                 }

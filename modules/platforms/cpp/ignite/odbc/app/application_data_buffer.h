@@ -31,96 +31,71 @@
 
 namespace ignite
 {
+
 /**
  * Conversion result
  */
-struct ConversionResult
+enum class conversion_result
 {
-    enum Type
-    {
-        /** Conversion successful. No data lost. */
-        AI_SUCCESS,
+    /** Conversion successful. No data lost. */
+    AI_SUCCESS,
 
-        /** Conversion successful, but fractional truncation occurred. */
-        AI_FRACTIONAL_TRUNCATED,
+    /** Conversion successful, but fractional truncation occurred. */
+    AI_FRACTIONAL_TRUNCATED,
 
-        /** Conversion successful, but right-side variable length data truncation occurred. */
-        AI_VARLEN_DATA_TRUNCATED,
+    /** Conversion successful, but right-side variable length data truncation occurred. */
+    AI_VARLEN_DATA_TRUNCATED,
 
-        /** Conversion is not supported. */
-        AI_UNSUPPORTED_CONVERSION,
+    /** Conversion is not supported. */
+    AI_UNSUPPORTED_CONVERSION,
 
-        /** Indicator buffer needed to complete the operation but it is NULL. */
-        AI_INDICATOR_NEEDED,
+    /** Indicator buffer needed to complete the operation but it is NULL. */
+    AI_INDICATOR_NEEDED,
 
-        /** No data found. */
-        AI_NO_DATA,
+    /** No data found. */
+    AI_NO_DATA,
 
-        /** General operation failure. */
-        AI_FAILURE
-    };
+    /** General operation failure. */
+    AI_FAILURE
 };
 
 /**
  * User application data buffer.
  */
-class ApplicationDataBuffer
+class application_data_buffer
 {
 public:
-    /**
-     * Default constructor.
-     */
-    ApplicationDataBuffer();
+    // Default
+    application_data_buffer() = default;
 
     /**
      * Constructor.
      *
      * @param type Underlying data type.
      * @param buffer Data buffer pointer.
-     * @param buflen Data buffer length.
-     * @param reslen Resulting data length.
+     * @param buf_len Data buffer length.
+     * @param res_len Resulting data length.
      */
-    ApplicationDataBuffer(odbc_native_type type, void* buffer,
-        SQLLEN buflen, SQLLEN* reslen);
-
-    /**
-     * Copy constructor.
-     *
-     * @param other Other instance.
-     */
-    ApplicationDataBuffer(const ApplicationDataBuffer& other) = default;
-
-    /**
-     * Destructor.
-     */
-    ~ApplicationDataBuffer() = default;
-
-    /**
-     * Copy assigment operator.
-     *
-     * @param other Other instance.
-     * @return This.
-     */
-    ApplicationDataBuffer& operator=(const ApplicationDataBuffer& other) = default;
+    application_data_buffer(odbc_native_type type, void* buffer, SQLLEN buf_len, SQLLEN* res_len);
 
     /**
      * Set offset in bytes for all bound pointers.
      *
      * @param offset Offset.
      */
-    void SetByteOffset(int offset)
+    void set_byte_offset(int offset)
     {
-        this->byteOffset = offset;
+        this->m_byte_offset = offset;
     }
 
     /**
      * Set offset in elements for all bound pointers.
      *
-     * @param
+     * @param offset Offset.
      */
-    void SetElementOffset(SQLULEN idx)
+    void set_element_offset(SQLULEN offset)
     {
-        this->elementOffset = idx;
+        this->m_element_offset = offset;
     }
 
     /**
@@ -129,7 +104,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutInt8(int8_t value);
+    conversion_result put_int8(int8_t value);
 
     /**
      * Put in buffer value of type int16_t.
@@ -137,7 +112,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutInt16(int16_t value);
+    conversion_result put_int16(int16_t value);
 
     /**
      * Put in buffer value of type int32_t.
@@ -145,7 +120,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutInt32(int32_t value);
+    conversion_result put_int32(int32_t value);
 
     /**
      * Put in buffer value of type int64_t.
@@ -153,7 +128,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutInt64(int64_t value);
+    conversion_result put_int64(int64_t value);
 
     /**
      * Put in buffer value of type float.
@@ -161,7 +136,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutFloat(float value);
+    conversion_result put_float(float value);
 
     /**
      * Put in buffer value of type double.
@@ -169,7 +144,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutDouble(double value);
+    conversion_result put_double(double value);
 
     /**
      * Put in buffer value of type string.
@@ -177,7 +152,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutString(const std::string& value);
+    conversion_result put_string(const std::string& value);
 
     /**
      * Put in buffer value of type string.
@@ -186,7 +161,7 @@ public:
      * @param written Number of written characters.
      * @return Conversion result.
      */
-    ConversionResult::Type PutString(const std::string& value, int32_t& written);
+    conversion_result put_string(const std::string& value, int32_t& written);
 
     /**
      * Put in buffer value of type GUID.
@@ -194,7 +169,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    ConversionResult::Type PutGuid(const uuid& value);
+    conversion_result put_uuid(const uuid& value);
 
     /**
      * Put binary data in buffer.
@@ -204,13 +179,13 @@ public:
      * @param written Number of written characters.
      * @return Conversion result.
      */
-    ConversionResult::Type PutBinaryData(void* data, size_t len, int32_t& written);
+    conversion_result put_binary_data(void* data, size_t len, int32_t& written);
 
     /**
      * Put NULL.
      * @return Conversion result.
      */
-    ConversionResult::Type PutNull();
+    conversion_result put_null();
 
     /**
      * Put decimal value to buffer.
@@ -218,7 +193,7 @@ public:
      * @param value Value to put.
      * @return Conversion result.
      */
-    ConversionResult::Type PutDecimal(const big_decimal& value);
+    conversion_result put_decimal(const big_decimal& value);
 
     /**
      * Put date to buffer.
@@ -226,7 +201,7 @@ public:
      * @param value Value to put.
      * @return Conversion result.
      */
-    ConversionResult::Type PutDate(const ignite_date& value);
+    conversion_result put_date(const ignite_date& value);
 
     /**
      * Put timestamp to buffer.
@@ -234,7 +209,7 @@ public:
      * @param value Value to put.
      * @return Conversion result.
      */
-    ConversionResult::Type PutTimestamp(const ignite_timestamp& value);
+    conversion_result put_timestamp(const ignite_timestamp& value);
 
     /**
      * Put time to buffer.
@@ -242,128 +217,128 @@ public:
      * @param value Value to put.
      * @return Conversion result.
      */
-    ConversionResult::Type PutTime(const ignite_time& value);
+    conversion_result put_time(const ignite_time& value);
 
     /**
      * Get string.
      *
      * @return String value of buffer.
      */
-    [[nodiscard]] std::string GetString(size_t maxLen) const;
+    [[nodiscard]] std::string get_string(size_t maxLen) const;
 
     /**
      * Get value of type int8_t.
      *
      * @return Integer value of type int8_t.
      */
-    [[nodiscard]] int8_t GetInt8() const;
+    [[nodiscard]] int8_t get_int8() const;
 
     /**
      * Get value of type int16_t.
      *
      * @return Integer value of type int16_t.
      */
-    [[nodiscard]] int16_t GetInt16() const;
+    [[nodiscard]] int16_t get_int16() const;
 
     /**
      * Get value of type int32_t.
      *
      * @return Integer value of type int32_t.
      */
-    [[nodiscard]] int32_t GetInt32() const;
+    [[nodiscard]] int32_t get_int32() const;
 
     /**
      * Get value of type int64_t.
      *
      * @return Integer value of type int64_t.
      */
-    [[nodiscard]] int64_t GetInt64() const;
+    [[nodiscard]] int64_t get_int64() const;
 
     /**
      * Get value of type float.
      *
      * @return Integer value of type float.
      */
-    [[nodiscard]] float GetFloat() const;
+    [[nodiscard]] float get_float() const;
 
     /**
      * Get value of type double.
      *
      * @return Value of type double.
      */
-    [[nodiscard]] double GetDouble() const;
+    [[nodiscard]] double get_double() const;
 
     /**
      * Get value of type GUID.
      *
-     * @return Value of type Guid.
+     * @return Value of type uuid.
      */
-    [[nodiscard]] uuid GetGuid() const;
+    [[nodiscard]] uuid get_uuid() const;
 
     /**
      * Get value of type ignite_date.
      *
      * @return Value of type ignite_date.
      */
-    [[nodiscard]] ignite_date GetDate() const;
+    [[nodiscard]] ignite_date get_date() const;
 
     /**
      * Get value of type ignite_timestamp.
      *
      * @return Value of type ignite_timestamp.
      */
-    [[nodiscard]] ignite_timestamp GetTimestamp() const;
+    [[nodiscard]] ignite_timestamp get_timestamp() const;
 
     /**
      * Get value of type ignite_time.
      *
      * @return Value of type ignite_timestamp.
      */
-    [[nodiscard]] ignite_time GetTime() const;
+    [[nodiscard]] ignite_time get_time() const;
 
     /**
      * Get value of type big_decimal.
      *
      * @param val Result is placed here.
      */
-    void GetDecimal(big_decimal& val) const;
+    void get_decimal(big_decimal& val) const;
 
     /**
      * Get raw data.
      *
      * @return Buffer data.
      */
-    [[nodiscard]] const void* GetData() const;
+    [[nodiscard]] const void* get_data() const;
 
     /**
      * Get result data length.
      *
      * @return Data length pointer.
      */
-    [[nodiscard]] const SQLLEN* GetResLen() const;
+    [[nodiscard]] const SQLLEN* get_result_len() const;
 
     /**
      * Get raw data.
      *
      * @return Buffer data.
      */
-    void* GetData();
+    void* get_data();
 
     /**
      * Get result data length.
      *
      * @return Data length pointer.
      */
-    SQLLEN* GetResLen();
+    SQLLEN* get_result_len();
 
     /**
      * Get buffer size in bytes.
      *
      * @return Buffer size.
      */
-    [[nodiscard]] SQLLEN GetSize() const
+    [[nodiscard]] SQLLEN get_size() const
     {
-        return buflen;
+        return m_buffer_len;
     }
 
     /**
@@ -372,7 +347,7 @@ public:
      * @return True if the data is going to be provided
      *     at execution.
      */
-    [[nodiscard]] bool IsDataAtExec() const;
+    [[nodiscard]] bool is_data_at_exec() const;
 
     /**
      * Get size of the data that is going to be provided at
@@ -381,14 +356,14 @@ public:
      * @return Size of the data that is going to be provided
      *     at execution.
      */
-    [[nodiscard]] SQLLEN GetDataAtExecSize() const;
+    [[nodiscard]] SQLLEN get_data_at_exec_size() const;
 
     /**
      * Get single element size.
      *
      * @return Size of the single element.
      */
-    [[nodiscard]] SQLLEN GetElementSize() const;
+    [[nodiscard]] SQLLEN get_element_size() const;
 
     /**
      * Get size of the input buffer.
@@ -396,16 +371,16 @@ public:
      * @return Input buffer size, or zero if the data is going
      *     to be provided at execution.
      */
-    [[nodiscard]] SQLLEN GetInputSize() const;
+    [[nodiscard]] SQLLEN get_input_size() const;
 
     /**
      * Get buffer type.
      *
      * @return Buffer type.
      */
-    [[nodiscard]] odbc_native_type GetType() const
+    [[nodiscard]] odbc_native_type get_type() const
     {
-        return type;
+        return m_type;
     }
 
 private:
@@ -416,7 +391,7 @@ private:
      * @return Conversion result.
      */
     template<typename T>
-    ConversionResult::Type PutNum(T value);
+    conversion_result put_num(T value);
 
     /**
      * Put numeric value to numeric buffer.
@@ -425,7 +400,7 @@ private:
      * @return Conversion result.
      */
     template<typename TBuf, typename TIn>
-    ConversionResult::Type PutNumToNumBuffer(TIn value);
+    conversion_result put_num_to_num_buffer(TIn value);
 
     /**
      * Put value to string buffer.
@@ -434,16 +409,17 @@ private:
      * @return Conversion result.
      */
     template<typename CharT, typename Tin>
-    ConversionResult::Type PutValToStrBuffer(const Tin& value);
+    conversion_result put_value_to_string_buffer(const Tin& value);
 
     /**
      * Put value to string buffer.
      * Specialisation for int8_t.
+     *
      * @param value Value that can be converted to string.
      * @return Conversion result.
      */
     template<typename CharT>
-    ConversionResult::Type PutValToStrBuffer(const int8_t & value);
+    conversion_result put_value_to_string_buffer(const int8_t & value);
 
     /**
      * Put string to string buffer.
@@ -453,7 +429,7 @@ private:
      * @return Conversion result.
      */
     template<typename OutCharT, typename InCharT>
-    ConversionResult::Type PutStrToStrBuffer(const std::basic_string<InCharT>& value, int32_t& written);
+    conversion_result put_string_to_string_buffer(const std::basic_string<InCharT>& value, int32_t& written);
 
     /**
      * Put raw data to any buffer.
@@ -463,7 +439,7 @@ private:
      * @param written Number of characters written.
      * @return Conversion result.
      */
-    ConversionResult::Type PutRawDataToBuffer(void *data, size_t len, int32_t& written);
+    conversion_result put_raw_data_to_buffer(void *data, size_t len, int32_t& written);
 
     /**
      * Get int of type T.
@@ -471,38 +447,39 @@ private:
      * @return Integer value of specified type.
      */
     template<typename T>
-    T GetNum() const;
+    T get_num() const;
 
     /**
      * Apply buffer offset to pointer.
      * Adds offset to pointer if offset pointer is not null.
+     *
      * @param ptr Pointer.
      * @param elemSize Element size.
      * @return Pointer with applied offset.
      */
     template<typename T>
-    T* ApplyOffset(T* ptr, size_t elemSize) const;
+    T* apply_offset(T* ptr, size_t elemSize) const;
 
     /** Underlying data type. */
-    odbc_native_type type;
+    odbc_native_type m_type{odbc_native_type::AI_UNSUPPORTED};
 
     /** Buffer pointer. */
-    void* buffer;
+    void* m_buffer{nullptr};
 
     /** Buffer length. */
-    SQLLEN buflen;
+    SQLLEN m_buffer_len{0};
 
     /** Result length. */
-    SQLLEN* reslen;
+    SQLLEN* m_result_len{nullptr};
 
     /** Current byte offset */
-    int byteOffset;
+    int m_byte_offset{0};
 
     /** Current element offset. */
-    SQLULEN elementOffset;
+    SQLULEN m_element_offset{0};
 };
 
 /** Column binging map type alias. */
-typedef std::map<uint16_t, ApplicationDataBuffer> ColumnBindingMap;
-}
+typedef std::map<uint16_t, application_data_buffer> column_binding_map;
 
+} // namespace ignite

@@ -89,7 +89,7 @@ namespace ignite
                 columnsMeta()
             {
                 using namespace ignite::impl::binary;
-                using namespace ignite::odbc::type_traits;
+                using namespace ignite::type_traits;
 
                 using meta::ColumnMeta;
 
@@ -140,7 +140,7 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            sql_result ColumnMetadataQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
+            sql_result ColumnMetadataQuery::FetchNextRow(column_binding_map & columnBindings)
             {
                 if (!executed)
                 {
@@ -157,7 +157,7 @@ namespace ignite
                 if (cursor == meta.end())
                     return sql_result::AI_NO_DATA;
 
-                app::ColumnBindingMap::iterator it;
+                column_binding_map::iterator it;
 
                 for (it = columnBindings.begin(); it != columnBindings.end(); ++it)
                     GetColumn(it->first, it->second);
@@ -165,7 +165,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            sql_result ColumnMetadataQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer & buffer)
+            sql_result ColumnMetadataQuery::GetColumn(uint16_t columnIdx, application_data_buffer & buffer)
             {
                 if (!executed)
                 {
@@ -189,49 +189,49 @@ namespace ignite
                 {
                     case ResultColumn::TABLE_CAT:
                     {
-                        buffer.PutNull();
+                        buffer.put_null();
                         break;
                     }
 
                     case ResultColumn::TABLE_SCHEM:
                     {
-                        buffer.PutString(currentColumn.GetSchemaName());
+                        buffer.put_string(currentColumn.GetSchemaName());
                         break;
                     }
 
                     case ResultColumn::TABLE_NAME:
                     {
-                        buffer.PutString(currentColumn.GetTableName());
+                        buffer.put_string(currentColumn.GetTableName());
                         break;
                     }
 
                     case ResultColumn::COLUMN_NAME:
                     {
-                        buffer.PutString(currentColumn.GetColumnName());
+                        buffer.put_string(currentColumn.GetColumnName());
                         break;
                     }
 
                     case ResultColumn::DATA_TYPE:
                     {
-                        buffer.PutInt16(ignite_type_to_sql_type(columnType));
+                        buffer.put_int16(ignite_type_to_sql_type(columnType));
                         break;
                     }
 
                     case ResultColumn::TYPE_NAME:
                     {
-                        buffer.PutString(ignite_type_to_sql_type_name(currentColumn.GetDataType()));
+                        buffer.put_string(ignite_type_to_sql_type_name(currentColumn.GetDataType()));
                         break;
                     }
 
                     case ResultColumn::COLUMN_SIZE:
                     {
-                        buffer.PutInt16(ignite_type_column_size(columnType));
+                        buffer.put_int16(ignite_type_column_size(columnType));
                         break;
                     }
 
                     case ResultColumn::BUFFER_LENGTH:
                     {
-                        buffer.PutInt16(ignite_type_transfer_length(columnType));
+                        buffer.put_int16(ignite_type_transfer_length(columnType));
                         break;
                     }
 
@@ -239,27 +239,27 @@ namespace ignite
                     {
                         int32_t decDigits = ignite_type_decimal_digits(columnType);
                         if (decDigits < 0)
-                            buffer.PutNull();
+                            buffer.put_null();
                         else
-                            buffer.PutInt16(static_cast<int16_t>(decDigits));
+                            buffer.put_int16(static_cast<int16_t>(decDigits));
                         break;
                     }
 
                     case ResultColumn::NUM_PREC_RADIX:
                     {
-                        buffer.PutInt16(ignite_type_num_precision_radix(columnType));
+                        buffer.put_int16(ignite_type_num_precision_radix(columnType));
                         break;
                     }
 
                     case ResultColumn::NULLABLE:
                     {
-                        buffer.PutInt16(ignite_type_nullability(columnType));
+                        buffer.put_int16(ignite_type_nullability(columnType));
                         break;
                     }
 
                     case ResultColumn::REMARKS:
                     {
-                        buffer.PutNull();
+                        buffer.put_null();
                         break;
                     }
 

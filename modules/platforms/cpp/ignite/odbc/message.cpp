@@ -101,7 +101,7 @@ namespace ignite
         }
 
         QueryExecuteRequest::QueryExecuteRequest(const std::string& schema, const std::string& sql,
-            const app::ParameterSet& params, int32_t timeout, bool autoCommit):
+            const ParameterSet& params, int32_t timeout, bool autoCommit):
             schema(schema),
             sql(sql),
             params(params),
@@ -137,7 +137,7 @@ namespace ignite
         }
 
         QueryExecuteBatchRequest::QueryExecuteBatchRequest(const std::string& schema, const std::string& sql,
-            const app::ParameterSet& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout, bool autoCommit) :
+            const ParameterSet& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout, bool autoCommit) :
             schema(schema),
             sql(sql),
             params(params),
@@ -318,10 +318,10 @@ namespace ignite
 
             impl::interop::InteropOutputStream* stream = writer.GetStream();
 
-            writer.WriteInt32(batch.GetSize());
+            writer.WriteInt32(batch.get_size());
 
-            if (batch.GetSize() != 0)
-                stream->WriteInt8Array(batch.GetData(), batch.GetDataLength());
+            if (batch.get_size() != 0)
+                stream->WriteInt8Array(batch.get_data(), batch.GetDataLength());
 
             writer.WriteBool(last);
             writer.WriteInt64(order);

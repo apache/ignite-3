@@ -81,7 +81,7 @@ namespace ignite
                  * @param columnBindings Application buffers to put data to.
                  * @return Operation result.
                  */
-                virtual sql_result FetchNextRow(app::ColumnBindingMap& columnBindings)
+                virtual sql_result FetchNextRow(column_binding_map& columnBindings)
                 {
                    IGNITE_UNUSED(columnBindings);
 
@@ -95,7 +95,7 @@ namespace ignite
                  * @param buffer Buffer to put column data to.
                  * @return Operation result.
                  */
-                virtual sql_result GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+                virtual sql_result GetColumn(uint16_t columnIdx, application_data_buffer& buffer)
                 {
                     IGNITE_UNUSED(columnIdx);
                     IGNITE_UNUSED(buffer);

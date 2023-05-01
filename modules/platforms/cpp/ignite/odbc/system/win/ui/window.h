@@ -162,7 +162,7 @@ namespace ignite
                      *
                      * @return True if enabled.
                      */
-                    bool IsEnabled() const;
+                    bool is_enabled() const;
 
                 protected:
                     /**

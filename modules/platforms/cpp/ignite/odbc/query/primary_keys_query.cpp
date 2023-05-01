@@ -67,7 +67,7 @@ namespace ignite
                 columnsMeta()
             {
                 using namespace ignite::impl::binary;
-                using namespace ignite::odbc::type_traits;
+                using namespace ignite::type_traits;
 
                 using meta::ColumnMeta;
 
@@ -108,7 +108,7 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            sql_result PrimaryKeysQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
+            sql_result PrimaryKeysQuery::FetchNextRow(column_binding_map & columnBindings)
             {
                 if (!executed)
                 {
@@ -120,7 +120,7 @@ namespace ignite
                 if (cursor == meta.end())
                     return sql_result::AI_NO_DATA;
 
-                app::ColumnBindingMap::iterator it;
+                column_binding_map::iterator it;
 
                 for (it = columnBindings.begin(); it != columnBindings.end(); ++it)
                     GetColumn(it->first, it->second);
@@ -130,7 +130,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            sql_result PrimaryKeysQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+            sql_result PrimaryKeysQuery::GetColumn(uint16_t columnIdx, application_data_buffer& buffer)
             {
                 if (!executed)
                 {
@@ -148,37 +148,37 @@ namespace ignite
                 {
                     case ResultColumn::TABLE_CAT:
                     {
-                        buffer.PutString(currentColumn.GetCatalogName());
+                        buffer.put_string(currentColumn.GetCatalogName());
                         break;
                     }
 
                     case ResultColumn::TABLE_SCHEM:
                     {
-                        buffer.PutString(currentColumn.GetSchemaName());
+                        buffer.put_string(currentColumn.GetSchemaName());
                         break;
                     }
 
                     case ResultColumn::TABLE_NAME:
                     {
-                        buffer.PutString(currentColumn.GetTableName());
+                        buffer.put_string(currentColumn.GetTableName());
                         break;
                     }
 
                     case ResultColumn::COLUMN_NAME:
                     {
-                        buffer.PutString(currentColumn.GetColumnName());
+                        buffer.put_string(currentColumn.GetColumnName());
                         break;
                     }
 
                     case ResultColumn::KEY_SEQ:
                     {
-                        buffer.PutInt16(currentColumn.GetKeySeq());
+                        buffer.put_int16(currentColumn.GetKeySeq());
                         break;
                     }
 
                     case ResultColumn::PK_NAME:
                     {
-                        buffer.PutString(currentColumn.GetKeyName());
+                        buffer.put_string(currentColumn.GetKeyName());
                         break;
                     }
 

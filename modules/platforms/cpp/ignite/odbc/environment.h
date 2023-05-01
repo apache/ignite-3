@@ -86,7 +86,7 @@ namespace ignite
              * @param attr Attribute to set.
              * @param buffer Buffer to put value to.
              */
-            void GetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer);
+            void GetAttribute(int32_t attr, application_data_buffer& buffer);
 
         private:
             IGNITE_NO_COPY_ASSIGNMENT(Environment);
@@ -135,7 +135,7 @@ namespace ignite
              * @param buffer Buffer to put value to.
              * @return Operation result.
              */
-            sql_result InternalGetAttribute(int32_t attr, app::ApplicationDataBuffer& buffer);
+            sql_result InternalGetAttribute(int32_t attr, application_data_buffer& buffer);
 
             /** Assotiated connections. */
             ConnectionSet connections;

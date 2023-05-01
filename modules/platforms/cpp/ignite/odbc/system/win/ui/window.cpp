@@ -130,7 +130,7 @@ namespace ignite
 
                 void Window::GetText(std::string& text) const
                 {
-                    if (!IsEnabled())
+                    if (!is_enabled())
                     {
                         text.clear();
 
@@ -161,7 +161,7 @@ namespace ignite
 
                 bool Window::IsChecked() const
                 {
-                    return IsEnabled() && Button_GetCheck(handle) == BST_CHECKED;
+                    return is_enabled() && Button_GetCheck(handle) == BST_CHECKED;
                 }
 
                 void Window::SetChecked(bool state)
@@ -189,7 +189,7 @@ namespace ignite
                     EnableWindow(GetHandle(), enabled);
                 }
 
-                bool Window::IsEnabled() const
+                bool Window::is_enabled() const
                 {
                     return IsWindowEnabled(GetHandle()) != 0;
                 }

@@ -116,12 +116,12 @@ namespace ignite
                     void Create();
 
                     /**
-                    * @copedoc ignite::odbc::system::ui::CustomWindow::OnCreate
+                    * @copedoc ignite::system::ui::CustomWindow::OnCreate
                     */
                     virtual void OnCreate();
 
                     /**
-                     * @copedoc ignite::odbc::system::ui::CustomWindow::OnMessage
+                     * @copedoc ignite::system::ui::CustomWindow::OnMessage
                      */
                     virtual bool OnMessage(UINT msg, WPARAM wParam, LPARAM lParam);
 

@@ -38,6 +38,6 @@ namespace ignite
  * @param config Output configuration.
  * @return True on success and false on fail.
  */
-bool DisplayConnectionWindow(void* windowParent, ignite::odbc::config::Configuration& config);
+bool DisplayConnectionWindow(void* windowParent, ignite::config::Configuration& config);
 
 #endif //_IGNITE_ODBC_SYSTEM_SYSTEM_DSN

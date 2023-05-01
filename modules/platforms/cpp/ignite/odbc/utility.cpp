@@ -115,16 +115,16 @@ namespace ignite
 
             if (magnitude[0] < 0)
             {
-                writer.WriteInt32(magnitude.GetSize() + 1);
+                writer.WriteInt32(magnitude.get_size() + 1);
                 writer.WriteInt8(addBit);
             }
             else
             {
-                writer.WriteInt32(magnitude.GetSize());
+                writer.WriteInt32(magnitude.get_size());
                 magnitude[0] |= addBit;
             }
 
-            impl::binary::BinaryUtils::WriteInt8Array(writer.GetStream(), magnitude.GetData(), magnitude.GetSize());
+            impl::binary::BinaryUtils::WriteInt8Array(writer.GetStream(), magnitude.get_data(), magnitude.get_size());
         }
 
         std::string SqlStringToString(const unsigned char* sqlStr, int32_t sqlStrLen)

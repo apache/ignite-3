@@ -52,7 +52,7 @@ namespace ignite
                  * @param columnSize IPD column size.
                  * @param decDigits IPD decimal digits.
                  */
-                Parameter(const ApplicationDataBuffer& buffer, int16_t sqlType,
+                Parameter(const application_data_buffer& buffer, int16_t sqlType,
                     size_t columnSize, int16_t decDigits);
 
                 /**
@@ -86,16 +86,16 @@ namespace ignite
                 /**
                  * Get data buffer.
                  *
-                 * @return underlying ApplicationDataBuffer instance.
+                 * @return underlying application_data_buffer instance.
                  */
-                ApplicationDataBuffer& GetBuffer();
+                application_data_buffer& GetBuffer();
 
                 /**
                  * Get data buffer.
                  *
-                 * @return underlying ApplicationDataBuffer instance.
+                 * @return underlying application_data_buffer instance.
                  */
-                const ApplicationDataBuffer& GetBuffer() const;
+                const application_data_buffer& GetBuffer() const;
 
                 /**
                  * Reset stored at-execution data.
@@ -118,7 +118,7 @@ namespace ignite
 
             private:
                 /** Underlying data buffer. */
-                ApplicationDataBuffer buffer;
+                application_data_buffer buffer;
 
                 /** IPD type. */
                 int16_t sqlType;

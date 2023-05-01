@@ -137,7 +137,7 @@ namespace ignite
              * @param columnIdx Column index.
              * @param buffer Buffer to put column data to.
              */
-            void GetColumnData(uint16_t columnIdx, app::ApplicationDataBuffer& buffer);
+            void GetColumnData(uint16_t columnIdx, application_data_buffer& buffer);
 
             /**
              * Prepare SQL query.
@@ -356,7 +356,7 @@ namespace ignite
              * @param columnIdx Column index.
              * @param buffer Buffer to put column data to.
              */
-            void SafeBindColumn(uint16_t columnIdx, const app::ApplicationDataBuffer& buffer);
+            void SafeBindColumn(uint16_t columnIdx, const application_data_buffer& buffer);
 
             /**
              * Unbind specified column buffer.
@@ -436,7 +436,7 @@ namespace ignite
              * @param buffer Buffer to put column data to.
              * @return Operation result.
              */
-            sql_result InternalGetColumnData(uint16_t columnIdx, app::ApplicationDataBuffer& buffer);
+            sql_result InternalGetColumnData(uint16_t columnIdx, application_data_buffer& buffer);
 
 
             /**
@@ -689,7 +689,7 @@ namespace ignite
             Connection& connection;
 
             /** Column bindings. */
-            app::ColumnBindingMap columnBindings;
+            column_binding_map columnBindings;
 
             /** Underlying query. */
             std::auto_ptr<query::Query> currentQuery;
@@ -707,7 +707,7 @@ namespace ignite
             SQLULEN rowArraySize;
 
             /** Parameters. */
-            app::ParameterSet parameters;
+            ParameterSet parameters;
 
             /** Query timeout in seconds. */
             int32_t timeout;

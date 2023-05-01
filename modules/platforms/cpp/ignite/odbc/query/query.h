@@ -97,7 +97,7 @@ namespace ignite
                  * @param columnBindings Application buffers to put data to.
                  * @return Operation result.
                  */
-                virtual sql_result FetchNextRow(app::ColumnBindingMap& columnBindings) = 0;
+                virtual sql_result FetchNextRow(column_binding_map& columnBindings) = 0;
 
                 /**
                  * Get data of the specified column in the result set.
@@ -106,7 +106,7 @@ namespace ignite
                  * @param buffer Buffer to put column data to.
                  * @return Operation result.
                  */
-                virtual sql_result GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer) = 0;
+                virtual sql_result GetColumn(uint16_t columnIdx, application_data_buffer& buffer) = 0;
 
                 /**
                  * Close query.
@@ -153,7 +153,7 @@ namespace ignite
                  *
                  * @return Query type.
                  */
-                QueryType::Type GetType() const
+                QueryType::Type get_type() const
                 {
                     return type;
                 }

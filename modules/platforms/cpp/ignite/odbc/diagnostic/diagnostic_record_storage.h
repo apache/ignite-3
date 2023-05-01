@@ -178,7 +178,7 @@ namespace ignite
                  * @return Operation result.
                  */
                 sql_result GetField(int32_t recNum, diagnostic_field field,
-                    app::ApplicationDataBuffer& buffer) const;
+                    application_data_buffer& buffer) const;
 
             private:
                 IGNITE_NO_COPY_ASSIGNMENT(DiagnosticRecordStorage);

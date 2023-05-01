@@ -30,7 +30,7 @@ namespace ignite
             StreamingQuery::StreamingQuery(
                 diagnostic::DiagnosableAdapter& diag,
                 Connection& connection,
-                const app::ParameterSet& params) :
+                const ParameterSet& params) :
                 Query(diag, QueryType::STREAMING),
                 connection(connection),
                 params(params)
@@ -48,12 +48,12 @@ namespace ignite
                 return connection.GetStreamingContext().Execute(sql, params);
             }
 
-            sql_result StreamingQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result StreamingQuery::FetchNextRow(column_binding_map&)
             {
                 return sql_result::AI_NO_DATA;
             }
 
-            sql_result StreamingQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result StreamingQuery::GetColumn(uint16_t, application_data_buffer&)
             {
                 diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE, "Column is not available.");
 

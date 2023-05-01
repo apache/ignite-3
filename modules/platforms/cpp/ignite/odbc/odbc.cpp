@@ -40,7 +40,7 @@
  * @param config Configuration.
  * @return @c true on success and @c false otherwise.
  */
-bool HandleParentWindow(SQLHWND windowHandle, ignite::odbc::config::Configuration &config)
+bool HandleParentWindow(SQLHWND windowHandle, ignite::config::Configuration &config)
 {
 #ifdef _WIN32
     if (windowHandle)
@@ -63,8 +63,8 @@ namespace ignite
                          SQLSMALLINT    infoValueMax,
                          SQLSMALLINT*   length)
     {
-        using odbc::Connection;
-        using odbc::config::ConnectionInfo;
+        using Connection;
+        using config::ConnectionInfo;
 
         LOG_MSG("SQLGetInfo called: "
             << infoType << " (" << ConnectionInfo::InfoTypeToString(infoType) << "), "
@@ -97,7 +97,7 @@ namespace ignite
 
             case SQL_HANDLE_DESC:
             {
-                using odbc::Connection;
+                using Connection;
                 Connection *connection = reinterpret_cast<Connection*>(parent);
 
                 if (!connection)
@@ -107,7 +107,7 @@ namespace ignite
                     *result = 0;
 
                 connection->GetDiagnosticRecords().Reset();
-                connection->AddStatusRecord(odbc::sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
+                connection->AddStatusRecord(sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
                                             "The HandleType argument was SQL_HANDLE_DESC, and "
                                             "the driver does not support allocating a descriptor handle");
 
@@ -123,7 +123,7 @@ namespace ignite
 
     SQLRETURN SQLAllocEnv(SQLHENV* env)
     {
-        using odbc::Environment;
+        using Environment;
 
         LOG_MSG("SQLAllocEnv called");
 
@@ -134,8 +134,8 @@ namespace ignite
 
     SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC* conn)
     {
-        using odbc::Environment;
-        using odbc::Connection;
+        using Environment;
+        using Connection;
 
         LOG_MSG("SQLAllocConnect called");
 
@@ -158,8 +158,8 @@ namespace ignite
 
     SQLRETURN SQLAllocStmt(SQLHDBC conn, SQLHSTMT* stmt)
     {
-        using odbc::Connection;
-        using odbc::Statement;
+        using Connection;
+        using Statement;
 
         LOG_MSG("SQLAllocStmt called");
 
@@ -200,7 +200,7 @@ namespace ignite
 
     SQLRETURN SQLFreeEnv(SQLHENV env)
     {
-        using odbc::Environment;
+        using Environment;
 
         LOG_MSG("SQLFreeEnv called: " << env);
 
@@ -216,7 +216,7 @@ namespace ignite
 
     SQLRETURN SQLFreeConnect(SQLHDBC conn)
     {
-        using odbc::Connection;
+        using Connection;
 
         LOG_MSG("SQLFreeConnect called");
 
@@ -234,7 +234,7 @@ namespace ignite
 
     SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLFreeStmt called [option=" << option << ']');
 
@@ -256,7 +256,7 @@ namespace ignite
 
     SQLRETURN SQLCloseCursor(SQLHSTMT stmt)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLCloseCursor called");
 
@@ -278,8 +278,8 @@ namespace ignite
     {
         IGNITE_UNUSED(driverCompletion);
 
-        using odbc::Connection;
-        using odbc::diagnostic::DiagnosticRecordStorage;
+        using Connection;
+        using diagnostic::DiagnosticRecordStorage;
         using utility::SqlStringToString;
         using utility::CopyStringToBuffer;
 
@@ -325,8 +325,8 @@ namespace ignite
         IGNITE_UNUSED(auth);
         IGNITE_UNUSED(authLen);
 
-        using odbc::Connection;
-        using odbc::config::Configuration;
+        using Connection;
+        using config::Configuration;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLConnect called\n");
@@ -336,13 +336,13 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        odbc::config::Configuration config;
+        config::Configuration config;
 
         std::string dsn = SqlStringToString(serverName, serverNameLen);
 
         LOG_MSG("DSN: " << dsn);
 
-        odbc::ReadDsnConfiguration(dsn.c_str(), config, &connection->GetDiagnosticRecords());
+        ReadDsnConfiguration(dsn.c_str(), config, &connection->GetDiagnosticRecords());
 
         connection->Establish(config);
 
@@ -351,7 +351,7 @@ namespace ignite
 
     SQLRETURN SQLDisconnect(SQLHDBC conn)
     {
-        using odbc::Connection;
+        using Connection;
 
         LOG_MSG("SQLDisconnect called");
 
@@ -367,7 +367,7 @@ namespace ignite
 
     SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
     {
-        using odbc::Statement;
+        using Statement;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLPrepare called");
@@ -388,7 +388,7 @@ namespace ignite
 
     SQLRETURN SQLExecute(SQLHSTMT stmt)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLExecute called");
 
@@ -404,7 +404,7 @@ namespace ignite
 
     SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
     {
-        using odbc::Statement;
+        using Statement;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLExecDirect called");
@@ -430,10 +430,10 @@ namespace ignite
                          SQLLEN         bufferLength,
                          SQLLEN*        strLengthOrIndicator)
     {
-        using namespace odbc::type_traits;
+        using namespace type_traits;
 
-        using odbc::Statement;
-        using odbc::app::ApplicationDataBuffer;
+        using Statement;
+        using application_data_buffer;
 
         LOG_MSG("SQLBindCol called: index=" << colNum << ", type=" << targetType << 
                 ", targetValue=" << reinterpret_cast<size_t>(targetValue) << 
@@ -452,7 +452,7 @@ namespace ignite
 
     SQLRETURN SQLFetch(SQLHSTMT stmt)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLFetch called");
 
@@ -468,7 +468,7 @@ namespace ignite
 
     SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLFetchScroll called");
         LOG_MSG("Orientation: " << orientation << " Offset: " << offset);
@@ -509,8 +509,8 @@ namespace ignite
 
     SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *columnNum)
     {
-        using odbc::Statement;
-        using odbc::meta::ColumnMetaVector;
+        using Statement;
+        using meta::ColumnMetaVector;
 
         LOG_MSG("SQLNumResultCols called");
 
@@ -540,7 +540,7 @@ namespace ignite
                         SQLCHAR*    tableType,
                         SQLSMALLINT tableTypeLen)
     {
-        using odbc::Statement;
+        using Statement;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLTables called");
@@ -575,7 +575,7 @@ namespace ignite
                          SQLCHAR*       columnName,
                          SQLSMALLINT    columnNameLen)
     {
-        using odbc::Statement;
+        using Statement;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLColumns called");
@@ -602,7 +602,7 @@ namespace ignite
 
     SQLRETURN SQLMoreResults(SQLHSTMT stmt)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLMoreResults called");
 
@@ -627,7 +627,7 @@ namespace ignite
                                SQLLEN       bufferLen,
                                SQLLEN*      resLen)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLBindParameter called: " << paramIdx << ", " << bufferType << ", " << paramSqlType);
 
@@ -673,9 +673,9 @@ namespace ignite
                               SQLSMALLINT*    strAttrLen,
                               SQLLEN*         numericAttr)
     {
-        using odbc::Statement;
-        using odbc::meta::ColumnMetaVector;
-        using odbc::meta::ColumnMeta;
+        using Statement;
+        using meta::ColumnMetaVector;
+        using meta::ColumnMeta;
 
         LOG_MSG("SQLColAttribute called: " << fieldId << " (" << ColumnMeta::AttrIdToString(fieldId) << ")");
 
@@ -713,8 +713,8 @@ namespace ignite
                              SQLSMALLINT*   decimalDigits,
                              SQLSMALLINT*   nullable)
     {
-        using odbc::Statement;
-        using odbc::SQLLEN;
+        using Statement;
+        using SQLLEN;
 
         LOG_MSG("SQLDescribeCol called");
 
@@ -762,7 +762,7 @@ namespace ignite
 
     SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN* rowCnt)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLRowCount called");
 
@@ -795,7 +795,7 @@ namespace ignite
                              SQLCHAR*       foreignTableName,
                              SQLSMALLINT    foreignTableNameLen)
     {
-        using odbc::Statement;
+        using Statement;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLForeignKeys called");
@@ -831,12 +831,12 @@ namespace ignite
                              SQLINTEGER     valueBufLen,
                              SQLINTEGER*    valueResLen)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLGetStmtAttr called");
 
 #ifdef _DEBUG
-        using odbc::statement_attr_id_to_string;
+        using statement_attr_id_to_string;
 
         LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
@@ -856,12 +856,12 @@ namespace ignite
                              SQLPOINTER  value,
                              SQLINTEGER  valueLen)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLSetStmtAttr called: " << attr);
 
 #ifdef _DEBUG
-        using odbc::statement_attr_id_to_string;
+        using statement_attr_id_to_string;
 
         LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
@@ -884,7 +884,7 @@ namespace ignite
                              SQLCHAR*       tableName,
                              SQLSMALLINT    tableNameLen)
     {
-        using odbc::Statement;
+        using Statement;
         using utility::SqlStringToString;
 
         LOG_MSG("SQLPrimaryKeys called");
@@ -909,7 +909,7 @@ namespace ignite
 
     SQLRETURN SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* paramCnt)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLNumParams called");
 
@@ -938,15 +938,15 @@ namespace ignite
                               SQLSMALLINT*  resLen)
     {
         using namespace odbc;
-        using namespace odbc::diagnostic;
-        using namespace odbc::type_traits;
+        using namespace diagnostic;
+        using namespace type_traits;
 
-        using odbc::app::ApplicationDataBuffer;
+        using application_data_buffer;
 
         LOG_MSG("SQLGetDiagField called: " << recNum);
 
         SQLLEN outResLen;
-        ApplicationDataBuffer outBuffer(odbc_native_type::AI_DEFAULT, buffer, bufferLen, &outResLen);
+        application_data_buffer outBuffer(odbc_native_type::AI_DEFAULT, buffer, bufferLen, &outResLen);
 
         sql_result result;
 
@@ -989,10 +989,10 @@ namespace ignite
     {
         using namespace utility;
         using namespace odbc;
-        using namespace odbc::diagnostic;
-        using namespace odbc::type_traits;
+        using namespace diagnostic;
+        using namespace type_traits;
 
-        using odbc::app::ApplicationDataBuffer;
+        using application_data_buffer;
 
         LOG_MSG("SQLGetDiagRec called");
 
@@ -1056,7 +1056,7 @@ namespace ignite
 
     SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)
     {
-        using odbc::Statement;
+        using Statement;
 
         LOG_MSG("SQLGetTypeInfo called: [type=" << type << ']');
 
@@ -1132,10 +1132,10 @@ namespace ignite
                          SQLLEN         bufferLength,
                          SQLLEN*        strLengthOrIndicator)
     {
-        using namespace odbc::type_traits;
+        using namespace type_traits;
 
-        using odbc::Statement;
-        using odbc::app::ApplicationDataBuffer;
+        using Statement;
+        using application_data_buffer;
 
         LOG_MSG("SQLGetData called");
 
@@ -1146,7 +1146,7 @@ namespace ignite
 
         odbc_native_type driverType = to_driver_type(targetType);
 
-        ApplicationDataBuffer dataBuffer(driverType, targetValue, bufferLength, strLengthOrIndicator);
+        application_data_buffer dataBuffer(driverType, targetValue, bufferLength, strLengthOrIndicator);
 
         statement->GetColumnData(colNum, dataBuffer);
 
@@ -1158,7 +1158,7 @@ namespace ignite
                             SQLPOINTER  value,
                             SQLINTEGER  valueLen)
     {
-        using odbc::Environment;
+        using Environment;
 
         LOG_MSG("SQLSetEnvAttr called");
         LOG_MSG("Attribute: " << attr << ", Value: " << (size_t)value);
@@ -1182,7 +1182,7 @@ namespace ignite
         using namespace odbc;
         using namespace type_traits;
 
-        using app::ApplicationDataBuffer;
+        using application_data_buffer;
 
         LOG_MSG("SQLGetEnvAttr called");
 
@@ -1192,7 +1192,7 @@ namespace ignite
             return SQL_INVALID_HANDLE;
 
         SQLLEN outResLen;
-        ApplicationDataBuffer outBuffer(odbc_native_type::AI_SIGNED_LONG, valueBuf,
+        application_data_buffer outBuffer(odbc_native_type::AI_SIGNED_LONG, valueBuf,
             static_cast<int32_t>(valueBufLen), &outResLen);
 
         environment->GetAttribute(attr, outBuffer);
@@ -1302,10 +1302,10 @@ namespace ignite
     {
         using namespace ignite::utility;
         using namespace ignite::odbc;
-        using namespace ignite::odbc::diagnostic;
-        using namespace ignite::odbc::type_traits;
+        using namespace ignite::diagnostic;
+        using namespace ignite::type_traits;
 
-        using ignite::odbc::app::ApplicationDataBuffer;
+        using ignite::application_data_buffer;
 
         LOG_MSG("SQLError called");
 
@@ -1340,9 +1340,9 @@ namespace ignite
             *error = 0;
 
         SQLLEN outResLen;
-        ApplicationDataBuffer outBuffer(odbc_native_type::AI_CHAR, msgBuf, msgBufLen, &outResLen);
+        application_data_buffer outBuffer(odbc_native_type::AI_CHAR, msgBuf, msgBufLen, &outResLen);
 
-        outBuffer.PutString(record.GetMessageText());
+        outBuffer.put_string(record.GetMessageText());
 
         if (msgResLen)
             *msgResLen = static_cast<SQLSMALLINT>(outResLen);
@@ -1359,7 +1359,7 @@ namespace ignite
         using namespace odbc;
         using namespace type_traits;
 
-        using app::ApplicationDataBuffer;
+        using application_data_buffer;
 
         LOG_MSG("SQLGetConnectAttr called");
 
@@ -1378,7 +1378,7 @@ namespace ignite
                                         SQLPOINTER value,
                                         SQLINTEGER valueLen)
     {
-        using odbc::Connection;
+        using Connection;
 
         LOG_MSG("SQLSetConnectAttr called(" << attr << ", " << value << ")");
 

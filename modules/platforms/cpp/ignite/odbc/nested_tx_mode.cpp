@@ -20,7 +20,7 @@
 
 namespace
 {
-    using ignite::odbc::NestedTxMode;
+    using ignite::NestedTxMode;
     NestedTxMode::Type validValues0[] = {
         NestedTxMode::AI_COMMIT,
         NestedTxMode::AI_IGNORE,

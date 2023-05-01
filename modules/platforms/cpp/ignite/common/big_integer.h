@@ -205,6 +205,17 @@ public:
     void store_bytes(std::byte *data) const;
 
     /**
+     * Convert value to bytes.
+     *
+     * @return Vector of bytes.
+     */
+    [[nodiscard]] std::vector<std::byte> to_bytes() const {
+        std::vector<std::byte> bytes(byte_size());
+        store_bytes(bytes.data());
+        return bytes;
+    }
+
+    /**
      * Get precision of the BigInteger.
      *
      * @return Number of the decimal digits in the decimal representation

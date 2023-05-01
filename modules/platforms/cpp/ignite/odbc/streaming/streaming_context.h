@@ -81,7 +81,7 @@ namespace ignite
                  *
                  * @return @c true if enabled.
                  */
-                bool IsEnabled() const
+                bool is_enabled() const
                 {
                     return enabled;
                 }
@@ -93,7 +93,7 @@ namespace ignite
                  * @param params SQL params.
                  * @return True on success.
                  */
-                sql_result Execute(const std::string& sql, const app::ParameterSet& params);
+                sql_result Execute(const std::string& sql, const ParameterSet& params);
 
             private:
                 IGNITE_NO_COPY_ASSIGNMENT(StreamingContext);

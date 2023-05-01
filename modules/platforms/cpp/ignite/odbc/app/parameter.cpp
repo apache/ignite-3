@@ -38,7 +38,7 @@ namespace ignite
                 // No-op.
             }
 
-            Parameter::Parameter(const ApplicationDataBuffer& buffer, int16_t sqlType,
+            Parameter::Parameter(const application_data_buffer& buffer, int16_t sqlType,
                 size_t columnSize, int16_t decDigits) :
                 buffer(buffer),
                 sqlType(sqlType),
@@ -78,7 +78,7 @@ namespace ignite
 
             void Parameter::Write(impl::binary::BinaryWriterImpl& writer, int offset, SQLULEN idx) const
             {
-                if (buffer.GetInputSize() == SQL_NULL_DATA)
+                if (buffer.get_input_size() == SQL_NULL_DATA)
                 {
                     writer.WriteNull();
 
@@ -86,15 +86,15 @@ namespace ignite
                 }
 
                 // Buffer to use to get data.
-                ApplicationDataBuffer buf(buffer);
-                buf.SetByteOffset(offset);
-                buf.SetElementOffset(idx);
+                application_data_buffer buf(buffer);
+                buf.set_byte_offset(offset);
+                buf.set_element_offset(idx);
 
                 SQLLEN storedDataLen = static_cast<SQLLEN>(storedData.size());
 
-                if (buffer.IsDataAtExec())
+                if (buffer.is_data_at_exec())
                 {
-                    buf = ApplicationDataBuffer(buffer.GetType(),
+                    buf = application_data_buffer(buffer.get_type(),
                         const_cast<int8_t*>(&storedData[0]), storedDataLen, &storedDataLen);
                 }
 
@@ -104,70 +104,70 @@ namespace ignite
                     case SQL_VARCHAR:
                     case SQL_LONGVARCHAR:
                     {
-                        utility::WriteString(writer, buf.GetString(columnSize));
+                        utility::WriteString(writer, buf.get_string(columnSize));
                         break;
                     }
 
                     case SQL_SMALLINT:
                     {
-                        writer.WriteObject<int16_t>(buf.GetInt16());
+                        writer.WriteObject<int16_t>(buf.get_int16());
                         break;
                     }
 
                     case SQL_INTEGER:
                     {
-                        writer.WriteObject<int32_t>(buf.GetInt32());
+                        writer.WriteObject<int32_t>(buf.get_int32());
                         break;
                     }
 
                     case SQL_FLOAT:
                     {
-                        writer.WriteObject<float>(buf.GetFloat());
+                        writer.WriteObject<float>(buf.get_float());
                         break;
                     }
 
                     case SQL_DOUBLE:
                     {
-                        writer.WriteObject<double>(buf.GetDouble());
+                        writer.WriteObject<double>(buf.get_double());
                         break;
                     }
 
                     case SQL_TINYINT:
                     {
-                        writer.WriteObject<int8_t>(buf.GetInt8());
+                        writer.WriteObject<int8_t>(buf.get_int8());
                         break;
                     }
 
                     case SQL_BIT:
                     {
-                        writer.WriteObject<bool>(buf.GetInt8() != 0);
+                        writer.WriteObject<bool>(buf.get_int8() != 0);
                         break;
                     }
 
                     case SQL_BIGINT:
                     {
-                        writer.WriteObject<int64_t>(buf.GetInt64());
+                        writer.WriteObject<int64_t>(buf.get_int64());
                         break;
                     }
 
                     case SQL_TYPE_DATE:
                     case SQL_DATE:
                     {
-                        writer.WriteDate(buf.GetDate());
+                        writer.WriteDate(buf.get_date());
                         break;
                     }
 
                     case SQL_TYPE_TIMESTAMP:
                     case SQL_TIMESTAMP:
                     {
-                        writer.WriteTimestamp(buf.GetTimestamp());
+                        writer.WriteTimestamp(buf.get_timestamp());
                         break;
                     }
 
                     case SQL_TYPE_TIME:
                     case SQL_TIME:
                     {
-                        writer.WriteTime(buf.GetTime());
+                        writer.WriteTime(buf.get_time());
                         break;
                     }
 
@@ -175,23 +175,23 @@ namespace ignite
                     case SQL_VARBINARY:
                     case SQL_LONGVARBINARY:
                     {
-                        const ApplicationDataBuffer& constRef = buf;
+                        const application_data_buffer& constRef = buf;
 
-                        const SQLLEN* resLenPtr = constRef.GetResLen();
+                        const SQLLEN* resLenPtr = constRef.get_result_len();
 
                         if (!resLenPtr)
                             break;
 
                         int32_t paramLen = static_cast<int32_t>(*resLenPtr);
 
-                        writer.WriteInt8Array(reinterpret_cast<const int8_t*>(constRef.GetData()), paramLen);
+                        writer.WriteInt8Array(reinterpret_cast<const int8_t*>(constRef.get_data()), paramLen);
 
                         break;
                     }
 
                     case SQL_GUID:
                     {
-                        writer.WriteGuid(buf.GetGuid());
+                        writer.WriteGuid(buf.get_uuid());
 
                         break;
                     }
@@ -199,7 +199,7 @@ namespace ignite
                     case SQL_DECIMAL:
                     {
                         big_decimal dec;
-                        buf.GetDecimal(dec);
+                        buf.get_decimal(dec);
 
                         utility::WriteDecimal(writer, dec);
 
@@ -211,12 +211,12 @@ namespace ignite
                 }
             }
 
-            ApplicationDataBuffer& Parameter::GetBuffer()
+            application_data_buffer& Parameter::GetBuffer()
             {
                 return buffer;
             }
 
-            const ApplicationDataBuffer& Parameter::GetBuffer() const
+            const application_data_buffer& Parameter::GetBuffer() const
             {
                 return buffer;
             }
@@ -225,14 +225,14 @@ namespace ignite
             {
                 storedData.clear();
 
-                if (buffer.IsDataAtExec())
-                    storedData.reserve(buffer.GetDataAtExecSize());
+                if (buffer.is_data_at_exec())
+                    storedData.reserve(buffer.get_data_at_exec_size());
             }
 
             bool Parameter::IsDataReady() const
             {
-                return !buffer.IsDataAtExec() ||
-                    static_cast<SQLLEN>(storedData.size()) == buffer.GetDataAtExecSize();
+                return !buffer.is_data_at_exec() ||
+                    static_cast<SQLLEN>(storedData.size()) == buffer.get_data_at_exec_size();
             }
 
             void Parameter::PutData(void* data, SQLLEN len)
@@ -247,12 +247,12 @@ namespace ignite
                     return;
                 }
 
-                if (buffer.GetType() == odbc_native_type::AI_CHAR ||
-                    buffer.GetType() == odbc_native_type::AI_BINARY)
+                if (buffer.get_type() == odbc_native_type::AI_CHAR ||
+                    buffer.get_type() == odbc_native_type::AI_BINARY)
                 {
                     SQLLEN slen = len;
 
-                    if (buffer.GetType() == odbc_native_type::AI_CHAR && slen == SQL_NTSL)
+                    if (buffer.get_type() == odbc_native_type::AI_CHAR && slen == SQL_NTSL)
                     {
                         const char* str = reinterpret_cast<char*>(data);
 
@@ -271,7 +271,7 @@ namespace ignite
                     return;
                 }
 
-                size_t dataSize = buffer.GetDataAtExecSize();
+                size_t dataSize = buffer.get_data_at_exec_size();
 
                 storedData.resize(dataSize);
 

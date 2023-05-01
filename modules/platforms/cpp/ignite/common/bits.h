@@ -19,8 +19,14 @@
 
 #include "config.h"
 
+#include <array>
 #include <climits>
 #include <type_traits>
+
+/**
+ * Maximum number of digits in std::uint64_t number.
+ */
+const std::int32_t UINT64_MAX_PRECISION = 20;
 
 #if defined(__cpp_lib_bitops) && __cpp_lib_bitops >= 201907L
 # define IGNITE_STD_BITOPS 1
@@ -174,6 +180,63 @@ T bit_ceil(T value) noexcept {
  */
 [[nodiscard]] inline std::size_t bytes_for_bits(std::size_t bits_num) {
     return (bits_num + CHAR_BIT - 1) / CHAR_BIT;
+}
+
+/**
+ * Get n-th power of ten.
+ *
+ * @param n Power. Should be in range [0, UINT64_MAX_PRECISION]
+ * @return 10 pow n, if n is in range [0, UINT64_MAX_PRECISION].
+ *     Otherwise, behaviour is undefined.
+ */
+inline std::uint64_t ten_power_u64(std::int32_t n)
+{
+    static const std::array<uint64_t, UINT64_MAX_PRECISION> TEN_POWERS_TABLE {
+        1U,                     // 0  / 10^0
+        10U,                    // 1  / 10^1
+        100U,                   // 2  / 10^2
+        1000U,                  // 3  / 10^3
+        10000U,                 // 4  / 10^4
+        100000U,                // 5  / 10^5
+        1000000U,               // 6  / 10^6
+        10000000U,              // 7  / 10^7
+        100000000U,             // 8  / 10^8
+        1000000000U,            // 9  / 10^9
+        10000000000U,           // 10 / 10^10
+        100000000000U,          // 11 / 10^11
+        1000000000000U,         // 12 / 10^12
+        10000000000000U,        // 13 / 10^13
+        100000000000000U,       // 14 / 10^14
+        1000000000000000U,      // 15 / 10^15
+        10000000000000000U,     // 16 / 10^16
+        100000000000000000U,    // 17 / 10^17
+        1000000000000000000U,   // 18 / 10^18
+        10000000000000000000U   // 19 / 10^19
+    };
+
+    assert(n >= 0 && n < UINT64_MAX_PRECISION);
+
+    return TEN_POWERS_TABLE[n];
+}
+
+/**
+ * Get the number of decimal digits of the integer value.
+ *
+ * @param value The value.
+ * @return The number of decimal digits of the integer value.
+ */
+[[nodiscard]] inline std::int32_t digit_length(std::uint64_t value) {
+    // See http://graphics.stanford.edu/~seander/bithacks.html
+    // for the details on the algorithm.
+
+    if (value < 10)
+        return 1;
+
+    std::int32_t r = ((64 - countl_zero(value) + 1) * 1233) >> 12;
+
+    assert(r <= UINT64_MAX_PRECISION);
+
+    return (r == UINT64_MAX_PRECISION || value < ten_power_u64(r)) ? r : r + 1;
 }
 
 } // namespace ignite

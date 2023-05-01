@@ -131,49 +131,49 @@ namespace ignite
                        result == sql_result::AI_SUCCESS_WITH_INFO;
             }
 
-            sql_result DiagnosticRecordStorage::GetField(int32_t recNum, diagnostic_field field, app::ApplicationDataBuffer& buffer) const
+            sql_result DiagnosticRecordStorage::GetField(int32_t recNum, diagnostic_field field, application_data_buffer& buffer) const
             {
                 // Header record.
                 switch (field)
                 {
                     case diagnostic_field::HEADER_CURSOR_ROW_COUNT:
                     {
-                        buffer.PutInt64(GetRowCount());
+                        buffer.put_int64(GetRowCount());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::HEADER_DYNAMIC_FUNCTION:
                     {
-                        buffer.PutString(GetDynamicFunction());
+                        buffer.put_string(GetDynamicFunction());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::HEADER_DYNAMIC_FUNCTION_CODE:
                     {
-                        buffer.PutInt32(GetDynamicFunctionCode());
+                        buffer.put_int32(GetDynamicFunctionCode());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::HEADER_NUMBER:
                     {
-                        buffer.PutInt32(GetStatusRecordsNumber());
+                        buffer.put_int32(GetStatusRecordsNumber());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::HEADER_RETURN_CODE:
                     {
-                        buffer.PutInt32(GetReturnCode());
+                        buffer.put_int32(GetReturnCode());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::HEADER_ROW_COUNT:
                     {
-                        buffer.PutInt64(GetRowsAffected());
+                        buffer.put_int64(GetRowsAffected());
 
                         return sql_result::AI_SUCCESS;
                     }
@@ -192,63 +192,63 @@ namespace ignite
                 {
                     case diagnostic_field::STATUS_CLASS_ORIGIN:
                     {
-                        buffer.PutString(record.GetClassOrigin());
+                        buffer.put_string(record.GetClassOrigin());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_COLUMN_NUMBER:
                     {
-                        buffer.PutInt32(record.GetColumnNumber());
+                        buffer.put_int32(record.GetColumnNumber());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_CONNECTION_NAME:
                     {
-                        buffer.PutString(record.GetConnectionName());
+                        buffer.put_string(record.GetConnectionName());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_MESSAGE_TEXT:
                     {
-                        buffer.PutString(record.GetMessageText());
+                        buffer.put_string(record.GetMessageText());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_NATIVE:
                     {
-                        buffer.PutInt32(0);
+                        buffer.put_int32(0);
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_ROW_NUMBER:
                     {
-                        buffer.PutInt64(record.GetRowNumber());
+                        buffer.put_int64(record.GetRowNumber());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_SERVER_NAME:
                     {
-                        buffer.PutString(record.GetServerName());
+                        buffer.put_string(record.GetServerName());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_SQLSTATE:
                     {
-                        buffer.PutString(record.Getsql_state());
+                        buffer.put_string(record.Getsql_state());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_SUBCLASS_ORIGIN:
                     {
-                        buffer.PutString(record.GetSubclassOrigin());
+                        buffer.put_string(record.GetSubclassOrigin());
 
                         return sql_result::AI_SUCCESS;
                     }

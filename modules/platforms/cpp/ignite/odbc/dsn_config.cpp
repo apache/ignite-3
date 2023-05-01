@@ -23,7 +23,7 @@
 #include "ignite/odbc/system/odbc_constants.h"
 #include "utility.h"
 
-using namespace ignite::odbc::config;
+using namespace ignite::config;
 
 #define BUFFER_SIZE (1024 * 1024)
 #define CONFIG_FILE "ODBC.INI"
@@ -37,11 +37,11 @@ namespace ignite
             DWORD code;
             FixedSizeArray<char> msg(BUFFER_SIZE);
 
-            SQLInstallerError(1, &code, msg.GetData(), msg.GetSize(), NULL);
+            SQLInstallerError(1, &code, msg.get_data(), msg.get_size(), NULL);
 
             std::stringstream buf;
 
-            buf << "Message: \"" << msg.GetData() << "\", Code: " << code;
+            buf << "Message: \"" << msg.get_data() << "\", Code: " << code;
 
             throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, buf.str().c_str());
         }
@@ -60,16 +60,16 @@ namespace ignite
 
             FixedSizeArray<char> buf(BUFFER_SIZE);
 
-            int ret = SQLGetPrivateProfileString(dsn, key.c_str(), unique, buf.GetData(), buf.GetSize(), CONFIG_FILE);
+            int ret = SQLGetPrivateProfileString(dsn, key.c_str(), unique, buf.get_data(), buf.get_size(), CONFIG_FILE);
 
             if (ret > BUFFER_SIZE)
             {
                 buf.Reset(ret + 1);
 
-                ret = SQLGetPrivateProfileString(dsn, key.c_str(), unique, buf.GetData(), buf.GetSize(), CONFIG_FILE);
+                ret = SQLGetPrivateProfileString(dsn, key.c_str(), unique, buf.get_data(), buf.get_size(), CONFIG_FILE);
             }
 
-            std::string res(buf.GetData());
+            std::string res(buf.get_data());
 
             if (res != unique)
                 val.SetValue(res);

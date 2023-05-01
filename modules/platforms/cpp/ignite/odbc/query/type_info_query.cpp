@@ -127,7 +127,7 @@ namespace ignite
                 cursor(types.end())
             {
                 using namespace ignite::impl::binary;
-                using namespace ignite::odbc::type_traits;
+                using namespace ignite::type_traits;
 
                 using meta::ColumnMeta;
 
@@ -196,7 +196,7 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            sql_result TypeInfoQuery::FetchNextRow(app::ColumnBindingMap & columnBindings)
+            sql_result TypeInfoQuery::FetchNextRow(column_binding_map & columnBindings)
             {
                 if (!executed)
                 {
@@ -213,7 +213,7 @@ namespace ignite
                 if (cursor == types.end())
                     return sql_result::AI_NO_DATA;
 
-                app::ColumnBindingMap::iterator it;
+                column_binding_map::iterator it;
 
                 for (it = columnBindings.begin(); it != columnBindings.end(); ++it)
                     GetColumn(it->first, it->second);
@@ -221,7 +221,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            sql_result TypeInfoQuery::GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer & buffer)
+            sql_result TypeInfoQuery::GetColumn(uint16_t columnIdx, application_data_buffer & buffer)
             {
                 using namespace ignite::impl::binary;
 
@@ -246,7 +246,7 @@ namespace ignite
                 {
                     case ResultColumn::TYPE_NAME:
                     {
-                        buffer.PutString(ignite_type_to_sql_type_name(currentType));
+                        buffer.put_string(ignite_type_to_sql_type_name(currentType));
 
                         break;
                     }
@@ -254,14 +254,14 @@ namespace ignite
                     case ResultColumn::DATA_TYPE:
                     case ResultColumn::SQL_DATA_TYPE:
                     {
-                        buffer.PutInt16(ignite_type_to_sql_type(currentType));
+                        buffer.put_int16(ignite_type_to_sql_type(currentType));
 
                         break;
                     }
 
                     case ResultColumn::COLUMN_SIZE:
                     {
-                        buffer.PutInt32(ignite_type_column_size(currentType));
+                        buffer.put_int32(ignite_type_column_size(currentType));
 
                         break;
                     }
@@ -269,11 +269,11 @@ namespace ignite
                     case ResultColumn::LITERAL_PREFIX:
                     {
                         if (currentType == IGNITE_TYPE_STRING)
-                            buffer.PutString("'");
+                            buffer.put_string("'");
                         else if (currentType == IGNITE_TYPE_BINARY)
-                            buffer.PutString("0x");
+                            buffer.put_string("0x");
                         else
-                            buffer.PutNull();
+                            buffer.put_null();
 
                         break;
                     }
@@ -281,23 +281,23 @@ namespace ignite
                     case ResultColumn::LITERAL_SUFFIX:
                     {
                         if (currentType == IGNITE_TYPE_STRING)
-                            buffer.PutString("'");
+                            buffer.put_string("'");
                         else
-                            buffer.PutNull();
+                            buffer.put_null();
 
                         break;
                     }
 
                     case ResultColumn::CREATE_PARAMS:
                     {
-                        buffer.PutNull();
+                        buffer.put_null();
 
                         break;
                     }
 
                     case ResultColumn::NULLABLE:
                     {
-                        buffer.PutInt32(ignite_type_nullability(currentType));
+                        buffer.put_int32(ignite_type_nullability(currentType));
 
                         break;
                     }
@@ -305,23 +305,23 @@ namespace ignite
                     case ResultColumn::CASE_SENSITIVE:
                     {
                         if (currentType == IGNITE_TYPE_STRING)
-                            buffer.PutInt16(SQL_TRUE);
+                            buffer.put_int16(SQL_TRUE);
                         else
-                            buffer.PutInt16(SQL_FALSE);
+                            buffer.put_int16(SQL_FALSE);
 
                         break;
                     }
 
                     case ResultColumn::SEARCHABLE:
                     {
-                        buffer.PutInt16(SQL_SEARCHABLE);
+                        buffer.put_int16(SQL_SEARCHABLE);
 
                         break;
                     }
 
                     case ResultColumn::UNSIGNED_ATTRIBUTE:
                     {
-                        buffer.PutInt16(is_ignite_type_unsigned(currentType));
+                        buffer.put_int16(is_ignite_type_unsigned(currentType));
 
                         break;
                     }
@@ -329,14 +329,14 @@ namespace ignite
                     case ResultColumn::FIXED_PREC_SCALE:
                     case ResultColumn::AUTO_UNIQUE_VALUE:
                     {
-                        buffer.PutInt16(SQL_FALSE);
+                        buffer.put_int16(SQL_FALSE);
 
                         break;
                     }
 
                     case ResultColumn::LOCAL_TYPE_NAME:
                     {
-                        buffer.PutNull();
+                        buffer.put_null();
 
                         break;
                     }
@@ -344,28 +344,28 @@ namespace ignite
                     case ResultColumn::MINIMUM_SCALE:
                     case ResultColumn::MAXIMUM_SCALE:
                     {
-                        buffer.PutInt16(ignite_type_decimal_digits(currentType));
+                        buffer.put_int16(ignite_type_decimal_digits(currentType));
 
                         break;
                     }
 
                     case ResultColumn::SQL_DATETIME_SUB:
                     {
-                        buffer.PutNull();
+                        buffer.put_null();
 
                         break;
                     }
 
                     case ResultColumn::NUM_PREC_RADIX:
                     {
-                        buffer.PutInt32(ignite_type_num_precision_radix(currentType));
+                        buffer.put_int32(ignite_type_num_precision_radix(currentType));
 
                         break;
                     }
 
                     case ResultColumn::INTERVAL_PRECISION:
                     {
-                        buffer.PutNull();
+                        buffer.put_null();
 
                         break;
                     }

@@ -28,7 +28,7 @@ namespace ignite
         namespace query
         {
             BatchQuery::BatchQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
-                const app::ParameterSet& params, int32_t& timeout) :
+                const ParameterSet& params, int32_t& timeout) :
                 Query(diag, QueryType::BATCH),
                 connection(connection),
                 sql(sql),
@@ -80,7 +80,7 @@ namespace ignite
                 return &resultMeta;
             }
 
-            sql_result BatchQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result BatchQuery::FetchNextRow(column_binding_map&)
             {
                 if (!executed)
                 {
@@ -92,7 +92,7 @@ namespace ignite
                 return sql_result::AI_NO_DATA;
             }
 
-            sql_result BatchQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result BatchQuery::GetColumn(uint16_t, application_data_buffer&)
             {
                 if (!executed)
                 {

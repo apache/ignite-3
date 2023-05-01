@@ -88,7 +88,7 @@ namespace ignite
 
             if (targetValue || strLengthOrIndicator)
             {
-                app::ApplicationDataBuffer dataBuffer(driverType, targetValue, bufferLength, strLengthOrIndicator);
+                application_data_buffer dataBuffer(driverType, targetValue, bufferLength, strLengthOrIndicator);
 
                 SafeBindColumn(columnIdx, dataBuffer);
             }
@@ -98,7 +98,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::SafeBindColumn(uint16_t columnIdx, const app::ApplicationDataBuffer& buffer)
+        void Statement::SafeBindColumn(uint16_t columnIdx, const application_data_buffer& buffer)
         {
             columnBindings[columnIdx] = buffer;
         }
@@ -155,8 +155,8 @@ namespace ignite
             int16_t paramSqlType, SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen)
         {
             using namespace type_traits;
-            using app::ApplicationDataBuffer;
-            using app::Parameter;
+            using application_data_buffer;
+            using Parameter;
 
             if (paramIdx == 0)
             {
@@ -210,7 +210,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            ApplicationDataBuffer dataBuffer(driverType, buffer, bufferLen, resLen);
+            application_data_buffer dataBuffer(driverType, buffer, bufferLen, resLen);
 
             Parameter param(dataBuffer, paramSqlType, columnSize, decDigits);
 
@@ -550,7 +550,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (currentQuery->GetType() != query::QueryType::DATA)
+            if (currentQuery->get_type() != query::QueryType::DATA)
             {
                 paramNum = 0;
 
@@ -577,13 +577,13 @@ namespace ignite
             parameters.SetParamBindOffsetPtr(ptr);
         }
 
-        void Statement::GetColumnData(uint16_t columnIdx, app::ApplicationDataBuffer& buffer)
+        void Statement::GetColumnData(uint16_t columnIdx, application_data_buffer& buffer)
         {
             IGNITE_ODBC_API_CALL(InternalGetColumnData(columnIdx, buffer));
         }
 
         sql_result Statement::InternalGetColumnData(uint16_t columnIdx,
-            app::ApplicationDataBuffer& buffer)
+            application_data_buffer& buffer)
         {
             if (!currentQuery.get())
             {
@@ -629,7 +629,7 @@ namespace ignite
 
         bool Statement::IsStreamingActive() const
         {
-            return connection.GetStreamingContext().IsEnabled();
+            return connection.GetStreamingContext().is_enabled();
         }
 
         sql_result Statement::InternalPrepareSqlQuery(const std::string& query)
@@ -689,27 +689,27 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (currentQuery->GetType() == query::QueryType::INTERNAL)
+            if (currentQuery->get_type() == query::QueryType::INTERNAL)
             {
                 ProcessInternalQuery();
 
                 return sql_result::AI_SUCCESS;
             }
 
-            if (parameters.GetParamSetSize() > 1 && currentQuery->GetType() == query::QueryType::DATA)
+            if (parameters.GetParamSetSize() > 1 && currentQuery->get_type() == query::QueryType::DATA)
             {
                 query::DataQuery& qry = static_cast<query::DataQuery&>(*currentQuery);
 
                 currentQuery.reset(new query::BatchQuery(*this, connection, qry.GetSql(), parameters, timeout));
             }
-            else if (parameters.GetParamSetSize() == 1 && currentQuery->GetType() == query::QueryType::BATCH)
+            else if (parameters.GetParamSetSize() == 1 && currentQuery->get_type() == query::QueryType::BATCH)
             {
                 query::BatchQuery& qry = static_cast<query::BatchQuery&>(*currentQuery);
 
                 currentQuery.reset(new query::DataQuery(*this, connection, qry.GetSql(), parameters, timeout));
             }
 
-            if (parameters.GetParamSetSize() > 1 && currentQuery->GetType() == query::QueryType::STREAMING)
+            if (parameters.GetParamSetSize() > 1 && currentQuery->get_type() == query::QueryType::STREAMING)
             {
                 AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                     "Batching is not supported in streaming mode.");
@@ -719,8 +719,8 @@ namespace ignite
 
             if (parameters.IsDataAtExecNeeded())
             {
-                if (currentQuery->GetType() == query::QueryType::BATCH ||
-                    currentQuery->GetType() == query::QueryType::STREAMING)
+                if (currentQuery->get_type() == query::QueryType::BATCH ||
+                    currentQuery->get_type() == query::QueryType::STREAMING)
                 {
                     AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Data-at-execution is not supported with batching.");
@@ -736,19 +736,19 @@ namespace ignite
 
         sql_result Statement::ProcessInternalQuery()
         {
-            assert(currentQuery->GetType() == query::QueryType::INTERNAL);
+            assert(currentQuery->get_type() == query::QueryType::INTERNAL);
 
             query::InternalQuery* qry = static_cast<query::InternalQuery*>(currentQuery.get());
             
             LOG_MSG("Processing internal query: " << qry->GetQuery());
 
-            assert(qry->GetCommand().GetType() == SqlCommandType::SET_STREAMING);
+            assert(qry->GetCommand().get_type() == SqlCommandType::SET_STREAMING);
 
             SqlSetStreamingCommand& cmd = static_cast<SqlSetStreamingCommand&>(qry->GetCommand());
 
             StopStreaming();
 
-            if (!cmd.IsEnabled())
+            if (!cmd.is_enabled())
                 return sql_result::AI_SUCCESS;
 
             LOG_MSG("Sending start streaming command");
@@ -1018,8 +1018,8 @@ namespace ignite
 
             if (columnBindOffset)
             {
-                for (app::ColumnBindingMap::iterator it = columnBindings.begin(); it != columnBindings.end(); ++it)
-                    it->second.SetByteOffset(*columnBindOffset);
+                for (column_binding_map::iterator it = columnBindings.begin(); it != columnBindings.end(); ++it)
+                    it->second.set_byte_offset(*columnBindOffset);
             }
 
             SQLINTEGER fetched = 0;
@@ -1027,8 +1027,8 @@ namespace ignite
 
             for (SQLULEN i = 0; i < rowArraySize; ++i)
             {
-                for (app::ColumnBindingMap::iterator it = columnBindings.begin(); it != columnBindings.end(); ++it)
-                    it->second.SetElementOffset(i);
+                for (column_binding_map::iterator it = columnBindings.begin(); it != columnBindings.end(); ++it)
+                    it->second.set_element_offset(i);
 
                 sql_result res = currentQuery->FetchNextRow(columnBindings);
 
@@ -1207,7 +1207,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            app::Parameter *selected = parameters.GetSelectedParameter();
+            Parameter *selected = parameters.GetSelectedParameter();
 
             if (selected && !selected->IsDataReady())
             {
@@ -1222,7 +1222,7 @@ namespace ignite
 
             if (selected)
             {
-                *paramPtr = selected->GetBuffer().GetData();
+                *paramPtr = selected->GetBuffer().get_data();
 
                 return sql_result::AI_NEED_DATA;
             }
@@ -1259,7 +1259,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            app::Parameter* param = parameters.GetSelectedParameter();
+            Parameter* param = parameters.GetSelectedParameter();
 
             if (!param)
             {
@@ -1292,7 +1292,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (qry->GetType() != query::QueryType::DATA)
+            if (qry->get_type() != query::QueryType::DATA)
             {
                 AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not SQL data query.");
 
@@ -1333,7 +1333,7 @@ namespace ignite
             query::Query *qry0 = currentQuery.get();
 
             assert(qry0 != 0);
-            assert(qry0->GetType() == query::QueryType::DATA);
+            assert(qry0->get_type() == query::QueryType::DATA);
 
             query::DataQuery* qry = static_cast<query::DataQuery*>(qry0);
 

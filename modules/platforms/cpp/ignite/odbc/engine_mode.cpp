@@ -20,7 +20,7 @@
 
 namespace
 {
-    using ignite::odbc::EngineMode;
+    using ignite::EngineMode;
     EngineMode::Type validValues0[] = {
             EngineMode::DEFAULT,
             EngineMode::H2,

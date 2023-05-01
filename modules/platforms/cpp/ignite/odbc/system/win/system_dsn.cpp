@@ -26,11 +26,11 @@
 #include "ignite/odbc/system/ui/dsn_configuration_window.h"
 #include "ui/window.h"
 
-using ignite::odbc::config::Configuration;
+using ignite::config::Configuration;
 
 bool DisplayConnectionWindow(void* windowParent, Configuration& config)
 {
-    using namespace ignite::odbc::system::ui;
+    using namespace ignite::system::ui;
 
     HWND hwndParent = (HWND) windowParent;
 
@@ -75,7 +75,7 @@ bool DisplayConnectionWindow(void* windowParent, Configuration& config)
  */
 bool RegisterDsn(const Configuration& config, LPCSTR driver)
 {
-    using namespace ignite::odbc::config;
+    using namespace ignite::config;
     using ignite::LexicalCast;
 
     typedef Configuration::ArgumentMap ArgMap;
@@ -85,7 +85,7 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver)
     try
     {
         if (!SQLWriteDSNToIni(dsn, driver))
-            ignite::odbc::ThrowLastSetupError();
+            ignite::ThrowLastSetupError();
 
         ArgMap map;
         
@@ -99,7 +99,7 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver)
             const std::string& key = it->first;
             const std::string& value = it->second;
 
-            ignite::odbc::WriteDsnString(dsn, key.c_str(), value.c_str());
+            ignite::WriteDsnString(dsn, key.c_str(), value.c_str());
         }
 
         return true;
@@ -125,7 +125,7 @@ bool UnregisterDsn(const char* dsn)
     try
     {
         if (!SQLRemoveDSNFromIni(dsn))
-            ignite::odbc::ThrowLastSetupError();
+            ignite::ThrowLastSetupError();
 
         return true;
     }

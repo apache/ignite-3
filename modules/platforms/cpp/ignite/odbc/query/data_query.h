@@ -47,7 +47,7 @@ namespace ignite
                  * @param timeout Timeout.
                  */
                 DataQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
-                    const app::ParameterSet& params, int32_t& timeout);
+                    const ParameterSet& params, int32_t& timeout);
 
                 /**
                  * Destructor.
@@ -74,7 +74,7 @@ namespace ignite
                  * @param columnBindings Application buffers to put data to.
                  * @return Operation result.
                  */
-                virtual sql_result FetchNextRow(app::ColumnBindingMap& columnBindings);
+                virtual sql_result FetchNextRow(column_binding_map& columnBindings);
 
                 /**
                  * Get data of the specified column in the result set.
@@ -83,7 +83,7 @@ namespace ignite
                  * @param buffer Buffer to put column data to.
                  * @return Operation result.
                  */
-                virtual sql_result GetColumn(uint16_t columnIdx, app::ApplicationDataBuffer& buffer);
+                virtual sql_result GetColumn(uint16_t columnIdx, application_data_buffer& buffer);
 
                 /**
                  * Close query.
@@ -185,7 +185,7 @@ namespace ignite
                  * @param columnIdx Column index.
                  * @return General SQL result.
                  */
-                sql_result ProcessConversionResult(app::ConversionResult::Type convRes, int32_t rowIdx,
+                sql_result ProcessConversionResult(conversion_result convRes, int32_t rowIdx,
                     int32_t columnIdx);;
 
                 /**
@@ -212,7 +212,7 @@ namespace ignite
                 std::string sql;
 
                 /** Parameter bindings. */
-                const app::ParameterSet& params;
+                const ParameterSet& params;
 
                 /** Result set metadata is available */
                 bool resultMetaAvailable;

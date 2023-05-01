@@ -44,7 +44,7 @@ namespace ignite
                 columnsMeta()
             {
                 using namespace ignite::impl::binary;
-                using namespace ignite::odbc::type_traits;
+                using namespace ignite::type_traits;
 
                 using meta::ColumnMeta;
 
@@ -86,7 +86,7 @@ namespace ignite
                 return &columnsMeta;
             }
 
-            sql_result ForeignKeysQuery::FetchNextRow(app::ColumnBindingMap&)
+            sql_result ForeignKeysQuery::FetchNextRow(column_binding_map&)
             {
                 if (!executed)
                 {
@@ -98,7 +98,7 @@ namespace ignite
                 return sql_result::AI_NO_DATA;
             }
 
-            sql_result ForeignKeysQuery::GetColumn(uint16_t, app::ApplicationDataBuffer&)
+            sql_result ForeignKeysQuery::GetColumn(uint16_t, application_data_buffer&)
             {
                 if (!executed)
                 {

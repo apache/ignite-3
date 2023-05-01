@@ -15,69 +15,38 @@
  * limitations under the License.
  */
 
-#include <cstdlib>
+#include "ignite/odbc/log.h"
 
-#include "log.h"
+#include <cstdlib>
 
 namespace ignite
 {
-    namespace odbc
-    {
-        LogStream::LogStream(Logger* parent) :
-            std::basic_ostream<char>(0),
-            strbuf(),
-            logger(parent)
-        {
-            init(&strbuf);
-        }
 
-        bool LogStream::operator()()
-        {
-            return logger != 0;
-        }
+log_stream::~log_stream() {
+    if (m_logger)
+        m_logger->write_message(m_string_buf.str());
+}
 
-        LogStream::~LogStream()
-        {
-            if (logger)
-            {
-                logger->WriteMessage(strbuf.str());
-            }
-        }
+odbc_logger::odbc_logger(const char* path) {
+    if (path)
+        m_stream.open(path);
+}
 
-        Logger::Logger(const char* path) :
-            mutex(),
-            stream()
-        {
-            if (path)
-            {
-                stream.open(path);
-            }
-        }
+bool odbc_logger::is_enabled() const {
+    return m_stream.is_open();
+}
 
-        Logger::~Logger()
-        {
-        }
-
-        bool Logger::IsEnabled() const
-        {
-            return stream.is_open();
-        }
-
-        void Logger::WriteMessage(std::string const& message)
-        {
-            if (IsEnabled())
-            {
-                ignite::concurrent::CsLockGuard guard(mutex);
-                stream << message << std::endl;
-            }
-        }
-
-        Logger* Logger::Get()
-        {
-            const char* envVarName = "IGNITE_ODBC_LOG_PATH";
-            static Logger logger(getenv(envVarName));
-            return logger.IsEnabled() ? &logger : 0;
-        }
+void odbc_logger::write_message(std::string const& message) {
+    if (is_enabled()) {
+        std::lock_guard<std::mutex> guard(m_mutex);
+        m_stream << message << std::endl;
     }
 }
 
+odbc_logger* odbc_logger::get() {
+    const char* env_var_name = "IGNITE3_ODBC_LOG_PATH";
+    static odbc_logger logger(getenv(env_var_name));
+    return logger.is_enabled() ? &logger : nullptr;
+}
+
+} // namespace ignite

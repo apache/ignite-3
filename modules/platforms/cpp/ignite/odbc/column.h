@@ -71,7 +71,7 @@ namespace ignite
              *
              * @return Column size.
              */
-            int32_t GetSize() const
+            int32_t get_size() const
             {
                 return size;
             }
@@ -83,8 +83,8 @@ namespace ignite
              * @param dataBuf Application data buffer.
              * @return Operation result.
              */
-            app::ConversionResult::Type ReadToBuffer(ignite::impl::binary::BinaryReaderImpl& reader,
-                app::ApplicationDataBuffer& dataBuf);
+            conversion_result ReadToBuffer(ignite::impl::binary::BinaryReaderImpl& reader,
+                application_data_buffer& dataBuf);
 
             /**
              * Check if the column is in valid state.

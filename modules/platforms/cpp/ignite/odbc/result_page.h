@@ -57,7 +57,7 @@ namespace ignite
              * Get page size.
              * @return Page size.
              */
-            int32_t GetSize() const
+            int32_t get_size() const
             {
                 return size;
             }
@@ -75,7 +75,7 @@ namespace ignite
              * Get page data.
              * @return Page data.
              */
-            ignite::impl::interop::InteropUnpooledMemory& GetData()
+            ignite::impl::interop::InteropUnpooledMemory& get_data()
             {
                 return data;
             }

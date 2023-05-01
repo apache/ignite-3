@@ -37,11 +37,11 @@ namespace ignite
 
         bool Cursor::Increment()
         {
-            if (currentPage.get() && currentPagePos < currentPage->GetSize())
+            if (currentPage.get() && currentPagePos < currentPage->get_size())
             {
                 ++currentPagePos;
 
-                if (currentPagePos == currentPage->GetSize())
+                if (currentPagePos == currentPage->get_size())
                     currentRow.reset();
                 else
                 {
@@ -58,13 +58,13 @@ namespace ignite
         bool Cursor::NeedDataUpdate() const
         {
             return !currentPage.get() || (!currentPage->IsLast() &&
-                currentPagePos == currentPage->GetSize());
+                currentPagePos == currentPage->get_size());
         }
 
         bool Cursor::HasData() const
         {
             return !currentPage.get() || !currentPage->IsLast() ||
-                currentPagePos < currentPage->GetSize();
+                currentPagePos < currentPage->get_size();
         }
 
         bool Cursor::IsClosedRemotely() const
@@ -78,7 +78,7 @@ namespace ignite
 
             currentPagePos = 0;
 
-            currentRow.reset(new Row(currentPage->GetData()));
+            currentRow.reset(new Row(currentPage->get_data()));
         }
 
         Row* Cursor::GetRow()
