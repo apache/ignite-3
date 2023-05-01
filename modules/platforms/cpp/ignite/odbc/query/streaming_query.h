@@ -44,7 +44,7 @@ namespace ignite
                  * @param params SQL params.
                  */
                 StreamingQuery(
-                    diagnostic::DiagnosableAdapter& diag,
+                    DiagnosableAdapter& diag,
                     Connection& connection,
                     const parameter_set& params);
 

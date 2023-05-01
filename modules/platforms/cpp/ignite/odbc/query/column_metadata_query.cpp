@@ -75,7 +75,7 @@ namespace ignite
     {
         namespace query
         {
-            ColumnMetadataQuery::ColumnMetadataQuery(diagnostic::DiagnosableAdapter& diag,
+            ColumnMetadataQuery::ColumnMetadataQuery(DiagnosableAdapter& diag,
                 Connection& connection, const std::string& schema,
                 const std::string& table, const std::string& column) :
                 Query(diag, QueryType::COLUMN_METADATA),

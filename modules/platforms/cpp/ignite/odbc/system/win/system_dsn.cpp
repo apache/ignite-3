@@ -151,7 +151,7 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
     config::ConnectionStringParser parser(config);
 
-    diagnostic::DiagnosticRecordStorage diag;
+    diagnostic_record_storage diag;
 
     parser.ParseConfigAttributes(attributes, &diag);
 

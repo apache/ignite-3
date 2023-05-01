@@ -162,7 +162,7 @@ namespace ignite
                 /**
                  * Constructor.
                  */
-                Query(diagnostic::DiagnosableAdapter& diag, QueryType::Type type) :
+                Query(DiagnosableAdapter& diag, QueryType::Type type) :
                     diag(diag),
                     type(type)
                 {
@@ -170,7 +170,7 @@ namespace ignite
                 }
 
                 /** Diagnostics collector. */
-                diagnostic::DiagnosableAdapter& diag;
+                DiagnosableAdapter& diag;
 
                 /** Query type. */
                 QueryType::Type type;

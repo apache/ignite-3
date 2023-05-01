@@ -239,9 +239,9 @@ namespace ignite
                 /**
                  * Set addresses to connect to.
                  *
-                 * @param endPoints Addresses.
+                 * @param end_points Addresses.
                  */
-                void SetAddresses(const std::vector<EndPoint>& endPoints);
+                void SetAddresses(const std::vector<EndPoint>& end_points);
 
                 /**
                  * Check if the value set.
@@ -644,7 +644,7 @@ namespace ignite
                 SettableValue<ProtocolVersion> protocolVersion;
 
                 /** Connection end-points. */
-                SettableValue< std::vector<EndPoint> > endPoints;
+                SettableValue< std::vector<EndPoint> > end_points;
 
                 /** SSL Mode. */
                 SettableValue<ssl::SslMode::Type> sslMode;

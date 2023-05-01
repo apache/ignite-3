@@ -46,7 +46,7 @@ namespace ignite
                  * @param params SQL params.
                  * @param timeout Timeout in seconds.
                  */
-                BatchQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
+                BatchQuery(DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
                     const parameter_set& params, int32_t& timeout);
 
                 /**

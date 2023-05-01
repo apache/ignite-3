@@ -279,7 +279,7 @@ namespace ignite
         IGNITE_UNUSED(driverCompletion);
 
         using Connection;
-        using diagnostic::DiagnosticRecordStorage;
+        using diagnostic_record_storage;
         using utility::SqlStringToString;
         using utility::CopyStringToBuffer;
 
@@ -295,7 +295,7 @@ namespace ignite
         std::string connectStr = SqlStringToString(inConnectionString, inConnectionStringLen);
         connection->Establish(connectStr, windowHandle);
 
-        DiagnosticRecordStorage& diag = connection->GetDiagnosticRecords();
+        diagnostic_record_storage& diag = connection->GetDiagnosticRecords();
         if (!diag.IsSuccessful())
             return diag.GetReturnCode();
 
@@ -996,7 +996,7 @@ namespace ignite
 
         LOG_MSG("SQLGetDiagRec called");
 
-        const DiagnosticRecordStorage* records = 0;
+        const diagnostic_record_storage* records = 0;
 
         switch (handleType)
         {
@@ -1322,7 +1322,7 @@ namespace ignite
 
         Diagnosable *diag = reinterpret_cast<Diagnosable*>(handle);
 
-        DiagnosticRecordStorage& records = diag->GetDiagnosticRecords();
+        diagnostic_record_storage& records = diag->GetDiagnosticRecords();
 
         int32_t recNum = records.GetLastNonRetrieved();
 

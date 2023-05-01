@@ -136,7 +136,7 @@ namespace ignite
 
                     rowPos += INTERVAL + ROW_HEIGHT;
 
-                    std::string addr = config::AddressesToString(config.GetAddresses());
+                    std::string addr = config::addresses_to_string(config.GetAddresses());
 
                     val = addr.c_str();
                     addressLabel = CreateLabel(labelPosX, rowPos, LABEL_WIDTH, ROW_HEIGHT,
@@ -545,8 +545,8 @@ namespace ignite
                     schemaEdit->GetText(schemaStr);
                     protocolVersionComboBox->GetText(versionStr);
 
-                    StripSurroundingWhitespaces(addressStr);
-                    StripSurroundingWhitespaces(dsnStr);
+                    strip_surrounding_whitespaces(addressStr);
+                    strip_surrounding_whitespaces(dsnStr);
                     // Stripping of whitespaces off the schema skipped intentionally
 
                     LOG_MSG("Retrieving arguments:");
@@ -558,11 +558,11 @@ namespace ignite
                     if (dsnStr.empty())
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "DSN name can not be empty.");
 
-                    diagnostic::DiagnosticRecordStorage diag;
+                    diagnostic_record_storage diag;
 
                     std::vector<EndPoint> addresses;
 
-                    config::ParseAddress(addressStr, addresses, &diag);
+                    config::parse_address(addressStr, addresses, &diag);
 
                     if (diag.GetStatusRecordsNumber() > 0)
                     {

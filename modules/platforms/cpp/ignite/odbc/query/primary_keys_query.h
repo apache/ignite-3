@@ -43,7 +43,7 @@ namespace ignite
                  * @param schema Schema name.
                  * @param table Table name.
                  */
-                PrimaryKeysQuery(diagnostic::DiagnosableAdapter& diag,
+                PrimaryKeysQuery(DiagnosableAdapter& diag,
                     Connection& connection, const std::string& catalog,
                     const std::string& schema, const std::string& table);
 

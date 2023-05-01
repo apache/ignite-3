@@ -46,7 +46,7 @@ namespace ignite
                  * @param params SQL params.
                  * @param timeout Timeout.
                  */
-                DataQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
+                DataQuery(DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
                     const parameter_set& params, int32_t& timeout);
 
                 /**

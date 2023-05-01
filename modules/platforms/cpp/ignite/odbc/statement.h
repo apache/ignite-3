@@ -41,7 +41,7 @@ namespace ignite
          * SQL-statement abstraction. Holds SQL query user buffers data and
          * call result.
          */
-        class Statement : public diagnostic::DiagnosableAdapter
+        class Statement : public DiagnosableAdapter
         {
             friend class Connection;
         public:

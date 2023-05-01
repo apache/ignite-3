@@ -407,10 +407,10 @@ namespace ignite
             return autoCommit;
         }
 
-        diagnostic::DiagnosticRecord Connection::CreateStatusRecord(sql_state sqlState,
+        DiagnosticRecord Connection::CreateStatusRecord(sql_state sqlState,
             const std::string& message, int32_t rowNum, int32_t columnNum)
         {
-            return diagnostic::DiagnosticRecord(sqlState, message, "", "", rowNum, columnNum);
+            return DiagnosticRecord(sqlState, message, "", "", rowNum, columnNum);
         }
 
         void Connection::TransactionCommit()
@@ -775,22 +775,22 @@ namespace ignite
             return connected;
         }
 
-        void Connection::CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& endPoints)
+        void Connection::CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& end_points)
         {
-            endPoints.clear();
+            end_points.clear();
 
             if (!cfg.IsAddressesSet())
             {
                 LOG_MSG("'Address' is not set. Using legacy connection method.");
 
-                endPoints.push_back(EndPoint(cfg.GetHost(), cfg.GetTcpPort()));
+                end_points.push_back(EndPoint(cfg.GetHost(), cfg.GetTcpPort()));
 
                 return;
             }
 
-            endPoints = cfg.GetAddresses();
+            end_points = cfg.GetAddresses();
 
-            std::random_shuffle(endPoints.begin(), endPoints.end());
+            std::random_shuffle(end_points.begin(), end_points.end());
         }
 
         int32_t Connection::RetrieveTimeout(void* value)

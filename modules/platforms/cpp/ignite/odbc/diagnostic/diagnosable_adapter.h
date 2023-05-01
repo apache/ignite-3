@@ -69,7 +69,7 @@ namespace ignite
                  *
                  * @return Diagnostic record.
                  */
-                virtual const DiagnosticRecordStorage& GetDiagnosticRecords() const
+                virtual const diagnostic_record_storage& GetDiagnosticRecords() const
                 {
                     return diagnosticRecords;
                 }
@@ -79,7 +79,7 @@ namespace ignite
                  *
                  * @return Diagnostic record.
                  */
-                virtual DiagnosticRecordStorage& GetDiagnosticRecords()
+                virtual diagnostic_record_storage& GetDiagnosticRecords()
                 {
                     return diagnosticRecords;
                 }
@@ -126,7 +126,7 @@ namespace ignite
 
             protected:
                 /** Diagnostic records. */
-                DiagnosticRecordStorage diagnosticRecords;
+                diagnostic_record_storage diagnosticRecords;
 
             private:
                 /** Connection. */

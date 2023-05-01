@@ -41,7 +41,7 @@ namespace ignite
         /**
          * ODBC node connection.
          */
-        class Connection : public diagnostic::DiagnosableAdapter
+        class Connection : public DiagnosableAdapter
         {
             friend class Environment;
         public:
@@ -195,7 +195,7 @@ namespace ignite
              * @param columnNum Associated column number.
              * @return DiagnosticRecord associated with the instance.
              */
-            static diagnostic::DiagnosticRecord CreateStatusRecord(sql_state sqlState,
+            static DiagnosticRecord CreateStatusRecord(sql_state sqlState,
                 const std::string& message, int32_t rowNum = 0, int32_t columnNum = 0);
 
             /**
@@ -494,9 +494,9 @@ namespace ignite
              * Collect all addresses from config.
              *
              * @param cfg Configuration.
-             * @param endPoints End points.
+             * @param end_points End points.
              */
-            static void CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& endPoints);
+            static void CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& end_points);
 
             /**
              * Retrieve timeout from parameter.

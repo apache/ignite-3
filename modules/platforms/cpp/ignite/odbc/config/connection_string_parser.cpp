@@ -68,7 +68,7 @@ namespace ignite
             }
 
             void ConnectionStringParser::ParseConnectionString(const char* str, size_t len, char delimiter,
-                diagnostic::DiagnosticRecordStorage* diag)
+                diagnostic_record_storage* diag)
             {
                 std::string connect_str(str, len);
 
@@ -97,8 +97,8 @@ namespace ignite
                         const char* value_begin = connect_str.data() + attr_eq_pos + 1;
                         const char* value_end = connect_str.data() + connect_str.size();
 
-                        std::string key = StripSurroundingWhitespaces(key_begin, key_end);
-                        std::string value = StripSurroundingWhitespaces(value_begin, value_end);
+                        std::string key = strip_surrounding_whitespaces(key_begin, key_end);
+                        std::string value = strip_surrounding_whitespaces(value_begin, value_end);
 
                         if (value[0] == '{' && value[value.size() - 1] == '}')
                             value = value.substr(1, value.size() - 2);
@@ -114,13 +114,13 @@ namespace ignite
             }
 
             void ConnectionStringParser::ParseConnectionString(const std::string& str,
-                diagnostic::DiagnosticRecordStorage* diag)
+                diagnostic_record_storage* diag)
             {
                 ParseConnectionString(str.data(), str.size(), ';', diag);
             }
 
             void ConnectionStringParser::ParseConfigAttributes(const char* str,
-                diagnostic::DiagnosticRecordStorage* diag)
+                diagnostic_record_storage* diag)
             {
                 size_t len = 0;
 
@@ -134,7 +134,7 @@ namespace ignite
             }
 
             void ConnectionStringParser::HandleAttributePair(const std::string &key, const std::string &value,
-                diagnostic::DiagnosticRecordStorage* diag)
+                diagnostic_record_storage* diag)
             {
                 std::string lKey = ToLower(key);
 
@@ -148,11 +148,11 @@ namespace ignite
                 }
                 else if (lKey == Key::address)
                 {
-                    std::vector<EndPoint> endPoints;
+                    std::vector<EndPoint> end_points;
 
-                    ParseAddress(value, endPoints, diag);
+                    parse_address(value, end_points, diag);
 
-                    cfg.SetAddresses(endPoints);
+                    cfg.SetAddresses(end_points);
                 }
                 else if (lKey == Key::server)
                 {

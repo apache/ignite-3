@@ -15,239 +15,296 @@
  * limitations under the License.
  */
 
+#include "ignite/odbc/utility.h"
+#include "ignite/odbc/config/config_tools.h"
+#include "ignite/odbc/config/configuration.h"
+
+#include <ignite/common/utils.h>
+
 #include <cctype>
 #include <algorithm>
 #include <sstream>
 
-#include <ignite/common/utils.h>
+namespace {
 
-#include "../utility.h"
-#include "config_tools.h"
-#include "configuration.h"
-
-namespace ignite
+/**
+ * Check if all characters are digits.
+ *
+ * @param val Value to check.
+ */
+bool all_digits(const std::string &val)
 {
-    namespace odbc
+    std::string::const_iterator i = val.begin();
+    while (i != val.end() && isdigit(*i))
+        ++i;
+
+    return i == val.end();
+}
+
+/**
+ * Skip leading spaces.
+ *
+ * @param begin Iterator to the beginning of the character sequence.
+ * @param end Iterator to the end of the character sequence.
+ * @return Iterator to first non-blanc character.
+ */
+template<typename Iterator>
+Iterator skip_leading_spaces(Iterator begin, Iterator end)
+{
+    Iterator res = begin;
+    while (isspace(*res) && res != end)
+        ++res;
+
+    return res;
+}
+
+/**
+ * Skip trailing spaces.
+ *
+ * @param begin Iterator to the beginning of the character sequence.
+ * @param end Iterator to the end of the character sequence.
+ * @return Iterator to last non-blanc character.
+ */
+template<typename Iterator>
+Iterator skip_trailing_spaces(Iterator begin, Iterator end)
+{
+    Iterator res = end - 1;
+    while (isspace(*res) && res != begin - 1)
+        --res;
+
+    return res + 1;
+}
+
+/**
+ * Remove leading and trailing spaces.
+ *
+ * @param begin Iterator to the beginning of the character sequence.
+ * @param end Iterator to the end of the character sequence.
+ * @return String without leading and trailing spaces.
+ */
+template<typename Iterator>
+std::string strip_surrounding_whitespaces(Iterator begin, Iterator end)
+{
+    std::string res;
+
+    if (begin >= end)
+        return res;
+
+    Iterator skipped_leading = skip_leading_spaces(begin, end);
+    Iterator skipped_trailing = skip_trailing_spaces(skipped_leading, end);
+
+    res.reserve(skipped_trailing - skipped_leading);
+
+    std::copy(skipped_leading, skipped_trailing, std::back_inserter(res));
+
+    return res;
+}
+
+} // anonymous namespace
+
+namespace ignite {
+
+std::string addresses_to_string(const std::vector<network::tcp_range>& addresses)
+{
+    std::stringstream stream;
+
+    auto it = addresses.begin();
+    if (it != addresses.end())
     {
-        namespace config
+        stream << it->host << ':' << it->port;
+        ++it;
+    }
+
+    for (; it != addresses.end(); ++it)
+    {
+        stream << ',' << it->host << ':' << it->port;
+    }
+
+    return stream.str();
+}
+
+void parse_address(const std::string& value, std::vector<network::tcp_range>& end_points,
+    diagnostic_record_storage* diag)
+{
+    std::size_t addr_num = std::count(value.begin(), value.end(), ',') + 1;
+
+    end_points.reserve(end_points.size() + addr_num);
+
+    std::string parsed_addr(value);
+
+    while (!parsed_addr.empty())
+    {
+        std::size_t addr_begin_pos = parsed_addr.rfind(',');
+
+        if (addr_begin_pos == std::string::npos)
+            addr_begin_pos = 0;
+        else
+            ++addr_begin_pos;
+
+        const char* addr_begin = parsed_addr.data() + addr_begin_pos;
+        const char* addr_end = parsed_addr.data() + parsed_addr.size();
+
+        std::string addr = strip_surrounding_whitespaces(addr_begin, addr_end);
+
+        if (!addr.empty())
         {
-            std::string AddressesToString(const std::vector<EndPoint>& addresses)
-            {
-                std::stringstream stream;
+            network::tcp_range end_point;
 
-                std::vector<EndPoint>::const_iterator it = addresses.begin();
+            bool success = parse_single_address(addr, end_point, diag);
 
-                if (it != addresses.end())
-                {
-                    stream << it->host << ':' << it->port;
-                    ++it;
-                }
-
-                for (; it != addresses.end(); ++it)
-                {
-                    stream << ',' << it->host << ':' << it->port;
-                }
-
-                return stream.str();
-            }
-
-            void ParseAddress(const std::string& value, std::vector<EndPoint>& endPoints,
-                diagnostic::DiagnosticRecordStorage* diag)
-            {
-                size_t addrNum = std::count(value.begin(), value.end(), ',') + 1;
-
-                endPoints.reserve(endPoints.size() + addrNum);
-
-                std::string parsedAddr(value);
-
-                while (!parsedAddr.empty())
-                {
-                    size_t addrBeginPos = parsedAddr.rfind(',');
-
-                    if (addrBeginPos == std::string::npos)
-                        addrBeginPos = 0;
-                    else
-                        ++addrBeginPos;
-
-                    const char* addrBegin = parsedAddr.data() + addrBeginPos;
-                    const char* addrEnd = parsedAddr.data() + parsedAddr.size();
-
-                    std::string addr = StripSurroundingWhitespaces(addrBegin, addrEnd);
-
-                    if (!addr.empty())
-                    {
-                        EndPoint endPoint;
-
-                        bool success = ParseSingleAddress(addr, endPoint, diag);
-
-                        if (success)
-                            endPoints.push_back(endPoint);
-                    }
-
-                    if (!addrBeginPos)
-                        break;
-
-                    parsedAddr.erase(addrBeginPos - 1);
-                }
-            }
-
-            bool ParseSingleAddress(const std::string& value, EndPoint& endPoint,
-                diagnostic::DiagnosticRecordStorage* diag)
-            {
-                int64_t colonNum = std::count(value.begin(), value.end(), ':');
-
-                if (colonNum == 0)
-                {
-                    endPoint.host = value;
-                    endPoint.port = Configuration::DefaultValue::port;
-
-                    return true;
-                }
-
-                if (colonNum != 1)
-                {
-                    std::stringstream stream;
-
-                    stream << "Unexpected number of ':' characters in the following address: '"
-                        << value << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return false;
-                }
-
-                size_t colonPos = value.find(':');
-
-                endPoint.host = value.substr(0, colonPos);
-
-                if (colonPos == value.size() - 1)
-                {
-                    std::stringstream stream;
-
-                    stream << "Port is missing in the following address: '" << value << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return false;
-                }
-
-                std::string portRange = value.substr(colonPos + 1);
-
-                if (!ParsePortRange(portRange, endPoint.port, endPoint.range, diag))
-                    return false;
-
-                return true;
-            }
-
-            bool ParsePortRange(const std::string& value, uint16_t& port, uint16_t& range,
-                diagnostic::DiagnosticRecordStorage* diag)
-            {
-                size_t sepPos = value.find('.');
-
-                if (sepPos == value.npos)
-                {
-                    range = 0;
-                    port = ParsePort(value, diag);
-
-                    if (!port)
-                        return false;
-
-                    return true;
-                }
-
-                if (sepPos + 2 > value.size() || value[sepPos + 1] != '.')
-                {
-                    std::stringstream stream;
-
-                    stream << "Unexpected number of '.' characters in the following address: '"
-                        << value << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return false;
-                }
-
-                uint16_t rangeBegin = ParsePort(value.substr(0, sepPos), diag);
-
-                if (!rangeBegin)
-                    return false;
-
-                uint16_t rangeEnd = ParsePort(value.substr(sepPos + 2), diag);
-
-                if (!rangeEnd)
-                    return false;
-
-                if (rangeEnd < rangeBegin)
-                {
-                    std::stringstream stream;
-
-                    stream << "Port range end is less than port range begin in the following address: '"
-                        << value << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return false;
-                }
-
-                port = rangeBegin;
-                range = rangeEnd - rangeBegin;
-
-                return true;
-            }
-
-            uint16_t ParsePort(const std::string& value, diagnostic::DiagnosticRecordStorage* diag)
-            {
-                std::string port = StripSurroundingWhitespaces(value.begin(), value.end());
-
-                if (!AllDigits(port))
-                {
-                    std::stringstream stream;
-
-                    stream << "Unexpected port characters: '" << port << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return 0;
-                }
-
-                if (port.size() >= sizeof("65535"))
-                {
-                    std::stringstream stream;
-
-                    stream << "Port value is too large: '" << port << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return 0;
-                }
-
-                int32_t intPort = 0;
-                std::stringstream conv;
-
-                conv << port;
-                conv >> intPort;
-
-                if (intPort <= 0 || intPort > 0xFFFF)
-                {
-                    std::stringstream stream;
-
-                    stream << "Port value is out of range: '" << port << "'. Ignoring address.";
-
-                    if (diag)
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
-
-                    return 0;
-                }
-
-                return static_cast<uint16_t>(intPort);
-            }
+            if (success)
+                end_points.push_back(end_point);
         }
+
+        if (!addr_begin_pos)
+            break;
+
+        parsed_addr.erase(addr_begin_pos - 1);
     }
 }
 
+bool parse_single_address(const std::string& value, network::tcp_range& end_point, diagnostic_record_storage* diag)
+{
+    std::int64_t colon_num = std::count(value.begin(), value.end(), ':');
+
+    if (colon_num == 0)
+    {
+        end_point.host = value;
+        end_point.port = Configuration::DefaultValue::port;
+
+        return true;
+    }
+
+    if (colon_num != 1)
+    {
+        std::stringstream stream;
+
+        stream << "Unexpected number of ':' characters in the following address: '"
+            << value << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return false;
+    }
+
+    std::size_t colon_pos = value.find(':');
+    end_point.host = value.substr(0, colon_pos);
+
+    if (colon_pos == value.size() - 1)
+    {
+        std::stringstream stream;
+        stream << "Port is missing in the following address: '" << value << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return false;
+    }
+
+    std::string port_range = value.substr(colon_pos + 1);
+
+    if (!parse_port_range(port_range, end_point.port, end_point.range, diag))
+        return false;
+
+    return true;
+}
+
+bool parse_port_range(const std::string& value, std::uint16_t& port, std::uint16_t& range,
+    diagnostic_record_storage* diag)
+{
+    std::size_t sep_pos = value.find('.');
+    if (sep_pos == std::string::npos)
+    {
+        range = 0;
+        port = parse_port(value, diag);
+
+        if (!port)
+            return false;
+
+        return true;
+    }
+
+    if (sep_pos + 2 > value.size() || value[sep_pos + 1] != '.')
+    {
+        std::stringstream stream;
+        stream << "Unexpected number of '.' characters in the following address: '" << value << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return false;
+    }
+
+    std::uint16_t range_begin = parse_port(value.substr(0, sep_pos), diag);
+    if (!range_begin)
+        return false;
+
+    std::uint16_t range_end = parse_port(value.substr(sep_pos + 2), diag);
+    if (!range_end)
+        return false;
+
+    if (range_end < range_begin)
+    {
+        std::stringstream stream;
+        stream << "Port range end is less than port range begin in the following address: '"
+            << value << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return false;
+    }
+
+    port = range_begin;
+    range = range_end - range_begin;
+
+    return true;
+}
+
+std::uint16_t parse_port(const std::string& value, diagnostic_record_storage* diag)
+{
+    std::string port = strip_surrounding_whitespaces(value.begin(), value.end());
+    if (!all_digits(port))
+    {
+        std::stringstream stream;
+        stream << "Unexpected port characters: '" << port << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return 0;
+    }
+
+    if (port.size() >= sizeof("65535"))
+    {
+        std::stringstream stream;
+        stream << "Port value is too large: '" << port << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return 0;
+    }
+
+    std::int32_t int_port = 0;
+    std::stringstream conv;
+
+    conv << port;
+    conv >> int_port;
+
+    if (int_port <= 0 || int_port > 0xFFFF)
+    {
+        std::stringstream stream;
+        stream << "Port value is out of range: '" << port << "'. Ignoring address.";
+
+        if (diag)
+            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+
+        return 0;
+    }
+
+    return static_cast<std::uint16_t>(int_port);
+}
+
+} // namespace ignite

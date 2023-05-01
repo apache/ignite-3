@@ -55,7 +55,7 @@ namespace ignite
          * @param config Configuration.
          * @param diag Diagnostic collector.
          */
-        void ReadDsnConfiguration(const char* dsn, config::Configuration& config, diagnostic::DiagnosticRecordStorage *diag);
+        void ReadDsnConfiguration(const char* dsn, config::Configuration& config, diagnostic_record_storage *diag);
     }
 }
 

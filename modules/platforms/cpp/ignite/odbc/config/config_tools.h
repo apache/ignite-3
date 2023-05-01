@@ -15,77 +15,65 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_CONFIG_CONFIG_TOOLS
-#define _IGNITE_ODBC_CONFIG_CONFIG_TOOLS
+#pragma once
+
+#include "ignite/network/tcp_range.h"
 
 #include <string>
 #include <vector>
 
-#include "ignite/odbc/end_point.h"
-
 namespace ignite
 {
-    namespace odbc
-    {
-        namespace diagnostic
-        {
-            // Forward declaration.
-            class DiagnosticRecordStorage;
-        }
 
-        namespace config
-        {
-            /**
-             * Convert address list to string.
-             *
-             * @param addresses Addresses.
-             * @return Resulting string.
-             */
-            std::string AddressesToString(const std::vector<EndPoint>& addresses);
+// Forward declaration.
+class diagnostic_record_storage;
 
-            /**
-             * Parse address.
-             *
-             * @param value String value to parse.
-             * @param endPoints End ponts list.
-             * @param diag Diagnostics collector.
-             */
-            void ParseAddress(const std::string& value, std::vector<EndPoint>& endPoints,
-                diagnostic::DiagnosticRecordStorage* diag);
+/**
+ * Convert address list to string.
+ *
+ * @param addresses Addresses.
+ * @return Resulting string.
+ */
+std::string addresses_to_string(const std::vector<network::tcp_range>& addresses);
 
-            /**
-             * Parse single address.
-             *
-             * @param value String value to parse.
-             * @param endPoint End pont.
-             * @param diag Diagnostics collector.
-             * @return @c true, if parsed successfully, and @c false otherwise.
-             */
-            bool ParseSingleAddress(const std::string& value, EndPoint& endPoint,
-                diagnostic::DiagnosticRecordStorage* diag);
+/**
+ * Parse address.
+ *
+ * @param value String value to parse.
+ * @param end_points End points list.
+ * @param diag Diagnostics collector.
+ */
+void parse_address(const std::string& value, std::vector<network::tcp_range>& end_points,
+    diagnostic_record_storage* diag);
 
-            /**
-             * Parse single network port.
-             *
-             * @param value String value to parse.
-             * @param port Port range begin.
-             * @param range Number of ports in range.
-             * @param diag Diagnostics collector.
-             * @return @c Port value on success and zero on failure.
-             */
-            bool ParsePortRange(const std::string& value, uint16_t& port, uint16_t& range,
-                diagnostic::DiagnosticRecordStorage* diag);
+/**
+ * Parse single address.
+ *
+ * @param value String value to parse.
+ * @param end_point End pont.
+ * @param diag Diagnostics collector.
+ * @return @c true, if parsed successfully, and @c false otherwise.
+ */
+bool parse_single_address(const std::string& value, network::tcp_range& end_point, diagnostic_record_storage* diag);
 
-            /**
-             * Parse single network port.
-             *
-             * @param value String value to parse.
-             * @param diag Diagnostics collector.
-             * @return @c Port value on success and zero on failure.
-             */
-            uint16_t ParsePort(const std::string& value, diagnostic::DiagnosticRecordStorage* diag);
-        }
-    }
-}
+/**
+ * Parse single network port.
+ *
+ * @param value String value to parse.
+ * @param port Port range begin.
+ * @param range Number of ports in range.
+ * @param diag Diagnostics collector.
+ * @return @c Port value on success and zero on failure.
+ */
+bool parse_port_range(const std::string& value, std::uint16_t& port, std::uint16_t& range, diagnostic_record_storage* diag);
 
-#endif //_IGNITE_ODBC_CONFIG_CONFIG_TOOLS
+/**
+ * Parse single network port.
+ *
+ * @param value String value to parse.
+ * @param diag Diagnostics collector.
+ * @return @c Port value on success and zero on failure.
+ */
+std::uint16_t parse_port(const std::string& value, diagnostic_record_storage* diag);
+
+} // namespace ignite

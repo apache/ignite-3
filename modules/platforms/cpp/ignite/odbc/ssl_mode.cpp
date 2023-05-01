@@ -29,7 +29,7 @@ namespace ignite
             {
                 std::string lowerVal = ToLower(val);
 
-                StripSurroundingWhitespaces(lowerVal);
+                strip_surrounding_whitespaces(lowerVal);
 
                 if (lowerVal == "disable")
                     return SslMode::DISABLE;

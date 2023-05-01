@@ -46,18 +46,18 @@ namespace ignite
              * This class provides interface for interaction with all handle
              * diagnostic records. That means both header and status records.
              */
-            class DiagnosticRecordStorage
+            class diagnostic_record_storage
             {
             public:
                 /**
                  * Default constructor.
                  */
-                DiagnosticRecordStorage();
+                diagnostic_record_storage();
 
                 /**
                  * Destructor.
                  */
-                ~DiagnosticRecordStorage();
+                ~diagnostic_record_storage();
 
                 /**
                  * Set header record values.
@@ -181,7 +181,7 @@ namespace ignite
                     application_data_buffer& buffer) const;
 
             private:
-                IGNITE_NO_COPY_ASSIGNMENT(DiagnosticRecordStorage);
+                IGNITE_NO_COPY_ASSIGNMENT(diagnostic_record_storage);
 
                 /**
                  * Header record field. This field contains the count of rows

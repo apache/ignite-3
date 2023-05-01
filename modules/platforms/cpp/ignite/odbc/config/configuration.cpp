@@ -74,7 +74,7 @@ namespace ignite
                 lazy(DefaultValue::lazy),
                 skipReducerOnUpdate(DefaultValue::skipReducerOnUpdate),
                 protocolVersion(DefaultValue::protocolVersion),
-                endPoints(std::vector<EndPoint>()),
+                end_points(std::vector<EndPoint>()),
                 sslMode(DefaultValue::sslMode),
                 sslKeyFile(DefaultValue::sslKeyFile),
                 sslCertFile(DefaultValue::sslCertFile),
@@ -192,17 +192,17 @@ namespace ignite
 
             const std::vector<EndPoint>& Configuration::GetAddresses() const
             {
-                return endPoints.GetValue();
+                return end_points.GetValue();
             }
 
-            void Configuration::SetAddresses(const std::vector<EndPoint>& endPoints)
+            void Configuration::SetAddresses(const std::vector<EndPoint>& end_points)
             {
-                this->endPoints.SetValue(endPoints);
+                this->end_points.SetValue(end_points);
             }
 
             bool Configuration::IsAddressesSet() const
             {
-                return endPoints.IsSet();
+                return end_points.IsSet();
             }
 
             ssl::SslMode::Type Configuration::GetSslMode() const
@@ -447,7 +447,7 @@ namespace ignite
                 AddToMap(res, ConnectionStringParser::Key::dsn, dsn);
                 AddToMap(res, ConnectionStringParser::Key::driver, driver);
                 AddToMap(res, ConnectionStringParser::Key::schema, schema);
-                AddToMap(res, ConnectionStringParser::Key::address, endPoints);
+                AddToMap(res, ConnectionStringParser::Key::address, end_points);
                 AddToMap(res, ConnectionStringParser::Key::server, server);
                 AddToMap(res, ConnectionStringParser::Key::port, port);
                 AddToMap(res, ConnectionStringParser::Key::distributedJoins, distributedJoins);
@@ -511,7 +511,7 @@ namespace ignite
                 const SettableValue< std::vector<EndPoint> >& value)
             {
                 if (value.IsSet())
-                    map[key] = AddressesToString(value.GetValue());
+                    map[key] = addresses_to_string(value.GetValue());
             }
 
             template<>

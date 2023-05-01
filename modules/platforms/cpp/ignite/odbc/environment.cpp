@@ -83,7 +83,7 @@ namespace ignite
 
                 conn->TransactionCommit();
 
-                diagnostic::DiagnosticRecordStorage& diag = conn->GetDiagnosticRecords();
+                diagnostic_record_storage& diag = conn->GetDiagnosticRecords();
 
                 if (diag.GetStatusRecordsNumber() > 0)
                 {
@@ -111,7 +111,7 @@ namespace ignite
 
                 conn->TransactionRollback();
 
-                diagnostic::DiagnosticRecordStorage& diag = conn->GetDiagnosticRecords();
+                diagnostic_record_storage& diag = conn->GetDiagnosticRecords();
 
                 if (diag.GetStatusRecordsNumber() > 0)
                 {

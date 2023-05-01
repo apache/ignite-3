@@ -45,7 +45,7 @@ namespace ignite
                  * @param foreignSchema Foreign key schema name.
                  * @param foreignTable Foreign key table name.
                  */
-                ForeignKeysQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection,
+                ForeignKeysQuery(DiagnosableAdapter& diag, Connection& connection,
                     const std::string& primaryCatalog, const std::string& primarySchema,
                     const std::string& primaryTable, const std::string& foreignCatalog,
                     const std::string& foreignSchema, const std::string& foreignTable);

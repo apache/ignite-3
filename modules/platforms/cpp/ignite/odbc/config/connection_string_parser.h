@@ -132,7 +132,7 @@ namespace ignite
                  * @param diag Diagnostics collector.
                  */
                 void ParseConnectionString(const char* str, size_t len, char delimiter,
-                    diagnostic::DiagnosticRecordStorage* diag);
+                    diagnostic_record_storage* diag);
 
                 /**
                  * Parse connect string.
@@ -140,7 +140,7 @@ namespace ignite
                  * @param str String to parse.
                  * @param diag Diagnostics collector.
                  */
-                void ParseConnectionString(const std::string& str, diagnostic::DiagnosticRecordStorage* diag);
+                void ParseConnectionString(const std::string& str, diagnostic_record_storage* diag);
 
                 /**
                  * Parse config attributes.
@@ -148,7 +148,7 @@ namespace ignite
                  * @param str String to parse.
                  * @param diag Diagnostics collector.
                  */
-                void ParseConfigAttributes(const char* str, diagnostic::DiagnosticRecordStorage* diag);
+                void ParseConfigAttributes(const char* str, diagnostic_record_storage* diag);
 
             private:
                 /**
@@ -174,7 +174,7 @@ namespace ignite
                  * @param diag Diagnostics collector.
                  */
                 void HandleAttributePair(const std::string& key, const std::string& value,
-                    diagnostic::DiagnosticRecordStorage* diag);
+                    diagnostic_record_storage* diag);
 
                 /**
                  * Convert string to boolean value.

@@ -31,7 +31,7 @@ namespace ignite
         /**
          * ODBC environment.
          */
-        class Environment : public diagnostic::DiagnosableAdapter
+        class Environment : public DiagnosableAdapter
         {
         public:
             /** Connection set type. */

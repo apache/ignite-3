@@ -101,17 +101,17 @@ namespace ignite
             return res;
         }
 
-        void ReadDsnConfiguration(const char* dsn, Configuration& config, diagnostic::DiagnosticRecordStorage* diag)
+        void ReadDsnConfiguration(const char* dsn, Configuration& config, diagnostic_record_storage* diag)
         {
             SettableValue<std::string> address = ReadDsnString(dsn, ConnectionStringParser::Key::address);
 
             if (address.IsSet() && !config.IsAddressesSet())
             {
-                std::vector<EndPoint> endPoints;
+                std::vector<EndPoint> end_points;
 
-                ParseAddress(address.GetValue(), endPoints, diag);
+                parse_address(address.GetValue(), end_points, diag);
 
-                config.SetAddresses(endPoints);
+                config.SetAddresses(end_points);
             }
 
             SettableValue<std::string> server = ReadDsnString(dsn, ConnectionStringParser::Key::server);

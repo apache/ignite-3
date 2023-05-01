@@ -36,7 +36,7 @@ namespace ignite
         {
             std::string lowerVal = ToLower(val);
 
-            StripSurroundingWhitespaces(lowerVal);
+            strip_surrounding_whitespaces(lowerVal);
 
             if (lowerVal == "h2")
                 return EngineMode::H2;
