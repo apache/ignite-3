@@ -73,7 +73,7 @@ public:
     [[nodiscard]] const application_data_buffer& get_buffer() const;
 
     /**
-     * Reset stored at-execution data.
+     * reset stored at-execution data.
      */
     void reset_stored_data();
 

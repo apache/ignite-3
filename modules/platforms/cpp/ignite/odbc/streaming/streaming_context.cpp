@@ -117,13 +117,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    connection->AddStatusRecord(err);
+                    connection->add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    connection->AddStatusRecord(err.GetText());
+                    connection->add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -134,7 +134,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    connection->AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    connection->add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -143,7 +143,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.get_error_message());
 
-                    connection->AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.get_error_message());
+                    connection->add_status_record(response_status_to_sql_state(rsp.GetErrorCode()), rsp.get_error_message());
 
                     return sql_result::AI_ERROR;
                 }

@@ -200,7 +200,7 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -227,14 +227,14 @@ namespace ignite
 
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
 
                 if (cursor == types.end())
                 {
-                    diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
+                    diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
                         "Cursor has reached end of the result set.");
 
                     return sql_result::AI_ERROR;

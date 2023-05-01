@@ -224,7 +224,7 @@ namespace ignite
                 std::auto_ptr<Cursor> cursor;
 
                 /** Number of rows affected. */
-                std::vector<int64_t> rowsAffected;
+                std::vector<int64_t> rows_affected;
 
                 /** Rows affected index. */
                 size_t rowsAffectedIdx;

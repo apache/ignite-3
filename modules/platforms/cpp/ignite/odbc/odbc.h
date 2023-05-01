@@ -96,7 +96,7 @@ SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset);
 SQLRETURN SQLExtendedFetch(SQLHSTMT         stmt,
                            SQLUSMALLINT     orientation,
                            SQLLEN           offset,
-                           SQLULEN*         rowCount,
+                           SQLULEN*         row_count,
                            SQLUSMALLINT*    rowStatusArray);
 
 SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *columnNum);

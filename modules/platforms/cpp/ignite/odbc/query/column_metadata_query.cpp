@@ -144,7 +144,7 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -169,14 +169,14 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
 
                 if (cursor == meta.end())
                 {
-                    diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
+                    diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
                         "Cursor has reached end of the result set.");
 
                     return sql_result::AI_ERROR;
@@ -305,13 +305,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -319,7 +319,7 @@ namespace ignite
                 if (rsp.get_state() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }

@@ -73,14 +73,14 @@ namespace ignite
 
             if (driverType == odbc_native_type::AI_UNSUPPORTED)
             {
-                AddStatusRecord(sql_state::SHY003_INVALID_APPLICATION_BUFFER_TYPE, "The argument TargetType was not a valid data type.");
+                add_status_record(sql_state::SHY003_INVALID_APPLICATION_BUFFER_TYPE, "The argument TargetType was not a valid data type.");
 
                 return sql_result::AI_ERROR;
             }
 
             if (bufferLength < 0)
             {
-                AddStatusRecord(sql_state::SHY090_INVALID_STRING_OR_BUFFER_LENGTH,
+                add_status_record(sql_state::SHY090_INVALID_STRING_OR_BUFFER_LENGTH,
                     "The value specified for the argument BufferLength was less than 0.");
 
                 return sql_result::AI_ERROR;
@@ -164,7 +164,7 @@ namespace ignite
                 builder << "The value specified for the argument ParameterNumber was less than 1. [ParameterNumber=" 
                     << paramIdx << ']';
 
-                AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE, builder.str());
+                add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, builder.str());
 
                 return sql_result::AI_ERROR;
             }
@@ -175,7 +175,7 @@ namespace ignite
                 builder << "The value specified for the argument InputOutputType was not SQL_PARAM_INPUT. [ioType=" 
                     << ioType << ']';
 
-                AddStatusRecord(sql_state::SHY105_INVALID_PARAMETER_TYPE, builder.str());
+                add_status_record(sql_state::SHY105_INVALID_PARAMETER_TYPE, builder.str());
 
                 return sql_result::AI_ERROR;
             }
@@ -185,7 +185,7 @@ namespace ignite
                 std::stringstream builder;
                 builder << "Data type is not supported. [typeId=" << paramSqlType << ']';
 
-                AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, builder.str());
+                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, builder.str());
 
                 return sql_result::AI_ERROR;
             }
@@ -197,14 +197,14 @@ namespace ignite
                 std::stringstream builder;
                 builder << "The argument TargetType was not a valid data type. [TargetType=" << bufferType << ']';
 
-                AddStatusRecord(sql_state::SHY003_INVALID_APPLICATION_BUFFER_TYPE, builder.str());
+                add_status_record(sql_state::SHY003_INVALID_APPLICATION_BUFFER_TYPE, builder.str());
 
                 return sql_result::AI_ERROR;
             }
 
             if (!buffer && !resLen)
             {
-                AddStatusRecord(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER,
+                add_status_record(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER,
                     "ParameterValuePtr and StrLen_or_IndPtr are both null pointers");
 
                 return sql_result::AI_ERROR;
@@ -236,7 +236,7 @@ namespace ignite
 
                     if (val < 1)
                     {
-                        AddStatusRecord(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE,
+                        add_status_record(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE,
                             "Array size value can not be less than 1");
 
                         return sql_result::AI_ERROR;
@@ -253,7 +253,7 @@ namespace ignite
 
                     if (rowBindType != SQL_BIND_BY_COLUMN)
                     {
-                        AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                        add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Only binding by column is currently supported");
 
                         return sql_result::AI_ERROR;
@@ -282,7 +282,7 @@ namespace ignite
 
                     if (paramBindType != SQL_PARAM_BIND_BY_COLUMN)
                     {
-                        AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                        add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Only binding by column is currently supported");
 
                         return sql_result::AI_ERROR;
@@ -311,7 +311,7 @@ namespace ignite
 
                     if (size > 1 && IsStreamingActive())
                     {
-                        AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                        add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Batching is not supported in streaming mode.");
 
                         return sql_result::AI_ERROR;
@@ -348,7 +348,7 @@ namespace ignite
                         ss << "Value is too big: " << uTimeout << ", changing to " << timeout << ".";
                         std::string msg = ss.str();
 
-                        AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, msg);
+                        add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, msg);
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
                     }
@@ -360,7 +360,7 @@ namespace ignite
 
                 default:
                 {
-                    AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Specified attribute is not supported.");
 
                     return sql_result::AI_ERROR;
@@ -379,7 +379,7 @@ namespace ignite
         {
             if (!buf)
             {
-                AddStatusRecord("Data buffer is NULL.");
+                add_status_record("Data buffer is NULL.");
 
                 return sql_result::AI_ERROR;
             }
@@ -526,7 +526,7 @@ namespace ignite
 
                 default:
                 {
-                    AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Specified attribute is not supported.");
 
                     return sql_result::AI_ERROR;
@@ -545,7 +545,7 @@ namespace ignite
         {
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
                 return sql_result::AI_ERROR;
             }
@@ -587,7 +587,7 @@ namespace ignite
         {
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
+                add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
                     "Cursor is not in the open state.");
 
                 return sql_result::AI_ERROR;
@@ -621,7 +621,7 @@ namespace ignite
             }
             catch (const odbc_error& err)
             {
-                AddStatusRecord(err);
+                add_status_record(err);
 
                 return sql_result::AI_ERROR;
             }
@@ -684,7 +684,7 @@ namespace ignite
         {
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
                 return sql_result::AI_ERROR;
             }
@@ -711,7 +711,7 @@ namespace ignite
 
             if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::QueryType::STREAMING)
             {
-                AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                     "Batching is not supported in streaming mode.");
 
                 return sql_result::AI_ERROR;
@@ -722,7 +722,7 @@ namespace ignite
                 if (currentQuery->get_type() == query::QueryType::BATCH ||
                     currentQuery->get_type() == query::QueryType::STREAMING)
                 {
-                    AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Data-at-execution is not supported with batching.");
 
                     return sql_result::AI_ERROR;
@@ -868,7 +868,7 @@ namespace ignite
         {
             if (type != SQL_BEST_ROWID && type != SQL_ROWVER)
             {
-                AddStatusRecord(sql_state::SHY097_COLUMN_TYPE_OUT_OF_RANGE,
+                add_status_record(sql_state::SHY097_COLUMN_TYPE_OUT_OF_RANGE,
                     "An invalid IdentifierType value was specified.");
 
                 return sql_result::AI_ERROR;
@@ -895,7 +895,7 @@ namespace ignite
                 std::stringstream builder;
                 builder << "Data type is not supported. [typeId=" << sqlType << ']';
 
-                AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, builder.str());
+                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, builder.str());
 
                 return sql_result::AI_ERROR;
             }
@@ -919,7 +919,7 @@ namespace ignite
             {
                 case SQL_DROP:
                 {
-                    AddStatusRecord("Deprecated, call SQLFreeHandle instead");
+                    add_status_record("Deprecated, call SQLFreeHandle instead");
 
                     return sql_result::AI_ERROR;
                 }
@@ -945,7 +945,7 @@ namespace ignite
 
                 default:
                 {
-                    AddStatusRecord(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE, "The value specified for the argument Option was invalid");
+                    add_status_record(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE, "The value specified for the argument Option was invalid");
                     return sql_result::AI_ERROR;
                 }
             }
@@ -990,7 +990,7 @@ namespace ignite
 
             if (orientation != SQL_FETCH_NEXT)
             {
-                AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                     "Only SQL_FETCH_NEXT FetchOrientation type is supported");
 
                 return sql_result::AI_ERROR;
@@ -1011,7 +1011,7 @@ namespace ignite
 
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor is not in the open state");
+                add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor is not in the open state");
 
                 return sql_result::AI_ERROR;
             }
@@ -1054,7 +1054,7 @@ namespace ignite
         {
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
 
                 return 0;
             }
@@ -1076,7 +1076,7 @@ namespace ignite
         {
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
 
                 return sql_result::AI_ERROR;
             }
@@ -1103,7 +1103,7 @@ namespace ignite
 
             if (colIdx > meta->size() || colIdx < 1)
             {
-                AddStatusRecord(sql_state::SHY000_GENERAL_ERROR,
+                add_status_record(sql_state::SHY000_GENERAL_ERROR,
                     "Column index is out of range.", 0, colIdx);
 
                 return sql_result::AI_ERROR;
@@ -1133,7 +1133,7 @@ namespace ignite
 
             if (!found)
             {
-                AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                     "Unknown attribute.");
 
                 return sql_result::AI_ERROR;
@@ -1155,7 +1155,7 @@ namespace ignite
         {
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not executed.");
 
                 return sql_result::AI_ERROR;
             }
@@ -1194,7 +1194,7 @@ namespace ignite
         {
             if (!paramPtr)
             {
-                AddStatusRecord(sql_state::SHY000_GENERAL_ERROR,
+                add_status_record(sql_state::SHY000_GENERAL_ERROR,
                     "Invalid parameter: ValuePtrPtr is null.");
 
                 return sql_result::AI_ERROR;
@@ -1202,7 +1202,7 @@ namespace ignite
 
             if (!currentQuery.get())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
                 return sql_result::AI_ERROR;
             }
@@ -1211,7 +1211,7 @@ namespace ignite
 
             if (selected && !selected->is_data_ready())
             {
-                AddStatusRecord(sql_state::S22026_DATA_LENGTH_MISMATCH,
+                add_status_record(sql_state::S22026_DATA_LENGTH_MISMATCH,
                     "Less data was sent for a parameter than was specified with "
                     "the StrLen_or_IndPtr argument in SQLBindParameter.");
 
@@ -1244,7 +1244,7 @@ namespace ignite
         {
             if (!data && len != 0 && len != SQL_DEFAULT_PARAM && len != SQL_NULL_DATA)
             {
-                AddStatusRecord(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER,
+                add_status_record(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER,
                     "Invalid parameter: DataPtr is null StrLen_or_Ind is not 0, "
                     "SQL_DEFAULT_PARAM, or SQL_NULL_DATA.");
 
@@ -1253,7 +1253,7 @@ namespace ignite
 
             if (!m_parameters.is_parameter_selected())
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR,
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR,
                     "parameter is not selected with the SQLParamData.");
 
                 return sql_result::AI_ERROR;
@@ -1263,7 +1263,7 @@ namespace ignite
 
             if (!param)
             {
-                AddStatusRecord(sql_state::SHY000_GENERAL_ERROR,
+                add_status_record(sql_state::SHY000_GENERAL_ERROR,
                     "Selected parameter has been unbound.");
 
                 return sql_result::AI_ERROR;
@@ -1287,14 +1287,14 @@ namespace ignite
             query::Query *qry = currentQuery.get();
             if (!qry)
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
                 return sql_result::AI_ERROR;
             }
 
             if (qry->get_type() != query::QueryType::DATA)
             {
-                AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query is not SQL data query.");
+                add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not SQL data query.");
 
                 return sql_result::AI_ERROR;
             }
@@ -1349,13 +1349,13 @@ namespace ignite
             }
             catch (const odbc_error& err)
             {
-                AddStatusRecord(err);
+                add_status_record(err);
 
                 return sql_result::AI_ERROR;
             }
             catch (const IgniteError& err)
             {
-                AddStatusRecord(err.GetText());
+                add_status_record(err.GetText());
 
                 return sql_result::AI_ERROR;
             }
@@ -1364,7 +1364,7 @@ namespace ignite
             {
                 LOG_MSG("Error: " << rsp.GetError());
 
-                AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                 return sql_result::AI_ERROR;
             }

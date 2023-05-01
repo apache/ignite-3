@@ -564,10 +564,10 @@ namespace ignite
 
                     config::parse_address(addressStr, addresses, &diag);
 
-                    if (diag.GetStatusRecordsNumber() > 0)
+                    if (diag.get_status_records_number() > 0)
                     {
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC,
-                            diag.GetStatusRecord(1).get_message_text().c_str());
+                            diag.get_status_record(1).get_message_text().c_str());
                     }
 
                     ProtocolVersion version = ProtocolVersion::FromString(versionStr);

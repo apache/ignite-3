@@ -126,7 +126,7 @@ namespace ignite
             IGNITE_NO_COPY_ASSIGNMENT(Parser);
 
             /**
-             * Reset internal state of the parser.
+             * reset internal state of the parser.
              */
             void ResetState()
             {

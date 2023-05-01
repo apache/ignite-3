@@ -26,41 +26,41 @@ namespace ignite
     {
         namespace diagnostic
         {
-            void DiagnosableAdapter::AddStatusRecord(sql_state  sqlState,
+            void DiagnosableAdapter::add_status_record(sql_state  sqlState,
                 const std::string& message, int32_t row_num, int32_t columnNum)
             {
                 LOG_MSG("Adding new record: " << message << ", row_num: " << row_num << ", columnNum: " << columnNum);
 
                 if (connection)
                 {
-                    diagnosticRecords.AddStatusRecord(
+                    diagnosticRecords.add_status_record(
                         connection->CreateStatusRecord(sqlState, message, row_num, columnNum));
                 }
                 else
                 {
-                    diagnosticRecords.AddStatusRecord(
+                    diagnosticRecords.add_status_record(
                         diagnostic_record(sqlState, message, "", "", row_num, columnNum));
                 }
             }
 
-            void DiagnosableAdapter::AddStatusRecord(sql_state  sqlState, const std::string& message)
+            void DiagnosableAdapter::add_status_record(sql_state  sqlState, const std::string& message)
             {
-                AddStatusRecord(sqlState, message, 0, 0);
+                add_status_record(sqlState, message, 0, 0);
             }
 
-            void DiagnosableAdapter::AddStatusRecord(const std::string& message)
+            void DiagnosableAdapter::add_status_record(const std::string& message)
             {
-                AddStatusRecord(sql_state::SHY000_GENERAL_ERROR, message);
+                add_status_record(sql_state::SHY000_GENERAL_ERROR, message);
             }
 
-            void DiagnosableAdapter::AddStatusRecord(const odbc_error& err)
+            void DiagnosableAdapter::add_status_record(const odbc_error& err)
             {
-                AddStatusRecord(err.get_state(), err.get_error_message(), 0, 0);
+                add_status_record(err.get_state(), err.get_error_message(), 0, 0);
             }
 
-            void DiagnosableAdapter::AddStatusRecord(const diagnostic_record& rec)
+            void DiagnosableAdapter::add_status_record(const diagnostic_record& rec)
             {
-                diagnosticRecords.AddStatusRecord(rec);
+                diagnosticRecords.add_status_record(rec);
             }
         }
     }

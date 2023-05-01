@@ -164,7 +164,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Port attribute value is empty. Using default value.", key, value));
                         }
 
@@ -175,7 +175,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Port attribute value contains unexpected characters."
                                     " Using default value.", key, value));
                         }
@@ -187,7 +187,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Port attribute value is too large. Using default value.", key, value));
                         }
 
@@ -204,7 +204,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Port attribute value is out of range. "
                                     "Using default value.", key, value));
                         }
@@ -222,7 +222,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Unrecognized bool value. Using default value.", key, value));
                         }
 
@@ -239,7 +239,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Unrecognized bool value. Using default value.", key, value));
                         }
 
@@ -258,7 +258,7 @@ namespace ignite
                         {
                             if (diag)
                             {
-                                diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                                diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                     "Specified version is not supported. Default value used.");
                             }
 
@@ -270,7 +270,7 @@ namespace ignite
                     catch (IgniteError& err)
                     {
                         if (diag)
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, err.GetText());
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, err.GetText());
                     }
                 }
                 else if (lKey == Key::pageSize)
@@ -279,7 +279,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Page size attribute value contains unexpected characters."
                                     " Using default value.", key, value));
                         }
@@ -291,7 +291,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Page size attribute value is too large."
                                     " Using default value.", key, value));
                         }
@@ -309,7 +309,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Page size attribute value is out of range."
                                     " Using default value.", key, value));
                         }
@@ -327,7 +327,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Unrecognized bool value. Using default value.", key, value));
                         }
 
@@ -344,7 +344,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Unrecognized bool value. Using default value.", key, value));
                         }
 
@@ -361,7 +361,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Unrecognized bool value. Defaulting to 'false'.", key, value));
                         }
 
@@ -378,7 +378,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 MakeErrorMessage("Unrecognized bool value. Defaulting to 'false'.", key, value));
                         }
 
@@ -395,7 +395,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 "Specified SSL mode is not supported. Default value used ('disable').");
                         }
 
@@ -424,7 +424,7 @@ namespace ignite
                 {
                     if (!cfg.GetUser().empty() && diag)
                     {
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                        diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                             "Re-writing USER (have you specified it several times?");
                     }
 
@@ -434,7 +434,7 @@ namespace ignite
                 {
                     if (!cfg.GetPassword().empty() && diag)
                     {
-                        diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                        diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                             "Re-writing PASSWORD (have you specified it several times?");
                     }
 
@@ -448,7 +448,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 "Specified nested transaction mode is not supported. Default value used ('error').");
                         }
 
@@ -465,7 +465,7 @@ namespace ignite
                     {
                         if (diag)
                         {
-                            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                                 "Specified SQL engine is not supported. Default value used ('error').");
                         }
 
@@ -480,7 +480,7 @@ namespace ignite
 
                     stream << "Unknown attribute: '" << key << "'. Ignoring.";
 
-                    diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+                    diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
                 }
             }
 

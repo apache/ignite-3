@@ -15,209 +15,179 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_DIAGNOSTIC_DIAGNOSTIC_RECORD_STORAGE
-#define _IGNITE_ODBC_DIAGNOSTIC_DIAGNOSTIC_RECORD_STORAGE
-
-#include <stdint.h>
-
-#include <vector>
+#pragma once
 
 #include "ignite/odbc/app/application_data_buffer.h"
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/diagnostic/diagnostic_record.h"
-#include <ignite/common/common.h>
+
+#include <cstdint>
+#include <vector>
 
 namespace ignite
 {
-    namespace odbc
-    {
-        namespace diagnostic
-        {
-            /**
-             * Diagnostic record.
-             *
-             * Associated with each environment, connection, statement, and
-             * descriptor handle are diagnostic records. These records contain
-             * diagnostic information about the last function called that used
-             * a particular handle. The records are replaced only when another
-             * function is called using that handle. There is no limit to the
-             * number of diagnostic records that can be stored at any one time.
-             *
-             * This class provides interface for interaction with all handle
-             * diagnostic records. That means both header and status records.
-             */
-            class diagnostic_record_storage
-            {
-            public:
-                /**
-                 * Default constructor.
-                 */
-                diagnostic_record_storage();
 
-                /**
-                 * Destructor.
-                 */
-                ~diagnostic_record_storage();
+/**
+ * Diagnostic record storage.
+ *
+ * Associated with each environment, connection, statement, and descriptor handle are diagnostic records. These records
+ * contain diagnostic information about the last function called that used a particular handle. The records are replaced
+ * only when another function is called using that handle. There is no limit to the number of diagnostic records that
+ * can be stored at any one time.
+ *
+ * This class provides interface for interaction with all handle diagnostic records. That means both header and status
+ * records.
+ */
+class diagnostic_record_storage
+{
+public:
+    // Default
+    diagnostic_record_storage() = default;
 
-                /**
-                 * Set header record values.
-                 *
-                 * @param result Operation return code.
-                 */
-                void SetHeaderRecord(sql_result result);
+    // Deleted
+    diagnostic_record_storage(diagnostic_record_storage &&) = delete;
+    diagnostic_record_storage(const diagnostic_record_storage &) = delete;
+    diagnostic_record_storage &operator=(diagnostic_record_storage &&) = delete;
+    diagnostic_record_storage &operator=(const diagnostic_record_storage &) = delete;
 
-                /**
-                 * Add new status record.
-                 *
-                 * @param sqlState SQL state.
-                 * @param message Message.
-                 */
-                void AddStatusRecord(sql_state  sqlState, const std::string& message);
+    /**
+     * Set header record values.
+     *
+     * @param result Operation return code.
+     */
+    void set_header_record(sql_result result);
 
-                /**
-                 * Add status record to diagnostic records.
-                 *
-                 * @param record Status record.
-                 */
-                void AddStatusRecord(const diagnostic_record& record);
+    /**
+     * Add new status record.
+     *
+     * @param sqlState SQL state.
+     * @param message Message.
+     */
+    void add_status_record(sql_state  sqlState, const std::string& message);
 
-                /**
-                 * Reset diagnostic records state.
-                 */
-                void Reset();
+    /**
+     * Add status record to diagnostic records.
+     *
+     * TODO: Replace with move
+     * @param record Status record.
+     */
+    void add_status_record(const diagnostic_record& record);
 
-                /**
-                 * Get result of the last operation.
-                 *
-                 * @return Result of the last operation.
-                 */
-                sql_result GetOperaionResult() const;
+    /**
+     * reset diagnostic records state.
+     */
+    void reset();
 
-                /**
-                 * Get return code of the last operation.
-                 *
-                 * @return Return code of the last operation.
-                 */
-                int GetReturnCode() const;
+    /**
+     * Get result of the last operation.
+     *
+     * @return Result of the last operation.
+     */
+    [[nodiscard]] sql_result get_operation_result() const;
 
-                /**
-                 * Get row count.
-                 *
-                 * @return Count of rows in cursor.
-                 */
-                int64_t GetRowCount() const;
+    /**
+     * Get return code of the last operation.
+     *
+     * @return Return code of the last operation.
+     */
+    [[nodiscard]] int get_return_code() const;
 
-                /**
-                 * Get dynamic function.
-                 *
-                 * @return String that describes the SQL statement
-                 *         that the underlying function executed.
-                 */
-                const std::string& GetDynamicFunction() const;
+    /**
+     * Get row count.
+     *
+     * @return Count of rows in cursor.
+     */
+    [[nodiscard]] int64_t get_row_count() const;
 
-                /**
-                 * Get dynamic function code.
-                 *
-                 * @return Numeric code that describes the
-                 *         SQL statement that was executed.
-                 */
-                int32_t GetDynamicFunctionCode() const;
+    /**
+     * Get dynamic function.
+     *
+     * @return String that describes the SQL statement that the underlying function executed.
+     */
+    [[nodiscard]] const std::string& get_dynamic_function() const;
 
-                /**
-                 * Get number of rows affected.
-                 *
-                 * @return The number of rows affected by an insert,
-                 *         delete, or update performed by the last operation.
-                 */
-                int32_t GetRowsAffected() const;
+    /**
+     * Get dynamic function code.
+     *
+     * @return Numeric code that describes the SQL statement that was executed.
+     */
+    [[nodiscard]] int32_t get_dynamic_function_code() const;
 
-                /**
-                 * Get status records number.
-                 *
-                 * @return Number of status records.
-                 */
-                int32_t GetStatusRecordsNumber() const;
+    /**
+     * Get number of rows affected.
+     *
+     * @return The number of rows affected by an insert, delete, or update performed by the last operation.
+     */
+    [[nodiscard]] int32_t get_rows_affected() const;
 
-                /**
-                 * Get specified status record.
-                 *
-                 * @param idx Status record index.
-                 * @return Status record instance reference.
-                 */
-                const diagnostic_record& GetStatusRecord(int32_t idx) const;
+    /**
+     * Get status records number.
+     *
+     * @return Number of status records.
+     */
+    [[nodiscard]] int32_t get_status_records_number() const;
 
-                /**
-                 * Get specified status record.
-                 *
-                 * @param idx Status record index.
-                 * @return Status record instance reference.
-                 */
-                diagnostic_record& GetStatusRecord(int32_t idx);
+    /**
+     * Get specified status record.
+     *
+     * @param idx Status record index.
+     * @return Status record instance reference.
+     */
+    [[nodiscard]] const diagnostic_record& get_status_record(int32_t idx) const;
 
-                /**
-                 * Get last non-retrieved status record index.
-                 *
-                 * @return Index of the last non-retrieved status record or zero
-                 *  if nothing was found.
-                 */
-                int32_t GetLastNonRetrieved() const;
+    /**
+     * Get specified status record.
+     *
+     * @param idx Status record index.
+     * @return Status record instance reference.
+     */
+    diagnostic_record& get_status_record(int32_t idx);
 
-                /**
-                 * Check if the record is in the success state.
-                 *
-                 * @return True if the record is in the success state.
-                 */
-                bool IsSuccessful() const;
+    /**
+     * Get last non-retrieved status record index.
+     *
+     * @return Index of the last non-retrieved status record or zero
+     *  if nothing was found.
+     */
+    [[nodiscard]] int32_t get_last_non_retrieved() const;
 
-                /**
-                 * Get value of the field and put it in buffer.
-                 *
-                 * @param recNum Diagnostic record number.
-                 * @param field Record field.
-                 * @param buffer Buffer to put data to.
-                 * @return Operation result.
-                 */
-                sql_result GetField(int32_t recNum, diagnostic_field field,
-                    application_data_buffer& buffer) const;
+    /**
+     * Check if the record is in the success state.
+     *
+     * @return True if the record is in the success state.
+     */
+    [[nodiscard]] bool is_successful() const;
 
-            private:
-                IGNITE_NO_COPY_ASSIGNMENT(diagnostic_record_storage);
+    /**
+     * Get value of the field and put it in buffer.
+     *
+     * @param rec_num Diagnostic record number.
+     * @param field Record field.
+     * @param buffer Buffer to put data to.
+     * @return Operation result.
+     */
+    sql_result get_field(int32_t rec_num, diagnostic_field field, application_data_buffer& buffer) const;
 
-                /**
-                 * Header record field. This field contains the count of rows
-                 * in the cursor.
-                 */
-                int64_t rowCount;
+private:
+    /** Header record field. This field contains the count of rows in the cursor. */
+    int64_t m_row_count{0};
 
-                /**
-                 * Header record field. String that describes the SQL statement
-                 * that the underlying function executed.
-                 */
-                std::string dynamicFunction;
+    /** Header record field. String that describes the SQL statement that the underlying function executed. */
+    std::string m_dynamic_function;
 
-                /**
-                 * Header record field. Numeric code that describes the
-                 * SQL statement that was executed.
-                 */
-                int32_t dynamicFunctionCode;
+    /** Header record field. Numeric code that describes the SQL statement that was executed. */
+    int32_t m_dynamic_function_code{0};
 
-                /**
-                 * Operation result. This field is mapped to "Return code" header
-                 * record field.
-                 */
-                sql_result result;
+    /** Operation result. This field is mapped to "Return code" header record field. */
+    sql_result m_result{sql_result::AI_SUCCESS};
 
-                /**
-                 * Header record field. The number of rows affected by an insert,
-                 * delete, or update performed by the last operation.
-                 */
-                int32_t rowsAffected;
+    /**
+     * Header record field. The number of rows affected by an insert, delete, or update performed by the last operation.
+     */
+    int32_t m_rows_affected{0};
 
-                /** Status records. */
-                std::vector<diagnostic_record> statusRecords;
-            };
-        }
-    }
-}
+    /** Status records. */
+    std::vector<diagnostic_record> m_status_records;
+};
 
-#endif //_IGNITE_ODBC_DIAGNOSTIC_DIAGNOSTIC_RECORD_STORAGE
+} // namespace ignite

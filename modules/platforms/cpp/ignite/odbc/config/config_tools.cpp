@@ -183,7 +183,7 @@ bool parse_single_address(const std::string& value, network::tcp_range& end_poin
             << value << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return false;
     }
@@ -197,7 +197,7 @@ bool parse_single_address(const std::string& value, network::tcp_range& end_poin
         stream << "Port is missing in the following address: '" << value << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return false;
     }
@@ -231,7 +231,7 @@ bool parse_port_range(const std::string& value, std::uint16_t& port, std::uint16
         stream << "Unexpected number of '.' characters in the following address: '" << value << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return false;
     }
@@ -251,7 +251,7 @@ bool parse_port_range(const std::string& value, std::uint16_t& port, std::uint16
             << value << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return false;
     }
@@ -271,7 +271,7 @@ std::uint16_t parse_port(const std::string& value, diagnostic_record_storage* di
         stream << "Unexpected port characters: '" << port << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return 0;
     }
@@ -282,7 +282,7 @@ std::uint16_t parse_port(const std::string& value, diagnostic_record_storage* di
         stream << "Port value is too large: '" << port << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return 0;
     }
@@ -299,7 +299,7 @@ std::uint16_t parse_port(const std::string& value, diagnostic_record_storage* di
         stream << "Port value is out of range: '" << port << "'. Ignoring address.";
 
         if (diag)
-            diag->AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
+            diag->add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, stream.str());
 
         return 0;
     }

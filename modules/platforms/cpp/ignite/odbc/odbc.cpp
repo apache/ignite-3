@@ -78,7 +78,7 @@ namespace ignite
 
         connection->GetInfo(infoType, infoValue, infoValueMax, length);
 
-        return connection->GetDiagnosticRecords().GetReturnCode();
+        return connection->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result)
@@ -106,8 +106,8 @@ namespace ignite
                 if (result)
                     *result = 0;
 
-                connection->GetDiagnosticRecords().Reset();
-                connection->AddStatusRecord(sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
+                connection->GetDiagnosticRecords().reset();
+                connection->add_status_record(sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
                                             "The HandleType argument was SQL_HANDLE_DESC, and "
                                             "the driver does not support allocating a descriptor handle");
 
@@ -149,7 +149,7 @@ namespace ignite
         Connection *connection = environment->CreateConnection();
 
         if (!connection)
-            return environment->GetDiagnosticRecords().GetReturnCode();
+            return environment->GetDiagnosticRecords().get_return_code();
 
         *conn = reinterpret_cast<SQLHDBC>(connection);
 
@@ -174,7 +174,7 @@ namespace ignite
 
         *stmt = reinterpret_cast<SQLHSTMT>(statement);
 
-        return connection->GetDiagnosticRecords().GetReturnCode();
+        return connection->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle)
@@ -251,7 +251,7 @@ namespace ignite
 
         statement->FreeResources(option);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLCloseCursor(SQLHSTMT stmt)
@@ -264,7 +264,7 @@ namespace ignite
 
         statement->Close();
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLDriverConnect(SQLHDBC      conn,
@@ -296,8 +296,8 @@ namespace ignite
         connection->Establish(connectStr, windowHandle);
 
         diagnostic_record_storage& diag = connection->GetDiagnosticRecords();
-        if (!diag.IsSuccessful())
-            return diag.GetReturnCode();
+        if (!diag.is_successful())
+            return diag.get_return_code();
 
         size_t reslen = CopyStringToBuffer(connectStr,
             reinterpret_cast<char*>(outConnectionString),
@@ -309,7 +309,7 @@ namespace ignite
         if (outConnectionString)
             LOG_MSG(outConnectionString);
 
-        return diag.GetReturnCode();
+        return diag.get_return_code();
     }
 
     SQLRETURN SQLConnect(SQLHDBC        conn,
@@ -346,7 +346,7 @@ namespace ignite
 
         connection->Establish(config);
 
-        return connection->GetDiagnosticRecords().GetReturnCode();
+        return connection->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLDisconnect(SQLHDBC conn)
@@ -362,7 +362,7 @@ namespace ignite
 
         connection->Release();
 
-        return connection->GetDiagnosticRecords().GetReturnCode();
+        return connection->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
@@ -383,7 +383,7 @@ namespace ignite
 
         statement->PrepareSqlQuery(sql);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLExecute(SQLHSTMT stmt)
@@ -399,7 +399,7 @@ namespace ignite
 
         statement->ExecuteSqlQuery();
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
@@ -420,7 +420,7 @@ namespace ignite
 
         statement->ExecuteSqlQuery(sql);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLBindCol(SQLHSTMT       stmt,
@@ -447,7 +447,7 @@ namespace ignite
 
         statement->BindColumn(colNum, targetType, targetValue, bufferLength, strLengthOrIndicator);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLFetch(SQLHSTMT stmt)
@@ -463,7 +463,7 @@ namespace ignite
 
         statement->FetchRow();
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset)
@@ -480,13 +480,13 @@ namespace ignite
 
         statement->FetchScroll(orientation, offset);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLExtendedFetch(SQLHSTMT         stmt,
                                SQLUSMALLINT     orientation,
                                SQLLEN           offset,
-                               SQLULEN*         rowCount,
+                               SQLULEN*         row_count,
                                SQLUSMALLINT*    rowStatusArray)
     {
         LOG_MSG("SQLExtendedFetch called");
@@ -495,14 +495,14 @@ namespace ignite
 
         if (res == SQL_SUCCESS)
         {
-            if (rowCount)
-                *rowCount = 1;
+            if (row_count)
+                *row_count = 1;
 
             if (rowStatusArray)
                 rowStatusArray[0] = SQL_ROW_SUCCESS;
         }
-        else if (res == SQL_NO_DATA && rowCount)
-            *rowCount = 0;
+        else if (res == SQL_NO_DATA && row_count)
+            *row_count = 0;
 
         return res;
     }
@@ -527,7 +527,7 @@ namespace ignite
             LOG_MSG("columnNum: " << *columnNum);
         }
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLTables(SQLHSTMT    stmt,
@@ -562,7 +562,7 @@ namespace ignite
 
         statement->ExecuteGetTablesMetaQuery(catalog, schema, table, tableTypeStr);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLColumns(SQLHSTMT       stmt,
@@ -597,7 +597,7 @@ namespace ignite
 
         statement->ExecuteGetColumnsMetaQuery(schema, table, column);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLMoreResults(SQLHSTMT stmt)
@@ -613,7 +613,7 @@ namespace ignite
 
         statement->MoreResults();
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLBindParameter(SQLHSTMT     stmt,
@@ -638,7 +638,7 @@ namespace ignite
 
         statement->bind_parameter(paramIdx, ioType, bufferType, paramSqlType, columnSize, decDigits, buffer, bufferLen, resLen);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLNativeSql(SQLHDBC      conn,
@@ -700,7 +700,7 @@ namespace ignite
         statement->GetColumnAttribute(columnNum, fieldId, reinterpret_cast<char*>(strAttr),
             bufferLen, strAttrLen, numericAttr);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLDescribeCol(SQLHSTMT       stmt,
@@ -756,7 +756,7 @@ namespace ignite
         if (nullable)
             *nullable = static_cast<SQLSMALLINT>(nullableRes);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
 
@@ -778,7 +778,7 @@ namespace ignite
         if (rowCnt)
             *rowCnt = static_cast<SQLLEN>(res);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLForeignKeys(SQLHSTMT       stmt,
@@ -822,7 +822,7 @@ namespace ignite
         statement->ExecuteGetForeignKeysQuery(primaryCatalog, primarySchema,
             primaryTable, foreignCatalog, foreignSchema, foreignTable);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLGetStmtAttr(SQLHSTMT       stmt,
@@ -848,7 +848,7 @@ namespace ignite
 
         statement->GetAttribute(attr, valueBuf, valueBufLen, valueResLen);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLSetStmtAttr(SQLHSTMT    stmt,
@@ -873,7 +873,7 @@ namespace ignite
 
         statement->SetAttribute(attr, value, valueLen);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLPrimaryKeys(SQLHSTMT       stmt,
@@ -904,7 +904,7 @@ namespace ignite
 
         statement->ExecuteGetPrimaryKeysQuery(catalog, schema, table);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* paramCnt)
@@ -926,7 +926,7 @@ namespace ignite
             *paramCnt = static_cast<SQLSMALLINT>(paramNum);
         }
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLGetDiagField(SQLSMALLINT   handleType,
@@ -960,7 +960,7 @@ namespace ignite
             {
                 Diagnosable *diag = reinterpret_cast<Diagnosable*>(handle);
 
-                result = diag->GetDiagnosticRecords().GetField(recNum, field, outBuffer);
+                result = diag->GetDiagnosticRecords().get_field(recNum, field, outBuffer);
 
                 break;
             }
@@ -1021,10 +1021,10 @@ namespace ignite
         if (recNum < 1 || msgBufferLen < 0)
             return SQL_ERROR;
 
-        if (!records || recNum > records->GetStatusRecordsNumber())
+        if (!records || recNum > records->get_status_records_number())
             return SQL_NO_DATA;
 
-        const diagnostic_record& record = records->GetStatusRecord(recNum);
+        const diagnostic_record& record = records->get_status_record(recNum);
 
         if (sqlState)
             CopyStringToBuffer(record.get_sql_state(), reinterpret_cast<char*>(sqlState), 6);
@@ -1067,7 +1067,7 @@ namespace ignite
 
         statement->ExecuteGetTypeInfoQuery(static_cast<int16_t>(type));
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLEndTran(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT completionType)
@@ -1092,7 +1092,7 @@ namespace ignite
                 else
                     env->TransactionRollback();
 
-                result = env->GetDiagnosticRecords().GetReturnCode();
+                result = env->GetDiagnosticRecords().get_return_code();
 
                 break;
             }
@@ -1109,7 +1109,7 @@ namespace ignite
                 else
                     conn->TransactionRollback();
 
-                result = conn->GetDiagnosticRecords().GetReturnCode();
+                result = conn->GetDiagnosticRecords().get_return_code();
 
                 break;
             }
@@ -1150,7 +1150,7 @@ namespace ignite
 
         statement->GetColumnData(colNum, dataBuffer);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLSetEnvAttr(SQLHENV     env,
@@ -1170,7 +1170,7 @@ namespace ignite
 
         environment->SetAttribute(attr, value, valueLen);
 
-        return environment->GetDiagnosticRecords().GetReturnCode();
+        return environment->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLGetEnvAttr(SQLHENV     env,
@@ -1200,7 +1200,7 @@ namespace ignite
         if (valueResLen)
             *valueResLen = static_cast<SQLSMALLINT>(outResLen);
 
-        return environment->GetDiagnosticRecords().GetReturnCode();
+        return environment->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLSpecialColumns(SQLHSTMT    stmt,
@@ -1235,7 +1235,7 @@ namespace ignite
 
         statement->ExecuteSpecialColumnsQuery(idType, catalog, schema, table, scope, nullable);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLParamData(SQLHSTMT stmt, SQLPOINTER* value)
@@ -1251,7 +1251,7 @@ namespace ignite
 
         statement->SelectParam(value);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLPutData(SQLHSTMT stmt, SQLPOINTER data, SQLLEN strLengthOrIndicator)
@@ -1267,7 +1267,7 @@ namespace ignite
 
         statement->put_data(data, strLengthOrIndicator);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLDescribeParam(SQLHSTMT     stmt,
@@ -1288,7 +1288,7 @@ namespace ignite
 
         statement->DescribeParam(paramNum, dataType, paramSize, decimalDigits, nullable);
 
-        return statement->GetDiagnosticRecords().GetReturnCode();
+        return statement->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQLError(SQLHENV      env,
@@ -1324,12 +1324,12 @@ namespace ignite
 
         diagnostic_record_storage& records = diag->GetDiagnosticRecords();
 
-        int32_t recNum = records.GetLastNonRetrieved();
+        int32_t recNum = records.get_last_non_retrieved();
 
-        if (recNum < 1 || recNum > records.GetStatusRecordsNumber())
+        if (recNum < 1 || recNum > records.get_status_records_number())
             return SQL_NO_DATA;
 
-        diagnostic_record& record = records.GetStatusRecord(recNum);
+        diagnostic_record& record = records.get_status_record(recNum);
 
         record.mark_retrieved();
 
@@ -1370,7 +1370,7 @@ namespace ignite
 
         connection->GetAttribute(attr, valueBuf, valueBufLen, valueResLen);
 
-        return connection->GetDiagnosticRecords().GetReturnCode();
+        return connection->GetDiagnosticRecords().get_return_code();
     }
 
     SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC    conn,
@@ -1389,7 +1389,7 @@ namespace ignite
 
         connection->SetAttribute(attr, value, valueLen);
 
-        return connection->GetDiagnosticRecords().GetReturnCode();
+        return connection->GetDiagnosticRecords().get_return_code();
     }
 
 } // namespace ignite;

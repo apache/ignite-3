@@ -34,7 +34,7 @@ namespace ignite
                 sql(sql),
                 params(params),
                 resultMeta(),
-                rowsAffected(),
+                rows_affected(),
                 rowsAffectedIdx(0),
                 executed(false),
                 timeout(timeout)
@@ -58,8 +58,8 @@ namespace ignite
 
                 int32_t processed = 0;
 
-                rowsAffected.clear();
-                rowsAffected.reserve(static_cast<size_t>(params.get_param_set_size()));
+                rows_affected.clear();
+                rows_affected.reserve(static_cast<size_t>(params.get_param_set_size()));
 
                 do {
                     int32_t currentPageSize = std::min(maxPageSize, row_num - processed);
@@ -70,7 +70,7 @@ namespace ignite
                     processed += currentPageSize;
                 } while ((res == sql_result::AI_SUCCESS || res == sql_result::AI_SUCCESS_WITH_INFO) && processed < row_num);
 
-                params.set_params_processed(static_cast<SQLULEN>(rowsAffected.size()));
+                params.set_params_processed(static_cast<SQLULEN>(rows_affected.size()));
 
                 return res;
             }
@@ -84,7 +84,7 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -96,12 +96,12 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
 
-                diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
+                diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
                     "Cursor has reached end of the result set.");
 
                 return sql_result::AI_ERROR;
@@ -110,7 +110,7 @@ namespace ignite
             sql_result BatchQuery::Close()
             {
                 executed = false;
-                rowsAffected.clear();
+                rows_affected.clear();
                 rowsAffectedIdx = 0;
 
                 return sql_result::AI_SUCCESS;
@@ -123,13 +123,13 @@ namespace ignite
 
             int64_t BatchQuery::AffectedRows() const
             {
-                int64_t affected = rowsAffectedIdx < rowsAffected.size() ? rowsAffected[rowsAffectedIdx] : 0;
+                int64_t affected = rowsAffectedIdx < rows_affected.size() ? rows_affected[rowsAffectedIdx] : 0;
                 return affected < 0 ? 0 : affected;
             }
 
             sql_result BatchQuery::NextResultSet()
             {
-                if (rowsAffectedIdx + 1 >= rowsAffected.size())
+                if (rowsAffectedIdx + 1 >= rows_affected.size())
                 {
                     Close();
                     return sql_result::AI_NO_DATA;
@@ -153,13 +153,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -168,7 +168,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -177,21 +177,21 @@ namespace ignite
 
                 for (size_t i = 0; i < rowsLastTime.size(); ++i)
                 {
-                    int64_t idx = static_cast<int64_t>(i + rowsAffected.size());
+                    int64_t idx = static_cast<int64_t>(i + rows_affected.size());
 
                     params.set_params_status(idx, rowsLastTime[i] < 0 ? SQL_PARAM_ERROR : SQL_PARAM_SUCCESS);
                 }
 
-                rowsAffected.insert(rowsAffected.end(), rowsLastTime.begin(), rowsLastTime.end());
-                LOG_MSG("Affected rows list size: " << rowsAffected.size());
+                rows_affected.insert(rows_affected.end(), rowsLastTime.begin(), rowsLastTime.end());
+                LOG_MSG("Affected rows list size: " << rows_affected.size());
 
                 if (!rsp.get_error_message().empty())
                 {
                     LOG_MSG("Error: " << rsp.get_error_message());
-                    LOG_MSG("Sets Processed: " << rowsAffected.size());
+                    LOG_MSG("Sets Processed: " << rows_affected.size());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.get_error_message(),
-                        static_cast<int32_t>(rowsAffected.size()), 0);
+                    diag.add_status_record(response_status_to_sql_state(rsp.GetErrorCode()), rsp.get_error_message(),
+                        static_cast<int32_t>(rows_affected.size()), 0);
 
                     return sql_result::AI_SUCCESS_WITH_INFO;
                 }

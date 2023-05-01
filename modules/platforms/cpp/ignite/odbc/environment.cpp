@@ -58,7 +58,7 @@ namespace ignite
 
             if (!connection)
             {
-                AddStatusRecord(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
+                add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 
                 return sql_result::AI_ERROR;
             }
@@ -85,9 +85,9 @@ namespace ignite
 
                 diagnostic_record_storage& diag = conn->GetDiagnosticRecords();
 
-                if (diag.GetStatusRecordsNumber() > 0)
+                if (diag.get_status_records_number() > 0)
                 {
-                    AddStatusRecord(diag.GetStatusRecord(1));
+                    add_status_record(diag.get_status_record(1));
 
                     res = sql_result::AI_SUCCESS_WITH_INFO;
                 }
@@ -113,9 +113,9 @@ namespace ignite
 
                 diagnostic_record_storage& diag = conn->GetDiagnosticRecords();
 
-                if (diag.GetStatusRecordsNumber() > 0)
+                if (diag.get_status_records_number() > 0)
                 {
-                    AddStatusRecord(diag.GetStatusRecord(1));
+                    add_status_record(diag.get_status_record(1));
 
                     res = sql_result::AI_SUCCESS_WITH_INFO;
                 }
@@ -143,7 +143,7 @@ namespace ignite
 
                     if (version != odbcVersion)
                     {
-                        AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                        add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                             "ODBC version is not supported.");
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
@@ -158,7 +158,7 @@ namespace ignite
 
                     if (nts != odbcNts)
                     {
-                        AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                        add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
                             "Only null-termination of strings is supported.");
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
@@ -172,7 +172,7 @@ namespace ignite
                     break;
             }
 
-            AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+            add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                 "Attribute is not supported.");
 
             return sql_result::AI_ERROR;
@@ -208,7 +208,7 @@ namespace ignite
                     break;
             }
 
-            AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+            add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                 "Attribute is not supported.");
 
             return sql_result::AI_ERROR;

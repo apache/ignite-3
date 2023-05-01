@@ -149,11 +149,11 @@ SQLRETURN SQL_API SQLFetchScroll(SQLHSTMT       stmt,
 SQLRETURN SQL_API SQLExtendedFetch(SQLHSTMT         stmt,
                                    SQLUSMALLINT     orientation,
                                    SQLLEN           offset,
-                                   SQLULEN*         rowCount,
+                                   SQLULEN*         row_count,
                                    SQLUSMALLINT*    rowStatusArray)
 {
     return ignite::SQLExtendedFetch(stmt, orientation,
-        offset, rowCount, rowStatusArray);
+        offset, row_count, rowStatusArray);
 }
 
 SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *columnNum)

@@ -37,7 +37,7 @@ namespace ignite
                 resultMetaAvailable(false),
                 resultMeta(),
                 cursor(),
-                rowsAffected(),
+                rows_affected(),
                 rowsAffectedIdx(0),
                 cachedNextPage(),
                 timeout(timeout)
@@ -75,7 +75,7 @@ namespace ignite
             {
                 if (!cursor.get())
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -105,7 +105,7 @@ namespace ignite
 
                 if (!row)
                 {
-                    diag.AddStatusRecord("Unknown error.");
+                    diag.add_status_record("Unknown error.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -132,7 +132,7 @@ namespace ignite
             {
                 if (!cursor.get())
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -141,7 +141,7 @@ namespace ignite
 
                 if (!row)
                 {
-                    diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE,
+                    diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
                         "Cursor has reached end of the result set.");
 
                     return sql_result::AI_ERROR;
@@ -175,7 +175,7 @@ namespace ignite
 
                     rowsAffectedIdx = 0;
 
-                    rowsAffected.clear();
+                    rows_affected.clear();
                 }
 
                 return result;
@@ -188,7 +188,7 @@ namespace ignite
 
             int64_t DataQuery::AffectedRows() const
             {
-                int64_t affected = rowsAffectedIdx < rowsAffected.size() ? rowsAffected[rowsAffectedIdx] : 0;
+                int64_t affected = rowsAffectedIdx < rows_affected.size() ? rows_affected[rowsAffectedIdx] : 0;
 
                 if (affected >= 0)
                     return affected;
@@ -198,7 +198,7 @@ namespace ignite
 
             sql_result DataQuery::NextResultSet()
             {
-                if (rowsAffectedIdx + 1 >= rowsAffected.size())
+                if (rowsAffectedIdx + 1 >= rows_affected.size())
                 {
                     InternalClose();
 
@@ -215,9 +215,9 @@ namespace ignite
 
             bool DataQuery::IsClosedRemotely() const
             {
-                for (size_t i = 0; i < rowsAffected.size(); ++i)
+                for (size_t i = 0; i < rows_affected.size(); ++i)
                 {
-                    if (rowsAffected[i] < 0)
+                    if (rows_affected[i] < 0)
                         return false;
                 }
 
@@ -237,13 +237,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -252,16 +252,16 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
 
-                rowsAffected = rsp.GetAffectedRows();
+                rows_affected = rsp.GetAffectedRows();
                 SetResultsetMeta(rsp.GetMeta());
 
                 LOG_MSG("Query id: " << rsp.GetQueryId());
-                LOG_MSG("Affected Rows list size: " << rowsAffected.size());
+                LOG_MSG("Affected Rows list size: " << rows_affected.size());
 
                 cursor.reset(new Cursor(rsp.GetQueryId()));
 
@@ -281,13 +281,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -298,7 +298,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -319,13 +319,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -334,7 +334,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -360,13 +360,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -375,7 +375,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -402,13 +402,13 @@ namespace ignite
                 }
                 catch (const odbc_error& err)
                 {
-                    diag.AddStatusRecord(err);
+                    diag.add_status_record(err);
 
                     return sql_result::AI_ERROR;
                 }
                 catch (const IgniteError& err)
                 {
-                    diag.AddStatusRecord(err.GetText());
+                    diag.add_status_record(err.GetText());
 
                     return sql_result::AI_ERROR;
                 }
@@ -417,7 +417,7 @@ namespace ignite
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -444,7 +444,7 @@ namespace ignite
 
                     case conversion_result::AI_VARLEN_DATA_TRUNCATED:
                     {
-                        diag.AddStatusRecord(sql_state::S01004_DATA_TRUNCATED,
+                        diag.add_status_record(sql_state::S01004_DATA_TRUNCATED,
                             "Buffer is too small for the column data. Truncated from the right.", rowIdx, columnIdx);
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
@@ -452,7 +452,7 @@ namespace ignite
 
                     case conversion_result::AI_FRACTIONAL_TRUNCATED:
                     {
-                        diag.AddStatusRecord(sql_state::S01S07_FRACTIONAL_TRUNCATION,
+                        diag.add_status_record(sql_state::S01S07_FRACTIONAL_TRUNCATION,
                             "Buffer is too small for the column data. Fraction truncated.", rowIdx, columnIdx);
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
@@ -460,7 +460,7 @@ namespace ignite
 
                     case conversion_result::AI_INDICATOR_NEEDED:
                     {
-                        diag.AddStatusRecord(sql_state::S22002_INDICATOR_NEEDED,
+                        diag.add_status_record(sql_state::S22002_INDICATOR_NEEDED,
                             "Indicator is needed but not suplied for the column buffer.", rowIdx, columnIdx);
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
@@ -468,7 +468,7 @@ namespace ignite
 
                     case conversion_result::AI_UNSUPPORTED_CONVERSION:
                     {
-                        diag.AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                        diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Data conversion is not supported.", rowIdx, columnIdx);
 
                         return sql_result::AI_SUCCESS_WITH_INFO;
@@ -477,7 +477,7 @@ namespace ignite
                     case conversion_result::AI_FAILURE:
                     default:
                     {
-                        diag.AddStatusRecord(sql_state::S01S01_ERROR_IN_ROW,
+                        diag.add_status_record(sql_state::S01S01_ERROR_IN_ROW,
                             "Can not retrieve row column.", rowIdx, columnIdx);
 
                         break;

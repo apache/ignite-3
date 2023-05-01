@@ -55,7 +55,7 @@ namespace ignite
 
             sql_result StreamingQuery::GetColumn(uint16_t, application_data_buffer&)
             {
-                diag.AddStatusRecord(sql_state::S24000_INVALID_CURSOR_STATE, "Column is not available.");
+                diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Column is not available.");
 
                 return sql_result::AI_ERROR;
             }

@@ -70,7 +70,7 @@ namespace ignite
                  */
                 virtual sql_result Execute()
                 {
-                    diag.AddStatusRecord("Internal error.");
+                    diag.add_status_record("Internal error.");
 
                     return sql_result::AI_ERROR;
                 }

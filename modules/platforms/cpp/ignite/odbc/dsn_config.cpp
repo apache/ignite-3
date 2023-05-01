@@ -64,7 +64,7 @@ namespace ignite
 
             if (ret > BUFFER_SIZE)
             {
-                buf.Reset(ret + 1);
+                buf.reset(ret + 1);
 
                 ret = SQLGetPrivateProfileString(dsn, key.c_str(), unique, buf.get_data(), buf.get_size(), CONFIG_FILE);
             }

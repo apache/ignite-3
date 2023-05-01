@@ -99,7 +99,7 @@ namespace ignite
             sql_result res = info.GetInfo(type, buf, buflen, reslen);
 
             if (res != sql_result::AI_SUCCESS)
-                AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Not implemented.");
+                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Not implemented.");
 
             return res;
         }
@@ -120,7 +120,7 @@ namespace ignite
                 LOG_MSG("Parent window is passed. Creating configuration window.");
                 if (!DisplayConnectionWindow(parentWindow, config))
                 {
-                    AddStatusRecord(sql_state::SHY008_OPERATION_CANCELED, "Connection canceled by user");
+                    add_status_record(sql_state::SHY008_OPERATION_CANCELED, "Connection canceled by user");
 
                     return sql_result::AI_ERROR;
                 }
@@ -160,7 +160,7 @@ namespace ignite
             {
                 LOG_MSG("Can not load OpenSSL library: " << err.GetText());
 
-                AddStatusRecord("Can not load OpenSSL library (did you set OPENSSL_HOME environment variable?)");
+                add_status_record("Can not load OpenSSL library (did you set OPENSSL_HOME environment variable?)");
 
                 return sql_result::AI_ERROR;
             }
@@ -183,14 +183,14 @@ namespace ignite
 
             if (socket.get() != 0)
             {
-                AddStatusRecord(sql_state::S08002_ALREADY_CONNECTED, "Already connected.");
+                add_status_record(sql_state::S08002_ALREADY_CONNECTED, "Already connected.");
 
                 return sql_result::AI_ERROR;
             }
 
             if (!config.IsHostSet() && config.IsAddressesSet() && config.GetAddresses().empty())
             {
-                AddStatusRecord("No valid address to connect.");
+                add_status_record("No valid address to connect.");
 
                 return sql_result::AI_ERROR;
             }
@@ -199,12 +199,12 @@ namespace ignite
 
             if (!connected)
             {
-                AddStatusRecord(sql_state::S08001_CANNOT_CONNECT, "Failed to establish connection with the host.");
+                add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to establish connection with the host.");
 
                 return sql_result::AI_ERROR;
             }
 
-            bool errors = GetDiagnosticRecords().GetStatusRecordsNumber() > 0;
+            bool errors = GetDiagnosticRecords().get_status_records_number() > 0;
 
             return errors ? sql_result::AI_SUCCESS_WITH_INFO : sql_result::AI_SUCCESS;
         }
@@ -223,7 +223,7 @@ namespace ignite
         {
             if (socket.get() == 0)
             {
-                AddStatusRecord(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
+                add_status_record(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
 
                 // It is important to return SUCCESS_WITH_INFO and not ERROR here, as if we return an error, Windows
                 // Driver Manager may decide that connection is not valid anymore which results in memory leak.
@@ -260,7 +260,7 @@ namespace ignite
 
             if (!statement)
             {
-                AddStatusRecord(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
+                add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 
                 return sql_result::AI_ERROR;
             }
@@ -433,20 +433,20 @@ namespace ignite
 
                 if (!sent)
                 {
-                    AddStatusRecord(sql_state::S08S01_LINK_FAILURE, "Failed to send commit request.");
+                    add_status_record(sql_state::S08S01_LINK_FAILURE, "Failed to send commit request.");
 
                     return sql_result::AI_ERROR;
                 }
             }
             catch (const odbc_error& err)
             {
-                AddStatusRecord(err);
+                add_status_record(err);
 
                 return sql_result::AI_ERROR;
             }
             catch (const IgniteError& err)
             {
-                AddStatusRecord(err.GetText());
+                add_status_record(err.GetText());
 
                 return sql_result::AI_ERROR;
             }
@@ -474,20 +474,20 @@ namespace ignite
 
                 if (!sent)
                 {
-                    AddStatusRecord(sql_state::S08S01_LINK_FAILURE, "Failed to send rollback request.");
+                    add_status_record(sql_state::S08S01_LINK_FAILURE, "Failed to send rollback request.");
 
                     return sql_result::AI_ERROR;
                 }
             }
             catch (const odbc_error& err)
             {
-                AddStatusRecord(err);
+                add_status_record(err);
 
                 return sql_result::AI_ERROR;
             }
             catch (const IgniteError& err)
             {
-                AddStatusRecord(err.GetText());
+                add_status_record(err.GetText());
 
                 return sql_result::AI_ERROR;
             }
@@ -504,7 +504,7 @@ namespace ignite
         {
             if (!buf)
             {
-                AddStatusRecord(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER, "Data buffer is null.");
+                add_status_record(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER, "Data buffer is null.");
 
                 return sql_result::AI_ERROR;
             }
@@ -561,7 +561,7 @@ namespace ignite
 
                 default:
                 {
-                    AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Specified attribute is not supported.");
 
                     return sql_result::AI_ERROR;
@@ -582,7 +582,7 @@ namespace ignite
             {
                 case SQL_ATTR_CONNECTION_DEAD:
                 {
-                    AddStatusRecord(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE, "Attribute is read only.");
+                    add_status_record(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE, "Attribute is read only.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -591,7 +591,7 @@ namespace ignite
                 {
                     timeout = RetrieveTimeout(value);
 
-                    if (GetDiagnosticRecords().GetStatusRecordsNumber() != 0)
+                    if (GetDiagnosticRecords().get_status_records_number() != 0)
                         return sql_result::AI_SUCCESS_WITH_INFO;
 
                     break;
@@ -601,7 +601,7 @@ namespace ignite
                 {
                     loginTimeout = RetrieveTimeout(value);
 
-                    if (GetDiagnosticRecords().GetStatusRecordsNumber() != 0)
+                    if (GetDiagnosticRecords().get_status_records_number() != 0)
                         return sql_result::AI_SUCCESS_WITH_INFO;
 
                     break;
@@ -613,7 +613,7 @@ namespace ignite
 
                     if (mode != SQL_AUTOCOMMIT_ON && mode != SQL_AUTOCOMMIT_OFF)
                     {
-                        AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                        add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                             "Specified attribute is not supported.");
 
                         return sql_result::AI_ERROR;
@@ -626,7 +626,7 @@ namespace ignite
 
                 default:
                 {
-                    AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Specified attribute is not supported.");
 
                     return sql_result::AI_ERROR;
@@ -642,7 +642,7 @@ namespace ignite
 
             if (!protocolVersion.IsSupported())
             {
-                AddStatusRecord(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
                     "Protocol version is not supported: " + protocolVersion.ToString());
 
                 return sql_result::AI_ERROR;
@@ -650,7 +650,7 @@ namespace ignite
 
             if (protocolVersion < ProtocolVersion::VERSION_2_5_0 && !config.GetUser().empty())
             {
-                AddStatusRecord(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
                     "Authentication is not allowed for protocol version below 2.5.0");
 
                 return sql_result::AI_ERROR;
@@ -667,7 +667,7 @@ namespace ignite
 
                 if (!sent)
                 {
-                    AddStatusRecord(sql_state::S08001_CANNOT_CONNECT,
+                    add_status_record(sql_state::S08001_CANNOT_CONNECT,
                         "Failed to get handshake response (Did you forget to enable SSL?).");
 
                     return sql_result::AI_ERROR;
@@ -675,13 +675,13 @@ namespace ignite
             }
             catch (const odbc_error& err)
             {
-                AddStatusRecord(err);
+                add_status_record(err);
 
                 return sql_result::AI_ERROR;
             }
             catch (const IgniteError& err)
             {
-                AddStatusRecord(sql_state::S08004_CONNECTION_REJECTED, err.GetText());
+                add_status_record(sql_state::S08004_CONNECTION_REJECTED, err.GetText());
 
                 return sql_result::AI_ERROR;
             }
@@ -702,7 +702,7 @@ namespace ignite
                             << "driver protocol version introduced in version "
                             << protocolVersion.ToString() << ".";
 
-                AddStatusRecord(sql_state::S08004_CONNECTION_REJECTED, constructor.str());
+                add_status_record(sql_state::S08004_CONNECTION_REJECTED, constructor.str());
 
                 return sql_result::AI_ERROR;
             }
@@ -799,7 +799,7 @@ namespace ignite
 
             if (uTimeout != 0 && socket.get() != 0 && socket->IsBlocking())
             {
-                AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, "Can not set timeout, because can not "
+                add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, "Can not set timeout, because can not "
                     "enable non-blocking mode on TCP connection. Setting to 0.");
 
                 return 0;
@@ -811,7 +811,7 @@ namespace ignite
 
                 ss << "Value is too big: " << uTimeout << ", changing to " << timeout << ".";
 
-                AddStatusRecord(sql_state::S01S02_OPTION_VALUE_CHANGED, ss.str());
+                add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, ss.str());
 
                 return INT32_MAX;
             }

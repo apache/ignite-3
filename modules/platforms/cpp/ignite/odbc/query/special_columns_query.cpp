@@ -80,7 +80,7 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }
@@ -92,7 +92,7 @@ namespace ignite
             {
                 if (!executed)
                 {
-                    diag.AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
                     return sql_result::AI_ERROR;
                 }

@@ -59,7 +59,7 @@ public:
      * @param row_num Associated row number.
      * @param columnNum Associated column number.
      */
-    virtual void AddStatusRecord(sql_state sqlState, const std::string& message,
+    virtual void add_status_record(sql_state sqlState, const std::string& message,
         int32_t row_num, int32_t columnNum) = 0;
 
     /**
@@ -68,21 +68,21 @@ public:
      * @param sqlState SQL state.
      * @param message Message.
      */
-    virtual void AddStatusRecord(sql_state sqlState, const std::string& message) = 0;
+    virtual void add_status_record(sql_state sqlState, const std::string& message) = 0;
 
     /**
      * Add new status record.
      *
      * @param err Error.
      */
-    virtual void AddStatusRecord(const odbc_error& err) = 0;
+    virtual void add_status_record(const odbc_error& err) = 0;
 
     /**
      * Add new status record.
      *
      * @param rec Record.
      */
-    virtual void AddStatusRecord(const diagnostic_record& rec) = 0;
+    virtual void add_status_record(const diagnostic_record& rec) = 0;
 
 protected:
     /**
