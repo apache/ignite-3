@@ -19,56 +19,52 @@
 
 #include "ignite/odbc/diagnostic/diagnostic_record_storage.h"
 
-namespace ignite::odbc
+namespace ignite
 {
+
 class odbc_error;
 
 /**
- * Diagnosable interface.
+ * diagnosable interface.
  */
-class Diagnosable
+class diagnosable
 {
 public:
-    /**
-     * Destructor.
-     */
-    virtual ~Diagnosable()
-    {
-        // No-op.
-    }
+    // Default
+    virtual ~diagnosable() = default;
 
     /**
      * Get diagnostic record.
      *
      * @return Diagnostic record.
      */
-    virtual const diagnostic_record_storage& GetDiagnosticRecords() const = 0;
+    [[nodiscard]] virtual const diagnostic_record_storage& get_diagnostic_records() const = 0;
 
     /**
      * Get diagnostic record.
      *
      * @return Diagnostic record.
      */
-    virtual diagnostic_record_storage& GetDiagnosticRecords() = 0;
+    [[nodiscard]] virtual diagnostic_record_storage& get_diagnostic_records() = 0;
 
     /**
      * Add new status record.
      *
-     * @param sqlState SQL state.
+     * @param sql_state SQL state.
      * @param message Message.
      * @param row_num Associated row number.
-     * @param columnNum Associated column number.
+     * @param column_num Associated column number.
      */
-    virtual void add_status_record(sql_state sqlState, const std::string& message,
-        int32_t row_num, int32_t columnNum) = 0;
+    virtual void add_status_record(sql_state sql_state, const std::string& message, int32_t row_num,
+        int32_t column_num) = 0;
 
     /**
      * Add new status record.
      *
-     * @param sqlState SQL state.
+     * @param sql_state SQL state.
      * @param message Message.
      */
-    virtual void add_status_record(sql_state sqlState, const std::string& message) = 0;
+    virtual void add_status_record(sql_state sql_state, const std::string& message) = 0;
 
     /**
      * Add new status record.
@@ -85,13 +81,8 @@ public:
     virtual void add_status_record(const diagnostic_record& rec) = 0;
 
 protected:
-    /**
-     * Default constructor.
-     */
-    Diagnosable()
-    {
-        // No-op.
-    }
+    // Default
+    diagnosable() = default;
 };
 
 } // namespace ignite

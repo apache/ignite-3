@@ -26,7 +26,7 @@ namespace ignite
     namespace odbc
     {
         /** Connection forward-declaration. */
-        class Connection;
+        class connection;
 
         namespace query
         {
@@ -45,8 +45,8 @@ namespace ignite
                  * @param table Table search pattern.
                  * @param column Column search pattern.
                  */
-                ColumnMetadataQuery(DiagnosableAdapter& diag,
-                    Connection& connection, const std::string& schema,
+                ColumnMetadataQuery(diagnosable_adapter& diag,
+                    connection& connection, const std::string& schema,
                     const std::string& table, const std::string& column);
 
                 /**
@@ -123,7 +123,7 @@ namespace ignite
                 sql_result MakeRequestGetColumnsMeta();
 
                 /** Connection associated with the statement. */
-                Connection& connection;
+                connection& connection;
 
                 /** Schema search pattern. */
                 std::string schema;

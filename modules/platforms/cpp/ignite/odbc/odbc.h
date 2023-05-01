@@ -99,7 +99,7 @@ SQLRETURN SQLExtendedFetch(SQLHSTMT         stmt,
                            SQLULEN*         row_count,
                            SQLUSMALLINT*    rowStatusArray);
 
-SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *columnNum);
+SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num);
 
 SQLRETURN SQLTables(SQLHSTMT    stmt,
                     SQLCHAR*    catalogName,
@@ -142,7 +142,7 @@ SQLRETURN SQLNativeSql(SQLHDBC      conn,
                        SQLINTEGER*  outQueryLen);
 
 SQLRETURN SQLColAttribute(SQLHSTMT        stmt,
-                          SQLUSMALLINT    columnNum,
+                          SQLUSMALLINT    column_num,
                           SQLUSMALLINT    fieldId,
                           SQLPOINTER      strAttr,
                           SQLSMALLINT     bufferLen,
@@ -150,7 +150,7 @@ SQLRETURN SQLColAttribute(SQLHSTMT        stmt,
                           SQLLEN*         numericAttr);
 
 SQLRETURN SQLDescribeCol(SQLHSTMT       stmt,
-                         SQLUSMALLINT   columnNum,
+                         SQLUSMALLINT   column_num,
                          SQLCHAR*       columnNameBuf,
                          SQLSMALLINT    columnNameBufLen,
                          SQLSMALLINT*   columnNameLen,
@@ -207,7 +207,7 @@ SQLRETURN SQLGetDiagField(SQLSMALLINT   handleType,
 SQLRETURN SQLGetDiagRec(SQLSMALLINT     handleType,
                         SQLHANDLE       handle,
                         SQLSMALLINT     recNum,
-                        SQLCHAR*        sqlState,
+                        SQLCHAR*        sql_state,
                         SQLINTEGER*     nativeError,
                         SQLCHAR*        msgBuffer,
                         SQLSMALLINT     msgBufferLen,

@@ -31,7 +31,7 @@ namespace ignite
         class SqlSetStreamingCommand;
 
         /** Connection forward-declaration. */
-        class Connection;
+        class connection;
 
         namespace streaming
         {
@@ -51,7 +51,7 @@ namespace ignite
                  *
                  * @param connection Connection for streaming.
                  */
-                void SetConnection(Connection& connection)
+                void SetConnection(connection& connection)
                 {
                     this->connection = &connection;
                 }
@@ -115,7 +115,7 @@ namespace ignite
                 sql_result MakeRequestStreamingBatch(bool last);
 
                 /** Connection associated with the statement. */
-                Connection* connection;
+                connection* connection;
 
                 /** Batch size. */
                 int32_t batchSize;

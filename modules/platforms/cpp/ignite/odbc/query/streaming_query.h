@@ -26,7 +26,7 @@ namespace ignite
     namespace odbc
     {
         /** Connection forward-declaration. */
-        class Connection;
+        class connection;
 
         namespace query
         {
@@ -44,8 +44,8 @@ namespace ignite
                  * @param params SQL params.
                  */
                 StreamingQuery(
-                    DiagnosableAdapter& diag,
-                    Connection& connection,
+                    diagnosable_adapter& diag,
+                    connection& connection,
                     const parameter_set& params);
 
                 /**
@@ -129,7 +129,7 @@ namespace ignite
                 IGNITE_NO_COPY_ASSIGNMENT(StreamingQuery);
 
                 /** Connection associated with the statement. */
-                Connection& connection;
+                connection& connection;
 
                 /** SQL Query. */
                 std::string sql;

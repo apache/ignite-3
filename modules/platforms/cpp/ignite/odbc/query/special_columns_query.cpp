@@ -26,7 +26,7 @@ namespace ignite
     {
         namespace query
         {
-            SpecialColumnsQuery::SpecialColumnsQuery(DiagnosableAdapter& diag,
+            SpecialColumnsQuery::SpecialColumnsQuery(diagnosable_adapter& diag,
                 int16_t type, const std::string& catalog, const std::string& schema,
                 const std::string& table, int16_t scope, int16_t nullable) :
                 Query(diag, QueryType::SPECIAL_COLUMNS),

@@ -35,15 +35,15 @@ namespace ignite
 {
     namespace odbc
     {
-        class Connection;
+        class connection;
 
         /**
          * SQL-statement abstraction. Holds SQL query user buffers data and
          * call result.
          */
-        class Statement : public DiagnosableAdapter
+        class Statement : public diagnosable_adapter
         {
-            friend class Connection;
+            friend class connection;
         public:
             /**
              * Destructor.
@@ -683,10 +683,10 @@ namespace ignite
              *
              * @param parent Connection associated with the statement.
              */
-            Statement(Connection& parent);
+            Statement(connection& parent);
 
             /** Connection associated with the statement. */
-            Connection& connection;
+            connection& connection;
 
             /** Column bindings. */
             column_binding_map columnBindings;

@@ -15,54 +15,49 @@
  * limitations under the License.
  */
 
-#include "diagnosable_adapter.h"
-#include "../connection.h"
-#include "../log.h"
-#include "../odbc_error.h"
+#include "ignite/odbc/diagnostic/diagnosable_adapter.h"
+#include "ignite/odbc/connection.h"
+#include "ignite/odbc/log.h"
+#include "ignite/odbc/odbc_error.h"
 
 namespace ignite
 {
-    namespace odbc
+
+void diagnosable_adapter::add_status_record(sql_state  sql_state, const std::string& message, int32_t row_num,
+    int32_t column_num)
+{
+    LOG_MSG("Adding new record: " << message << ", row_num: " << row_num << ", column_num: " << column_num);
+
+    if (m_connection)
     {
-        namespace diagnostic
-        {
-            void DiagnosableAdapter::add_status_record(sql_state  sqlState,
-                const std::string& message, int32_t row_num, int32_t columnNum)
-            {
-                LOG_MSG("Adding new record: " << message << ", row_num: " << row_num << ", columnNum: " << columnNum);
-
-                if (connection)
-                {
-                    diagnosticRecords.add_status_record(
-                        connection->CreateStatusRecord(sqlState, message, row_num, columnNum));
-                }
-                else
-                {
-                    diagnosticRecords.add_status_record(
-                        diagnostic_record(sqlState, message, "", "", row_num, columnNum));
-                }
-            }
-
-            void DiagnosableAdapter::add_status_record(sql_state  sqlState, const std::string& message)
-            {
-                add_status_record(sqlState, message, 0, 0);
-            }
-
-            void DiagnosableAdapter::add_status_record(const std::string& message)
-            {
-                add_status_record(sql_state::SHY000_GENERAL_ERROR, message);
-            }
-
-            void DiagnosableAdapter::add_status_record(const odbc_error& err)
-            {
-                add_status_record(err.get_state(), err.get_error_message(), 0, 0);
-            }
-
-            void DiagnosableAdapter::add_status_record(const diagnostic_record& rec)
-            {
-                diagnosticRecords.add_status_record(rec);
-            }
-        }
+        m_diagnostic_records.add_status_record(
+            m_connection->CreateStatusRecord(sql_state, message, row_num, column_num));
+    }
+    else
+    {
+        m_diagnostic_records.add_status_record(
+            diagnostic_record(sql_state, message, "", "", row_num, column_num));
     }
 }
 
+void diagnosable_adapter::add_status_record(sql_state  sql_state, const std::string& message)
+{
+    add_status_record(sql_state, message, 0, 0);
+}
+
+void diagnosable_adapter::add_status_record(const std::string& message)
+{
+    add_status_record(sql_state::SHY000_GENERAL_ERROR, message);
+}
+
+void diagnosable_adapter::add_status_record(const odbc_error& err)
+{
+    add_status_record(err.get_state(), err.get_error_message(), 0, 0);
+}
+
+void diagnosable_adapter::add_status_record(const diagnostic_record& rec)
+{
+    m_diagnostic_records.add_status_record(rec);
+}
+
+} // namespace ignite

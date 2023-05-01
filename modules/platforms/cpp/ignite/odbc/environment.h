@@ -26,16 +26,16 @@ namespace ignite
 {
     namespace odbc
     {
-        class Connection;
+        class connection;
 
         /**
          * ODBC environment.
          */
-        class Environment : public DiagnosableAdapter
+        class Environment : public diagnosable_adapter
         {
         public:
             /** Connection set type. */
-            typedef std::set<Connection*> ConnectionSet;
+            typedef std::set<connection*> ConnectionSet;
 
             /**
              * Constructor.
@@ -52,14 +52,14 @@ namespace ignite
              *
              * @return Pointer to valid instance on success or NULL on failure.
              */
-            Connection* CreateConnection();
+            connection* CreateConnection();
 
             /**
              * Deregister connection.
              *
              * @param conn Connection to deregister.
              */
-            void DeregisterConnection(Connection* conn);
+            void DeregisterConnection(connection* conn);
 
             /**
              * Perform transaction commit on all the associated connections.
@@ -98,7 +98,7 @@ namespace ignite
              * @return Pointer to valid instance on success or NULL on failure.
              * @return Operation result.
              */
-            sql_result InternalCreateConnection(Connection*& connection);
+            sql_result InternalCreateConnection(connection*& connection);
 
             /**
              * Perform transaction commit on all the associated connections.

@@ -27,7 +27,7 @@ namespace ignite
     {
         namespace query
         {
-            BatchQuery::BatchQuery(DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
+            BatchQuery::BatchQuery(diagnosable_adapter& diag, connection& connection, const std::string& sql,
                 const parameter_set& params, int32_t& timeout) :
                 Query(diag, QueryType::BATCH),
                 connection(connection),

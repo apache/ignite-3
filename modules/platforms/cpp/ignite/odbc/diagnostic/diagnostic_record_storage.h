@@ -60,10 +60,10 @@ public:
     /**
      * Add new status record.
      *
-     * @param sqlState SQL state.
+     * @param sql_state SQL state.
      * @param message Message.
      */
-    void add_status_record(sql_state  sqlState, const std::string& message);
+    void add_status_record(sql_state  sql_state, const std::string& message);
 
     /**
      * Add status record to diagnostic records.

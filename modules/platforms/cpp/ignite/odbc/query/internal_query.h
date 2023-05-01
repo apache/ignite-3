@@ -43,11 +43,11 @@ namespace ignite
                 /**
                  * Constructor.
                  *
-                 * @param diag Diagnosable.
+                 * @param diag diagnosable.
                  * @param sql SQL query.
                  * @param cmd Parsed command.
                  */
-                InternalQuery(DiagnosableAdapter& diag, const std::string& sql, std::auto_ptr<SqlCommand> cmd) :
+                InternalQuery(diagnosable_adapter& diag, const std::string& sql, std::auto_ptr<SqlCommand> cmd) :
                     Query(diag, QueryType::INTERNAL),
                     sql(sql),
                     cmd(cmd)

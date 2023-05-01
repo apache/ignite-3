@@ -38,23 +38,23 @@ namespace ignite
             // No-op.
         }
 
-        Connection* Environment::CreateConnection()
+        connection* Environment::CreateConnection()
         {
-            Connection* connection;
+            connection* connection;
 
             IGNITE_ODBC_API_CALL(InternalCreateConnection(connection));
 
             return connection;
         }
 
-        void Environment::DeregisterConnection(Connection* conn)
+        void Environment::DeregisterConnection(connection* conn)
         {
             connections.erase(conn);
         }
 
-        sql_result Environment::InternalCreateConnection(Connection*& connection)
+        sql_result Environment::InternalCreateConnection(connection*& connection)
         {
-            connection = new Connection(this);
+            connection = new connection(this);
 
             if (!connection)
             {
@@ -79,11 +79,11 @@ namespace ignite
 
             for (ConnectionSet::iterator it = connections.begin(); it != connections.end(); ++it)
             {
-                Connection* conn = *it;
+                connection* conn = *it;
 
                 conn->TransactionCommit();
 
-                diagnostic_record_storage& diag = conn->GetDiagnosticRecords();
+                diagnostic_record_storage& diag = conn->get_diagnostic_records();
 
                 if (diag.get_status_records_number() > 0)
                 {
@@ -107,11 +107,11 @@ namespace ignite
 
             for (ConnectionSet::iterator it = connections.begin(); it != connections.end(); ++it)
             {
-                Connection* conn = *it;
+                connection* conn = *it;
 
                 conn->TransactionRollback();
 
-                diagnostic_record_storage& diag = conn->GetDiagnosticRecords();
+                diagnostic_record_storage& diag = conn->get_diagnostic_records();
 
                 if (diag.get_status_records_number() > 0)
                 {

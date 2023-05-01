@@ -55,7 +55,7 @@ namespace ignite
 {
     namespace odbc
     {
-        Connection::Connection(Environment* env) :
+        connection::connection(Environment* env) :
             env(env),
             socket(),
             timeout(0),
@@ -69,17 +69,17 @@ namespace ignite
             streamingContext.SetConnection(*this);
         }
 
-        Connection::~Connection()
+        connection::~connection()
         {
             // No-op.
         }
 
-        const config::ConnectionInfo& Connection::GetInfo() const
+        const config::ConnectionInfo& connection::GetInfo() const
         {
             return info;
         }
 
-        void Connection::GetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen)
+        void connection::GetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen)
         {
             LOG_MSG("SQLGetInfo called: "
                 << type << " ("
@@ -92,7 +92,7 @@ namespace ignite
             IGNITE_ODBC_API_CALL(InternalGetInfo(type, buf, buflen, reslen));
         }
 
-        sql_result Connection::InternalGetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen)
+        sql_result connection::InternalGetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen)
         {
             const config::ConnectionInfo& info = GetInfo();
 
@@ -104,16 +104,16 @@ namespace ignite
             return res;
         }
 
-        void Connection::Establish(const std::string& connectStr, void* parentWindow)
+        void connection::Establish(const std::string& connectStr, void* parentWindow)
         {
             IGNITE_ODBC_API_CALL(InternalEstablish(connectStr, parentWindow));
         }
 
-        sql_result Connection::InternalEstablish(const std::string& connectStr, void* parentWindow)
+        sql_result connection::InternalEstablish(const std::string& connectStr, void* parentWindow)
         {
             config::Configuration config;
             config::ConnectionStringParser parser(config);
-            parser.ParseConnectionString(connectStr, &GetDiagnosticRecords());
+            parser.ParseConnectionString(connectStr, &get_diagnostic_records());
 
             if (parentWindow)
             {
@@ -130,18 +130,18 @@ namespace ignite
             {
                 std::string dsn = config.GetDsn();
 
-                ReadDsnConfiguration(dsn.c_str(), config, &GetDiagnosticRecords());
+                ReadDsnConfiguration(dsn.c_str(), config, &get_diagnostic_records());
             }
 
             return InternalEstablish(config);
         }
 
-        void Connection::Establish(const config::Configuration& cfg)
+        void connection::Establish(const config::Configuration& cfg)
         {
             IGNITE_ODBC_API_CALL(InternalEstablish(cfg));
         }
 
-        sql_result Connection::InitSocket()
+        sql_result connection::InitSocket()
         {
             ssl::SslMode::Type sslMode = config.GetSslMode();
 
@@ -175,7 +175,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        sql_result Connection::InternalEstablish(const config::Configuration& cfg)
+        sql_result connection::InternalEstablish(const config::Configuration& cfg)
         {
             using ssl::SslMode;
 
@@ -204,22 +204,22 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            bool errors = GetDiagnosticRecords().get_status_records_number() > 0;
+            bool errors = get_diagnostic_records().get_status_records_number() > 0;
 
             return errors ? sql_result::AI_SUCCESS_WITH_INFO : sql_result::AI_SUCCESS;
         }
 
-        void Connection::Release()
+        void connection::Release()
         {
             IGNITE_ODBC_API_CALL(InternalRelease());
         }
 
-        void Connection::Deregister()
+        void connection::Deregister()
         {
             env->DeregisterConnection(this);
         }
 
-        sql_result Connection::InternalRelease()
+        sql_result connection::InternalRelease()
         {
             if (socket.get() == 0)
             {
@@ -235,7 +235,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Connection::Close()
+        void connection::Close()
         {
             if (socket.get() != 0)
             {
@@ -245,7 +245,7 @@ namespace ignite
             }
         }
 
-        Statement* Connection::CreateStatement()
+        Statement* connection::CreateStatement()
         {
             Statement* statement;
 
@@ -254,7 +254,7 @@ namespace ignite
             return statement;
         }
 
-        sql_result Connection::InternalCreateStatement(Statement*& statement)
+        sql_result connection::InternalCreateStatement(Statement*& statement)
         {
             statement = new Statement(*this);
 
@@ -268,7 +268,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        bool Connection::Send(const int8_t* data, size_t len, int32_t timeout)
+        bool connection::Send(const int8_t* data, size_t len, int32_t timeout)
         {
             if (socket.get() == 0)
                 throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
@@ -298,7 +298,7 @@ namespace ignite
             return true;
         }
 
-        Connection::OperationResult::T Connection::SendAll(const int8_t* data, size_t len, int32_t timeout)
+        connection::OperationResult::T connection::SendAll(const int8_t* data, size_t len, int32_t timeout)
         {
             int sent = 0;
 
@@ -323,7 +323,7 @@ namespace ignite
             return OperationResult::SUCCESS;
         }
 
-        bool Connection::Receive(std::vector<int8_t>& msg, int32_t timeout)
+        bool connection::Receive(std::vector<int8_t>& msg, int32_t timeout)
         {
             if (socket.get() == 0)
                 throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
@@ -367,7 +367,7 @@ namespace ignite
             return true;
         }
 
-        Connection::OperationResult::T Connection::ReceiveAll(void* dst, size_t len, int32_t timeout)
+        connection::OperationResult::T connection::ReceiveAll(void* dst, size_t len, int32_t timeout)
         {
             size_t remain = len;
             int8_t* buffer = reinterpret_cast<int8_t*>(dst);
@@ -392,33 +392,33 @@ namespace ignite
             return OperationResult::SUCCESS;
         }
 
-        const std::string& Connection::GetSchema() const
+        const std::string& connection::GetSchema() const
         {
             return config.GetSchema();
         }
 
-        const config::Configuration& Connection::GetConfiguration() const
+        const config::Configuration& connection::GetConfiguration() const
         {
             return config;
         }
 
-        bool Connection::IsAutoCommit() const
+        bool connection::IsAutoCommit() const
         {
             return autoCommit;
         }
 
-        diagnostic_record Connection::CreateStatusRecord(sql_state sqlState,
-            const std::string& message, int32_t row_num, int32_t columnNum)
+        diagnostic_record connection::CreateStatusRecord(sql_state sql_state,
+            const std::string& message, int32_t row_num, int32_t column_num)
         {
-            return diagnostic_record(sqlState, message, "", "", row_num, columnNum);
+            return diagnostic_record(sql_state, message, "", "", row_num, column_num);
         }
 
-        void Connection::TransactionCommit()
+        void connection::TransactionCommit()
         {
             IGNITE_ODBC_API_CALL(InternalTransactionCommit());
         }
 
-        sql_result Connection::InternalTransactionCommit()
+        sql_result connection::InternalTransactionCommit()
         {
             std::string schema = config.GetSchema();
 
@@ -454,12 +454,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Connection::TransactionRollback()
+        void connection::TransactionRollback()
         {
             IGNITE_ODBC_API_CALL(InternalTransactionRollback());
         }
 
-        sql_result Connection::InternalTransactionRollback()
+        sql_result connection::InternalTransactionRollback()
         {
             std::string schema = config.GetSchema();
 
@@ -495,12 +495,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Connection::GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
+        void connection::GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
         {
             IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buf, bufLen, valueLen));
         }
 
-        sql_result Connection::InternalGetAttribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
+        sql_result connection::InternalGetAttribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
         {
             if (!buf)
             {
@@ -571,12 +571,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Connection::SetAttribute(int attr, void* value, SQLINTEGER valueLen)
+        void connection::SetAttribute(int attr, void* value, SQLINTEGER valueLen)
         {
             IGNITE_ODBC_API_CALL(InternalSetAttribute(attr, value, valueLen));
         }
 
-        sql_result Connection::InternalSetAttribute(int attr, void* value, SQLINTEGER)
+        sql_result connection::InternalSetAttribute(int attr, void* value, SQLINTEGER)
         {
             switch (attr)
             {
@@ -591,7 +591,7 @@ namespace ignite
                 {
                     timeout = RetrieveTimeout(value);
 
-                    if (GetDiagnosticRecords().get_status_records_number() != 0)
+                    if (get_diagnostic_records().get_status_records_number() != 0)
                         return sql_result::AI_SUCCESS_WITH_INFO;
 
                     break;
@@ -601,7 +601,7 @@ namespace ignite
                 {
                     loginTimeout = RetrieveTimeout(value);
 
-                    if (GetDiagnosticRecords().get_status_records_number() != 0)
+                    if (get_diagnostic_records().get_status_records_number() != 0)
                         return sql_result::AI_SUCCESS_WITH_INFO;
 
                     break;
@@ -636,7 +636,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        sql_result Connection::MakeRequestHandshake()
+        sql_result connection::MakeRequestHandshake()
         {
             ProtocolVersion protocolVersion = config.GetProtocolVersion();
 
@@ -710,7 +710,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Connection::EnsureConnected()
+        void connection::EnsureConnected()
         {
             if (socket.get() != 0)
                 return;
@@ -722,7 +722,7 @@ namespace ignite
                     "Failed to establish connection with any provided hosts");
         }
 
-        bool Connection::TryRestoreConnection()
+        bool connection::TryRestoreConnection()
         {
             std::vector<EndPoint> addrs;
 
@@ -775,7 +775,7 @@ namespace ignite
             return connected;
         }
 
-        void Connection::CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& end_points)
+        void connection::CollectAddresses(const config::Configuration& cfg, std::vector<EndPoint>& end_points)
         {
             end_points.clear();
 
@@ -793,7 +793,7 @@ namespace ignite
             std::random_shuffle(end_points.begin(), end_points.end());
         }
 
-        int32_t Connection::RetrieveTimeout(void* value)
+        int32_t connection::RetrieveTimeout(void* value)
         {
             SQLUINTEGER uTimeout = static_cast<SQLUINTEGER>(reinterpret_cast<ptrdiff_t>(value));
 

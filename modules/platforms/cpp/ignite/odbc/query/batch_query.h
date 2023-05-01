@@ -27,7 +27,7 @@ namespace ignite
     namespace odbc
     {
         /** Connection forward-declaration. */
-        class Connection;
+        class connection;
 
         namespace query
         {
@@ -46,7 +46,7 @@ namespace ignite
                  * @param params SQL params.
                  * @param timeout Timeout in seconds.
                  */
-                BatchQuery(DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
+                BatchQuery(diagnosable_adapter& diag, connection& connection, const std::string& sql,
                     const parameter_set& params, int32_t& timeout);
 
                 /**
@@ -138,7 +138,7 @@ namespace ignite
                 sql_result MakeRequestExecuteBatch(SQLULEN begin, SQLULEN end, bool last);
 
                 /** Connection associated with the statement. */
-                Connection& connection;
+                connection& connection;
 
                 /** SQL Query. */
                 std::string sql;

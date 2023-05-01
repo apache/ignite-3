@@ -156,9 +156,9 @@ SQLRETURN SQL_API SQLExtendedFetch(SQLHSTMT         stmt,
         offset, row_count, rowStatusArray);
 }
 
-SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *columnNum)
+SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
 {
-    return ignite::SQLNumResultCols(stmt, columnNum);
+    return ignite::SQLNumResultCols(stmt, column_num);
 }
 
 SQLRETURN SQL_API SQLTables(SQLHSTMT    stmt,
@@ -224,7 +224,7 @@ SQLRETURN SQL_API SQLNativeSql(SQLHDBC      conn,
 
 #if defined _WIN64 || !defined _WIN32
 SQLRETURN SQL_API SQLColAttribute(SQLHSTMT        stmt,
-                                  SQLUSMALLINT    columnNum,
+                                  SQLUSMALLINT    column_num,
                                   SQLUSMALLINT    fieldId,
                                   SQLPOINTER      strAttr,
                                   SQLSMALLINT     bufferLen,
@@ -232,7 +232,7 @@ SQLRETURN SQL_API SQLColAttribute(SQLHSTMT        stmt,
                                   SQLLEN*         numericAttr)
 #else
 SQLRETURN SQL_API SQLColAttribute(SQLHSTMT       stmt,
-                                  SQLUSMALLINT   columnNum,
+                                  SQLUSMALLINT   column_num,
                                   SQLUSMALLINT   fieldId,
                                   SQLPOINTER     strAttr,
                                   SQLSMALLINT    bufferLen,
@@ -240,11 +240,11 @@ SQLRETURN SQL_API SQLColAttribute(SQLHSTMT       stmt,
                                   SQLPOINTER     numericAttr)
 #endif
 {
-    return ignite::SQLColAttribute(stmt, columnNum, fieldId, strAttr, bufferLen, strAttrLen, (SQLLEN*)numericAttr);
+    return ignite::SQLColAttribute(stmt, column_num, fieldId, strAttr, bufferLen, strAttrLen, (SQLLEN*)numericAttr);
 }
 
 SQLRETURN SQL_API SQLDescribeCol(SQLHSTMT       stmt,
-                                 SQLUSMALLINT   columnNum, 
+                                 SQLUSMALLINT   column_num,
                                  SQLCHAR*       columnNameBuf,
                                  SQLSMALLINT    columnNameBufLen,
                                  SQLSMALLINT*   columnNameLen,
@@ -253,7 +253,7 @@ SQLRETURN SQL_API SQLDescribeCol(SQLHSTMT       stmt,
                                  SQLSMALLINT*   decimalDigits, 
                                  SQLSMALLINT*   nullable)
 {
-    return ignite::SQLDescribeCol(stmt, columnNum, columnNameBuf,
+    return ignite::SQLDescribeCol(stmt, column_num, columnNameBuf,
         columnNameBufLen, columnNameLen, dataType, columnSize,
         decimalDigits, nullable);
 }
@@ -333,13 +333,13 @@ SQLRETURN SQL_API SQLGetDiagField(SQLSMALLINT   handleType,
 SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT     handleType,
                                 SQLHANDLE       handle,
                                 SQLSMALLINT     recNum,
-                                SQLCHAR*        sqlState,
+                                SQLCHAR*        sql_state,
                                 SQLINTEGER*     nativeError,
                                 SQLCHAR*        msgBuffer,
                                 SQLSMALLINT     msgBufferLen,
                                 SQLSMALLINT*    msgLen)
 {
-    return ignite::SQLGetDiagRec(handleType, handle, recNum, sqlState, nativeError, msgBuffer, msgBufferLen, msgLen);
+    return ignite::SQLGetDiagRec(handleType, handle, recNum, sql_state, nativeError, msgBuffer, msgBufferLen, msgLen);
 }
 
 SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)

@@ -32,9 +32,9 @@ void diagnostic_record_storage::set_header_record(sql_result result)
     m_rows_affected = 0;
 }
 
-void diagnostic_record_storage::add_status_record(sql_state sqlState, const std::string& message)
+void diagnostic_record_storage::add_status_record(sql_state sql_state, const std::string& message)
 {
-    m_status_records.emplace_back(sqlState, message, "", "", 0, 0);
+    m_status_records.emplace_back(sql_state, message, "", "", 0, 0);
 }
 
 void diagnostic_record_storage::add_status_record(const diagnostic_record& record)

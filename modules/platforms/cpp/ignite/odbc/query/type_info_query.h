@@ -38,7 +38,7 @@ namespace ignite
                  * @param diag Diagnostics collector.
                  * @param sqlType SQL type.
                  */
-                TypeInfoQuery(DiagnosableAdapter& diag, int16_t sqlType);
+                TypeInfoQuery(diagnosable_adapter& diag, int16_t sqlType);
 
                 /**
                  * Destructor.

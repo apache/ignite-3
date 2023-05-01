@@ -15,125 +15,105 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_DIAGNOSTIC_DIAGNOSABLE_ADAPTER
-#define _IGNITE_ODBC_DIAGNOSTIC_DIAGNOSABLE_ADAPTER
+#pragma once
 
 #include "ignite/odbc/diagnostic/diagnosable.h"
 
 #define IGNITE_ODBC_API_CALL(...)                   \
-        diagnosticRecords.reset();                  \
-        sql_result result = (__VA_ARGS__);     \
-        diagnosticRecords.set_header_record(result)
+        m_diagnostic_records.reset();                  \
+        sql_result result = (__VA_ARGS__);          \
+        m_diagnostic_records.set_header_record(result)
 
 #define IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS                     \
-        diagnosticRecords.reset();                              \
-        diagnosticRecords.set_header_record(sql_result::AI_SUCCESS)
+        m_diagnostic_records.reset();                              \
+        m_diagnostic_records.set_header_record(sql_result::AI_SUCCESS)
 
 namespace ignite
 {
-    namespace odbc
+class odbc_error;
+class connection;
+
+/**
+ * Diagnosable interface.
+ */
+class diagnosable_adapter : public diagnosable
+{
+public:
+    /**
+     * Constructor.
+     *
+     * @param connection Pointer to connection. Used to create diagnostic records with connection info.
+     */
+    explicit diagnosable_adapter(const connection* connection = nullptr)
+        : m_connection(connection) { }
+
+    /**
+     * Get diagnostic record.
+     *
+     * @return Diagnostic record.
+     */
+    [[nodiscard]] const diagnostic_record_storage& get_diagnostic_records() const override
     {
-        class odbc_error;
-        class Connection;
-
-        namespace diagnostic
-        {
-            /**
-             * Diagnosable interface.
-             */
-            class DiagnosableAdapter : public Diagnosable
-            {
-            public:
-                /**
-                 * Constructor.
-                 *
-                 * @param connection Pointer to connection. Used to create
-                 *     diagnostic records with connection info.
-                 */
-                DiagnosableAdapter(const Connection* connection = 0) :
-                    connection(connection)
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Destructor.
-                 */
-                virtual ~DiagnosableAdapter()
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Get diagnostic record.
-                 *
-                 * @return Diagnostic record.
-                 */
-                virtual const diagnostic_record_storage& GetDiagnosticRecords() const
-                {
-                    return diagnosticRecords;
-                }
-
-                /**
-                 * Get diagnostic record.
-                 *
-                 * @return Diagnostic record.
-                 */
-                virtual diagnostic_record_storage& GetDiagnosticRecords()
-                {
-                    return diagnosticRecords;
-                }
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param sqlState SQL state.
-                 * @param message Message.
-                 * @param row_num Associated row number.
-                 * @param columnNum Associated column number.
-                 */
-                virtual void add_status_record(sql_state  sqlState, const std::string& message,
-                    int32_t row_num, int32_t columnNum);
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param sqlState SQL state.
-                 * @param message Message.
-                 */
-                virtual void add_status_record(sql_state  sqlState, const std::string& message);
-
-                /**
-                 * Add new status record with sql_state::SHY000_GENERAL_ERROR state.
-                 *
-                 * @param message Message.
-                 */
-                virtual void add_status_record(const std::string& message);
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param err Error.
-                 */
-                virtual void add_status_record(const odbc_error& err);
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param rec Record.
-                 */
-                virtual void add_status_record(const diagnostic_record& rec);
-
-            protected:
-                /** Diagnostic records. */
-                diagnostic_record_storage diagnosticRecords;
-
-            private:
-                /** Connection. */
-                const Connection* connection;
-            };
-        }
+        return m_diagnostic_records;
     }
-}
 
-#endif //_IGNITE_ODBC_DIAGNOSTIC_DIAGNOSABLE_ADAPTER
+    /**
+     * Get diagnostic record.
+     *
+     * @return Diagnostic record.
+     */
+    [[nodiscard]] diagnostic_record_storage& get_diagnostic_records() override
+    {
+        return m_diagnostic_records;
+    }
+
+    /**
+     * Add new status record.
+     *
+     * @param sql_state SQL state.
+     * @param message Message.
+     * @param row_num Associated row number.
+     * @param column_num Associated column number.
+     */
+    void add_status_record(sql_state  sql_state, const std::string& message, int32_t row_num,
+        int32_t column_num) override;
+
+    /**
+     * Add new status record.
+     *
+     * @param sql_state SQL state.
+     * @param message Message.
+     */
+    void add_status_record(sql_state  sql_state, const std::string& message) override;
+
+    /**
+     * Add new status record with sql_state::SHY000_GENERAL_ERROR state.
+     *
+     * @param message Message.
+     */
+    void add_status_record(const std::string& message);
+
+    /**
+     * Add new status record.
+     *
+     * @param err Error.
+     */
+    void add_status_record(const odbc_error& err) override;
+
+    /**
+     * Add new status record.
+     *
+     * @param rec Record.
+     */
+    void add_status_record(const diagnostic_record& rec) override;
+
+protected:
+    /** Diagnostic records. */
+    diagnostic_record_storage m_diagnostic_records;
+
+private:
+    /** Connection. */
+    const connection *m_connection;
+};
+
+} // namespace ignite

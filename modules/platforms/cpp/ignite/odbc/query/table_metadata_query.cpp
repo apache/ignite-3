@@ -54,8 +54,8 @@ namespace ignite
     {
         namespace query
         {
-            TableMetadataQuery::TableMetadataQuery(DiagnosableAdapter& diag,
-                Connection& connection, const std::string& catalog,const std::string& schema,
+            TableMetadataQuery::TableMetadataQuery(diagnosable_adapter& diag,
+                connection& connection, const std::string& catalog,const std::string& schema,
                 const std::string& table, const std::string& tableType) :
                 Query(diag, QueryType::TABLE_METADATA),
                 connection(connection),

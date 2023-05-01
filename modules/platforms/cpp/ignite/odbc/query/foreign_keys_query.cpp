@@ -28,7 +28,7 @@ namespace ignite
     {
         namespace query
         {
-            ForeignKeysQuery::ForeignKeysQuery(DiagnosableAdapter& diag, Connection& connection,
+            ForeignKeysQuery::ForeignKeysQuery(diagnosable_adapter& diag, connection& connection,
                 const std::string& primaryCatalog, const std::string& primarySchema,
                 const std::string& primaryTable, const std::string& foreignCatalog,
                 const std::string& foreignSchema, const std::string& foreignTable) :

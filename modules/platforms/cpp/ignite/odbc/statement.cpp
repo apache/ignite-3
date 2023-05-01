@@ -42,7 +42,7 @@ namespace ignite
 {
     namespace odbc
     {
-        Statement::Statement(Connection& parent) :
+        Statement::Statement(connection& parent) :
             connection(parent),
             columnBindings(),
             currentQuery(),

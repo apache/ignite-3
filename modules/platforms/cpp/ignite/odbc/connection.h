@@ -41,7 +41,7 @@ namespace ignite
         /**
          * ODBC node connection.
          */
-        class Connection : public DiagnosableAdapter
+        class connection : public diagnosable_adapter
         {
             friend class Environment;
         public:
@@ -67,7 +67,7 @@ namespace ignite
             /**
              * Destructor.
              */
-            ~Connection();
+            ~connection();
 
             /**
              * Get connection info.
@@ -189,14 +189,14 @@ namespace ignite
             /**
              * Create diagnostic record associated with the Connection instance.
              *
-             * @param sqlState SQL state.
+             * @param sql_state SQL state.
              * @param message Message.
              * @param row_num Associated row number.
-             * @param columnNum Associated column number.
+             * @param column_num Associated column number.
              * @return diagnostic_record associated with the instance.
              */
-            static diagnostic_record CreateStatusRecord(sql_state sqlState,
-                const std::string& message, int32_t row_num = 0, int32_t columnNum = 0);
+            static diagnostic_record CreateStatusRecord(sql_state sql_state,
+                const std::string& message, int32_t row_num = 0, int32_t column_num = 0);
 
             /**
              * Synchronously send request message and receive response.
@@ -314,7 +314,7 @@ namespace ignite
             void SetAttribute(int attr, void* value, SQLINTEGER valueLen);
 
         private:
-            IGNITE_NO_COPY_ASSIGNMENT(Connection);
+            IGNITE_NO_COPY_ASSIGNMENT(connection);
 
             /**
              * Init connection socket, using configuration.
@@ -509,7 +509,7 @@ namespace ignite
             /**
              * Constructor.
              */
-            Connection(Environment* env);
+            connection(Environment* env);
 
             /** Parent. */
             Environment* env;
