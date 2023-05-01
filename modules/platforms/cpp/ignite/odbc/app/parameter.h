@@ -54,7 +54,7 @@ public:
      *
      * @param writer Writer.
      * @param offset Offset for the buffer.
-     * @param idx Index for the array-of-parameters case.
+     * @param idx Index for the array-of-m_parameters case.
      */
     void write(protocol::writer& writer, int offset = 0, SQLULEN idx = 0) const;
 

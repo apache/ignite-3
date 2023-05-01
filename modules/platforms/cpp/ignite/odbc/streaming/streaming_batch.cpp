@@ -40,7 +40,7 @@ namespace ignite
                 // No-op.
             }
 
-            void StreamingBatch::AddRow(const std::string& sql, const ParameterSet& params)
+            void StreamingBatch::AddRow(const std::string& sql, const parameter_set& params)
             {
                 impl::interop::InteropOutputStream out(&data);
 

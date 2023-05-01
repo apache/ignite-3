@@ -422,7 +422,7 @@ namespace ignite
         {
             std::string schema = config.GetSchema();
 
-            ParameterSet empty;
+            parameter_set empty;
 
             QueryExecuteRequest req(schema, "COMMIT", empty, timeout, autoCommit);
             QueryExecuteResponse rsp;
@@ -463,7 +463,7 @@ namespace ignite
         {
             std::string schema = config.GetSchema();
 
-            ParameterSet empty;
+            parameter_set empty;
 
             QueryExecuteRequest req(schema, "ROLLBACK", empty, timeout, autoCommit);
             QueryExecuteResponse rsp;

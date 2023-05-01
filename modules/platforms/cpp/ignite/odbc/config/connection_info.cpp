@@ -717,10 +717,10 @@ namespace ignite
 #endif // SQL_DATABASE_NAME
 
 #ifdef SQL_DESCRIBE_PARAMETER
-                // A character string: "Y" if parameters can be described; "N", if not.
+                // A character string: "Y" if m_parameters can be described; "N", if not.
                 // An SQL-92 Full level-conformant driver will usually return "Y" because it will support the DESCRIBE
                 // INPUT statement. Because this does not directly specify the underlying SQL support, however,
-                // describing parameters might not be supported, even in a SQL-92 Full level-conformant driver.
+                // describing m_parameters might not be supported, even in a SQL-92 Full level-conformant driver.
                 strParams[SQL_DESCRIBE_PARAMETER] = "N";
 #endif // SQL_DESCRIBE_PARAMETER
 
@@ -1307,13 +1307,13 @@ namespace ignite
                 // Enumerating the driver's properties regarding the availability of row counts in a parameterized
                 // execution. Has the following values:
                 //
-                // SQL_PARC_BATCH = Individual row counts are available for each set of parameters. This is conceptually
+                // SQL_PARC_BATCH = Individual row counts are available for each set of m_parameters. This is conceptually
                 //     equivalent to the driver generating a batch of SQL statements, one for each parameter set in the
                 //     array. Extended error information can be retrieved by using the SQL_PARAM_STATUS_PTR descriptor
                 //     field.
                 //
                 // SQL_PARC_NO_BATCH = There is only one row count available, which is the cumulative row count
-                //     resulting from the execution of the statement for the entire array of parameters. This is
+                //     resulting from the execution of the statement for the entire array of m_parameters. This is
                 //     conceptually equivalent to treating the statement together with the complete parameter array as
                 //     one atomic unit. Errors are handled the same as if one statement were executed.
                 intParams[SQL_PARAM_ARRAY_ROW_COUNTS] = SQL_PARC_BATCH;
@@ -1323,17 +1323,17 @@ namespace ignite
                 // Enumerating the driver's properties regarding the availability of result sets in a parameterized
                 // execution. Has the following values:
                 //
-                // SQL_PAS_BATCH = There is one result set available per set of parameters. This is conceptually
+                // SQL_PAS_BATCH = There is one result set available per set of m_parameters. This is conceptually
                 //     equivalent to the driver generating a batch of SQL statements, one for each parameter set in
                 //     the array.
                 //
                 // SQL_PAS_NO_BATCH = There is only one result set available, which represents the cumulative result set
-                //     resulting from the execution of the statement for the complete array of parameters. This is
+                //     resulting from the execution of the statement for the complete array of m_parameters. This is
                 //     conceptually equivalent to treating the statement together with the complete parameter array as
                 //     one atomic unit.
                 //
                 // SQL_PAS_NO_SELECT = A driver does not allow a result - set generating statement to be executed with
-                //     an array of parameters.
+                //     an array of m_parameters.
                 intParams[SQL_PARAM_ARRAY_SELECTS] = SQL_PAS_NO_SELECT;
 #endif // SQL_PARAM_ARRAY_SELECTS
 

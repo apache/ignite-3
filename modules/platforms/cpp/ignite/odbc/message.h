@@ -121,7 +121,7 @@ namespace ignite
              * @param timeout Timeout.
              * @param autoCommit Auto commit flag.
              */
-            QueryExecuteRequest(const std::string& schema, const std::string& sql, const ParameterSet& params,
+            QueryExecuteRequest(const std::string& schema, const std::string& sql, const parameter_set& params,
                 int32_t timeout, bool autoCommit);
 
             /**
@@ -144,7 +144,7 @@ namespace ignite
             std::string sql;
 
             /** Parameters bindings. */
-            const ParameterSet& params;
+            const parameter_set& params;
 
             /** Timeout. */
             int32_t timeout;
@@ -171,7 +171,7 @@ namespace ignite
              * @param autoCommit Auto commit flag.
              */
             QueryExecuteBatchRequest(const std::string& schema, const std::string& sql,
-                const ParameterSet& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout,
+                const parameter_set& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout,
                 bool autoCommit);
 
             /**
@@ -194,7 +194,7 @@ namespace ignite
             std::string sql;
 
             /** Parameters bindings. */
-            const ParameterSet& params;
+            const parameter_set& params;
 
             /** Beginning of the interval. */
             SQLULEN begin;

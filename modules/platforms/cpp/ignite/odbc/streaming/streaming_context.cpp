@@ -76,7 +76,7 @@ namespace ignite
                 return res;
             }
 
-            sql_result StreamingContext::Execute(const std::string& sql, const ParameterSet& params)
+            sql_result StreamingContext::Execute(const std::string& sql, const parameter_set& params)
             {
                 assert(enabled);
 

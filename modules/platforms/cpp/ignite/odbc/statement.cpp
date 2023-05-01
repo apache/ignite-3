@@ -50,7 +50,7 @@ namespace ignite
             rowStatuses(0),
             columnBindOffset(0),
             rowArraySize(1),
-            parameters(),
+            m_parameters(),
             timeout(0)
         {
             // No-op.
@@ -144,7 +144,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::BindParameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
+        void Statement::bind_parameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
             SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen)
         {
             IGNITE_ODBC_API_CALL(InternalBindParameter(paramIdx, ioType, bufferType, paramSqlType, columnSize,
@@ -214,7 +214,7 @@ namespace ignite
 
             parameter param(dataBuffer, paramSqlType, columnSize, decDigits);
 
-            parameters.BindParameter(paramIdx, param);
+            m_parameters.bind_parameter(paramIdx, param);
 
             return sql_result::AI_SUCCESS;
         }
@@ -293,7 +293,7 @@ namespace ignite
 
                 case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
                 {
-                    SetParamBindOffsetPtr(reinterpret_cast<int*>(value));
+                    set_param_bind_offset_ptr(reinterpret_cast<int*>(value));
 
                     break;
                 }
@@ -317,21 +317,21 @@ namespace ignite
                         return sql_result::AI_ERROR;
                     }
 
-                    parameters.SetParamSetSize(size);
+                    m_parameters.set_param_set_size(size);
 
                     break;
                 }
 
                 case SQL_ATTR_PARAMS_PROCESSED_PTR:
                 {
-                    parameters.SetParamsProcessedPtr(reinterpret_cast<SQLULEN*>(value));
+                    m_parameters.set_params_processed_ptr(reinterpret_cast<SQLULEN*>(value));
 
                     break;
                 }
 
                 case SQL_ATTR_PARAM_STATUS_PTR:
                 {
-                    parameters.SetParamsStatusPtr(reinterpret_cast<SQLUSMALLINT*>(value));
+                    m_parameters.set_params_status_ptr(reinterpret_cast<SQLUSMALLINT*>(value));
                     break;
                 }
 
@@ -459,7 +459,7 @@ namespace ignite
                 {
                     SQLULEN** val = reinterpret_cast<SQLULEN**>(buf);
 
-                    *val = reinterpret_cast<SQLULEN*>(parameters.GetParamBindOffsetPtr());
+                    *val = reinterpret_cast<SQLULEN*>(m_parameters.get_param_bind_offset_ptr());
 
                     if (valueLen)
                         *valueLen = SQL_IS_POINTER;
@@ -483,7 +483,7 @@ namespace ignite
                 {
                     SQLULEN* val = reinterpret_cast<SQLULEN*>(buf);
 
-                    *val = static_cast<SQLULEN>(parameters.GetParamSetSize());
+                    *val = static_cast<SQLULEN>(m_parameters.get_param_set_size());
 
                     if (valueLen)
                         *valueLen = SQL_IS_UINTEGER;
@@ -495,7 +495,7 @@ namespace ignite
                 {
                     SQLULEN** val = reinterpret_cast<SQLULEN**>(buf);
 
-                    *val = parameters.GetParamsProcessedPtr();
+                    *val = m_parameters.get_params_processed_ptr();
 
                     if (valueLen)
                         *valueLen = SQL_IS_POINTER;
@@ -507,7 +507,7 @@ namespace ignite
                 {
                     SQLUSMALLINT** val = reinterpret_cast<SQLUSMALLINT**>(buf);
 
-                    *val = parameters.GetParamsStatusPtr();
+                    *val = m_parameters.get_params_status_ptr();
 
                     if (valueLen)
                         *valueLen = SQL_IS_POINTER;
@@ -536,7 +536,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::GetParametersNumber(uint16_t& paramNum)
+        void Statement::get_parameters_number(uint16_t& paramNum)
         {
             IGNITE_ODBC_API_CALL(InternalGetParametersNumber(paramNum));
         }
@@ -557,7 +557,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            if (!parameters.IsMetadataSet())
+            if (!m_parameters.is_metadata_set())
             {
                 sql_result res = UpdateParamsMeta();
 
@@ -565,16 +565,16 @@ namespace ignite
                     return res;
             }
 
-            paramNum = parameters.GetExpectedParamNum();
+            paramNum = m_parameters.get_expected_param_num();
 
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::SetParamBindOffsetPtr(int* ptr)
+        void Statement::set_param_bind_offset_ptr(int* ptr)
         {
             IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS;
 
-            parameters.SetParamBindOffsetPtr(ptr);
+            m_parameters.set_param_bind_offset_ptr(ptr);
         }
 
         void Statement::GetColumnData(uint16_t columnIdx, application_data_buffer& buffer)
@@ -613,7 +613,7 @@ namespace ignite
 
                 assert(cmd.get() != 0);
 
-                parameters.Prepare();
+                m_parameters.prepare();
 
                 currentQuery.reset(new query::InternalQuery(*this, query, cmd));
 
@@ -637,13 +637,13 @@ namespace ignite
             if (sql_utils::IsInternalCommand(query))
                 return ProcessInternalCommand(query);
 
-            // Resetting parameters types as we are changing the query.
-            parameters.Prepare();
+            // Resetting m_parameters types as we are changing the query.
+            m_parameters.prepare();
 
             if (IsStreamingActive())
             {
                 if (!currentQuery.get())
-                    currentQuery.reset(new query::StreamingQuery(*this, connection, parameters));
+                    currentQuery.reset(new query::StreamingQuery(*this, connection, m_parameters));
 
                 query::StreamingQuery* currentQuery0 = static_cast<query::StreamingQuery*>(currentQuery.get());
 
@@ -655,7 +655,7 @@ namespace ignite
             if (currentQuery.get())
                 currentQuery->Close();
 
-            currentQuery.reset(new query::DataQuery(*this, connection, query, parameters, timeout));
+            currentQuery.reset(new query::DataQuery(*this, connection, query, m_parameters, timeout));
 
             return sql_result::AI_SUCCESS;
         }
@@ -696,20 +696,20 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            if (parameters.GetParamSetSize() > 1 && currentQuery->get_type() == query::QueryType::DATA)
+            if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::QueryType::DATA)
             {
                 query::DataQuery& qry = static_cast<query::DataQuery&>(*currentQuery);
 
-                currentQuery.reset(new query::BatchQuery(*this, connection, qry.GetSql(), parameters, timeout));
+                currentQuery.reset(new query::BatchQuery(*this, connection, qry.GetSql(), m_parameters, timeout));
             }
-            else if (parameters.GetParamSetSize() == 1 && currentQuery->get_type() == query::QueryType::BATCH)
+            else if (m_parameters.get_param_set_size() == 1 && currentQuery->get_type() == query::QueryType::BATCH)
             {
                 query::BatchQuery& qry = static_cast<query::BatchQuery&>(*currentQuery);
 
-                currentQuery.reset(new query::DataQuery(*this, connection, qry.GetSql(), parameters, timeout));
+                currentQuery.reset(new query::DataQuery(*this, connection, qry.GetSql(), m_parameters, timeout));
             }
 
-            if (parameters.GetParamSetSize() > 1 && currentQuery->get_type() == query::QueryType::STREAMING)
+            if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::QueryType::STREAMING)
             {
                 AddStatusRecord(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                     "Batching is not supported in streaming mode.");
@@ -717,7 +717,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (parameters.IsDataAtExecNeeded())
+            if (m_parameters.is_data_at_exec_needed())
             {
                 if (currentQuery->get_type() == query::QueryType::BATCH ||
                     currentQuery->get_type() == query::QueryType::STREAMING)
@@ -753,7 +753,7 @@ namespace ignite
 
             LOG_MSG("Sending start streaming command");
 
-            query::DataQuery enablingQuery(*this, connection, qry->GetQuery(), parameters, timeout);
+            query::DataQuery enablingQuery(*this, connection, qry->GetQuery(), m_parameters, timeout);
 
             sql_result res = enablingQuery.Execute();
 
@@ -764,7 +764,7 @@ namespace ignite
 
             connection.GetStreamingContext().Enable(cmd);
 
-            std::auto_ptr<query::Query> newQry(new query::StreamingQuery(*this, connection, parameters));
+            std::auto_ptr<query::Query> newQry(new query::StreamingQuery(*this, connection, m_parameters));
 
             std::swap(currentQuery, newQry);
 
@@ -938,7 +938,7 @@ namespace ignite
 
                 case SQL_RESET_PARAMS:
                 {
-                    parameters.UnbindAll();
+                    m_parameters.unbind_all();
 
                     break;
                 }
@@ -1207,7 +1207,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            parameter *selected = parameters.GetSelectedParameter();
+            parameter *selected = m_parameters.get_selected_parameter();
 
             if (selected && !selected->is_data_ready())
             {
@@ -1218,7 +1218,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            selected = parameters.SelectNextParameter();
+            selected = m_parameters.select_next_parameter();
 
             if (selected)
             {
@@ -1251,7 +1251,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (!parameters.IsParameterSelected())
+            if (!m_parameters.is_parameter_selected())
             {
                 AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR,
                     "parameter is not selected with the SQLParamData.");
@@ -1259,7 +1259,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            parameter* param = parameters.GetSelectedParameter();
+            parameter* param = m_parameters.get_selected_parameter();
 
             if (!param)
             {
@@ -1299,7 +1299,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            int8_t type = parameters.GetParamType(paramNum, 0);
+            int8_t type = m_parameters.get_param_type(paramNum, 0);
 
             LOG_MSG("Type: " << type);
 
@@ -1310,7 +1310,7 @@ namespace ignite
                 if (res != sql_result::AI_SUCCESS)
                     return res;
 
-                type = parameters.GetParamType(paramNum, impl::binary::IGNITE_HDR_NULL);
+                type = m_parameters.get_param_type(paramNum, impl::binary::IGNITE_HDR_NULL);
             }
 
             if (dataType)
@@ -1369,7 +1369,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            parameters.UpdateParamsTypes(rsp.GetTypeIds());
+            m_parameters.update_params_types(rsp.GetTypeIds());
 
             for (size_t i = 0; i < rsp.GetTypeIds().size(); ++i)
             {

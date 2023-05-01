@@ -93,7 +93,7 @@ namespace ignite
                  * @param params SQL params.
                  * @return True on success.
                  */
-                sql_result Execute(const std::string& sql, const ParameterSet& params);
+                sql_result Execute(const std::string& sql, const parameter_set& params);
 
             private:
                 IGNITE_NO_COPY_ASSIGNMENT(StreamingContext);

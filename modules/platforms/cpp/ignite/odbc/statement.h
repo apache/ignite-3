@@ -95,7 +95,7 @@ namespace ignite
              * @param bufferLen Length of the ParameterValuePtr buffer in bytes.
              * @param resLen A pointer to a buffer for the parameter's length.
              */
-            void BindParameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
+            void bind_parameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
                                SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen);
 
             /**
@@ -118,18 +118,18 @@ namespace ignite
             void GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
 
             /**
-             * Get number parameters required by the prepared statement.
+             * Get number m_parameters required by the prepared statement.
              *
-             * @param paramNum Number of parameters.
+             * @param paramNum Number of m_parameters.
              */
-            void GetParametersNumber(uint16_t& paramNum);
+            void get_parameters_number(uint16_t& paramNum);
 
             /**
              * Set parameter binding offset pointer.
              *
              * @param ptr parameter binding offset pointer.
              */
-            void SetParamBindOffsetPtr(int* ptr);
+            void set_param_bind_offset_ptr(int* ptr);
 
             /**
              * Get value of the column in the result set.
@@ -423,9 +423,9 @@ namespace ignite
             sql_result InternalGetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
 
             /**
-             * Get number parameters required by the prepared statement.
+             * Get number m_parameters required by the prepared statement.
              *
-             * @param paramNum Number of parameters.
+             * @param paramNum Number of m_parameters.
              */
             sql_result InternalGetParametersNumber(uint16_t& paramNum);
 
@@ -666,7 +666,7 @@ namespace ignite
                 SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable);
 
             /**
-             * Make request to data source to update parameters metadata.
+             * Make request to data source to update m_parameters metadata.
              */
             sql_result UpdateParamsMeta();
 
@@ -707,7 +707,7 @@ namespace ignite
             SQLULEN rowArraySize;
 
             /** Parameters. */
-            ParameterSet parameters;
+            parameter_set m_parameters;
 
             /** Query timeout in seconds. */
             int32_t timeout;

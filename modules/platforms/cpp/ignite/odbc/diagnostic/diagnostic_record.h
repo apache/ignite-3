@@ -113,7 +113,7 @@ namespace ignite
                  * Get row number.
                  *
                  * @return The row number in the rowset, or the parameter number in
-                 *         the set of parameters, with which the status record is
+                 *         the set of m_parameters, with which the status record is
                  *         associated.
                  */
                 int32_t GetRowNumber() const;
@@ -123,7 +123,7 @@ namespace ignite
                  *
                  * @return Contains the value that represents the column number
                  *         in the result set or the parameter number in the set
-                 *         of parameters.
+                 *         of m_parameters.
                  */
                 int32_t GetColumnNumber() const;
 
@@ -161,13 +161,13 @@ namespace ignite
 
                 /**
                  * The row number in the rowset, or the parameter number in the
-                 * set of parameters, with which the status record is associated.
+                 * set of m_parameters, with which the status record is associated.
                  */
                 int32_t rowNum;
 
                 /**
                  * Contains the value that represents the column number in the
-                 * result set or the parameter number in the set of parameters.
+                 * result set or the parameter number in the set of m_parameters.
                  */
                 int32_t columnNum;
 

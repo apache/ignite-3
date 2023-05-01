@@ -101,7 +101,7 @@ namespace ignite
         }
 
         QueryExecuteRequest::QueryExecuteRequest(const std::string& schema, const std::string& sql,
-            const ParameterSet& params, int32_t timeout, bool autoCommit):
+            const parameter_set& params, int32_t timeout, bool autoCommit):
             schema(schema),
             sql(sql),
             params(params),
@@ -137,7 +137,7 @@ namespace ignite
         }
 
         QueryExecuteBatchRequest::QueryExecuteBatchRequest(const std::string& schema, const std::string& sql,
-            const ParameterSet& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout, bool autoCommit) :
+            const parameter_set& params, SQLULEN begin, SQLULEN end, bool last, int32_t timeout, bool autoCommit) :
             schema(schema),
             sql(sql),
             params(params),

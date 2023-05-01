@@ -30,7 +30,7 @@ namespace ignite
             StreamingQuery::StreamingQuery(
                 diagnostic::DiagnosableAdapter& diag,
                 Connection& connection,
-                const ParameterSet& params) :
+                const parameter_set& params) :
                 Query(diag, QueryType::STREAMING),
                 connection(connection),
                 params(params)

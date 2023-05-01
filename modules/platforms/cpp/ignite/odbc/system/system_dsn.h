@@ -32,7 +32,7 @@ namespace ignite
 }
 
 /**
- * Display connection window for user to configure connection parameters.
+ * Display connection window for user to configure connection m_parameters.
  *
  * @param windowParent Parent window handle.
  * @param config Output configuration.

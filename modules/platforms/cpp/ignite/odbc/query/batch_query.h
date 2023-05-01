@@ -47,7 +47,7 @@ namespace ignite
                  * @param timeout Timeout in seconds.
                  */
                 BatchQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
-                    const ParameterSet& params, int32_t& timeout);
+                    const parameter_set& params, int32_t& timeout);
 
                 /**
                  * Destructor.
@@ -144,7 +144,7 @@ namespace ignite
                 std::string sql;
 
                 /** parameter bindings. */
-                const ParameterSet& params;
+                const parameter_set& params;
 
                 /** Columns metadata. */
                 meta::ColumnMetaVector resultMeta;

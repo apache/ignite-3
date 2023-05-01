@@ -29,7 +29,7 @@ namespace ignite
         namespace query
         {
             DataQuery::DataQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
-                const ParameterSet& params, int32_t& timeout) :
+                const parameter_set& params, int32_t& timeout) :
                 Query(diag, QueryType::DATA),
                 connection(connection),
                 sql(sql),

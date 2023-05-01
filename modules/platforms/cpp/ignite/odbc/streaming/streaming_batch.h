@@ -30,7 +30,7 @@ namespace ignite
         namespace app
         {
             // Forward declaration.
-            class ParameterSet;
+            class parameter_set;
         }
         
         namespace streaming
@@ -59,7 +59,7 @@ namespace ignite
                  * @param sql Sql.
                  * @param params Parameters.
                  */
-                void AddRow(const std::string& sql, const ParameterSet& params);
+                void AddRow(const std::string& sql, const parameter_set& params);
 
                 /**
                  * Clear the batch data. 

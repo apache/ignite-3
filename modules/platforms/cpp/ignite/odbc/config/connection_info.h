@@ -74,22 +74,22 @@ namespace ignite
             private:
                 IGNITE_NO_COPY_ASSIGNMENT(ConnectionInfo);
 
-                /** Associative array of string parameters. */
+                /** Associative array of string m_parameters. */
                 typedef std::map<InfoType, std::string> StringInfoMap;
 
-                /** Associative array of unsigned integer parameters. */
+                /** Associative array of unsigned integer m_parameters. */
                 typedef std::map<InfoType, unsigned int> UintInfoMap;
 
-                /** Associative array of unsigned short parameters. */
+                /** Associative array of unsigned short m_parameters. */
                 typedef std::map<InfoType, unsigned short> UshortInfoMap;
 
-                /** String parameters. */
+                /** String m_parameters. */
                 StringInfoMap strParams;
 
-                /** Integer parameters. */
+                /** Integer m_parameters. */
                 UintInfoMap intParams;
 
-                /** Short parameters. */
+                /** Short m_parameters. */
                 UshortInfoMap shortParams;
 
                 /** Configuration. */

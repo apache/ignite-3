@@ -636,7 +636,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        statement->BindParameter(paramIdx, ioType, bufferType, paramSqlType, columnSize, decDigits, buffer, bufferLen, resLen);
+        statement->bind_parameter(paramIdx, ioType, bufferType, paramSqlType, columnSize, decDigits, buffer, bufferLen, resLen);
 
         return statement->GetDiagnosticRecords().GetReturnCode();
     }
@@ -921,7 +921,7 @@ namespace ignite
         if (paramCnt)
         {
             uint16_t paramNum = 0;
-            statement->GetParametersNumber(paramNum);
+            statement->get_parameters_number(paramNum);
 
             *paramCnt = static_cast<SQLSMALLINT>(paramNum);
         }

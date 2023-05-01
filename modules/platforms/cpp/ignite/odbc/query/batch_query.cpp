@@ -28,7 +28,7 @@ namespace ignite
         namespace query
         {
             BatchQuery::BatchQuery(diagnostic::DiagnosableAdapter& diag, Connection& connection, const std::string& sql,
-                const ParameterSet& params, int32_t& timeout) :
+                const parameter_set& params, int32_t& timeout) :
                 Query(diag, QueryType::BATCH),
                 connection(connection),
                 sql(sql),
@@ -53,13 +53,13 @@ namespace ignite
                     Close();
 
                 int32_t maxPageSize = connection.GetConfiguration().GetPageSize();
-                int32_t rowNum = params.GetParamSetSize();
+                int32_t rowNum = params.get_param_set_size();
                 sql_result res;
 
                 int32_t processed = 0;
 
                 rowsAffected.clear();
-                rowsAffected.reserve(static_cast<size_t>(params.GetParamSetSize()));
+                rowsAffected.reserve(static_cast<size_t>(params.get_param_set_size()));
 
                 do {
                     int32_t currentPageSize = std::min(maxPageSize, rowNum - processed);
@@ -70,7 +70,7 @@ namespace ignite
                     processed += currentPageSize;
                 } while ((res == sql_result::AI_SUCCESS || res == sql_result::AI_SUCCESS_WITH_INFO) && processed < rowNum);
 
-                params.SetParamsProcessed(static_cast<SQLULEN>(rowsAffected.size()));
+                params.set_params_processed(static_cast<SQLULEN>(rowsAffected.size()));
 
                 return res;
             }
@@ -179,7 +179,7 @@ namespace ignite
                 {
                     int64_t idx = static_cast<int64_t>(i + rowsAffected.size());
 
-                    params.SetParamStatus(idx, rowsLastTime[i] < 0 ? SQL_PARAM_ERROR : SQL_PARAM_SUCCESS);
+                    params.set_params_status(idx, rowsLastTime[i] < 0 ? SQL_PARAM_ERROR : SQL_PARAM_SUCCESS);
                 }
 
                 rowsAffected.insert(rowsAffected.end(), rowsLastTime.begin(), rowsLastTime.end());

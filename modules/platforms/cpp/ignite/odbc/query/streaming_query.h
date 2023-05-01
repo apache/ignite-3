@@ -46,7 +46,7 @@ namespace ignite
                 StreamingQuery(
                     diagnostic::DiagnosableAdapter& diag,
                     Connection& connection,
-                    const ParameterSet& params);
+                    const parameter_set& params);
 
                 /**
                  * Destructor.
@@ -135,7 +135,7 @@ namespace ignite
                 std::string sql;
 
                 /** parameter bindings. */
-                const ParameterSet& params;
+                const parameter_set& params;
             };
         }
     }

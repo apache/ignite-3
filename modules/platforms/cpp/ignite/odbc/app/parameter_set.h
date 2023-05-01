@@ -15,278 +15,264 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_APP_PARAMETER_SET
-#define _IGNITE_ODBC_APP_PARAMETER_SET
-
-#include <stdint.h>
-
-#include <map>
-
-#include <ignite/impl/binary/binary_writer_impl.h>
-#include <ignite/impl/binary/binary_reader_impl.h>
+#pragma once
 
 #include "ignite/odbc/app/parameter.h"
+#include "ignite/protocol/writer.h"
+
+#include <map>
+#include <cstdint>
 
 namespace ignite
 {
-    namespace odbc
-    {
-        namespace app
-        {
-            /**
-             * parameter set.
-             */
-            class ParameterSet
-            {
-                /** parameter binging map type alias. */
-                typedef std::map<uint16_t, parameter> ParameterBindingMap;
 
-                /** parameter meta vector. */
-                typedef std::vector<int8_t> ParameterTypeVector;
-            public:
-                /**
-                 * Default constructor.
-                 */
-                ParameterSet();
+/**
+ * Parameter set.
+ */
+class parameter_set
+{
+    /** parameter binging map type alias. */
+    typedef std::map<std::uint16_t, parameter> parameter_binding_map;
 
-                /**
-                 * Destructor.
-                 */
-                ~ParameterSet()
-                {
-                    // No-op.
-                }
+    /** parameter meta vector. */
+    typedef std::vector<std::int8_t> parameter_type_vector;
+public:
+    /**
+     * Default constructor.
+     */
+    parameter_set() = default;
 
-                /**
-                 * Set parameters set size.
-                 *
-                 * @param size Size of the parameter set.
-                 */
-                void SetParamSetSize(SQLULEN size);
+    // Deleted
+    parameter_set(parameter_set &&) = delete;
+    parameter_set(const parameter_set &) = delete;
+    parameter_set &operator=(parameter_set &&) = delete;
+    parameter_set &operator=(const parameter_set &) = delete;
 
-                /**
-                 * Bind parameter.
-                 * 
-                 * @param paramIdx parameter index.
-                 * @param param parameter.
-                 */
-                void BindParameter(uint16_t paramIdx, const parameter& param);
+    /**
+     * Set m_parameters set size.
+     *
+     * @param size Size of the parameter set.
+     */
+    void set_param_set_size(SQLULEN size);
 
-                /**
-                 * Unbind specified parameter.
-                 *
-                 * @param paramIdx parameter index.
-                 */
-                void UnbindParameter(uint16_t paramIdx);
+    /**
+     * Bind parameter.
+     *
+     * @param paramIdx parameter index.
+     * @param param parameter.
+     */
+    void bind_parameter(std::uint16_t paramIdx, const parameter& param);
 
-                /**
-                 * Unbind all parameters.
-                 */
-                void UnbindAll();
+    /**
+     * Unbind specified parameter.
+     *
+     * @param paramIdx parameter index.
+     */
+    void unbind_parameter(std::uint16_t paramIdx);
 
-                /**
-                 * Get number of binded parameters.
-                 *
-                 * @return Number of binded parameters.
-                 */
-                uint16_t GetParametersNumber() const;
+    /**
+     * Unbind all m_parameters.
+     */
+    void unbind_all();
 
-                /**
-                 * Set parameter binding offset pointer.
-                 *
-                 * @param ptr parameter binding offset pointer.
-                 */
-                void SetParamBindOffsetPtr(int* ptr);
+    /**
+     * Get number of bound m_parameters.
+     *
+     * @return Number of bound m_parameters.
+     */
+    [[nodiscard]] std::uint16_t get_parameters_number() const;
 
-                /**
-                 * Get parameter binding offset pointer.
-                 *
-                 * @return parameter binding offset pointer.
-                 */
-                int* GetParamBindOffsetPtr();
+    /**
+     * Set parameter binding offset pointer.
+     *
+     * @param ptr parameter binding offset pointer.
+     */
+    void set_param_bind_offset_ptr(int* ptr);
 
-                /**
-                 * Prepare parameters set for statement execution.
-                 */
-                void Prepare();
+    /**
+     * Get parameter binding offset pointer.
+     *
+     * @return parameter binding offset pointer.
+     */
+    int* get_param_bind_offset_ptr();
 
-                /**
-                 * Check if the data at-execution is needed.
-                 *
-                 * @return True if the data at execution is needed.
-                 */
-                bool IsDataAtExecNeeded() const;
+    /**
+     * Prepare m_parameters set for statement execution.
+     */
+    void prepare();
 
-                /**
-                 * Update parameter types metadata.
-                 *
-                 * @param meta Types metadata.
-                 */
-                void UpdateParamsTypes(const ParameterTypeVector& meta);
+    /**
+     * Check if the data at-execution is needed.
+     *
+     * @return True if the data at execution is needed.
+     */
+    [[nodiscard]] bool is_data_at_exec_needed() const;
 
-                /**
-                 * Get type id of the parameter.
-                 *
-                 * @param idx parameter index.
-                 * @param dflt Default value to return if the type can not be found.
-                 * @return Type ID of the parameter or dflt, if the type can not be returned.
-                 */
-                int8_t GetParamType(int16_t idx, int8_t dflt);
+    /**
+     * Update parameter types metadata.
+     *
+     * @param meta Types metadata.
+     */
+    void update_params_types(const parameter_type_vector& meta);
 
-                /**
-                 * Get expected parameters number.
-                 * Using metadata. If metadata was not updated returns zero.
-                 *
-                 * @return Expected parameters number.
-                 */
-                uint16_t GetExpectedParamNum();
+    /**
+     * Get type id of the parameter.
+     *
+     * @param idx parameter index.
+     * @param dflt Default value to return if the type can not be found.
+     * @return Type ID of the parameter or dflt, if the type can not be returned.
+     */
+    std::int8_t get_param_type(std::int16_t idx, std::int8_t dflt);
 
-                /**
-                 * Check if the metadata was set for the parameter set.
-                 * 
-                 * @return True if the metadata was set for the parameter set. 
-                 */
-                bool IsMetadataSet() const;
+    /**
+     * Get expected m_parameters number.
+     * Using metadata. If metadata was not updated returns zero.
+     *
+     * @return Expected m_parameters number.
+     */
+    std::uint16_t get_expected_param_num();
 
-                /**
-                 * Check if the parameter selected for putting data at-execution.
-                 *
-                 * @return True if the parameter selected for putting data at-execution.
-                 */
-                bool IsParameterSelected() const;
+    /**
+     * Check if the metadata was set for the parameter set.
+     *
+     * @return True if the metadata was set for the parameter set.
+     */
+    [[nodiscard]] bool is_metadata_set() const;
 
-                /**
-                 * Get parameter by index.
-                 *
-                 * @param idx Index.
-                 * @return parameter or null, if parameter is not bound.
-                 */
-                parameter* GetParameter(uint16_t idx);
+    /**
+     * Check if the parameter selected for putting data at-execution.
+     *
+     * @return True if the parameter selected for putting data at-execution.
+     */
+    [[nodiscard]] bool is_parameter_selected() const;
 
-                /**
-                 * Get selected parameter.
-                 *
-                 * @return parameter or null, if parameter is not bound.
-                 */
-                parameter* GetSelectedParameter();
+    /**
+     * Get parameter by index.
+     *
+     * @param idx Index.
+     * @return parameter or null, if parameter is not bound.
+     */
+    parameter* get_parameter(std::uint16_t idx);
 
-                /**
-                 * Internally selects next parameter for putting data at-execution.
-                 *
-                 * @return parameter if found and null otherwise.
-                 */
-                parameter* SelectNextParameter();
+    /**
+     * Get selected parameter.
+     *
+     * @return parameter or null, if parameter is not bound.
+     */
+    parameter* get_selected_parameter();
 
-                /**
-                 * Write only first row of the param set using provided writer.
-                 * @param writer Writer.
-                 */
-                void write(impl::binary::BinaryWriterImpl& writer) const;
+    /**
+     * Internally selects next parameter for putting data at-execution.
+     *
+     * @return parameter if found and null otherwise.
+     */
+    parameter* select_next_parameter();
 
-                /**
-                 * Write rows of the param set in interval [begin, end) using provided writer.
-                 * @param writer Writer.
-                 * @param begin Beginng of the interval.
-                 * @param end End of the interval.
-                 * @param last Last page flag.
-                 */
-                void write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const;
+    /**
+     * Write only first row of the param set using provided writer.
+     * @param writer Writer.
+     */
+    void write(protocol::writer &writer) const;
 
-                /**
-                 * Calculate row length.
-                 *
-                 * @return Row length.
-                 */
-                int32_t CalculateRowLen() const;
+    /**
+     * Write rows of the param set in interval [begin, end) using provided writer.
+     * @param writer Writer.
+     * @param begin Beginning of the interval.
+     * @param end End of the interval.
+     * @param last Last page flag.
+     */
+    void write(protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const;
 
-                /**
-                 * Get parameter set size.
-                 *
-                 * @return Number of rows in set.
-                 */
-                int32_t GetParamSetSize() const;
+    /**
+     * Calculate row length.
+     *
+     * @return Row length.
+     */
+    [[nodiscard]] std::int32_t calculate_row_len() const;
 
-                /**
-                 * Set number of parameters processed in batch.
-                 *
-                 * @param processed Processed.
-                 */
-                void SetParamsProcessed(SQLULEN processed) const;
+    /**
+     * Get parameter set size.
+     *
+     * @return Number of rows in set.
+     */
+    [[nodiscard]] std::int32_t get_param_set_size() const;
 
-                /**
-                 * Number of processed params should be written using provided address.
-                 *
-                 * @param ptr Pointer.
-                 */
-                void SetParamsProcessedPtr(SQLULEN* ptr);
+    /**
+     * Set number of m_parameters processed in batch.
+     *
+     * @param processed Processed.
+     */
+    void set_params_processed(SQLULEN processed) const;
 
-                /**
-                 * Get pointer to write number of parameters processed in batch.
-                 *
-                 * @return Pointer to write number of parameters processed in batch.
-                 */
-                SQLULEN* GetParamsProcessedPtr() const;
+    /**
+     * Number of processed params should be written using provided address.
+     *
+     * @param ptr Pointer.
+     */
+    void set_params_processed_ptr(SQLULEN* ptr);
 
-                /**
-                 * Set pointer to array in which to return the status of each
-                 * set of parameters.
-                 * @param value Value.
-                 */
-                void SetParamsStatusPtr(SQLUSMALLINT* value);
+    /**
+     * Get pointer to write number of m_parameters processed in batch.
+     *
+     * @return Pointer to write number of m_parameters processed in batch.
+     */
+    [[nodiscard]] SQLULEN* get_params_processed_ptr() const;
 
-                /**
-                 * Get pointer to array in which to return the status of each
-                 * set of parameters.
-                 * @return Value.
-                 */
-                SQLUSMALLINT* GetParamsStatusPtr() const;
+    /**
+     * Set pointer to array in which to return the status of each
+     * set of m_parameters.
+     * @param value Value.
+     */
+    void set_params_status_ptr(SQLUSMALLINT* value);
 
-                /**
-                 * Set parameter status.
-                 * @param idx parameter index.
-                 * @param status Status to set.
-                 */
-                void SetParamStatus(int64_t idx, SQLUSMALLINT status) const;
+    /**
+     * Get pointer to array in which to return the status of each
+     * set of m_parameters.
+     * @return Value.
+     */
+    [[nodiscard]] SQLUSMALLINT* get_params_status_ptr() const;
 
-            private:
-                /**
-                 * Write single row of the param set using provided writer.
-                 * @param writer Writer.
-                 * @param idx Row index.
-                 */
-                void WriteRow(impl::binary::BinaryWriterImpl& writer, SQLULEN idx) const;
+    /**
+     * Set parameter status.
+     * @param idx parameter index.
+     * @param status Status to set.
+     */
+    void set_params_status(int64_t idx, SQLUSMALLINT status) const;
 
-                IGNITE_NO_COPY_ASSIGNMENT(ParameterSet);
+private:
+    /**
+     * Write single row of the param set using provided writer.
+     * @param writer Writer.
+     * @param idx Row index.
+     */
+    void write_row(protocol::writer &writer, SQLULEN idx) const;
 
-                /** Parameters. */
-                ParameterBindingMap parameters;
+    /** Parameters. */
+    parameter_binding_map m_params{};
 
-                /** parameter types. */
-                ParameterTypeVector paramTypes;
+    /** parameter types. */
+    parameter_type_vector m_param_types{};
 
-                /** Offset added to pointers to change binding of parameters. */
-                int* paramBindOffset;
+    /** Offset added to pointers to change binding of m_parameters. */
+    int* m_param_bind_offset{nullptr};
 
-                /** Processed parameters. */
-                SQLULEN* processedParamRows;
+    /** Processed m_parameters. */
+    SQLULEN* m_processed_param_rows{nullptr};
 
-                /** Parameters status. */
-                SQLUSMALLINT* paramsStatus;
+    /** Parameters status. */
+    SQLUSMALLINT* m_params_status{nullptr};
 
-                /** parameter set size. */
-                SQLULEN paramSetSize;
+    /** Parameter set size. */
+    SQLULEN m_param_set_size{1};
 
-                /** Current position in parametor set. */
-                SQLULEN paramSetPos;
+    /** Current position in parameter set. */
+    SQLULEN m_param_set_pos{0};
 
-                /** Index of the parameter, which is currently being set. */
-                uint16_t currentParamIdx;
+    /** Index of the parameter, which is currently being set. */
+    std::uint16_t m_current_param_idx{0};
 
-                /** parameter types are set. */
-                bool typesSet;
-            };
-        }
-    }
-}
+    /** Parameter types are set. */
+    bool m_types_set{false};
+};
 
-#endif //_IGNITE_ODBC_APP_PARAMETER_SET
+} // namespace ignite
