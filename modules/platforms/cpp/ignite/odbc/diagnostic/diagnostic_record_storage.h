@@ -79,7 +79,7 @@ namespace ignite
                  *
                  * @param record Status record.
                  */
-                void AddStatusRecord(const DiagnosticRecord& record);
+                void AddStatusRecord(const diagnostic_record& record);
 
                 /**
                  * Reset diagnostic records state.
@@ -144,7 +144,7 @@ namespace ignite
                  * @param idx Status record index.
                  * @return Status record instance reference.
                  */
-                const DiagnosticRecord& GetStatusRecord(int32_t idx) const;
+                const diagnostic_record& GetStatusRecord(int32_t idx) const;
 
                 /**
                  * Get specified status record.
@@ -152,7 +152,7 @@ namespace ignite
                  * @param idx Status record index.
                  * @return Status record instance reference.
                  */
-                DiagnosticRecord& GetStatusRecord(int32_t idx);
+                diagnostic_record& GetStatusRecord(int32_t idx);
 
                 /**
                  * Get last non-retrieved status record index.
@@ -214,7 +214,7 @@ namespace ignite
                 int32_t rowsAffected;
 
                 /** Status records. */
-                std::vector<DiagnosticRecord> statusRecords;
+                std::vector<diagnostic_record> statusRecords;
             };
         }
     }

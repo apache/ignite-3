@@ -53,7 +53,7 @@ namespace ignite
                     Close();
 
                 int32_t maxPageSize = connection.GetConfiguration().GetPageSize();
-                int32_t rowNum = params.get_param_set_size();
+                int32_t row_num = params.get_param_set_size();
                 sql_result res;
 
                 int32_t processed = 0;
@@ -62,13 +62,13 @@ namespace ignite
                 rowsAffected.reserve(static_cast<size_t>(params.get_param_set_size()));
 
                 do {
-                    int32_t currentPageSize = std::min(maxPageSize, rowNum - processed);
-                    bool lastPage = currentPageSize == rowNum - processed;
+                    int32_t currentPageSize = std::min(maxPageSize, row_num - processed);
+                    bool lastPage = currentPageSize == row_num - processed;
 
                     res = MakeRequestExecuteBatch(processed, processed + currentPageSize, lastPage);
 
                     processed += currentPageSize;
-                } while ((res == sql_result::AI_SUCCESS || res == sql_result::AI_SUCCESS_WITH_INFO) && processed < rowNum);
+                } while ((res == sql_result::AI_SUCCESS || res == sql_result::AI_SUCCESS_WITH_INFO) && processed < row_num);
 
                 params.set_params_processed(static_cast<SQLULEN>(rowsAffected.size()));
 

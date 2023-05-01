@@ -92,14 +92,14 @@ SQLRETURN SQL_API SQLDriverConnect(SQLHDBC      conn,
 }
 
 SQLRETURN SQL_API SQLConnect(SQLHDBC        conn,
-                             SQLCHAR*       serverName,
+                             SQLCHAR*       server_name,
                              SQLSMALLINT    serverNameLen,
                              SQLCHAR*       userName,
                              SQLSMALLINT    userNameLen,
                              SQLCHAR*       auth,
                              SQLSMALLINT    authLen)
 {
-    return ignite::SQLConnect(conn, serverName, serverNameLen,
+    return ignite::SQLConnect(conn, server_name, serverNameLen,
         userName, userNameLen, auth, authLen);
 }
 
@@ -617,12 +617,12 @@ SQLRETURN SQL_API SQLProcedureColumns(SQLHSTMT      stmt,
 }
 
 SQLRETURN SQL_API SQLSetPos(SQLHSTMT        stmt,
-                            SQLSETPOSIROW   rowNum,
+                            SQLSETPOSIROW   row_num,
                             SQLUSMALLINT    operation,
                             SQLUSMALLINT    lockType)
 {
     IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(rowNum);
+    IGNITE_UNUSED(row_num);
     IGNITE_UNUSED(operation);
     IGNITE_UNUSED(lockType);
 

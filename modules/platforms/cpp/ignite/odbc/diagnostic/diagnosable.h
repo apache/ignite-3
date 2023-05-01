@@ -15,91 +15,83 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_DIAGNOSTIC_DIAGNOSABLE
-#define _IGNITE_ODBC_DIAGNOSTIC_DIAGNOSABLE
+#pragma once
 
 #include "ignite/odbc/diagnostic/diagnostic_record_storage.h"
 
-namespace ignite
+namespace ignite::odbc
 {
-    namespace odbc
+class odbc_error;
+
+/**
+ * Diagnosable interface.
+ */
+class Diagnosable
+{
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~Diagnosable()
     {
-        class odbc_error;
-
-        namespace diagnostic
-        {
-            /**
-             * Diagnosable interface.
-             */
-            class Diagnosable
-            {
-            public:
-                /**
-                 * Destructor.
-                 */
-                virtual ~Diagnosable()
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Get diagnostic record.
-                 *
-                 * @return Diagnostic record.
-                 */
-                virtual const diagnostic_record_storage& GetDiagnosticRecords() const = 0;
-
-                /**
-                 * Get diagnostic record.
-                 *
-                 * @return Diagnostic record.
-                 */
-                virtual diagnostic_record_storage& GetDiagnosticRecords() = 0;
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param sqlState SQL state.
-                 * @param message Message.
-                 * @param rowNum Associated row number.
-                 * @param columnNum Associated column number.
-                 */
-                virtual void AddStatusRecord(sql_state sqlState, const std::string& message,
-                    int32_t rowNum, int32_t columnNum) = 0;
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param sqlState SQL state.
-                 * @param message Message.
-                 */
-                virtual void AddStatusRecord(sql_state sqlState, const std::string& message) = 0;
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param err Error.
-                 */
-                virtual void AddStatusRecord(const odbc_error& err) = 0;
-
-                /**
-                 * Add new status record.
-                 *
-                 * @param rec Record.
-                 */
-                virtual void AddStatusRecord(const DiagnosticRecord& rec) = 0;
-
-            protected:
-                /**
-                 * Default constructor.
-                 */
-                Diagnosable()
-                {
-                    // No-op.
-                }
-            };
-        }
+        // No-op.
     }
-}
 
-#endif //_IGNITE_ODBC_DIAGNOSTIC_DIAGNOSABLE
+    /**
+     * Get diagnostic record.
+     *
+     * @return Diagnostic record.
+     */
+    virtual const diagnostic_record_storage& GetDiagnosticRecords() const = 0;
+
+    /**
+     * Get diagnostic record.
+     *
+     * @return Diagnostic record.
+     */
+    virtual diagnostic_record_storage& GetDiagnosticRecords() = 0;
+
+    /**
+     * Add new status record.
+     *
+     * @param sqlState SQL state.
+     * @param message Message.
+     * @param row_num Associated row number.
+     * @param columnNum Associated column number.
+     */
+    virtual void AddStatusRecord(sql_state sqlState, const std::string& message,
+        int32_t row_num, int32_t columnNum) = 0;
+
+    /**
+     * Add new status record.
+     *
+     * @param sqlState SQL state.
+     * @param message Message.
+     */
+    virtual void AddStatusRecord(sql_state sqlState, const std::string& message) = 0;
+
+    /**
+     * Add new status record.
+     *
+     * @param err Error.
+     */
+    virtual void AddStatusRecord(const odbc_error& err) = 0;
+
+    /**
+     * Add new status record.
+     *
+     * @param rec Record.
+     */
+    virtual void AddStatusRecord(const diagnostic_record& rec) = 0;
+
+protected:
+    /**
+     * Default constructor.
+     */
+    Diagnosable()
+    {
+        // No-op.
+    }
+};
+
+} // namespace ignite

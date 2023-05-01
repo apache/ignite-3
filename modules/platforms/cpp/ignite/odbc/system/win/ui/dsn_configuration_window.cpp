@@ -567,7 +567,7 @@ namespace ignite
                     if (diag.GetStatusRecordsNumber() > 0)
                     {
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC,
-                            diag.GetStatusRecord(1).GetMessageText().c_str());
+                            diag.GetStatusRecord(1).get_message_text().c_str());
                     }
 
                     ProtocolVersion version = ProtocolVersion::FromString(versionStr);

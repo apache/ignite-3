@@ -407,10 +407,10 @@ namespace ignite
             return autoCommit;
         }
 
-        DiagnosticRecord Connection::CreateStatusRecord(sql_state sqlState,
-            const std::string& message, int32_t rowNum, int32_t columnNum)
+        diagnostic_record Connection::CreateStatusRecord(sql_state sqlState,
+            const std::string& message, int32_t row_num, int32_t columnNum)
         {
-            return DiagnosticRecord(sqlState, message, "", "", rowNum, columnNum);
+            return diagnostic_record(sqlState, message, "", "", row_num, columnNum);
         }
 
         void Connection::TransactionCommit()

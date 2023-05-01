@@ -80,7 +80,7 @@ namespace ignite
              *
              * @return Columns number.
              */
-            int32_t GetColumnNumber();
+            int32_t get_column_number();
 
             /**
              * Bind parameter.

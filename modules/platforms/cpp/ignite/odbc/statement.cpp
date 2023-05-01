@@ -123,7 +123,7 @@ namespace ignite
             return columnBindOffset;
         }
 
-        int32_t Statement::GetColumnNumber()
+        int32_t Statement::get_column_number()
         {
             int32_t res;
 

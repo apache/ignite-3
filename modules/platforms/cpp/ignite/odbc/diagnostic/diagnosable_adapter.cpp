@@ -27,19 +27,19 @@ namespace ignite
         namespace diagnostic
         {
             void DiagnosableAdapter::AddStatusRecord(sql_state  sqlState,
-                const std::string& message, int32_t rowNum, int32_t columnNum)
+                const std::string& message, int32_t row_num, int32_t columnNum)
             {
-                LOG_MSG("Adding new record: " << message << ", rowNum: " << rowNum << ", columnNum: " << columnNum);
+                LOG_MSG("Adding new record: " << message << ", row_num: " << row_num << ", columnNum: " << columnNum);
 
                 if (connection)
                 {
                     diagnosticRecords.AddStatusRecord(
-                        connection->CreateStatusRecord(sqlState, message, rowNum, columnNum));
+                        connection->CreateStatusRecord(sqlState, message, row_num, columnNum));
                 }
                 else
                 {
                     diagnosticRecords.AddStatusRecord(
-                        DiagnosticRecord(sqlState, message, "", "", rowNum, columnNum));
+                        diagnostic_record(sqlState, message, "", "", row_num, columnNum));
                 }
             }
 
@@ -58,7 +58,7 @@ namespace ignite
                 AddStatusRecord(err.get_state(), err.get_error_message(), 0, 0);
             }
 
-            void DiagnosableAdapter::AddStatusRecord(const DiagnosticRecord& rec)
+            void DiagnosableAdapter::AddStatusRecord(const diagnostic_record& rec)
             {
                 diagnosticRecords.AddStatusRecord(rec);
             }

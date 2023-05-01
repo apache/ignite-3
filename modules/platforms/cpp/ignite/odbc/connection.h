@@ -191,12 +191,12 @@ namespace ignite
              *
              * @param sqlState SQL state.
              * @param message Message.
-             * @param rowNum Associated row number.
+             * @param row_num Associated row number.
              * @param columnNum Associated column number.
-             * @return DiagnosticRecord associated with the instance.
+             * @return diagnostic_record associated with the instance.
              */
-            static DiagnosticRecord CreateStatusRecord(sql_state sqlState,
-                const std::string& message, int32_t rowNum = 0, int32_t columnNum = 0);
+            static diagnostic_record CreateStatusRecord(sql_state sqlState,
+                const std::string& message, int32_t row_num = 0, int32_t columnNum = 0);
 
             /**
              * Synchronously send request message and receive response.

@@ -89,11 +89,11 @@ namespace ignite
                  *
                  * @param sqlState SQL state.
                  * @param message Message.
-                 * @param rowNum Associated row number.
+                 * @param row_num Associated row number.
                  * @param columnNum Associated column number.
                  */
                 virtual void AddStatusRecord(sql_state  sqlState, const std::string& message,
-                    int32_t rowNum, int32_t columnNum);
+                    int32_t row_num, int32_t columnNum);
 
                 /**
                  * Add new status record.
@@ -122,7 +122,7 @@ namespace ignite
                  *
                  * @param rec Record.
                  */
-                virtual void AddStatusRecord(const DiagnosticRecord& rec);
+                virtual void AddStatusRecord(const diagnostic_record& rec);
 
             protected:
                 /** Diagnostic records. */

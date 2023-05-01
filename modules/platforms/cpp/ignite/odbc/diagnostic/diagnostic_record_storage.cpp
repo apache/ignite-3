@@ -52,10 +52,10 @@ namespace ignite
 
             void diagnostic_record_storage::AddStatusRecord(sql_state sqlState, const std::string& message)
             {
-                statusRecords.push_back(DiagnosticRecord(sqlState, message, "", "", 0, 0));
+                statusRecords.push_back(diagnostic_record(sqlState, message, "", "", 0, 0));
             }
 
-            void diagnostic_record_storage::AddStatusRecord(const DiagnosticRecord& record)
+            void diagnostic_record_storage::AddStatusRecord(const diagnostic_record& record)
             {
                 statusRecords.push_back(record);
             }
@@ -102,12 +102,12 @@ namespace ignite
                 return static_cast<int32_t>(statusRecords.size());
             }
 
-            const DiagnosticRecord& diagnostic_record_storage::GetStatusRecord(int32_t idx) const
+            const diagnostic_record& diagnostic_record_storage::GetStatusRecord(int32_t idx) const
             {
                 return statusRecords[idx - 1];
             }
 
-            DiagnosticRecord& diagnostic_record_storage::GetStatusRecord(int32_t idx)
+            diagnostic_record& diagnostic_record_storage::GetStatusRecord(int32_t idx)
             {
                 return statusRecords[idx - 1];
             }
@@ -116,9 +116,9 @@ namespace ignite
             {
                 for (size_t i = 0; i < statusRecords.size(); ++i)
                 {
-                    const DiagnosticRecord& record = statusRecords[i];
+                    const diagnostic_record& record = statusRecords[i];
 
-                    if (!record.IsRetrieved())
+                    if (!record.is_retrieved())
                         return static_cast<int32_t>(i + 1);
                 }
 
@@ -186,34 +186,34 @@ namespace ignite
                     return sql_result::AI_NO_DATA;
 
                 // Status record.
-                const DiagnosticRecord& record = GetStatusRecord(recNum);
+                const diagnostic_record& record = GetStatusRecord(recNum);
 
                 switch (field)
                 {
                     case diagnostic_field::STATUS_CLASS_ORIGIN:
                     {
-                        buffer.put_string(record.GetClassOrigin());
+                        buffer.put_string(record.get_class_origin());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_COLUMN_NUMBER:
                     {
-                        buffer.put_int32(record.GetColumnNumber());
+                        buffer.put_int32(record.get_column_number());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_CONNECTION_NAME:
                     {
-                        buffer.put_string(record.GetConnectionName());
+                        buffer.put_string(record.get_connection_name());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_MESSAGE_TEXT:
                     {
-                        buffer.put_string(record.GetMessageText());
+                        buffer.put_string(record.get_message_text());
 
                         return sql_result::AI_SUCCESS;
                     }
@@ -227,28 +227,28 @@ namespace ignite
 
                     case diagnostic_field::STATUS_ROW_NUMBER:
                     {
-                        buffer.put_int64(record.GetRowNumber());
+                        buffer.put_int64(record.get_row_number());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_SERVER_NAME:
                     {
-                        buffer.put_string(record.GetServerName());
+                        buffer.put_string(record.get_server_name());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_SQLSTATE:
                     {
-                        buffer.put_string(record.Getsql_state());
+                        buffer.put_string(record.get_sql_state());
 
                         return sql_result::AI_SUCCESS;
                     }
 
                     case diagnostic_field::STATUS_SUBCLASS_ORIGIN:
                     {
-                        buffer.put_string(record.GetSubclassOrigin());
+                        buffer.put_string(record.get_subclass_origin());
 
                         return sql_result::AI_SUCCESS;
                     }

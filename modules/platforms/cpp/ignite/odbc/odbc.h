@@ -67,7 +67,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC      conn,
                            SQLUSMALLINT driverCompletion);
 
 SQLRETURN SQLConnect(SQLHDBC        conn,
-                     SQLCHAR*       serverName,
+                     SQLCHAR*       server_name,
                      SQLSMALLINT    serverNameLen,
                      SQLCHAR*       userName,
                      SQLSMALLINT    userNameLen,

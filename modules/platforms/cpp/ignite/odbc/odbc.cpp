@@ -313,7 +313,7 @@ namespace ignite
     }
 
     SQLRETURN SQLConnect(SQLHDBC        conn,
-                         SQLCHAR*       serverName,
+                         SQLCHAR*       server_name,
                          SQLSMALLINT    serverNameLen,
                          SQLCHAR*       userName,
                          SQLSMALLINT    userNameLen,
@@ -338,7 +338,7 @@ namespace ignite
 
         config::Configuration config;
 
-        std::string dsn = SqlStringToString(serverName, serverNameLen);
+        std::string dsn = SqlStringToString(server_name, serverNameLen);
 
         LOG_MSG("DSN: " << dsn);
 
@@ -519,7 +519,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        int32_t res = statement->GetColumnNumber();
+        int32_t res = statement->get_column_number();
 
         if (columnNum)
         {
@@ -1024,15 +1024,15 @@ namespace ignite
         if (!records || recNum > records->GetStatusRecordsNumber())
             return SQL_NO_DATA;
 
-        const DiagnosticRecord& record = records->GetStatusRecord(recNum);
+        const diagnostic_record& record = records->GetStatusRecord(recNum);
 
         if (sqlState)
-            CopyStringToBuffer(record.Getsql_state(), reinterpret_cast<char*>(sqlState), 6);
+            CopyStringToBuffer(record.get_sql_state(), reinterpret_cast<char*>(sqlState), 6);
 
         if (nativeError)
             *nativeError = 0;
 
-        const std::string& errMsg = record.GetMessageText();
+        const std::string& errMsg = record.get_message_text();
 
         if (!msgBuffer || msgBufferLen < static_cast<SQLSMALLINT>(errMsg.size() + 1))
         {
@@ -1329,12 +1329,12 @@ namespace ignite
         if (recNum < 1 || recNum > records.GetStatusRecordsNumber())
             return SQL_NO_DATA;
 
-        DiagnosticRecord& record = records.GetStatusRecord(recNum);
+        diagnostic_record& record = records.GetStatusRecord(recNum);
 
-        record.MarkRetrieved();
+        record.mark_retrieved();
 
         if (state)
-            CopyStringToBuffer(record.Getsql_state(), reinterpret_cast<char*>(state), 6);
+            CopyStringToBuffer(record.get_sql_state(), reinterpret_cast<char*>(state), 6);
 
         if (error)
             *error = 0;
@@ -1342,7 +1342,7 @@ namespace ignite
         SQLLEN outResLen;
         application_data_buffer outBuffer(odbc_native_type::AI_CHAR, msgBuf, msgBufLen, &outResLen);
 
-        outBuffer.put_string(record.GetMessageText());
+        outBuffer.put_string(record.get_message_text());
 
         if (msgResLen)
             *msgResLen = static_cast<SQLSMALLINT>(outResLen);
