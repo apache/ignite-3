@@ -99,7 +99,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Configuration. */
@@ -134,7 +134,7 @@ namespace ignite
              * @param writer Writer.
              * @param ver Version.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const;
 
         private:
             /** Schema name. */
@@ -184,7 +184,7 @@ namespace ignite
              * @param writer Writer.
              * @param ver Version.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const;
 
         private:
             /** Schema name. */
@@ -234,7 +234,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Query ID. */
@@ -264,7 +264,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Query ID. */
@@ -298,7 +298,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Schema search pattern. */
@@ -334,7 +334,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Schema. */
@@ -370,7 +370,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Column search pattern. */
@@ -417,7 +417,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Schema. */
@@ -458,7 +458,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Query ID. */
@@ -494,7 +494,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
 
         private:
             /** Schema name. */

@@ -1265,7 +1265,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        statement->PutData(data, strLengthOrIndicator);
+        statement->put_data(data, strLengthOrIndicator);
 
         return statement->GetDiagnosticRecords().GetReturnCode();
     }

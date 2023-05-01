@@ -42,7 +42,7 @@ namespace ignite
                 paramSetSize = size;
             }
 
-            void ParameterSet::BindParameter(uint16_t paramIdx, const Parameter& param)
+            void ParameterSet::BindParameter(uint16_t paramIdx, const parameter& param)
             {
                 parameters[paramIdx] = param;
             }
@@ -81,14 +81,14 @@ namespace ignite
                 paramSetPos = 0;
 
                 for (ParameterBindingMap::iterator it = parameters.begin(); it != parameters.end(); ++it)
-                    it->second.ResetStoredData();
+                    it->second.reset_stored_data();
             }
 
             bool ParameterSet::IsDataAtExecNeeded() const
             {
                 for (ParameterBindingMap::const_iterator it = parameters.begin(); it != parameters.end(); ++it)
                 {
-                    if (!it->second.IsDataReady())
+                    if (!it->second.is_data_ready())
                         return true;
                 }
 
@@ -159,7 +159,7 @@ namespace ignite
                 return currentParamIdx != 0;
             }
 
-            Parameter* ParameterSet::GetParameter(uint16_t idx)
+            parameter* ParameterSet::GetParameter(uint16_t idx)
             {
                 ParameterBindingMap::iterator it = parameters.find(idx);
 
@@ -169,19 +169,19 @@ namespace ignite
                 return 0;
             }
 
-            Parameter* ParameterSet::GetSelectedParameter()
+            parameter* ParameterSet::GetSelectedParameter()
             {
                 return GetParameter(currentParamIdx);
             }
 
-            Parameter* ParameterSet::SelectNextParameter()
+            parameter* ParameterSet::SelectNextParameter()
             {
                 for (ParameterBindingMap::iterator it = parameters.begin(); it != parameters.end(); ++it)
                 {
                     uint16_t paramIdx = it->first;
-                    Parameter& param = it->second;
+                    parameter& param = it->second;
 
-                    if (!param.IsDataReady())
+                    if (!param.is_data_ready())
                     {
                         currentParamIdx = paramIdx;
 
@@ -192,14 +192,14 @@ namespace ignite
                 return 0;
             }
 
-            void ParameterSet::Write(impl::binary::BinaryWriterImpl& writer) const
+            void ParameterSet::write(impl::binary::BinaryWriterImpl& writer) const
             {
                 writer.WriteInt32(CalculateRowLen());
 
                 WriteRow(writer, 0);
             }
 
-            void ParameterSet::Write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const
+            void ParameterSet::write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const
             {
                 int32_t rowLen = CalculateRowLen();
 
@@ -230,7 +230,7 @@ namespace ignite
                 for (ParameterBindingMap::const_iterator it = parameters.begin(); it != parameters.end(); ++it)
                 {
                     uint16_t paramIdx = it->first;
-                    const Parameter& param = it->second;
+                    const parameter& param = it->second;
 
                     while ((paramIdx - prev) > 1)
                     {
@@ -238,7 +238,7 @@ namespace ignite
                         ++prev;
                     }
 
-                    param.Write(writer, appOffset, idx);
+                    param.write(writer, appOffset, idx);
 
                     prev = paramIdx;
                 }

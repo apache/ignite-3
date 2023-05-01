@@ -58,7 +58,7 @@ namespace ignite
             // No-op.
         }
 
-        void HandshakeRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void HandshakeRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::HANDSHAKE);
 
@@ -116,7 +116,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryExecuteRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const
+        void QueryExecuteRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const
         {
             writer.WriteInt8(RequestType::EXECUTE_SQL_QUERY);
 
@@ -127,7 +127,7 @@ namespace ignite
 
             writer.WriteObject<std::string>(sql);
 
-            params.Write(writer);
+            params.write(writer);
 
             if (ver >= ProtocolVersion::VERSION_2_3_2)
                 writer.WriteInt32(timeout);
@@ -155,7 +155,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryExecuteBatchRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const
+        void QueryExecuteBatchRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const
         {
             writer.WriteInt8(RequestType::EXECUTE_SQL_QUERY_BATCH);
 
@@ -166,7 +166,7 @@ namespace ignite
 
             writer.WriteObject<std::string>(sql);
 
-            params.Write(writer, begin, end, last);
+            params.write(writer, begin, end, last);
 
             if (ver >= ProtocolVersion::VERSION_2_3_2)
                 writer.WriteInt32(timeout);
@@ -185,7 +185,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryCloseRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void QueryCloseRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::CLOSE_SQL_QUERY);
             writer.WriteInt64(queryId);
@@ -203,7 +203,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryFetchRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void QueryFetchRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::FETCH_SQL_QUERY);
 
@@ -225,7 +225,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryGetColumnsMetaRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void QueryGetColumnsMetaRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::GET_COLUMNS_METADATA);
 
@@ -246,7 +246,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryGetResultsetMetaRequest::Write(impl::binary::BinaryWriterImpl &writer, const ProtocolVersion &) const
+        void QueryGetResultsetMetaRequest::write(impl::binary::BinaryWriterImpl &writer, const ProtocolVersion &) const
         {
             writer.WriteInt8(RequestType::META_RESULTSET);
 
@@ -269,7 +269,7 @@ namespace ignite
             // No-op.
         }
 
-        void QueryGetTablesMetaRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void QueryGetTablesMetaRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::GET_TABLES_METADATA);
 
@@ -279,7 +279,7 @@ namespace ignite
             writer.WriteObject<std::string>(tableTypes);
         }
 
-        void QueryGetParamsMetaRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void QueryGetParamsMetaRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::GET_PARAMS_METADATA);
 
@@ -287,7 +287,7 @@ namespace ignite
             writer.WriteObject<std::string>(sqlQuery);
         }
 
-        void QueryMoreResultsRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void QueryMoreResultsRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::QUERY_MORE_RESULTS);
 
@@ -310,7 +310,7 @@ namespace ignite
             // No-op.
         }
 
-        void StreamingBatchRequest::Write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
+        void StreamingBatchRequest::write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const
         {
             writer.WriteInt8(RequestType::STREAMING_BATCH);
 

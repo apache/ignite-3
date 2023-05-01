@@ -57,7 +57,7 @@ namespace ignite
                 else
                     writer.WriteNull();
 
-                params.Write(writer);
+                params.write(writer);
                 ++size;
 
                 out.Synchronize();

@@ -34,14 +34,14 @@ namespace ignite
         namespace app
         {
             /**
-             * Parameter set.
+             * parameter set.
              */
             class ParameterSet
             {
-                /** Parameter binging map type alias. */
-                typedef std::map<uint16_t, Parameter> ParameterBindingMap;
+                /** parameter binging map type alias. */
+                typedef std::map<uint16_t, parameter> ParameterBindingMap;
 
-                /** Parameter meta vector. */
+                /** parameter meta vector. */
                 typedef std::vector<int8_t> ParameterTypeVector;
             public:
                 /**
@@ -67,15 +67,15 @@ namespace ignite
                 /**
                  * Bind parameter.
                  * 
-                 * @param paramIdx Parameter index.
-                 * @param param Parameter.
+                 * @param paramIdx parameter index.
+                 * @param param parameter.
                  */
-                void BindParameter(uint16_t paramIdx, const Parameter& param);
+                void BindParameter(uint16_t paramIdx, const parameter& param);
 
                 /**
                  * Unbind specified parameter.
                  *
-                 * @param paramIdx Parameter index.
+                 * @param paramIdx parameter index.
                  */
                 void UnbindParameter(uint16_t paramIdx);
 
@@ -94,14 +94,14 @@ namespace ignite
                 /**
                  * Set parameter binding offset pointer.
                  *
-                 * @param ptr Parameter binding offset pointer.
+                 * @param ptr parameter binding offset pointer.
                  */
                 void SetParamBindOffsetPtr(int* ptr);
 
                 /**
                  * Get parameter binding offset pointer.
                  *
-                 * @return Parameter binding offset pointer.
+                 * @return parameter binding offset pointer.
                  */
                 int* GetParamBindOffsetPtr();
 
@@ -127,7 +127,7 @@ namespace ignite
                 /**
                  * Get type id of the parameter.
                  *
-                 * @param idx Parameter index.
+                 * @param idx parameter index.
                  * @param dflt Default value to return if the type can not be found.
                  * @return Type ID of the parameter or dflt, if the type can not be returned.
                  */
@@ -159,29 +159,29 @@ namespace ignite
                  * Get parameter by index.
                  *
                  * @param idx Index.
-                 * @return Parameter or null, if parameter is not bound.
+                 * @return parameter or null, if parameter is not bound.
                  */
-                Parameter* GetParameter(uint16_t idx);
+                parameter* GetParameter(uint16_t idx);
 
                 /**
                  * Get selected parameter.
                  *
-                 * @return Parameter or null, if parameter is not bound.
+                 * @return parameter or null, if parameter is not bound.
                  */
-                Parameter* GetSelectedParameter();
+                parameter* GetSelectedParameter();
 
                 /**
                  * Internally selects next parameter for putting data at-execution.
                  *
-                 * @return Parameter if found and null otherwise.
+                 * @return parameter if found and null otherwise.
                  */
-                Parameter* SelectNextParameter();
+                parameter* SelectNextParameter();
 
                 /**
                  * Write only first row of the param set using provided writer.
                  * @param writer Writer.
                  */
-                void Write(impl::binary::BinaryWriterImpl& writer) const;
+                void write(impl::binary::BinaryWriterImpl& writer) const;
 
                 /**
                  * Write rows of the param set in interval [begin, end) using provided writer.
@@ -190,7 +190,7 @@ namespace ignite
                  * @param end End of the interval.
                  * @param last Last page flag.
                  */
-                void Write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const;
+                void write(impl::binary::BinaryWriterImpl& writer, SQLULEN begin, SQLULEN end, bool last) const;
 
                 /**
                  * Calculate row length.
@@ -243,7 +243,7 @@ namespace ignite
 
                 /**
                  * Set parameter status.
-                 * @param idx Parameter index.
+                 * @param idx parameter index.
                  * @param status Status to set.
                  */
                 void SetParamStatus(int64_t idx, SQLUSMALLINT status) const;
@@ -261,7 +261,7 @@ namespace ignite
                 /** Parameters. */
                 ParameterBindingMap parameters;
 
-                /** Parameter types. */
+                /** parameter types. */
                 ParameterTypeVector paramTypes;
 
                 /** Offset added to pointers to change binding of parameters. */
@@ -273,7 +273,7 @@ namespace ignite
                 /** Parameters status. */
                 SQLUSMALLINT* paramsStatus;
 
-                /** Parameter set size. */
+                /** parameter set size. */
                 SQLULEN paramSetSize;
 
                 /** Current position in parametor set. */
@@ -282,7 +282,7 @@ namespace ignite
                 /** Index of the parameter, which is currently being set. */
                 uint16_t currentParamIdx;
 
-                /** Parameter types are set. */
+                /** parameter types are set. */
                 bool typesSet;
             };
         }

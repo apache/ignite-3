@@ -85,7 +85,7 @@ namespace ignite
             /**
              * Bind parameter.
              *
-             * @param paramIdx Parameter index.
+             * @param paramIdx parameter index.
              * @param ioType Type of the parameter (input/output).
              * @param bufferType The data type of the parameter.
              * @param paramSqlType The SQL data type of the parameter.
@@ -127,7 +127,7 @@ namespace ignite
             /**
              * Set parameter binding offset pointer.
              *
-             * @param ptr Parameter binding offset pointer.
+             * @param ptr parameter binding offset pointer.
              */
             void SetParamBindOffsetPtr(int* ptr);
 
@@ -332,12 +332,12 @@ namespace ignite
              * @param data Data.
              * @param len Data length.
              */
-            void PutData(void* data, SQLLEN len);
+            void put_data(void* data, SQLLEN len);
 
             /**
              * Get type info of the parameter of the prepared statement.
              *
-             * @param paramNum - Parameter index.
+             * @param paramNum - parameter index.
              * @param dataType - Data type.
              * @param paramSize - Size of the parameter.
              * @param decimalDigits - big_decimal digits.
@@ -385,7 +385,7 @@ namespace ignite
             /**
              * Bind parameter.
              *
-             * @param paramIdx Parameter index.
+             * @param paramIdx parameter index.
              * @param ioType Type of the parameter (input/output).
              * @param bufferType The data type of the parameter.
              * @param paramSqlType The SQL data type of the parameter.
@@ -655,7 +655,7 @@ namespace ignite
             /**
              * Get type info of the parameter of the prepared statement.
              *
-             * @param paramNum - Parameter index.
+             * @param paramNum - parameter index.
              * @param dataType - Data type.
              * @param paramSize - Size of the parameter.
              * @param decimalDigits - big_decimal digits.

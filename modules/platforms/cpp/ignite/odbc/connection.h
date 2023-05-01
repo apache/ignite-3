@@ -501,7 +501,7 @@ namespace ignite
             /**
              * Retrieve timeout from parameter.
              *
-             * @param value Parameter.
+             * @param value parameter.
              * @return Timeout.
              */
             int32_t RetrieveTimeout(void* value);

@@ -134,7 +134,7 @@ namespace ignite
                 /** SQL Query. */
                 std::string sql;
 
-                /** Parameter bindings. */
+                /** parameter bindings. */
                 const ParameterSet& params;
             };
         }

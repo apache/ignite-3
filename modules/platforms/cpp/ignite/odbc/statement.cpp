@@ -156,7 +156,7 @@ namespace ignite
         {
             using namespace type_traits;
             using application_data_buffer;
-            using Parameter;
+            using parameter;
 
             if (paramIdx == 0)
             {
@@ -212,7 +212,7 @@ namespace ignite
 
             application_data_buffer dataBuffer(driverType, buffer, bufferLen, resLen);
 
-            Parameter param(dataBuffer, paramSqlType, columnSize, decDigits);
+            parameter param(dataBuffer, paramSqlType, columnSize, decDigits);
 
             parameters.BindParameter(paramIdx, param);
 
@@ -1207,9 +1207,9 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            Parameter *selected = parameters.GetSelectedParameter();
+            parameter *selected = parameters.GetSelectedParameter();
 
-            if (selected && !selected->IsDataReady())
+            if (selected && !selected->is_data_ready())
             {
                 AddStatusRecord(sql_state::S22026_DATA_LENGTH_MISMATCH,
                     "Less data was sent for a parameter than was specified with "
@@ -1222,7 +1222,7 @@ namespace ignite
 
             if (selected)
             {
-                *paramPtr = selected->GetBuffer().get_data();
+                *paramPtr = selected->get_buffer().get_data();
 
                 return sql_result::AI_NEED_DATA;
             }
@@ -1235,7 +1235,7 @@ namespace ignite
             return res;
         }
 
-        void Statement::PutData(void* data, SQLLEN len)
+        void Statement::put_data(void* data, SQLLEN len)
         {
             IGNITE_ODBC_API_CALL(InternalPutData(data, len));
         }
@@ -1254,12 +1254,12 @@ namespace ignite
             if (!parameters.IsParameterSelected())
             {
                 AddStatusRecord(sql_state::SHY010_SEQUENCE_ERROR,
-                    "Parameter is not selected with the SQLParamData.");
+                    "parameter is not selected with the SQLParamData.");
 
                 return sql_result::AI_ERROR;
             }
 
-            Parameter* param = parameters.GetSelectedParameter();
+            parameter* param = parameters.GetSelectedParameter();
 
             if (!param)
             {
@@ -1269,7 +1269,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            param->PutData(data, len);
+            param->put_data(data, len);
 
             return sql_result::AI_SUCCESS;
         }
@@ -1373,7 +1373,7 @@ namespace ignite
 
             for (size_t i = 0; i < rsp.GetTypeIds().size(); ++i)
             {
-                LOG_MSG("[" << i << "] Parameter type: " << rsp.GetTypeIds()[i]);
+                LOG_MSG("[" << i << "] parameter type: " << rsp.GetTypeIds()[i]);
             }
 
             return sql_result::AI_SUCCESS;

@@ -79,7 +79,7 @@ namespace ignite
 
                 BinaryWriterImpl writer(&outStream, 0);
 
-                msg.Write(writer, protocolVer);
+                msg.write(writer, protocolVer);
 
                 buf.resize(outStream.Position());
 

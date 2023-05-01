@@ -15,128 +15,100 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_APP_PARAMETER
-#define _IGNITE_ODBC_APP_PARAMETER
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <map>
 
-#include <ignite/impl/binary/binary_writer_impl.h>
-#include <ignite/impl/binary/binary_reader_impl.h>
-
 #include "ignite/odbc/app/application_data_buffer.h"
+#include "ignite/protocol/writer.h"
 
-namespace ignite
+namespace ignite {
+
+/**
+ * Statement parameter.
+ */
+class parameter
 {
-    namespace odbc
-    {
-        namespace app
-        {
-            /**
-             * Statement parameter.
-             */
-            class Parameter
-            {
-            public:
-                /**
-                 * Default constructor.
-                 */
-                Parameter();
+public:
+    // Default;
+    parameter() = default;
 
-                /**
-                 * Constructor.
-                 *
-                 * @param buffer Underlying data buffer.
-                 * @param sqlType IPD type.
-                 * @param columnSize IPD column size.
-                 * @param decDigits IPD decimal digits.
-                 */
-                Parameter(const application_data_buffer& buffer, int16_t sqlType,
-                    size_t columnSize, int16_t decDigits);
+    /**
+     * Constructor.
+     *
+     * @param buffer Underlying data buffer.
+     * @param sql_type IPD type.
+     * @param column_size IPD column size.
+     * @param dec_digits IPD decimal digits.
+     */
+    parameter(const application_data_buffer& buffer, int16_t sql_type, size_t column_size, int16_t dec_digits)
+        : m_buffer(buffer)
+        , m_sql_type(sql_type)
+        , m_column_size(column_size)
+        , m_dec_digits(dec_digits) { }
 
-                /**
-                 * Copy constructor.
-                 *
-                 * @param other Other instance.
-                 */
-                Parameter(const Parameter& other);
+    /**
+     * Write parameter using provided writer.
+     *
+     * @param writer Writer.
+     * @param offset Offset for the buffer.
+     * @param idx Index for the array-of-parameters case.
+     */
+    void write(protocol::writer& writer, int offset = 0, SQLULEN idx = 0) const;
 
-                /**
-                 * Destructor.
-                 */
-                ~Parameter();
+    /**
+     * Get data buffer.
+     *
+     * @return underlying application_data_buffer instance.
+     */
+    application_data_buffer& get_buffer();
 
-                /**
-                 * Assignment operator.
-                 *
-                 * @param other Other instance.
-                 * @return This.
-                 */
-                Parameter& operator=(const Parameter& other);
+    /**
+     * Get data buffer.
+     *
+     * @return underlying application_data_buffer instance.
+     */
+    [[nodiscard]] const application_data_buffer& get_buffer() const;
 
-                /**
-                 * Write parameter using provided writer.
-                 * @param writer Writer.
-                 * @param offset Offset for the buffer.
-                 * @param idx Index for the array-of-parameters case.
-                 */
-                void Write(impl::binary::BinaryWriterImpl& writer, int offset = 0, SQLULEN idx = 0) const;
+    /**
+     * Reset stored at-execution data.
+     */
+    void reset_stored_data();
 
-                /**
-                 * Get data buffer.
-                 *
-                 * @return underlying application_data_buffer instance.
-                 */
-                application_data_buffer& GetBuffer();
+    /**
+     * Check if all the at-execution data has been stored.
+     * @return
+     */
+    [[nodiscard]] bool is_data_ready() const;
 
-                /**
-                 * Get data buffer.
-                 *
-                 * @return underlying application_data_buffer instance.
-                 */
-                const application_data_buffer& GetBuffer() const;
+    /**
+     * Put at-execution data.
+     *
+     * @param data Data buffer pointer.
+     * @param len Data length.
+     */
+    void put_data(void* data, SQLLEN len);
 
-                /**
-                 * Reset stored at-execution data.
-                 */
-                void ResetStoredData();
+private:
+    /** Underlying data buffer. */
+    application_data_buffer m_buffer{};
 
-                /**
-                 * Check if all the at-execution data has been stored.
-                 * @return
-                 */
-                bool IsDataReady() const;
+    /** IPD type. */
+    int16_t m_sql_type{0};
 
-                /**
-                 * Put at-execution data.
-                 *
-                 * @param data Data buffer pointer.
-                 * @param len Data length.
-                 */
-                void PutData(void* data, SQLLEN len);
+    /** IPD column size. */
+    size_t m_column_size{0};
 
-            private:
-                /** Underlying data buffer. */
-                application_data_buffer buffer;
+    /** IPD decimal digits. */
+    int16_t m_dec_digits{0};
 
-                /** IPD type. */
-                int16_t sqlType;
+    /** User provided null data at execution. */
+    bool m_null_data{false};
 
-                /** IPD column size. */
-                size_t columnSize;
+    /** Stored at-execution data. */
+    std::vector<int8_t> m_stored_data;
+};
 
-                /** IPD decimal digits. */
-                int16_t decDigits;
-
-                /** User provided null data at execution. */
-                bool nullData;
-
-                /** Stored at-execution data. */
-                std::vector<int8_t> storedData;
-            };
-        }
-    }
-}
-
-#endif //_IGNITE_ODBC_APP_PARAMETER
+} // namespace ignite
