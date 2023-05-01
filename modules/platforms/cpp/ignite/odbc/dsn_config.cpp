@@ -180,7 +180,7 @@ namespace ignite
 
             if (sslModeStr.IsSet() && !config.IsSslModeSet())
             {
-                ssl::SslMode::Type sslMode = ssl::SslMode::FromString(sslModeStr.GetValue(), ssl::SslMode::DISABLE);
+                ssl::ssl_mode sslMode = ssl::ssl_mode_from_string(sslModeStr.GetValue(), ssl::ssl_mode::DISABLE);
 
                 config.SetSslMode(sslMode);
             }
@@ -213,7 +213,7 @@ namespace ignite
             SettableValue<std::string> nestedTxModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::nestedTxMode);
 
             if (nestedTxModeStr.IsSet() && !config.IsNestedTxModeSet())
-                config.SetNestedTxMode(NestedTxMode::FromString(nestedTxModeStr.GetValue(), config.GetNestedTxMode()));
+                config.SetNestedTxMode(nested_tx_mode::FromString(nestedTxModeStr.GetValue(), config.GetNestedTxMode()));
 
             SettableValue<std::string> engineModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::engineMode);
 

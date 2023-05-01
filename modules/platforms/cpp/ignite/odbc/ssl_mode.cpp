@@ -15,46 +15,52 @@
  * limitations under the License.
  */
 
-#include <ignite/common/utils.h>
+#include "ignite/odbc/ssl_mode.h"
+#include "ignite/odbc/string_utils.h"
 
-#include "ssl_mode.h"
+#include <algorithm>
+
+/** A string token for ssl_mode::DISABLE. */
+const std::string DISABLE_TOKEN{"disable"};
+
+/** A string token for ssl_mode::REQUIRE. */
+const std::string REQUIRE_TOKEN{"require"};
+
+/** A string token for ssl_mode::UNKNOWN. */
+const std::string UNKNOWN_TOKEN{"unknown"};
 
 namespace ignite
 {
-    namespace odbc
+
+ssl_mode ssl_mode_from_string(const std::string& val, ssl_mode dflt)
+{
+    // TODO: Make a function for this (e.g. normalize)
+    std::string lower_val = strip_surrounding_whitespaces(val.begin(), val.end());
+    std::transform(lower_val.begin(), lower_val.end(), lower_val.begin(), ::tolower);
+
+    if (lower_val == DISABLE_TOKEN)
+        return ssl_mode::DISABLE;
+
+    if (lower_val == REQUIRE_TOKEN)
+        return ssl_mode::REQUIRE;
+
+    return dflt;
+}
+
+std::string ssl_mode_to_string(ssl_mode val)
+{
+    switch (val)
     {
-        namespace ssl
-        {
-            SslMode::Type SslMode::FromString(const std::string& val, Type dflt)
-            {
-                std::string lowerVal = ToLower(val);
+        case ssl_mode::DISABLE:
+            return DISABLE_TOKEN;
 
-                strip_surrounding_whitespaces(lowerVal);
+        case ssl_mode::REQUIRE:
+            return REQUIRE_TOKEN;
 
-                if (lowerVal == "disable")
-                    return SslMode::DISABLE;
-
-                if (lowerVal == "require")
-                    return SslMode::REQUIRE;
-
-                return dflt;
-            }
-
-            std::string SslMode::ToString(Type val)
-            {
-                switch (val)
-                {
-                    case SslMode::DISABLE:
-                        return "disable";
-
-                    case SslMode::REQUIRE:
-                        return "require";
-
-                    case SslMode::UNKNOWN:
-                    default:
-                        return "unknown";
-                }
-            }
-        }
+        case ssl_mode::UNKNOWN:
+        default:
+            return UNKNOWN_TOKEN;
     }
 }
+
+} // namespace ignite

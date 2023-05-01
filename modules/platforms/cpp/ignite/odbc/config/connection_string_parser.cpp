@@ -389,9 +389,9 @@ namespace ignite
                 }
                 else if (lKey == Key::sslMode)
                 {
-                    ssl::SslMode::Type mode = ssl::SslMode::FromString(value);
+                    ssl::ssl_mode mode = ssl::ssl_mode_from_string(value);
 
-                    if (mode == ssl::SslMode::UNKNOWN)
+                    if (mode == ssl::ssl_mode::UNKNOWN)
                     {
                         if (diag)
                         {
@@ -442,9 +442,9 @@ namespace ignite
                 }
                 else if (lKey == Key::nestedTxMode)
                 {
-                    NestedTxMode::Type mode = NestedTxMode::FromString(value);
+                    nested_tx_mode mode = nested_tx_mode::FromString(value);
 
-                    if (mode == NestedTxMode::AI_UNKNOWN)
+                    if (mode == nested_tx_mode::AI_UNKNOWN)
                     {
                         if (diag)
                         {

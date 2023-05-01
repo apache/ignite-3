@@ -218,7 +218,7 @@ namespace ignite
 
                 int DsnConfigurationWindow::CreateSslSettingsGroup(int posX, int posY, int sizeX)
                 {
-                    using ssl::SslMode;
+                    using ssl::ssl_mode;
 
                     enum { LABEL_WIDTH = 120 };
 
@@ -229,8 +229,8 @@ namespace ignite
 
                     int rowPos = posY + 2 * INTERVAL;
 
-                    SslMode::Type sslMode = config.GetSslMode();
-                    std::string sslModeStr = SslMode::ToString(sslMode);
+                    ssl_mode sslMode = config.GetSslMode();
+                    std::string sslModeStr = ssl_mode_to_string(sslMode);
 
                     const char* val = sslModeStr.c_str();
 
@@ -279,9 +279,9 @@ namespace ignite
                     sslSettingsGroupBox = CreateGroupBox(posX, posY, sizeX, rowPos - posY,
                         "SSL settings", ChildId::SSL_SETTINGS_GROUP_BOX);
 
-                    sslKeyFileEdit->SetEnabled(sslMode != SslMode::DISABLE);
-                    sslCertFileEdit->SetEnabled(sslMode != SslMode::DISABLE);
-                    sslCaFileEdit->SetEnabled(sslMode != SslMode::DISABLE);
+                    sslKeyFileEdit->SetEnabled(sslMode != ssl_mode::DISABLE);
+                    sslCertFileEdit->SetEnabled(sslMode != ssl_mode::DISABLE);
+                    sslCaFileEdit->SetEnabled(sslMode != ssl_mode::DISABLE);
 
                     return rowPos - posY;
                 }
@@ -345,11 +345,11 @@ namespace ignite
                     {
                         int id = 0;
 
-                        const NestedTxMode::ModeSet &supported = NestedTxMode::GetValidValues();
+                        const nested_tx_mode::ModeSet &supported = nested_tx_mode::GetValidValues();
 
-                        for (NestedTxMode::ModeSet::const_iterator it = supported.begin();
+                        for (nested_tx_mode::ModeSet::const_iterator it = supported.begin();
                              it != supported.end(); ++it) {
-                            nestedTxModeComboBox->AddString(NestedTxMode::ToString(*it));
+                            nestedTxModeComboBox->AddString(nested_tx_mode::ToString(*it));
 
                             if (*it == config.GetNestedTxMode())
                                 nestedTxModeComboBox->SetSelection(id);
@@ -490,16 +490,16 @@ namespace ignite
 
                                 case ChildId::SSL_MODE_COMBO_BOX:
                                 {
-                                    using ssl::SslMode;
+                                    using ssl::ssl_mode;
 
                                     std::string sslModeStr;
                                     sslModeComboBox->GetText(sslModeStr);
 
-                                    SslMode::Type sslMode = SslMode::FromString(sslModeStr, SslMode::DISABLE);
+                                    ssl_mode sslMode = ssl_mode_from_string(sslModeStr, ssl_mode::DISABLE);
 
-                                    sslKeyFileEdit->SetEnabled(sslMode != SslMode::DISABLE);
-                                    sslCertFileEdit->SetEnabled(sslMode != SslMode::DISABLE);
-                                    sslCaFileEdit->SetEnabled(sslMode != SslMode::DISABLE);
+                                    sslKeyFileEdit->SetEnabled(sslMode != ssl_mode::DISABLE);
+                                    sslCertFileEdit->SetEnabled(sslMode != ssl_mode::DISABLE);
+                                    sslCaFileEdit->SetEnabled(sslMode != ssl_mode::DISABLE);
 
                                     break;
                                 }
@@ -611,7 +611,7 @@ namespace ignite
                     LOG_MSG("SSL Certificate:    " << sslCertStr);
                     LOG_MSG("SSL CA:             " << sslCaStr);
 
-                    ssl::SslMode::Type sslMode = ssl::SslMode::FromString(sslModeStr, ssl::SslMode::DISABLE);
+                    ssl::ssl_mode sslMode = ssl::ssl_mode_from_string(sslModeStr, ssl::ssl_mode::DISABLE);
 
                     cfg.SetSslMode(sslMode);
                     cfg.SetSslKeyFile(sslKeyStr);
@@ -634,7 +634,7 @@ namespace ignite
 
                     nestedTxModeComboBox->GetText(nestedTxModeStr);
 
-                    NestedTxMode::Type nestedTxMode = NestedTxMode::FromString(nestedTxModeStr,
+                    nested_tx_mode nestedTxMode = nested_tx_mode::FromString(nestedTxModeStr,
                                                                                config.GetNestedTxMode());
 
                     std::string engineModeStr;
@@ -653,7 +653,7 @@ namespace ignite
                     LOG_MSG("Retrieving arguments:");
                     LOG_MSG("Page size:              " << pageSize);
                     LOG_MSG("SQL Engine Mode:        " << EngineMode::ToString(engineMode));
-                    LOG_MSG("Nested TX Mode:         " << NestedTxMode::ToString(nestedTxMode));
+                    LOG_MSG("Nested TX Mode:         " << nested_tx_mode::ToString(nestedTxMode));
                     LOG_MSG("Distributed Joins:      " << (distributedJoins ? "true" : "false"));
                     LOG_MSG("Enforce Join Order:     " << (enforceJoinOrder ? "true" : "false"));
                     LOG_MSG("Replicated only:        " << (replicatedOnly ? "true" : "false"));

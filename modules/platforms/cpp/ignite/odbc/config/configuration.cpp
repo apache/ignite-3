@@ -48,7 +48,7 @@ namespace ignite
 
             const ProtocolVersion& Configuration::DefaultValue::protocolVersion = ProtocolVersion::GetCurrent();
 
-            const ssl::SslMode::Type Configuration::DefaultValue::sslMode = ssl::SslMode::DISABLE;
+            const ssl::ssl_mode Configuration::DefaultValue::sslMode = ssl::ssl_mode::DISABLE;
             const std::string Configuration::DefaultValue::sslKeyFile = "";
             const std::string Configuration::DefaultValue::sslCertFile = "";
             const std::string Configuration::DefaultValue::sslCaFile = "";
@@ -56,7 +56,7 @@ namespace ignite
             const std::string Configuration::DefaultValue::user = "";
             const std::string Configuration::DefaultValue::password = "";
 
-            const NestedTxMode::Type Configuration::DefaultValue::nestedTxMode = NestedTxMode::AI_ERROR;
+            const nested_tx_mode Configuration::DefaultValue::nestedTxMode = nested_tx_mode::AI_ERROR;
 
             const EngineMode::Type Configuration::DefaultValue::engineMode = EngineMode::DEFAULT;
 
@@ -205,12 +205,12 @@ namespace ignite
                 return end_points.IsSet();
             }
 
-            ssl::SslMode::Type Configuration::GetSslMode() const
+            ssl::ssl_mode Configuration::GetSslMode() const
             {
                 return sslMode.GetValue();
             }
 
-            void Configuration::SetSslMode(ssl::SslMode::Type sslMode)
+            void Configuration::SetSslMode(ssl::ssl_mode sslMode)
             {
                 this->sslMode.SetValue(sslMode);
             }
@@ -410,12 +410,12 @@ namespace ignite
                 return password.IsSet();
             }
 
-            NestedTxMode::Type Configuration::GetNestedTxMode() const
+            nested_tx_mode Configuration::GetNestedTxMode() const
             {
                 return nestedTxMode.GetValue();
             }
 
-            void Configuration::SetNestedTxMode(NestedTxMode::Type mode)
+            void Configuration::SetNestedTxMode(nested_tx_mode mode)
             {
                 this->nestedTxMode.SetValue(mode);
             }
@@ -516,18 +516,18 @@ namespace ignite
 
             template<>
             void Configuration::AddToMap(ArgumentMap& map, const std::string& key,
-                const SettableValue<ssl::SslMode::Type>& value)
+                const SettableValue<ssl::ssl_mode>& value)
             {
                 if (value.IsSet())
-                    map[key] = ssl::SslMode::ToString(value.GetValue());
+                    map[key] = ssl::ssl_mode_to_string(value.GetValue());
             }
 
             template<>
             void Configuration::AddToMap(ArgumentMap& map, const std::string& key,
-                const SettableValue<NestedTxMode::Type>& value)
+                const SettableValue<nested_tx_mode>& value)
             {
                 if (value.IsSet())
-                    map[key] = NestedTxMode::ToString(value.GetValue());
+                    map[key] = nested_tx_mode::ToString(value.GetValue());
             }
 
             template<>

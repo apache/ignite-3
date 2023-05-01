@@ -15,50 +15,40 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_SSL_SSL_MODE
-#define _IGNITE_ODBC_SSL_SSL_MODE
-
-#include <string>
+#pragma once
 
 #include "ignite/odbc/diagnostic/diagnosable.h"
 
+#include <string>
+
 namespace ignite
 {
-    namespace odbc
-    {
-        namespace ssl
-        {
-            /** SSL Mode enum. */
-            struct SslMode
-            {
-                enum Type
-                {
-                    DISABLE = 0,
 
-                    REQUIRE = 1,
+/** SSL Mode enum. */
+enum class ssl_mode
+{
+    DISABLE = 0,
 
-                    UNKNOWN = 100
-                };
+    REQUIRE = 1,
 
-                /**
-                 * Convert mode from string. 
-                 *
-                 * @param val String value.
-                 * @param dflt Default value to return on error.
-                 * @return Corresponding enum value.
-                 */
-                static Type FromString(const std::string& val, Type dflt = UNKNOWN);
+    UNKNOWN = 100
+};
 
-                /**
-                 * Convert mode to string. 
-                 *
-                 * @param val Value to convert.
-                 * @return String value.
-                 */
-                static std::string ToString(Type val);
-            };
-        }
-    }
-}
+/**
+ * Convert mode from string.
+ *
+ * @param val String value.
+ * @param dflt Default value to return on error.
+ * @return Corresponding enum value.
+ */
+[[nodiscard]] ssl_mode ssl_mode_from_string(const std::string& val, ssl_mode dflt = ssl_mode::UNKNOWN);
 
-#endif //_IGNITE_ODBC_SSL_SSL_MODE
+/**
+ * Convert mode to string.
+ *
+ * @param val Value to convert.
+ * @return String value.
+ */
+[[nodiscard]] std::string ToString(ssl_mode val);
+
+} // namespace ignite

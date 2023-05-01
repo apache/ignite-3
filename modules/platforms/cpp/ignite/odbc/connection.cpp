@@ -143,9 +143,9 @@ namespace ignite
 
         sql_result connection::InitSocket()
         {
-            ssl::SslMode::Type sslMode = config.GetSslMode();
+            ssl::ssl_mode sslMode = config.GetSslMode();
 
-            if (sslMode == ssl::SslMode::DISABLE)
+            if (sslMode == ssl::ssl_mode::DISABLE)
             {
                 socket.reset(network::MakeTcpSocketClient());
 
@@ -177,7 +177,7 @@ namespace ignite
 
         sql_result connection::InternalEstablish(const config::Configuration& cfg)
         {
-            using ssl::SslMode;
+            using ssl::ssl_mode;
 
             config = cfg;
 

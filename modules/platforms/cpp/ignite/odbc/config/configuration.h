@@ -24,8 +24,6 @@
 
 #include "ignite/odbc/config/settable_value.h"
 #include "ignite/odbc/end_point.h"
-#include "ignite/odbc/engine_mode.h"
-#include "ignite/odbc/nested_tx_mode.h"
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/ssl_mode.h"
 
@@ -63,7 +61,7 @@ namespace ignite
                     static const std::string server;
 
                     /** Default value for sslMode attribute. */
-                    static const ssl::SslMode::Type sslMode;
+                    static const ssl::ssl_mode sslMode;
 
                     /** Default value for sslKeyFile attribute. */
                     static const std::string sslKeyFile;
@@ -108,7 +106,7 @@ namespace ignite
                     static const std::string password;
 
                     /** Default value for nestedTxMode attribute. */
-                    static const NestedTxMode::Type nestedTxMode;
+                    static const nested_tx_mode nestedTxMode;
 
                     /** Default value for SQL engine attribute. */
                     static const EngineMode::Type engineMode;
@@ -255,14 +253,14 @@ namespace ignite
                  *
                  * @return SSL mode.
                  */
-                ssl::SslMode::Type GetSslMode() const;
+                ssl::ssl_mode GetSslMode() const;
 
                 /**
                  * Set SSL mode.
                  *
                  * @param sslMode SSL mode.
                  */
-                void SetSslMode(ssl::SslMode::Type sslMode);
+                void SetSslMode(ssl::ssl_mode sslMode);
 
                 /**
                  * Check if the value set.
@@ -549,14 +547,14 @@ namespace ignite
                  *
                  * @return Nested transaction mode.
                  */
-                NestedTxMode::Type GetNestedTxMode() const;
+                nested_tx_mode GetNestedTxMode() const;
 
                 /**
                  * Set nested transaction mode.
                  *
                  * @param mode Nested transaction mode.
                  */
-                void SetNestedTxMode(NestedTxMode::Type mode);
+                void SetNestedTxMode(nested_tx_mode mode);
 
                 /**
                  * Check if the value set.
@@ -647,7 +645,7 @@ namespace ignite
                 SettableValue< std::vector<EndPoint> > end_points;
 
                 /** SSL Mode. */
-                SettableValue<ssl::SslMode::Type> sslMode;
+                SettableValue<ssl::ssl_mode> sslMode;
 
                 /** SSL private key file path. */
                 SettableValue<std::string> sslKeyFile;
@@ -665,7 +663,7 @@ namespace ignite
                 SettableValue<std::string> password;
 
                 /** Nested transaction mode. */
-                SettableValue<NestedTxMode::Type> nestedTxMode;
+                SettableValue<nested_tx_mode> nestedTxMode;
 
                 /** SQL engine mode. */
                 SettableValue<EngineMode::Type> engineMode;
@@ -696,12 +694,12 @@ namespace ignite
                 const SettableValue< std::vector<EndPoint> >& value);
 
             template<>
-            void Configuration::AddToMap<ssl::SslMode::Type>(ArgumentMap& map, const std::string& key,
-                const SettableValue<ssl::SslMode::Type>& value);
+            void Configuration::AddToMap<ssl::ssl_mode>(ArgumentMap& map, const std::string& key,
+                const SettableValue<ssl::ssl_mode>& value);
 
             template<>
-            void Configuration::AddToMap<NestedTxMode::Type>(ArgumentMap& map, const std::string& key,
-                const SettableValue<NestedTxMode::Type>& value);
+            void Configuration::AddToMap<nested_tx_mode>(ArgumentMap& map, const std::string& key,
+                const SettableValue<nested_tx_mode>& value);
 
             template<>
             void Configuration::AddToMap(ArgumentMap& map, const std::string& key,

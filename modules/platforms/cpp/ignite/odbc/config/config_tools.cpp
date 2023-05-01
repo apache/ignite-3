@@ -16,6 +16,7 @@
  */
 
 #include "ignite/odbc/utility.h"
+#include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
 
@@ -24,83 +25,6 @@
 #include <cctype>
 #include <algorithm>
 #include <sstream>
-
-namespace {
-
-/**
- * Check if all characters are digits.
- *
- * @param val Value to check.
- */
-bool all_digits(const std::string &val)
-{
-    std::string::const_iterator i = val.begin();
-    while (i != val.end() && isdigit(*i))
-        ++i;
-
-    return i == val.end();
-}
-
-/**
- * Skip leading spaces.
- *
- * @param begin Iterator to the beginning of the character sequence.
- * @param end Iterator to the end of the character sequence.
- * @return Iterator to first non-blanc character.
- */
-template<typename Iterator>
-Iterator skip_leading_spaces(Iterator begin, Iterator end)
-{
-    Iterator res = begin;
-    while (isspace(*res) && res != end)
-        ++res;
-
-    return res;
-}
-
-/**
- * Skip trailing spaces.
- *
- * @param begin Iterator to the beginning of the character sequence.
- * @param end Iterator to the end of the character sequence.
- * @return Iterator to last non-blanc character.
- */
-template<typename Iterator>
-Iterator skip_trailing_spaces(Iterator begin, Iterator end)
-{
-    Iterator res = end - 1;
-    while (isspace(*res) && res != begin - 1)
-        --res;
-
-    return res + 1;
-}
-
-/**
- * Remove leading and trailing spaces.
- *
- * @param begin Iterator to the beginning of the character sequence.
- * @param end Iterator to the end of the character sequence.
- * @return String without leading and trailing spaces.
- */
-template<typename Iterator>
-std::string strip_surrounding_whitespaces(Iterator begin, Iterator end)
-{
-    std::string res;
-
-    if (begin >= end)
-        return res;
-
-    Iterator skipped_leading = skip_leading_spaces(begin, end);
-    Iterator skipped_trailing = skip_trailing_spaces(skipped_leading, end);
-
-    res.reserve(skipped_trailing - skipped_leading);
-
-    std::copy(skipped_leading, skipped_trailing, std::back_inserter(res));
-
-    return res;
-}
-
-} // anonymous namespace
 
 namespace ignite {
 
