@@ -51,10 +51,10 @@ namespace ignite
          * Copy string to buffer of the specific length.
          * @param str String to copy data from.
          * @param buf Buffer to copy data to.
-         * @param buflen Length of the buffer.
+         * @param buffer_len Length of the buffer.
          * @return Length of the resulting string in buffer.
          */
-        size_t CopyStringToBuffer(const std::string& str, char* buf, size_t buflen);
+        size_t CopyStringToBuffer(const std::string& str, char* buf, size_t buffer_len);
 
         /**
          * Read array from reader.

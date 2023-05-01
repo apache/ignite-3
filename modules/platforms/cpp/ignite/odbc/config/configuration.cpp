@@ -22,7 +22,6 @@
 
 #include <string>
 #include <sstream>
-#include <iterator>
 
 namespace ignite {
 

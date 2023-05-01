@@ -26,12 +26,12 @@ namespace ignite
 {
     namespace utility
     {
-        size_t CopyStringToBuffer(const std::string& str, char* buf, size_t buflen)
+        size_t CopyStringToBuffer(const std::string& str, char* buf, size_t buffer_len)
         {
-            if (!buf || !buflen)
+            if (!buf || !buffer_len)
                 return 0;
 
-            size_t bytesToCopy = std::min(str.size(), static_cast<size_t>(buflen - 1));
+            size_t bytesToCopy = std::min(str.size(), static_cast<size_t>(buffer_len - 1));
 
             memcpy(buf, str.data(), bytesToCopy);
             buf[bytesToCopy] = 0;

@@ -15,88 +15,81 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_CONFIG_CONNECTION_INFO
-#define _IGNITE_ODBC_CONFIG_CONNECTION_INFO
+#pragma once
 
-#include <stdint.h>
+#include "ignite/odbc/config/configuration.h"
+#include "ignite/odbc/common_types.h"
 
 #include <map>
+#include <cstdint>
 
-#include "configuration.h"
-#include "ignite/odbc/common_types.h"
-#include <ignite/common/common.h>
+namespace ignite {
 
-namespace ignite
+/**
+ * Connection info.
+ */
+class connection_info
 {
-    namespace odbc
-    {
-        namespace config
-        {
-            /**
-             * Connection info.
-             */
-            class ConnectionInfo
-            {
-            public:
-                /** Info type. */
-                typedef unsigned short InfoType;
+public:
+    /** Info type. */
+    typedef unsigned short info_type;
 
-                /**
-                 * Convert type to string containing its name.
-                 * Debug function.
-                 * @param type Info type.
-                 * @return Null-terminated string containing types name.
-                 */
-                static const char* InfoTypeToString(InfoType type);
+    /**
+     * Convert type to string containing its name.
+     * Debug function.
+     * @param type Info type.
+     * @return Null-terminated string containing types name.
+     */
+    [[nodiscard]] static const char* info_type_to_string(info_type type);
 
-                /**
-                 * Constructor.
-                 *
-                 * @param config Configuration.
-                 */
-                ConnectionInfo(const configuration& config);
+    /**
+     * Constructor.
+     *
+     * @param config Configuration.
+     */
+    explicit connection_info(const configuration& config);
 
-                /**
-                 * Destructor.
-                 */
-                ~ConnectionInfo();
+    /**
+     * Destructor.
+     */
+    ~connection_info();
 
-                /**
-                 * Get info of any type.
-                 * @param type Info type.
-                 * @param buf Result buffer pointer.
-                 * @param buflen Result buffer length.
-                 * @param reslen Result value length pointer.
-                 * @return True on success.
-                 */
-                sql_result GetInfo(InfoType type, void* buf, short buflen, short* reslen) const;
+    connection_info(connection_info &&) = delete;
+    connection_info(const connection_info &) = delete;
+    connection_info &operator=(connection_info &&) = delete;
+    connection_info &operator=(const connection_info &) = delete;
 
-            private:
-                IGNITE_NO_COPY_ASSIGNMENT(ConnectionInfo);
+    /**
+     * Get info of any type.
+     * @param type Info type.
+     * @param buf Result buffer pointer.
+     * @param buffer_len Result buffer length.
+     * @param result_len Result value length pointer.
+     * @return True on success.
+     */
+    sql_result get_info(info_type type, void* buf, short buffer_len, short* result_len) const;
 
-                /** Associative array of string m_parameters. */
-                typedef std::map<InfoType, std::string> StringInfoMap;
+private:
+    /** Associative array of string m_parameters. */
+    typedef std::map<info_type, std::string> string_info_map;
 
-                /** Associative array of unsigned integer m_parameters. */
-                typedef std::map<InfoType, unsigned int> UintInfoMap;
+    /** Associative array of unsigned integer m_parameters. */
+    typedef std::map<info_type, unsigned int> uint_info_map;
 
-                /** Associative array of unsigned short m_parameters. */
-                typedef std::map<InfoType, unsigned short> UshortInfoMap;
+    /** Associative array of unsigned short m_parameters. */
+    typedef std::map<info_type, unsigned short> ushort_info_map;
 
-                /** String m_parameters. */
-                StringInfoMap strParams;
+    /** String m_parameters. */
+    string_info_map m_str_params;
 
-                /** Integer m_parameters. */
-                UintInfoMap intParams;
+    /** Integer m_parameters. */
+    uint_info_map m_int_params;
 
-                /** Short m_parameters. */
-                UshortInfoMap shortParams;
+    /** Short m_parameters. */
+    ushort_info_map m_short_params;
 
-                /** Configuration. */
-                const configuration& config;
-            };
-        }
-    }
-}
+    /** Configuration. */
+    const configuration& config;
+};
 
-#endif //_IGNITE_ODBC_CONFIG_CONNECTION_INFO
+} // namespace ignite

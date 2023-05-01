@@ -277,12 +277,12 @@ namespace ignite
              * @param colIdx Column index.
              * @param attrId Attribute ID.
              * @param strbuf Buffer for string attribute value.
-             * @param buflen String buffer size.
-             * @param reslen Buffer to put resulting string length to.
+             * @param buffer_len String buffer size.
+             * @param result_len Buffer to put resulting string length to.
              * @param numbuf Numeric value buffer.
              */
             void GetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
-                int16_t buflen, int16_t* reslen, SQLLEN* numbuf);
+                int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf);
 
             /**
              * Get number of rows affected by the statement.
@@ -619,13 +619,13 @@ namespace ignite
              * @param colIdx Column index.
              * @param attrId Attribute ID.
              * @param strbuf Buffer for string attribute value.
-             * @param buflen String buffer size.
-             * @param reslen Buffer to put resulting string length to.
+             * @param buffer_len String buffer size.
+             * @param result_len Buffer to put resulting string length to.
              * @param numbuf Numeric value buffer.
              * @return Operation result.
              */
             sql_result InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId,
-                char* strbuf, int16_t buflen, int16_t* reslen, SQLLEN* numbuf);
+                char* strbuf, int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf);
 
             /**
              * Get number of rows affected by the statement.

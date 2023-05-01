@@ -64,10 +64,10 @@ namespace ignite
                          SQLSMALLINT*   length)
     {
         using connection;
-        using config::ConnectionInfo;
+        using config::connection_info;
 
         LOG_MSG("SQLGetInfo called: "
-            << infoType << " (" << ConnectionInfo::InfoTypeToString(infoType) << "), "
+            << infoType << " (" << connection_info::info_type_to_string(infoType) << "), "
             << std::hex << reinterpret_cast<size_t>(infoValue) << ", " << infoValueMax << ", "
             << std::hex << reinterpret_cast<size_t>(length));
 
@@ -76,7 +76,7 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        connection->GetInfo(infoType, infoValue, infoValueMax, length);
+        connection->get_info(infoType, infoValue, infoValueMax, length);
 
         return connection->get_diagnostic_records().get_return_code();
     }
@@ -299,12 +299,12 @@ namespace ignite
         if (!diag.is_successful())
             return diag.get_return_code();
 
-        size_t reslen = CopyStringToBuffer(connectStr,
+        size_t result_len = CopyStringToBuffer(connectStr,
             reinterpret_cast<char*>(outConnectionString),
             static_cast<size_t>(outConnectionStringBufferLen));
 
         if (outConnectionStringLen)
-            *outConnectionStringLen = static_cast<SQLSMALLINT>(reslen);
+            *outConnectionStringLen = static_cast<SQLSMALLINT>(result_len);
 
         if (outConnectionString)
             LOG_MSG(outConnectionString);

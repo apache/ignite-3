@@ -1085,14 +1085,14 @@ namespace ignite
         }
 
         void Statement::GetColumnAttribute(uint16_t colIdx, uint16_t attrId,
-            char* strbuf, int16_t buflen, int16_t* reslen, SQLLEN* numbuf)
+            char* strbuf, int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf)
         {
             IGNITE_ODBC_API_CALL(InternalGetColumnAttribute(colIdx, attrId,
-                strbuf, buflen, reslen, numbuf));
+                strbuf, buffer_len, result_len, numbuf));
         }
 
         sql_result Statement::InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
-            int16_t buflen, int16_t* reslen, SQLLEN* numbuf)
+            int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf)
         {
             const meta::ColumnMetaVector *meta = GetMeta();
 
@@ -1125,10 +1125,10 @@ namespace ignite
                 size_t outSize = out.size();
 
                 if (found && strbuf)
-                    outSize = utility::CopyStringToBuffer(out, strbuf, buflen);
+                    outSize = utility::CopyStringToBuffer(out, strbuf, buffer_len);
 
-                if (found && reslen)
-                    *reslen = static_cast<int16_t>(outSize);
+                if (found && result_len)
+                    *result_len = static_cast<int16_t>(outSize);
             }
 
             if (!found)

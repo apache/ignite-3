@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/utility.h"
 #include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
 
 #include <ignite/common/utils.h>
 
-#include <cctype>
 #include <algorithm>
 #include <sstream>
 

@@ -74,29 +74,29 @@ namespace ignite
             // No-op.
         }
 
-        const config::ConnectionInfo& connection::GetInfo() const
+        const config::connection_info& connection::get_info() const
         {
             return info;
         }
 
-        void connection::GetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen)
+        void connection::get_info(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len)
         {
             LOG_MSG("SQLGetInfo called: "
                 << type << " ("
-                << config::ConnectionInfo::InfoTypeToString(type) << "), "
+                << config::connection_info::info_type_to_string(type) << "), "
                 << std::hex << reinterpret_cast<size_t>(buf) << ", "
-                << buflen << ", "
-                << std::hex << reinterpret_cast<size_t>(reslen)
+                << buffer_len << ", "
+                << std::hex << reinterpret_cast<size_t>(result_len)
                 << std::dec);
 
-            IGNITE_ODBC_API_CALL(InternalGetInfo(type, buf, buflen, reslen));
+            IGNITE_ODBC_API_CALL(InternalGetInfo(type, buf, buffer_len, result_len));
         }
 
-        sql_result connection::InternalGetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen)
+        sql_result connection::InternalGetInfo(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len)
         {
-            const config::ConnectionInfo& info = GetInfo();
+            const config::connection_info& info = get_info();
 
-            sql_result res = info.GetInfo(type, buf, buflen, reslen);
+            sql_result res = info.get_info(type, buf, buffer_len, result_len);
 
             if (res != sql_result::AI_SUCCESS)
                 add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Not implemented.");

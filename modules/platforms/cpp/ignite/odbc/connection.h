@@ -74,17 +74,17 @@ namespace ignite
              *
              * @return Connection info.
              */
-            const config::ConnectionInfo& GetInfo() const;
+            const config::connection_info& get_info() const;
 
             /**
              * Get info of any type.
              *
              * @param type Info type.
              * @param buf Result buffer pointer.
-             * @param buflen Result buffer length.
-             * @param reslen Result value length pointer.
+             * @param buffer_len Result buffer length.
+             * @param result_len Result value length pointer.
              */
-            void GetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen);
+            void get_info(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len);
 
             /**
              * Establish connection to ODBC server.
@@ -394,11 +394,11 @@ namespace ignite
              *
              * @param type Info type.
              * @param buf Result buffer pointer.
-             * @param buflen Result buffer length.
-             * @param reslen Result value length pointer.
+             * @param buffer_len Result buffer length.
+             * @param result_len Result value length pointer.
              * @return Operation result.
              */
-            sql_result InternalGetInfo(config::ConnectionInfo::InfoType type, void* buf, short buflen, short* reslen);
+            sql_result InternalGetInfo(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len);
 
             /**
              * Create statement associated with the connection.
@@ -533,7 +533,7 @@ namespace ignite
             config::configuration config;
 
             /** Connection info. */
-            config::ConnectionInfo info;
+            config::connection_info info;
 
             /** Streaming context. */
             streaming::StreamingContext streamingContext;
