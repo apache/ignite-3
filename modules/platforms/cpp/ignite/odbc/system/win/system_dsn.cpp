@@ -91,8 +91,8 @@ bool RegisterDsn(const configuration& config, LPCSTR driver)
         
         config.to_map(map);
 
-        map.erase(ConnectionStringParser::Key::dsn);
-        map.erase(ConnectionStringParser::Key::driver);
+        map.erase(connection_string_parser::key::dsn);
+        map.erase(connection_string_parser::key::driver);
 
         for (ArgMap::const_iterator it = map.begin(); it != map.end(); ++it)
         {
@@ -149,11 +149,11 @@ BOOL INSTAPI ConfigDSN(HWND hwndParent, WORD req, LPCSTR driver, LPCSTR attribut
 
     LOG_MSG("Attributes: " << attributes);
 
-    config::ConnectionStringParser parser(config);
+    config::connection_string_parser parser(config);
 
     diagnostic_record_storage diag;
 
-    parser.ParseConfigAttributes(attributes, &diag);
+    parser.parse_config_attributes(attributes, &diag);
 
     if (!SQLValidDSN(config.GetDsn().c_str()))
         return FALSE;

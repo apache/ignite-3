@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <sstream>
 
 namespace ignite {
@@ -124,6 +125,17 @@ T1 lexical_cast(const T2 &val)
     lexical_cast<T1, T2>(val, res);
 
     return res;
+}
+
+/**
+ * Convert to lower.
+ *
+ * @param value Value.
+ * @return Lower value.
+ */
+[[nodiscard]] std::string to_lower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+    return value;
 }
 
 } // namespace ignite

@@ -625,10 +625,10 @@ namespace ignite
 
                     pageSizeEdit->GetText(pageSizeStr);
 
-                    int32_t pageSize = lexical_cast<int32_t>(pageSizeStr);
+                    int32_t page_size = lexical_cast<int32_t>(pageSizeStr);
 
-                    if (pageSize <= 0)
-                        pageSize = config.get_page_size();
+                    if (page_size <= 0)
+                        page_size = config.get_page_size();
 
                     std::string nestedTxModeStr;
 
@@ -651,7 +651,7 @@ namespace ignite
                     bool skipReducerOnUpdate = skipReducerOnUpdateCheckBox->IsChecked();
 
                     LOG_MSG("Retrieving arguments:");
-                    LOG_MSG("Page size:              " << pageSize);
+                    LOG_MSG("Page size:              " << page_size);
                     LOG_MSG("SQL Engine Mode:        " << EngineMode::ToString(engineMode));
                     LOG_MSG("Nested TX Mode:         " << nested_tx_mode::ToString(nestedTxMode));
                     LOG_MSG("Distributed Joins:      " << (distributedJoins ? "true" : "false"));
@@ -661,7 +661,7 @@ namespace ignite
                     LOG_MSG("Lazy:                   " << (lazy ? "true" : "false"));
                     LOG_MSG("Skip reducer on update: " << (skipReducerOnUpdate ? "true" : "false"));
 
-                    cfg.set_page_size(pageSize);
+                    cfg.set_page_size(page_size);
                     cfg.SetEngineMode(engineMode);
                     cfg.SetNestedTxMode(nestedTxMode);
                     cfg.SetDistributedJoins(distributedJoins);

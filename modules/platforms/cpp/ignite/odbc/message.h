@@ -251,9 +251,9 @@ namespace ignite
              * Constructor.
              *
              * @param queryId Query ID.
-             * @param pageSize Required page size.
+             * @param page_size Required page size.
              */
-            QueryFetchRequest(int64_t queryId, int32_t pageSize);
+            QueryFetchRequest(int64_t queryId, int32_t page_size);
 
             /**
              * Destructor.
@@ -271,7 +271,7 @@ namespace ignite
             int64_t queryId;
 
             /** SQL query. */
-            int32_t pageSize;
+            int32_t page_size;
         };
 
         /**
@@ -437,11 +437,11 @@ namespace ignite
              * Constructor.
              *
              * @param queryId Query ID.
-             * @param pageSize Required page size.
+             * @param page_size Required page size.
              */
-            QueryMoreResultsRequest(int64_t queryId, int32_t pageSize) :
+            QueryMoreResultsRequest(int64_t queryId, int32_t page_size) :
                 queryId(queryId),
-                pageSize(pageSize)
+                page_size(page_size)
             {
                 // No-op.
             }
@@ -465,7 +465,7 @@ namespace ignite
             int64_t queryId;
 
             /** SQL query. */
-            int32_t pageSize;
+            int32_t page_size;
         };
 
         /**

@@ -112,8 +112,8 @@ namespace ignite
         sql_result connection::InternalEstablish(const std::string& connectStr, void* parentWindow)
         {
             config::configuration config;
-            config::ConnectionStringParser parser(config);
-            parser.ParseConnectionString(connectStr, &get_diagnostic_records());
+            config::connection_string_parser parser(config);
+            parser.parse_connection_string(connectStr, &get_diagnostic_records());
 
             if (parentWindow)
             {

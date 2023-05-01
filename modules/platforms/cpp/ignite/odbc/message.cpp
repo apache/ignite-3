@@ -191,9 +191,9 @@ namespace ignite
             writer.WriteInt64(queryId);
         }
 
-        QueryFetchRequest::QueryFetchRequest(int64_t queryId, int32_t pageSize):
+        QueryFetchRequest::QueryFetchRequest(int64_t queryId, int32_t page_size):
             queryId(queryId),
-            pageSize(pageSize)
+            page_size(page_size)
         {
             // No-op.
         }
@@ -208,7 +208,7 @@ namespace ignite
             writer.WriteInt8(RequestType::FETCH_SQL_QUERY);
 
             writer.WriteInt64(queryId);
-            writer.WriteInt32(pageSize);
+            writer.WriteInt32(page_size);
         }
 
         QueryGetColumnsMetaRequest::QueryGetColumnsMetaRequest(const std::string& schema, const std::string& table,
@@ -292,7 +292,7 @@ namespace ignite
             writer.WriteInt8(RequestType::QUERY_MORE_RESULTS);
 
             writer.WriteInt64(queryId);
-            writer.WriteInt32(pageSize);
+            writer.WriteInt32(page_size);
         }
 
         StreamingBatchRequest::StreamingBatchRequest(const std::string& schema,

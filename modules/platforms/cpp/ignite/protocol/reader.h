@@ -205,7 +205,7 @@ public:
     /**
      * Read Map.
      *
-     * @tparam K Key type.
+     * @tparam K key type.
      * @tparam V Value type.
      * @param handler Pair handler.
      */

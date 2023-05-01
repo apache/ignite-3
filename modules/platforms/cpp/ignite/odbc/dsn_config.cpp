@@ -103,7 +103,7 @@ namespace ignite
 
         void ReadDsnConfiguration(const char* dsn, configuration& config, diagnostic_record_storage* diag)
         {
-            settable_value<std::string> address = ReadDsnString(dsn, ConnectionStringParser::Key::address);
+            settable_value<std::string> address = ReadDsnString(dsn, connection_string_parser::key::address);
 
             if (address.is_set() && !config.is_addresses_set())
             {
@@ -114,52 +114,52 @@ namespace ignite
                 config.set_addresses(end_points);
             }
 
-            settable_value<std::string> server = ReadDsnString(dsn, ConnectionStringParser::Key::server);
+            settable_value<std::string> server = ReadDsnString(dsn, connection_string_parser::key::server);
 
             if (server.is_set() && !config.IsHostSet())
                 config.SetHost(server.get_value());
 
-            settable_value<int32_t> port = ReadDsnInt(dsn, ConnectionStringParser::Key::port);
+            settable_value<int32_t> port = ReadDsnInt(dsn, connection_string_parser::key::port);
 
             if (port.is_set() && !config.is_tcp_port_set())
                 config.set_tcp_port(static_cast<uint16_t>(port.get_value()));
 
-            settable_value<std::string> schema = ReadDsnString(dsn, ConnectionStringParser::Key::schema);
+            settable_value<std::string> schema = ReadDsnString(dsn, connection_string_parser::key::schema);
 
             if (schema.is_set() && !config.IsSchemaSet())
                 config.SetSchema(schema.get_value());
 
-            settable_value<bool> distributedJoins = ReadDsnBool(dsn, ConnectionStringParser::Key::distributedJoins);
+            settable_value<bool> distributedJoins = ReadDsnBool(dsn, connection_string_parser::key::distributedJoins);
 
             if (distributedJoins.is_set() && !config.IsDistributedJoinsSet())
                 config.SetDistributedJoins(distributedJoins.get_value());
 
-            settable_value<bool> enforceJoinOrder = ReadDsnBool(dsn, ConnectionStringParser::Key::enforceJoinOrder);
+            settable_value<bool> enforceJoinOrder = ReadDsnBool(dsn, connection_string_parser::key::enforceJoinOrder);
 
             if (enforceJoinOrder.is_set() && !config.IsEnforceJoinOrderSet())
                 config.SetEnforceJoinOrder(enforceJoinOrder.get_value());
 
-            settable_value<bool> replicatedOnly = ReadDsnBool(dsn, ConnectionStringParser::Key::replicatedOnly);
+            settable_value<bool> replicatedOnly = ReadDsnBool(dsn, connection_string_parser::key::replicatedOnly);
 
             if (replicatedOnly.is_set() && !config.IsReplicatedOnlySet())
                 config.SetReplicatedOnly(replicatedOnly.get_value());
 
-            settable_value<bool> collocated = ReadDsnBool(dsn, ConnectionStringParser::Key::collocated);
+            settable_value<bool> collocated = ReadDsnBool(dsn, connection_string_parser::key::collocated);
 
             if (collocated.is_set() && !config.IsCollocatedSet())
                 config.SetCollocated(collocated.get_value());
 
-            settable_value<bool> lazy = ReadDsnBool(dsn, ConnectionStringParser::Key::lazy);
+            settable_value<bool> lazy = ReadDsnBool(dsn, connection_string_parser::key::lazy);
 
             if (lazy.is_set() && !config.IsLazySet())
                 config.SetLazy(lazy.get_value());
 
-            settable_value<bool> skipReducerOnUpdate = ReadDsnBool(dsn, ConnectionStringParser::Key::skipReducerOnUpdate);
+            settable_value<bool> skipReducerOnUpdate = ReadDsnBool(dsn, connection_string_parser::key::skipReducerOnUpdate);
 
             if (skipReducerOnUpdate.is_set() && !config.IsSkipReducerOnUpdateSet())
                 config.SetSkipReducerOnUpdate(skipReducerOnUpdate.get_value());
 
-            settable_value<std::string> versionStr = ReadDsnString(dsn, ConnectionStringParser::Key::protocolVersion);
+            settable_value<std::string> versionStr = ReadDsnString(dsn, connection_string_parser::key::protocolVersion);
 
             if (versionStr.is_set() && !config.IsProtocolVersionSet())
             {
@@ -171,12 +171,12 @@ namespace ignite
                 config.SetProtocolVersion(version);
             }
 
-            settable_value<int32_t> pageSize = ReadDsnInt(dsn, ConnectionStringParser::Key::pageSize);
+            settable_value<int32_t> page_size = ReadDsnInt(dsn, connection_string_parser::key::page_size);
 
-            if (pageSize.is_set() && !config.is_page_size_set() && pageSize.get_value() > 0)
-                config.set_page_size(pageSize.get_value());
+            if (page_size.is_set() && !config.is_page_size_set() && page_size.get_value() > 0)
+                config.set_page_size(page_size.get_value());
 
-            settable_value<std::string> sslModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::sslMode);
+            settable_value<std::string> sslModeStr = ReadDsnString(dsn, connection_string_parser::key::sslMode);
 
             if (sslModeStr.is_set() && !config.IsSslModeSet())
             {
@@ -185,37 +185,37 @@ namespace ignite
                 config.SetSslMode(sslMode);
             }
 
-            settable_value<std::string> sslKeyFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslKeyFile);
+            settable_value<std::string> sslKeyFile = ReadDsnString(dsn, connection_string_parser::key::sslKeyFile);
 
             if (sslKeyFile.is_set() && !config.IsSslKeyFileSet())
                 config.SetSslKeyFile(sslKeyFile.get_value());
 
-            settable_value<std::string> sslCertFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslCertFile);
+            settable_value<std::string> sslCertFile = ReadDsnString(dsn, connection_string_parser::key::sslCertFile);
 
             if (sslCertFile.is_set() && !config.IsSslCertFileSet())
                 config.SetSslCertFile(sslCertFile.get_value());
 
-            settable_value<std::string> sslCaFile = ReadDsnString(dsn, ConnectionStringParser::Key::sslCaFile);
+            settable_value<std::string> sslCaFile = ReadDsnString(dsn, connection_string_parser::key::sslCaFile);
 
             if (sslCaFile.is_set() && !config.IsSslCaFileSet())
                 config.SetSslCaFile(sslCaFile.get_value());
 
-            settable_value<std::string> user = ReadDsnString(dsn, ConnectionStringParser::Key::user);
+            settable_value<std::string> user = ReadDsnString(dsn, connection_string_parser::key::user);
 
             if (user.is_set() && !config.IsUserSet())
                 config.SetUser(user.get_value());
 
-            settable_value<std::string> password = ReadDsnString(dsn, ConnectionStringParser::Key::password);
+            settable_value<std::string> password = ReadDsnString(dsn, connection_string_parser::key::password);
 
             if (password.is_set() && !config.IsPasswordSet())
                 config.SetPassword(password.get_value());
 
-            settable_value<std::string> nestedTxModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::nestedTxMode);
+            settable_value<std::string> nestedTxModeStr = ReadDsnString(dsn, connection_string_parser::key::nestedTxMode);
 
             if (nestedTxModeStr.is_set() && !config.IsNestedTxModeSet())
                 config.SetNestedTxMode(nested_tx_mode::FromString(nestedTxModeStr.get_value(), config.GetNestedTxMode()));
 
-            settable_value<std::string> engineModeStr = ReadDsnString(dsn, ConnectionStringParser::Key::engineMode);
+            settable_value<std::string> engineModeStr = ReadDsnString(dsn, connection_string_parser::key::engineMode);
 
             if (engineModeStr.is_set() && !config.IsEngineModeSet())
                 config.SetEngineMode(EngineMode::FromString(engineModeStr.get_value(), config.GetEngineMode()));

@@ -48,7 +48,10 @@ public:
         static const std::string address;
 
         /** Default value for fetch results page size attribute. */
-        static const int32_t pageSize;
+        static const std::int32_t page_size;
+
+        /** Default value for TCP port attribute. */
+        static const std::uint16_t port;
     };
 
     /**
@@ -56,7 +59,7 @@ public:
      */
     configuration()
         : m_driver(default_value::driver)
-        , m_page_size(default_value::pageSize)
+        , m_page_size(default_value::page_size)
         , m_end_points({}) { }
 
     /**
@@ -106,14 +109,14 @@ public:
      *
      * @return Fetch results page size.
      */
-    [[nodiscard]] int32_t get_page_size() const;
+    [[nodiscard]] std::int32_t get_page_size() const;
 
     /**
      * Set fetch results page size.
      *
      * @param size Fetch results page size.
      */
-    void set_page_size(int32_t size);
+    void set_page_size(std::int32_t size);
 
     /**
      * Check if the value set.

@@ -28,7 +28,8 @@ namespace ignite {
 
 const std::string configuration::default_value::driver{"Apache Ignite"};
 const std::string configuration::default_value::address{};
-const int32_t configuration::default_value::pageSize{1024};
+const std::int32_t configuration::default_value::page_size{1024};
+const std::uint16_t configuration::default_value::port{10800};
 
 std::string configuration::to_connection_string() const
 {
@@ -97,9 +98,9 @@ int32_t configuration::get_page_size() const
 
 void configuration::to_map(argument_map& res) const
 {
-    add_to_map(res, ConnectionStringParser::Key::driver, m_driver);
-    add_to_map(res, ConnectionStringParser::Key::address, m_end_points);
-    add_to_map(res, ConnectionStringParser::Key::pageSize, m_page_size);
+    add_to_map(res, connection_string_parser::key::driver, m_driver);
+    add_to_map(res, connection_string_parser::key::address, m_end_points);
+    add_to_map(res, connection_string_parser::key::page_size, m_page_size);
 }
 
 template<>
