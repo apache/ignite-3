@@ -349,7 +349,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         stopNode(1);
 
-        assertTrue(waitForCondition(() -> !events.isEmpty(), 10_000), "Did not see any events in time");
+        assertTrue(waitForCondition(() -> !events.isEmpty(), TimeUnit.SECONDS.toMillis(10)), "Did not see any events in time");
 
         assertThat(events, hasSize(1));
 
