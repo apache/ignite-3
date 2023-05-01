@@ -24,7 +24,7 @@ namespace ignite
 {
     namespace odbc
     {
-        class OdbcError;
+        class odbc_error;
 
         namespace diagnostic
         {
@@ -80,7 +80,7 @@ namespace ignite
                  *
                  * @param err Error.
                  */
-                virtual void AddStatusRecord(const OdbcError& err) = 0;
+                virtual void AddStatusRecord(const odbc_error& err) = 0;
 
                 /**
                  * Add new status record.

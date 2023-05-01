@@ -151,7 +151,7 @@ namespace ignite
                 {
                     connection.SyncMessage(req, rsp);
                 }
-                catch (const OdbcError& err)
+                catch (const odbc_error& err)
                 {
                     diag.AddStatusRecord(err);
 
@@ -164,11 +164,11 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != response_status::SUCCESS)
+                if (rsp.get_state() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
@@ -185,12 +185,12 @@ namespace ignite
                 rowsAffected.insert(rowsAffected.end(), rowsLastTime.begin(), rowsLastTime.end());
                 LOG_MSG("Affected rows list size: " << rowsAffected.size());
 
-                if (!rsp.GetErrorMessage().empty())
+                if (!rsp.get_error_message().empty())
                 {
-                    LOG_MSG("Error: " << rsp.GetErrorMessage());
+                    LOG_MSG("Error: " << rsp.get_error_message());
                     LOG_MSG("Sets Processed: " << rowsAffected.size());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.GetErrorMessage(),
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.get_error_message(),
                         static_cast<int32_t>(rowsAffected.size()), 0);
 
                     return sql_result::AI_SUCCESS_WITH_INFO;

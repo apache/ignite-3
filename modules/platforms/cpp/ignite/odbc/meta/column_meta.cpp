@@ -164,7 +164,7 @@ namespace ignite
                     case SQL_DESC_TYPE_NAME:
                     case SQL_DESC_LOCAL_TYPE_NAME:
                     {
-                        value = type_traits::BinaryTypeToSqlTypeName(dataType);
+                        value = ignite_type_to_sql_type_name(dataType);
 
                         return true;
                     }
@@ -233,14 +233,14 @@ namespace ignite
                     case SQL_DESC_CONCISE_TYPE:
                     case SQL_DESC_TYPE:
                     {
-                        value = type_traits::BinaryToSqlType(dataType);
+                        value = ignite_type_to_sql_type(dataType);
 
                         break;
                     }
 
                     case SQL_DESC_DISPLAY_SIZE:
                     {
-                        value = type_traits::BinaryTypeDisplaySize(dataType);
+                        value = ignite_type_display_size(dataType);
 
                         break;
                     }
@@ -250,7 +250,7 @@ namespace ignite
                     case SQL_COLUMN_LENGTH:
                     {
                         if (precision == -1)
-                            value = type_traits::BinaryTypeTransferLength(dataType);
+                            value = ignite_type_transfer_length(dataType);
                         else
                             value = precision;
 
@@ -266,7 +266,7 @@ namespace ignite
 
                     case SQL_DESC_NUM_PREC_RADIX:
                     {
-                        value = type_traits::BinaryTypeNumPrecRadix(dataType);
+                        value = ignite_type_num_precision_radix(dataType);
 
                         break;
                     }
@@ -275,7 +275,7 @@ namespace ignite
                     case SQL_COLUMN_PRECISION:
                     {
                         if (precision == -1)
-                            value = type_traits::BinaryTypeColumnSize(dataType);
+                            value = ignite_type_column_size(dataType);
                         else
                             value = precision;
 
@@ -287,7 +287,7 @@ namespace ignite
                     {
                         if (scale == -1)
                         {
-                            value = type_traits::BinaryTypeDecimalDigits(dataType);
+                            value = ignite_type_decimal_digits(dataType);
 
                             if (value < 0)
                                 value = 0;
@@ -314,7 +314,7 @@ namespace ignite
 
                     case SQL_DESC_UNSIGNED:
                     {
-                        value = type_traits::BinaryTypeUnsigned(dataType) ? SQL_TRUE : SQL_FALSE;
+                        value = is_ignite_type_unsigned(dataType) ? SQL_TRUE : SQL_FALSE;
 
                         break;
                     }

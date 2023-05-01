@@ -271,7 +271,7 @@ namespace ignite
         bool Connection::Send(const int8_t* data, size_t len, int32_t timeout)
         {
             if (socket.get() == 0)
-                throw OdbcError(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
+                throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
             int32_t newLen = static_cast<int32_t>(len + sizeof(OdbcProtocolHeader));
 
@@ -289,7 +289,7 @@ namespace ignite
                 return false;
 
             if (res == OperationResult::FAIL)
-                throw OdbcError(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
+                throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
 #ifdef PER_BYTE_DEBUG
             LOG_MSG("message sent: (" <<  msg.GetSize() << " bytes)" << HexDump(msg.GetData(), msg.GetSize()));
@@ -326,7 +326,7 @@ namespace ignite
         bool Connection::Receive(std::vector<int8_t>& msg, int32_t timeout)
         {
             if (socket.get() == 0)
-                throw OdbcError(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
+                throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
             msg.clear();
 
@@ -338,13 +338,13 @@ namespace ignite
                 return false;
 
             if (res == OperationResult::FAIL)
-                throw OdbcError(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
+                throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
 
             if (hdr.len < 0)
             {
                 Close();
 
-                throw OdbcError(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
+                throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
             }
 
             if (hdr.len == 0)
@@ -358,7 +358,7 @@ namespace ignite
                 return false;
 
             if (res == OperationResult::FAIL)
-                throw OdbcError(sql_state::S08S01_LINK_FAILURE, "Can not receive message body");
+                throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message body");
 
 #ifdef PER_BYTE_DEBUG
             LOG_MSG("Message received: " << HexDump(&msg[0], msg.size()));
@@ -438,7 +438,7 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
             }
-            catch (const OdbcError& err)
+            catch (const odbc_error& err)
             {
                 AddStatusRecord(err);
 
@@ -479,7 +479,7 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
             }
-            catch (const OdbcError& err)
+            catch (const odbc_error& err)
             {
                 AddStatusRecord(err);
 
@@ -673,7 +673,7 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
             }
-            catch (const OdbcError& err)
+            catch (const odbc_error& err)
             {
                 AddStatusRecord(err);
 
@@ -718,7 +718,7 @@ namespace ignite
             bool success = TryRestoreConnection();
 
             if (!success)
-                throw OdbcError(sql_state::S08001_CANNOT_CONNECT,
+                throw odbc_error(sql_state::S08001_CANNOT_CONNECT,
                     "Failed to establish connection with any provided hosts");
         }
 

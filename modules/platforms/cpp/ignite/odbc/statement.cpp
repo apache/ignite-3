@@ -69,9 +69,9 @@ namespace ignite
         sql_result Statement::InternalBindColumn(uint16_t columnIdx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
         {
             using namespace type_traits;
-            OdbcNativeType::Type driverType = ToDriverType(targetType);
+            odbc_native_type driverType = to_driver_type(targetType);
 
-            if (driverType == OdbcNativeType::AI_UNSUPPORTED)
+            if (driverType == odbc_native_type::AI_UNSUPPORTED)
             {
                 AddStatusRecord(sql_state::SHY003_INVALID_APPLICATION_BUFFER_TYPE, "The argument TargetType was not a valid data type.");
 
@@ -180,7 +180,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (!IsSqlTypeSupported(paramSqlType))
+            if (!is_sql_type_supported(paramSqlType))
             {
                 std::stringstream builder;
                 builder << "Data type is not supported. [typeId=" << paramSqlType << ']';
@@ -190,9 +190,9 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            OdbcNativeType::Type driverType = ToDriverType(bufferType);
+            odbc_native_type driverType = to_driver_type(bufferType);
 
-            if (driverType == OdbcNativeType::AI_UNSUPPORTED)
+            if (driverType == odbc_native_type::AI_UNSUPPORTED)
             {
                 std::stringstream builder;
                 builder << "The argument TargetType was not a valid data type. [TargetType=" << bufferType << ']';
@@ -619,7 +619,7 @@ namespace ignite
 
                 return sql_result::AI_SUCCESS;
             }
-            catch (const OdbcError& err)
+            catch (const odbc_error& err)
             {
                 AddStatusRecord(err);
 
@@ -890,7 +890,7 @@ namespace ignite
 
         sql_result Statement::InternalExecuteGetTypeInfoQuery(int16_t sqlType)
         {
-            if (sqlType != SQL_ALL_TYPES && !type_traits::IsSqlTypeSupported(sqlType))
+            if (sqlType != SQL_ALL_TYPES && !is_sql_type_supported(sqlType))
             {
                 std::stringstream builder;
                 builder << "Data type is not supported. [typeId=" << sqlType << ']';
@@ -1314,16 +1314,16 @@ namespace ignite
             }
 
             if (dataType)
-                *dataType = type_traits::BinaryToSqlType(type);
+                *dataType = ignite_type_to_sql_type(type);
 
             if (paramSize)
-                *paramSize = type_traits::BinaryTypeColumnSize(type);
+                *paramSize = ignite_type_column_size(type);
 
             if (decimalDigits)
-                *decimalDigits = type_traits::BinaryTypeDecimalDigits(type);
+                *decimalDigits = ignite_type_decimal_digits(type);
 
             if (nullable)
-                *nullable = type_traits::BinaryTypeNullability(type);
+                *nullable = ignite_type_nullability(type);
 
             return sql_result::AI_SUCCESS;
         }
@@ -1347,7 +1347,7 @@ namespace ignite
             {
                 connection.SyncMessage(req, rsp);
             }
-            catch (const OdbcError& err)
+            catch (const odbc_error& err)
             {
                 AddStatusRecord(err);
 
@@ -1360,11 +1360,11 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (rsp.GetStatus() != response_status::SUCCESS)
+            if (rsp.get_state() != response_status::SUCCESS)
             {
                 LOG_MSG("Error: " << rsp.GetError());
 
-                AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
+                AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                 return sql_result::AI_ERROR;
             }

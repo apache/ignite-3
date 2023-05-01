@@ -156,7 +156,7 @@ namespace ignite
                 columnsMeta.push_back(ColumnMeta(sch, tbl, "NUM_PREC_RADIX",     IGNITE_TYPE_INT));
                 columnsMeta.push_back(ColumnMeta(sch, tbl, "INTERVAL_PRECISION", IGNITE_TYPE_SHORT));
 
-                assert(IsSqlTypeSupported(sqlType) || sqlType == SQL_ALL_TYPES);
+                assert(is_sql_type_supported(sqlType) || sqlType == SQL_ALL_TYPES);
 
                 if (sqlType == SQL_ALL_TYPES)
                 {
@@ -173,7 +173,7 @@ namespace ignite
                     types.push_back(IGNITE_TYPE_BINARY);
                 }
                 else
-                    types.push_back(SqlTypeToBinary(sqlType));
+                    types.push_back(sql_type_to_ignite_type(sqlType));
             }
 
             TypeInfoQuery::~TypeInfoQuery()
@@ -246,7 +246,7 @@ namespace ignite
                 {
                     case ResultColumn::TYPE_NAME:
                     {
-                        buffer.PutString(type_traits::BinaryTypeToSqlTypeName(currentType));
+                        buffer.PutString(ignite_type_to_sql_type_name(currentType));
 
                         break;
                     }
@@ -254,14 +254,14 @@ namespace ignite
                     case ResultColumn::DATA_TYPE:
                     case ResultColumn::SQL_DATA_TYPE:
                     {
-                        buffer.PutInt16(type_traits::BinaryToSqlType(currentType));
+                        buffer.PutInt16(ignite_type_to_sql_type(currentType));
 
                         break;
                     }
 
                     case ResultColumn::COLUMN_SIZE:
                     {
-                        buffer.PutInt32(type_traits::BinaryTypeColumnSize(currentType));
+                        buffer.PutInt32(ignite_type_column_size(currentType));
 
                         break;
                     }
@@ -297,7 +297,7 @@ namespace ignite
 
                     case ResultColumn::NULLABLE:
                     {
-                        buffer.PutInt32(type_traits::BinaryTypeNullability(currentType));
+                        buffer.PutInt32(ignite_type_nullability(currentType));
 
                         break;
                     }
@@ -321,7 +321,7 @@ namespace ignite
 
                     case ResultColumn::UNSIGNED_ATTRIBUTE:
                     {
-                        buffer.PutInt16(type_traits::BinaryTypeUnsigned(currentType));
+                        buffer.PutInt16(is_ignite_type_unsigned(currentType));
 
                         break;
                     }
@@ -344,7 +344,7 @@ namespace ignite
                     case ResultColumn::MINIMUM_SCALE:
                     case ResultColumn::MAXIMUM_SCALE:
                     {
-                        buffer.PutInt16(type_traits::BinaryTypeDecimalDigits(currentType));
+                        buffer.PutInt16(ignite_type_decimal_digits(currentType));
 
                         break;
                     }
@@ -358,7 +358,7 @@ namespace ignite
 
                     case ResultColumn::NUM_PREC_RADIX:
                     {
-                        buffer.PutInt32(type_traits::BinaryTypeNumPrecRadix(currentType));
+                        buffer.PutInt32(ignite_type_num_precision_radix(currentType));
 
                         break;
                     }

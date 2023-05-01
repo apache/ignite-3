@@ -538,7 +538,7 @@ namespace ignite
              * Get request processing status.
              * @return Status.
              */
-            int32_t GetStatus() const
+            int32_t get_state() const
             {
                 return status;
             }
@@ -751,7 +751,7 @@ namespace ignite
              * Get error message.
              * @return Error message.
              */
-            const std::string& GetErrorMessage() const
+            const std::string& get_error_message() const
             {
                 return errorMessage;
             }
@@ -803,7 +803,7 @@ namespace ignite
              * Get error message.
              * @return Error message.
              */
-            const std::string& GetErrorMessage() const
+            const std::string& get_error_message() const
             {
                 return errorMessage;
             }

@@ -229,7 +229,7 @@ namespace ignite
                 {
                     connection.SyncMessage(req, rsp);
                 }
-                catch (const OdbcError& err)
+                catch (const odbc_error& err)
                 {
                     diag.AddStatusRecord(err);
 
@@ -242,11 +242,11 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != response_status::SUCCESS)
+                if (rsp.get_state() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }

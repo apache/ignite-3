@@ -127,7 +127,7 @@ namespace ignite
              * @param data Data buffer.
              * @param len Data length.
              * @return @c true on success, @c false on timeout.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             bool Send(const int8_t* data, size_t len)
             {
@@ -141,7 +141,7 @@ namespace ignite
              * @param len Data length.
              * @param timeout Timeout.
              * @return @c true on success, @c false on timeout.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             bool Send(const int8_t* data, size_t len, int32_t timeout);
 
@@ -151,7 +151,7 @@ namespace ignite
              * @param msg Buffer for message.
              * @param timeout Timeout.
              * @return @c true on success, @c false on timeout.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             bool Receive(std::vector<int8_t>& msg, int32_t timeout);
 
@@ -206,7 +206,7 @@ namespace ignite
              * @param rsp Response message.
              * @param timeout Timeout. 0 means disabled.
              * @return @c true on success, @c false on timeout.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             template<typename ReqT, typename RspT>
             bool SyncMessage(const ReqT& req, RspT& rsp, int32_t timeout)
@@ -238,7 +238,7 @@ namespace ignite
              *
              * @param req Request message.
              * @param rsp Response message.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             template<typename ReqT, typename RspT>
             void SyncMessage(const ReqT& req, RspT& rsp)
@@ -252,12 +252,12 @@ namespace ignite
                 bool success = Send(tempBuffer.data(), tempBuffer.size(), timeout);
 
                 if (!success)
-                    throw OdbcError(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
+                    throw odbc_error(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
 
                 success = Receive(tempBuffer, timeout);
 
                 if (!success)
-                    throw OdbcError(sql_state::SHYT01_CONNECTION_TIMEOUT, "Receive operation timed out");
+                    throw odbc_error(sql_state::SHYT01_CONNECTION_TIMEOUT, "Receive operation timed out");
 
                 parser.Decode(rsp, tempBuffer);
             }
@@ -267,7 +267,7 @@ namespace ignite
              * Uses connection timeout.
              *
              * @param req Request message.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             template<typename ReqT>
             void SendRequest(const ReqT& req)
@@ -281,7 +281,7 @@ namespace ignite
                 bool success = Send(tempBuffer.data(), tempBuffer.size(), timeout);
 
                 if (!success)
-                    throw OdbcError(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
+                    throw odbc_error(sql_state::SHYT01_CONNECTION_TIMEOUT, "Send operation timed out");
             }
 
             /**
@@ -332,7 +332,7 @@ namespace ignite
              * @param rsp Response message.
              * @param timeout Timeout.
              * @return @c true on success, @c false on timeout.
-             * @throw OdbcError on error.
+             * @throw odbc_error on error.
              */
             template<typename ReqT, typename RspT>
             bool InternalSyncMessage(const ReqT& req, RspT& rsp, int32_t timeout)
@@ -478,7 +478,7 @@ namespace ignite
             /**
              * Ensure there is a connection to the cluster.
              *
-             * @throw OdbcError on failure.
+             * @throw odbc_error on failure.
              */
             void EnsureConnected();
 

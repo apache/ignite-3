@@ -247,12 +247,12 @@ namespace ignite
                     return;
                 }
 
-                if (buffer.GetType() == type_traits::OdbcNativeType::AI_CHAR ||
-                    buffer.GetType() == type_traits::OdbcNativeType::AI_BINARY)
+                if (buffer.GetType() == odbc_native_type::AI_CHAR ||
+                    buffer.GetType() == odbc_native_type::AI_BINARY)
                 {
                     SQLLEN slen = len;
 
-                    if (buffer.GetType() == type_traits::OdbcNativeType::AI_CHAR && slen == SQL_NTSL)
+                    if (buffer.GetType() == odbc_native_type::AI_CHAR && slen == SQL_NTSL)
                     {
                         const char* str = reinterpret_cast<char*>(data);
 

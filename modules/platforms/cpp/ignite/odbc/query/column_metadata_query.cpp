@@ -213,31 +213,31 @@ namespace ignite
 
                     case ResultColumn::DATA_TYPE:
                     {
-                        buffer.PutInt16(type_traits::BinaryToSqlType(columnType));
+                        buffer.PutInt16(ignite_type_to_sql_type(columnType));
                         break;
                     }
 
                     case ResultColumn::TYPE_NAME:
                     {
-                        buffer.PutString(type_traits::BinaryTypeToSqlTypeName(currentColumn.GetDataType()));
+                        buffer.PutString(ignite_type_to_sql_type_name(currentColumn.GetDataType()));
                         break;
                     }
 
                     case ResultColumn::COLUMN_SIZE:
                     {
-                        buffer.PutInt16(type_traits::BinaryTypeColumnSize(columnType));
+                        buffer.PutInt16(ignite_type_column_size(columnType));
                         break;
                     }
 
                     case ResultColumn::BUFFER_LENGTH:
                     {
-                        buffer.PutInt16(type_traits::BinaryTypeTransferLength(columnType));
+                        buffer.PutInt16(ignite_type_transfer_length(columnType));
                         break;
                     }
 
                     case ResultColumn::DECIMAL_DIGITS:
                     {
-                        int32_t decDigits = type_traits::BinaryTypeDecimalDigits(columnType);
+                        int32_t decDigits = ignite_type_decimal_digits(columnType);
                         if (decDigits < 0)
                             buffer.PutNull();
                         else
@@ -247,13 +247,13 @@ namespace ignite
 
                     case ResultColumn::NUM_PREC_RADIX:
                     {
-                        buffer.PutInt16(type_traits::BinaryTypeNumPrecRadix(columnType));
+                        buffer.PutInt16(ignite_type_num_precision_radix(columnType));
                         break;
                     }
 
                     case ResultColumn::NULLABLE:
                     {
-                        buffer.PutInt16(type_traits::BinaryTypeNullability(columnType));
+                        buffer.PutInt16(ignite_type_nullability(columnType));
                         break;
                     }
 
@@ -303,7 +303,7 @@ namespace ignite
                 {
                     connection.SyncMessage(req, rsp);
                 }
-                catch (const OdbcError& err)
+                catch (const odbc_error& err)
                 {
                     diag.AddStatusRecord(err);
 
@@ -316,10 +316,10 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                if (rsp.GetStatus() != response_status::SUCCESS)
+                if (rsp.get_state() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
-                    diag.AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
+                    diag.AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }

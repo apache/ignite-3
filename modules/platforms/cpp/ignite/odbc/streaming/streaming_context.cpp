@@ -115,7 +115,7 @@ namespace ignite
                 {
                     connection->SyncMessage(req, rsp);
                 }
-                catch (const OdbcError& err)
+                catch (const odbc_error& err)
                 {
                     connection->AddStatusRecord(err);
 
@@ -130,20 +130,20 @@ namespace ignite
 
                 currentBatch.Clear();
 
-                if (rsp.GetStatus() != response_status::SUCCESS)
+                if (rsp.get_state() != response_status::SUCCESS)
                 {
                     LOG_MSG("Error: " << rsp.GetError());
 
-                    connection->AddStatusRecord(response_status_to_sql_state(rsp.GetStatus()), rsp.GetError());
+                    connection->AddStatusRecord(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
 
                     return sql_result::AI_ERROR;
                 }
 
                 if (rsp.GetErrorCode() != response_status::SUCCESS)
                 {
-                    LOG_MSG("Error: " << rsp.GetErrorMessage());
+                    LOG_MSG("Error: " << rsp.get_error_message());
 
-                    connection->AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.GetErrorMessage());
+                    connection->AddStatusRecord(response_status_to_sql_state(rsp.GetErrorCode()), rsp.get_error_message());
 
                     return sql_result::AI_ERROR;
                 }

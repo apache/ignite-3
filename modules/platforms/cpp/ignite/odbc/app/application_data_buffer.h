@@ -80,7 +80,7 @@ public:
      * @param buflen Data buffer length.
      * @param reslen Resulting data length.
      */
-    ApplicationDataBuffer(type_traits::OdbcNativeType::Type type, void* buffer,
+    ApplicationDataBuffer(odbc_native_type type, void* buffer,
         SQLLEN buflen, SQLLEN* reslen);
 
     /**
@@ -403,7 +403,7 @@ public:
      *
      * @return Buffer type.
      */
-    [[nodiscard]] type_traits::OdbcNativeType::Type GetType() const
+    [[nodiscard]] odbc_native_type GetType() const
     {
         return type;
     }
@@ -484,7 +484,7 @@ private:
     T* ApplyOffset(T* ptr, size_t elemSize) const;
 
     /** Underlying data type. */
-    type_traits::OdbcNativeType::Type type;
+    odbc_native_type type;
 
     /** Buffer pointer. */
     void* buffer;

@@ -836,9 +836,9 @@ namespace ignite
         LOG_MSG("SQLGetStmtAttr called");
 
 #ifdef _DEBUG
-        using odbc::type_traits::StatementAttrIdToString;
+        using odbc::statement_attr_id_to_string;
 
-        LOG_MSG("Attr: " << StatementAttrIdToString(attr) << " (" << attr << ")");
+        LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
 
         Statement *statement = reinterpret_cast<Statement*>(stmt);
@@ -861,9 +861,9 @@ namespace ignite
         LOG_MSG("SQLSetStmtAttr called: " << attr);
 
 #ifdef _DEBUG
-        using odbc::type_traits::StatementAttrIdToString;
+        using odbc::statement_attr_id_to_string;
 
-        LOG_MSG("Attr: " << StatementAttrIdToString(attr) << " (" << attr << ")");
+        LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
 
         Statement *statement = reinterpret_cast<Statement*>(stmt);
@@ -946,7 +946,7 @@ namespace ignite
         LOG_MSG("SQLGetDiagField called: " << recNum);
 
         SQLLEN outResLen;
-        ApplicationDataBuffer outBuffer(OdbcNativeType::AI_DEFAULT, buffer, bufferLen, &outResLen);
+        ApplicationDataBuffer outBuffer(odbc_native_type::AI_DEFAULT, buffer, bufferLen, &outResLen);
 
         sql_result result;
 
@@ -1144,7 +1144,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        OdbcNativeType::Type driverType = ToDriverType(targetType);
+        odbc_native_type driverType = to_driver_type(targetType);
 
         ApplicationDataBuffer dataBuffer(driverType, targetValue, bufferLength, strLengthOrIndicator);
 
@@ -1192,7 +1192,7 @@ namespace ignite
             return SQL_INVALID_HANDLE;
 
         SQLLEN outResLen;
-        ApplicationDataBuffer outBuffer(OdbcNativeType::AI_SIGNED_LONG, valueBuf,
+        ApplicationDataBuffer outBuffer(odbc_native_type::AI_SIGNED_LONG, valueBuf,
             static_cast<int32_t>(valueBufLen), &outResLen);
 
         environment->GetAttribute(attr, outBuffer);
@@ -1340,7 +1340,7 @@ namespace ignite
             *error = 0;
 
         SQLLEN outResLen;
-        ApplicationDataBuffer outBuffer(OdbcNativeType::AI_CHAR, msgBuf, msgBufLen, &outResLen);
+        ApplicationDataBuffer outBuffer(odbc_native_type::AI_CHAR, msgBuf, msgBufLen, &outResLen);
 
         outBuffer.PutString(record.GetMessageText());
 

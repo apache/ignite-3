@@ -18,9 +18,9 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 #include "common_types.h"
-#include <ignite/common/expected.h>
 
 namespace ignite
 {
@@ -28,97 +28,51 @@ namespace ignite
 /**
  * ODBC error.
  */
-class OdbcError
+class odbc_error
 {
 public:
+    // Default
+    odbc_error() = default;
+
     /**
      * Constructor.
      *
-     * @param status SQL status.
+     * @param state SQL state.
      * @param message Error message.
      */
-    OdbcError(sql_state status, const std::string& message) :
-        status(status),
-        errMessage(message)
+    odbc_error(sql_state state, std::string message) :
+        m_state(state),
+        m_message(std::move(message))
     {
         // No-op.
     }
 
     /**
-     * Default constructor.
-     */
-    OdbcError() :
-        status(sql_state::UNKNOWN),
-        errMessage()
-    {
-        // No-op.
-    }
-
-    /**
-     * Copy constructor.
+     * Get state.
      *
-     * @param other Other instance.
+     * @return State.
      */
-    OdbcError(const OdbcError& other) :
-        status(other.status),
-        errMessage(other.errMessage)
+    [[nodiscard]] sql_state get_state() const
     {
-        // No-op.
-    }
-
-    /**
-     * Destructor.
-     */
-    ~OdbcError()
-    {
-        // No-op.
-    }
-
-    /**
-     * Get status.
-     * @return Status.
-     */
-    sql_state GetStatus() const
-    {
-        return status;
+        return m_state;
     }
 
     /**
      * Get error message.
+     *
      * @return Error message.
      */
-    const std::string& GetErrorMessage() const
+    [[nodiscard]] const std::string& get_error_message() const
     {
-        return errMessage;
+        return m_message;
     }
 
 private:
     /** Status. */
-    sql_state status;
+    sql_state m_state{sql_state::UNKNOWN};
 
     /** Error message. */
-    std::string errMessage;
-};
-
-typedef Unexpected<OdbcError> OdbcUnexpected;
-
-/**
- * Expected specialization for OdbcError.
- */
-template<typename R>
-struct OdbcExpected : Expected<R, OdbcError>
-{
-    OdbcExpected(const R& res)
-        : Expected<R, OdbcError>(res)
-    {
-        // No-op.
-    }
-
-    OdbcExpected(const OdbcError& err)
-        : Expected<R, OdbcError>(OdbcUnexpected(err))
-    {
-        // No-op.
-    }
+    std::string m_message;
 };
 
 } // namespace ignite
