@@ -17,24 +17,19 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
-import static org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup.GROUP_NAME;
-import static org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup.GROUP_TYPE;
-
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Message group for placement driver messages.
+ * Message which is sent from the replica side to an actor node.
  */
-@MessageGroup(groupType = GROUP_TYPE, groupName = GROUP_NAME)
-public interface PlacementDriverMessageGroup {
-    /** Placement driver message group type. */
-    short GROUP_TYPE = 11;
-
-    String GROUP_NAME = "PlacementDriverMessages";
-
-    short LEASE_GRANTED_MESSAGE = 0;
-
-    short LEASE_GRANTED_MESSAGE_RESPONSE = 1;
-
-    short STOP_LEASE_PROLONGATION = 2;
+public interface PlacementDriverActorMessage extends NetworkMessage {
+    /**
+     * Gets a replication group id.
+     *
+     * @return Replication group id.
+     */
+    @Marshallable
+    ReplicationGroupId groupId();
 }

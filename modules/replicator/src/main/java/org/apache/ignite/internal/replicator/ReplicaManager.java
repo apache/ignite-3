@@ -193,13 +193,15 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     private void onPlacementDriverMessageReceived(NetworkMessage msg0, String senderConsistentId, @Nullable Long correlationId) {
+        if (!(msg0 instanceof PlacementDriverReplicaMessage)) {
+            return;
+        }
+
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            assert msg0 instanceof PlacementDriverReplicaMessage : "Unexpected message type, msg=" + msg0;
-
             PlacementDriverReplicaMessage msg = (PlacementDriverReplicaMessage) msg0;
 
             CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());

@@ -36,6 +36,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -133,6 +135,22 @@ public class LeaseUpdater {
     public void init(String nodeName) {
         this.nodeName = nodeName;
 
+        clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (msg0, sender, correlationId) -> {
+            if (!(msg0 instanceof StopLeaseProlongationMessage)) {
+                return;
+            }
+
+            StopLeaseProlongationMessage msg = (StopLeaseProlongationMessage) msg0;
+
+            ReplicationGroupId grpId = msg.groupId();
+
+            Lease lease = leaseTracker.getLease(grpId);
+
+            if (lease.isAccepted() && sender.equals(lease.getLeaseholder().name())) {
+                denyLease(grpId, lease);
+            }
+        });
+
         topologyTracker.startTrack();
         assignmentsTracker.startTrack();
     }
@@ -169,6 +187,28 @@ public class LeaseUpdater {
         }
 
         leaseNegotiator = null;
+    }
+
+    /**
+     * Denies a lease and write the denied one to Meta storage.
+     *
+     * @param grpId Replication group id.
+     * @param lease Lease to deny.
+     */
+    public void denyLease(ReplicationGroupId grpId, Lease lease) {
+        var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
+
+        byte[] leaseRaw = ByteUtils.toBytes(lease);
+
+        Lease deniedLease = lease.denyLease();
+
+        leaseNegotiator.onLeaseRemoved(grpId);
+
+        msManager.invoke(
+                value(leaseKey).eq(leaseRaw),
+                put(leaseKey, ByteUtils.toBytes(deniedLease)),
+                noop()
+        );
     }
 
     /**
@@ -240,7 +280,7 @@ public class LeaseUpdater {
                     if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
                         ClusterNode candidate = nextLeaseHolder(
                                 entry.getValue(),
-                                lease.isAccepted() ? lease.getLeaseholder().name() : null
+                                lease.isProlong() ? lease.getLeaseholder().name() : null
                         );
 
                         if (candidate == null) {
@@ -253,7 +293,7 @@ public class LeaseUpdater {
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
                             writeNewLeaseInMetaStorage(grpId, lease, candidate);
-                        } else if (lease.isAccepted() && candidate.equals(lease.getLeaseholder())) {
+                        } else if (lease.isProlong() && candidate.equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
                             prolongLeaseInMetaStorage(grpId, lease);
                         }
