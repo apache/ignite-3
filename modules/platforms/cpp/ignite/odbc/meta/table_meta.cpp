@@ -15,36 +15,31 @@
  * limitations under the License.
  */
 
-#include "table_meta.h"
+#include "ignite/odbc/meta/table_meta.h"
 
 namespace ignite
 {
-    namespace odbc
+
+void table_meta::read(protocol::reader &reader)
+{
+    catalog_name = reader.read_string();
+    schema_name = reader.read_string();
+    table_name = reader.read_string();
+    table_type = reader.read_string();
+}
+
+void read_table_meta_vector(protocol::reader &reader, table_meta_vector &meta)
+{
+    std::int32_t meta_num = reader.read_int32();
+
+    meta.clear();
+    meta.reserve(static_cast<std::size_t>(meta_num));
+
+    for (std::int32_t i = 0; i < meta_num; ++i)
     {
-        namespace meta
-        {
-            void TableMeta::Read(ignite::impl::binary::BinaryReaderImpl & reader)
-            {
-                utility::ReadString(reader, catalogName);
-                utility::ReadString(reader, schema_name);
-                utility::ReadString(reader, table_name);
-                utility::ReadString(reader, tableType);
-            }
-
-            void ReadTableMetaVector(ignite::impl::binary::BinaryReaderImpl& reader, TableMetaVector& meta)
-            {
-                int32_t metaNum = reader.ReadInt32();
-
-                meta.clear();
-                meta.reserve(static_cast<size_t>(metaNum));
-
-                for (int32_t i = 0; i < metaNum; ++i)
-                {
-                    meta.push_back(TableMeta());
-
-                    meta.back().Read(reader);
-                }
-            }
-        }
+        meta.emplace_back();
+        meta.back().read(reader);
     }
 }
+
+} // namespace ignite

@@ -103,10 +103,9 @@ SQLLEN nullability_to_sql(nullability value)
 
 void column_meta::read(protocol::reader &reader, const protocol_version &ver)
 {
-    utility::ReadString(reader, m_schema_name);
-    utility::ReadString(reader, m_table_name);
-    utility::ReadString(reader, m_column_name);
-
+    m_schema_name = reader.read_string();
+    m_table_name = reader.read_string();
+    m_column_name = reader.read_string();
     m_data_type = ignite_type(reader.read_int8());
     m_precision = reader.read_int32();
     m_scale = reader.read_int32();

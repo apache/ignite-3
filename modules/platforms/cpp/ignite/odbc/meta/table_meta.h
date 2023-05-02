@@ -15,152 +15,111 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_META_TABLE_META
-#define _IGNITE_ODBC_META_TABLE_META
+#pragma once
 
-#include <stdint.h>
-#include <string>
-
-#include "ignite/impl/binary/binary_reader_impl.h"
-
+#include "ignite/protocol/reader.h"
 #include "ignite/odbc/utility.h"
+
+#include <cstdint>
+#include <string>
+#include <utility>
 
 namespace ignite
 {
-    namespace odbc
+
+/**
+ * Table metadata.
+ */
+class table_meta
+{
+public:
+    // Default.
+    table_meta() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param catalog_name Catalog name.
+     * @param schema_name Schema name.
+     * @param table_name Table name.
+     * @param table_type Table type.
+     */
+    table_meta(std::string catalog_name, std::string schema_name, std::string table_name, std::string table_type)
+        : catalog_name(std::move(catalog_name))
+        , schema_name(std::move(schema_name))
+        , table_name(std::move(table_name))
+        , table_type(std::move(table_type)) { }
+
+    /**
+     * Read using reader.
+     *
+     * @param reader Reader.
+     */
+    void read(protocol::reader &reader);
+
+    /**
+     * Get catalog name.
+     *
+     * @return Catalog name.
+     */
+    [[nodiscard]] const std::string& get_catalog_name() const
     {
-        namespace meta
-        {
-            /**
-             * Table metadata.
-             */
-            class TableMeta
-            {
-            public:
-                /**
-                 * Default constructor.
-                 */
-                TableMeta()
-                {
-                    // No-op.
-                }
-            
-                /**
-                 * Constructor.
-                 *
-                 * @param catalogName Catalog name.
-                 * @param schema_name Schema name.
-                 * @param table_name Table name.
-                 * @param tableType Table type.
-                 */
-                TableMeta(const std::string& catalogName, const std::string& schema_name,
-                          const std::string& table_name, const std::string& tableType) :
-                    catalogName(catalogName), schema_name(schema_name), table_name(table_name),
-                    tableType(tableType)
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Destructor.
-                 */
-                ~TableMeta()
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Copy constructor.
-                 */
-                TableMeta(const TableMeta& other) :
-                    catalogName(other.catalogName),
-                    schema_name(other.schema_name),
-                    table_name(other.table_name),
-                    tableType(other.tableType)
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Copy operator.
-                 */
-                TableMeta& operator=(const TableMeta& other)
-                {
-                    catalogName = other.catalogName;
-                    schema_name = other.schema_name;
-                    table_name = other.table_name;
-                    tableType = other.tableType;
-
-                    return *this;
-                }
-
-                /**
-                 * Read using reader.
-                 * @param reader Reader.
-                 */
-                void Read(ignite::impl::binary::BinaryReaderImpl& reader);
-
-                /**
-                 * Get catalog name.
-                 * @return Catalog name.
-                 */
-                const std::string& GetCatalogName() const
-                {
-                    return catalogName;
-                }
-
-                /**
-                 * Get schema name.
-                 * @return Schema name.
-                 */
-                const std::string& get_schema_name() const
-                {
-                    return schema_name;
-                }
-
-                /**
-                 * Get table name.
-                 * @return Table name.
-                 */
-                const std::string& get_table_name() const
-                {
-                    return table_name;
-                }
-
-                /**
-                 * Get table type.
-                 * @return Table type.
-                 */
-                const std::string& GetTableType() const
-                {
-                    return tableType;
-                }
-
-            private:
-                /** Catalog name. */
-                std::string catalogName;
-
-                /** Schema name. */
-                std::string schema_name;
-
-                /** Table name. */
-                std::string table_name;
-
-                /** Table type. */
-                std::string tableType;
-            };
-
-            /** Table metadata vector alias. */
-            typedef std::vector<TableMeta> TableMetaVector;
-
-            /**
-             * Read tables metadata collection.
-             * @param reader Reader.
-             * @param meta Collection.
-             */
-            void ReadTableMetaVector(ignite::impl::binary::BinaryReaderImpl& reader, TableMetaVector& meta);
-        }
+        return catalog_name;
     }
-}
 
-#endif //_IGNITE_ODBC_META_TABLE_META
+    /**
+     * Get schema name.
+     *
+     * @return Schema name.
+     */
+    [[nodiscard]] const std::string& get_schema_name() const
+    {
+        return schema_name;
+    }
+
+    /**
+     * Get table name.
+     *
+     * @return Table name.
+     */
+    [[nodiscard]] const std::string& get_table_name() const
+    {
+        return table_name;
+    }
+
+    /**
+     * Get table type.
+     *
+     * @return Table type.
+     */
+    [[nodiscard]] const std::string& get_table_type() const
+    {
+        return table_type;
+    }
+
+private:
+    /** Catalog name. */
+    std::string catalog_name;
+
+    /** Schema name. */
+    std::string schema_name;
+
+    /** Table name. */
+    std::string table_name;
+
+    /** Table type. */
+    std::string table_type;
+};
+
+/** Table metadata vector alias. */
+typedef std::vector<table_meta> table_meta_vector;
+
+/**
+ * Read tables metadata collection.
+ *
+ * @param reader Reader.
+ * @param meta Collection.
+ */
+void read_table_meta_vector(protocol::reader &reader, table_meta_vector& meta);
+
+} // namespace ignite

@@ -535,7 +535,7 @@ namespace ignite
 
         void QueryGetTablesMetaResponse::ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&)
         {
-            meta::ReadTableMetaVector(reader, meta);
+            meta::read_table_meta_vector(reader, meta);
         }
 
         QueryGetParamsMetaResponse::QueryGetParamsMetaResponse()

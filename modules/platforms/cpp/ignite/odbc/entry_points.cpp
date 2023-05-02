@@ -162,7 +162,7 @@ SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
 }
 
 SQLRETURN SQL_API SQLTables(SQLHSTMT    stmt,
-                            SQLCHAR*    catalogName,
+                            SQLCHAR*    catalog_name,
                             SQLSMALLINT catalogNameLen,
                             SQLCHAR*    schema_name,
                             SQLSMALLINT schemaNameLen,
@@ -171,13 +171,13 @@ SQLRETURN SQL_API SQLTables(SQLHSTMT    stmt,
                             SQLCHAR*    tableType,
                             SQLSMALLINT tableTypeLen)
 {
-    return ignite::SQLTables(stmt, catalogName, catalogNameLen,
+    return ignite::SQLTables(stmt, catalog_name, catalogNameLen,
         schema_name, schemaNameLen, table_name, tableNameLen,
         tableType, tableTypeLen);
 }
 
 SQLRETURN SQL_API SQLColumns(SQLHSTMT       stmt,
-                             SQLCHAR*       catalogName,
+                             SQLCHAR*       catalog_name,
                              SQLSMALLINT    catalogNameLen,
                              SQLCHAR*       schema_name,
                              SQLSMALLINT    schemaNameLen,
@@ -186,7 +186,7 @@ SQLRETURN SQL_API SQLColumns(SQLHSTMT       stmt,
                              SQLCHAR*       column_name,
                              SQLSMALLINT    columnNameLen)
 {
-    return ignite::SQLColumns(stmt, catalogName, catalogNameLen, schema_name,
+    return ignite::SQLColumns(stmt, catalog_name, catalogNameLen, schema_name,
         schemaNameLen, table_name, tableNameLen, column_name, columnNameLen);
 }
 
@@ -303,14 +303,14 @@ SQLRETURN SQL_API SQLSetStmtAttr(SQLHSTMT    stmt,
 }
 
 SQLRETURN SQL_API SQLPrimaryKeys(SQLHSTMT       stmt,
-                                 SQLCHAR*       catalogName,
+                                 SQLCHAR*       catalog_name,
                                  SQLSMALLINT    catalogNameLen,
                                  SQLCHAR*       schema_name,
                                  SQLSMALLINT    schemaNameLen,
                                  SQLCHAR*       table_name,
                                  SQLSMALLINT    tableNameLen)
 {
-    return ignite::SQLPrimaryKeys(stmt, catalogName, catalogNameLen,
+    return ignite::SQLPrimaryKeys(stmt, catalog_name, catalogNameLen,
         schema_name, schemaNameLen, table_name, tableNameLen);
 }
 
@@ -382,7 +382,7 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV     env,
 
 SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT    stmt,
                                     SQLUSMALLINT idType,
-                                    SQLCHAR*    catalogName,
+                                    SQLCHAR*    catalog_name,
                                     SQLSMALLINT catalogNameLen,
                                     SQLCHAR*    schema_name,
                                     SQLSMALLINT schemaNameLen,
@@ -391,7 +391,7 @@ SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT    stmt,
                                     SQLUSMALLINT scope,
                                     SQLUSMALLINT nullable)
 {
-    return ignite::SQLSpecialColumns(stmt, idType, catalogName, catalogNameLen, schema_name,
+    return ignite::SQLSpecialColumns(stmt, idType, catalog_name, catalogNameLen, schema_name,
         schemaNameLen, table_name, tableNameLen, scope, nullable);
 }
 
@@ -551,7 +551,7 @@ SQLRETURN SQL_API SQLSetStmtOption(SQLHSTMT     stmt,
 }
 
 SQLRETURN SQL_API SQLStatistics(SQLHSTMT        stmt,
-                                SQLCHAR*        catalogName,
+                                SQLCHAR*        catalog_name,
                                 SQLSMALLINT     catalogNameLen,
                                 SQLCHAR*        schema_name,
                                 SQLSMALLINT     schemaNameLen,
@@ -561,7 +561,7 @@ SQLRETURN SQL_API SQLStatistics(SQLHSTMT        stmt,
                                 SQLUSMALLINT    reserved)
 {
     IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalogName);
+    IGNITE_UNUSED(catalog_name);
     IGNITE_UNUSED(catalogNameLen);
     IGNITE_UNUSED(schema_name);
     IGNITE_UNUSED(schemaNameLen);
@@ -593,7 +593,7 @@ SQLRETURN SQL_API SQLBrowseConnect(SQLHDBC      conn,
 }
 
 SQLRETURN SQL_API SQLProcedureColumns(SQLHSTMT      stmt,
-                                      SQLCHAR *     catalogName,
+                                      SQLCHAR *     catalog_name,
                                       SQLSMALLINT   catalogNameLen,
                                       SQLCHAR *     schema_name,
                                       SQLSMALLINT   schemaNameLen,
@@ -603,7 +603,7 @@ SQLRETURN SQL_API SQLProcedureColumns(SQLHSTMT      stmt,
                                       SQLSMALLINT   columnNameLen)
 {
     IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalogName);
+    IGNITE_UNUSED(catalog_name);
     IGNITE_UNUSED(catalogNameLen);
     IGNITE_UNUSED(schema_name);
     IGNITE_UNUSED(schemaNameLen);
@@ -655,7 +655,7 @@ SQLRETURN SQL_API SQLBulkOperations(SQLHSTMT       stmt,
 }
 
 SQLRETURN SQL_API SQLTablePrivileges(SQLHSTMT      stmt,
-                                     SQLCHAR*      catalogName,
+                                     SQLCHAR*      catalog_name,
                                      SQLSMALLINT   catalogNameLen,
                                      SQLCHAR*      schema_name,
                                      SQLSMALLINT   schemaNameLen,
@@ -663,7 +663,7 @@ SQLRETURN SQL_API SQLTablePrivileges(SQLHSTMT      stmt,
                                      SQLSMALLINT   tableNameLen)
 {
     IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalogName);
+    IGNITE_UNUSED(catalog_name);
     IGNITE_UNUSED(catalogNameLen);
     IGNITE_UNUSED(schema_name);
     IGNITE_UNUSED(schemaNameLen);
@@ -772,7 +772,7 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC      descr,
 }
 
 SQLRETURN SQL_API SQLColumnPrivileges(SQLHSTMT      stmt,
-                                      SQLCHAR*      catalogName,
+                                      SQLCHAR*      catalog_name,
                                       SQLSMALLINT   catalogNameLen,
                                       SQLCHAR*      schema_name,
                                       SQLSMALLINT   schemaNameLen,
@@ -782,7 +782,7 @@ SQLRETURN SQL_API SQLColumnPrivileges(SQLHSTMT      stmt,
                                       SQLSMALLINT   columnNameLen)
 {
     IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalogName);
+    IGNITE_UNUSED(catalog_name);
     IGNITE_UNUSED(catalogNameLen);
     IGNITE_UNUSED(schema_name);
     IGNITE_UNUSED(schemaNameLen);
@@ -808,7 +808,7 @@ SQLRETURN SQL_API SQLParamOptions(SQLHSTMT  stmt,
 }
 
 SQLRETURN SQL_API SQLProcedures(SQLHSTMT        stmt,
-                                SQLCHAR*        catalogName,
+                                SQLCHAR*        catalog_name,
                                 SQLSMALLINT     catalogNameLen,
                                 SQLCHAR*        schema_name,
                                 SQLSMALLINT     schemaNameLen,
@@ -816,7 +816,7 @@ SQLRETURN SQL_API SQLProcedures(SQLHSTMT        stmt,
                                 SQLSMALLINT     tableNameLen)
 {
     IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalogName);
+    IGNITE_UNUSED(catalog_name);
     IGNITE_UNUSED(catalogNameLen);
     IGNITE_UNUSED(schema_name);
     IGNITE_UNUSED(schemaNameLen);

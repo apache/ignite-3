@@ -94,7 +94,7 @@ namespace ignite
                 if (executed)
                     Close();
 
-                meta.push_back(meta::PrimaryKeyMeta(catalog, schema, table, "_KEY", 1, "_KEY"));
+                meta.push_back(meta::primary_key_meta(catalog, schema, table, "_KEY", 1, "_KEY"));
 
                 executed = true;
 
@@ -142,13 +142,13 @@ namespace ignite
                 if (cursor == meta.end())
                     return sql_result::AI_NO_DATA;
 
-                const meta::PrimaryKeyMeta& currentColumn = *cursor;
+                const meta::primary_key_meta& currentColumn = *cursor;
 
                 switch (columnIdx)
                 {
                     case ResultColumn::TABLE_CAT:
                     {
-                        buffer.put_string(currentColumn.GetCatalogName());
+                        buffer.put_string(currentColumn.get_catalog_name());
                         break;
                     }
 
@@ -172,13 +172,13 @@ namespace ignite
 
                     case ResultColumn::KEY_SEQ:
                     {
-                        buffer.put_int16(currentColumn.GetKeySeq());
+                        buffer.put_int16(currentColumn.get_key_seq());
                         break;
                     }
 
                     case ResultColumn::PK_NAME:
                     {
-                        buffer.put_string(currentColumn.GetKeyName());
+                        buffer.put_string(currentColumn.get_key_name());
                         break;
                     }
 

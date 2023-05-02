@@ -155,13 +155,13 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                const meta::TableMeta& currentColumn = *cursor;
+                const meta::table_meta& currentColumn = *cursor;
 
                 switch (columnIdx)
                 {
                     case ResultColumn::TABLE_CAT:
                     {
-                        buffer.put_string(currentColumn.GetCatalogName());
+                        buffer.put_string(currentColumn.get_catalog_name());
                         break;
                     }
 
@@ -179,7 +179,7 @@ namespace ignite
 
                     case ResultColumn::TABLE_TYPE:
                     {
-                        buffer.put_string(currentColumn.GetTableType());
+                        buffer.put_string(currentColumn.get_table_type());
                         break;
                     }
 
@@ -255,10 +255,10 @@ namespace ignite
 
                 for (size_t i = 0; i < meta.size(); ++i)
                 {
-                    LOG_MSG("\n[" << i << "] CatalogName: " << meta[i].GetCatalogName()
+                    LOG_MSG("\n[" << i << "] CatalogName: " << meta[i].get_catalog_name()
                          << "\n[" << i << "] SchemaName:  " << meta[i].get_schema_name()
                          << "\n[" << i << "] TableName:   " << meta[i].get_table_name()
-                         << "\n[" << i << "] TableType:   " << meta[i].GetTableType());
+                         << "\n[" << i << "] TableType:   " << meta[i].get_table_type());
                 }
 
                 return sql_result::AI_SUCCESS;

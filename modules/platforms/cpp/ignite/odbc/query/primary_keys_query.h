@@ -132,10 +132,10 @@ namespace ignite
                 meta::column_meta_vector columnsMeta;
 
                 /** Primary keys metadata. */
-                meta::PrimaryKeyMetaVector meta;
+                meta::primary_key_meta_vector meta;
 
                 /** Resultset cursor. */
-                meta::PrimaryKeyMetaVector::iterator cursor;
+                meta::primary_key_meta_vector::iterator cursor;
             };
         }
     }

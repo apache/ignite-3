@@ -145,10 +145,10 @@ namespace ignite
                 bool fetched;
 
                 /** Fetched metadata. */
-                meta::TableMetaVector meta;
+                meta::table_meta_vector meta;
 
                 /** Metadata cursor. */
-                meta::TableMetaVector::iterator cursor;
+                meta::table_meta_vector::iterator cursor;
 
                 /** Columns metadata. */
                 meta::column_meta_vector columnsMeta;

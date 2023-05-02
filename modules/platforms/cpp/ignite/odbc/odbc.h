@@ -102,7 +102,7 @@ SQLRETURN SQLExtendedFetch(SQLHSTMT         stmt,
 SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num);
 
 SQLRETURN SQLTables(SQLHSTMT    stmt,
-                    SQLCHAR*    catalogName,
+                    SQLCHAR*    catalog_name,
                     SQLSMALLINT catalogNameLen,
                     SQLCHAR*    schema_name,
                     SQLSMALLINT schemaNameLen,
@@ -112,7 +112,7 @@ SQLRETURN SQLTables(SQLHSTMT    stmt,
                     SQLSMALLINT tableTypeLen);
 
 SQLRETURN SQLColumns(SQLHSTMT       stmt,
-                     SQLCHAR*       catalogName,
+                     SQLCHAR*       catalog_name,
                      SQLSMALLINT    catalogNameLen,
                      SQLCHAR*       schema_name,
                      SQLSMALLINT    schemaNameLen,
@@ -187,7 +187,7 @@ SQLRETURN SQLSetStmtAttr(SQLHSTMT    stmt,
                          SQLINTEGER  valueLen);
 
 SQLRETURN SQLPrimaryKeys(SQLHSTMT       stmt,
-                         SQLCHAR*       catalogName,
+                         SQLCHAR*       catalog_name,
                          SQLSMALLINT    catalogNameLen,
                          SQLCHAR*       schema_name,
                          SQLSMALLINT    schemaNameLen,
@@ -237,7 +237,7 @@ SQLRETURN SQLGetEnvAttr(SQLHENV     env,
 
 SQLRETURN SQLSpecialColumns(SQLHSTMT    stmt,
                             SQLSMALLINT idType,
-                            SQLCHAR*    catalogName,
+                            SQLCHAR*    catalog_name,
                             SQLSMALLINT catalogNameLen,
                             SQLCHAR*    schema_name,
                             SQLSMALLINT schemaNameLen,

@@ -531,7 +531,7 @@ namespace ignite
     }
 
     SQLRETURN SQLTables(SQLHSTMT    stmt,
-                        SQLCHAR*    catalogName,
+                        SQLCHAR*    catalog_name,
                         SQLSMALLINT catalogNameLen,
                         SQLCHAR*    schema_name,
                         SQLSMALLINT schemaNameLen,
@@ -550,7 +550,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalogName, catalogNameLen);
+        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
         std::string schema = SqlStringToString(schema_name, schemaNameLen);
         std::string table = SqlStringToString(table_name, tableNameLen);
         std::string tableTypeStr = SqlStringToString(tableType, tableTypeLen);
@@ -566,7 +566,7 @@ namespace ignite
     }
 
     SQLRETURN SQLColumns(SQLHSTMT       stmt,
-                         SQLCHAR*       catalogName,
+                         SQLCHAR*       catalog_name,
                          SQLSMALLINT    catalogNameLen,
                          SQLCHAR*       schema_name,
                          SQLSMALLINT    schemaNameLen,
@@ -585,7 +585,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalogName, catalogNameLen);
+        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
         std::string schema = SqlStringToString(schema_name, schemaNameLen);
         std::string table = SqlStringToString(table_name, tableNameLen);
         std::string column = SqlStringToString(column_name, columnNameLen);
@@ -877,7 +877,7 @@ namespace ignite
     }
 
     SQLRETURN SQLPrimaryKeys(SQLHSTMT       stmt,
-                             SQLCHAR*       catalogName,
+                             SQLCHAR*       catalog_name,
                              SQLSMALLINT    catalogNameLen,
                              SQLCHAR*       schema_name,
                              SQLSMALLINT    schemaNameLen,
@@ -894,7 +894,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalogName, catalogNameLen);
+        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
         std::string schema = SqlStringToString(schema_name, schemaNameLen);
         std::string table = SqlStringToString(table_name, tableNameLen);
 
@@ -1205,7 +1205,7 @@ namespace ignite
 
     SQLRETURN SQLSpecialColumns(SQLHSTMT    stmt,
                                 SQLSMALLINT idType,
-                                SQLCHAR*    catalogName,
+                                SQLCHAR*    catalog_name,
                                 SQLSMALLINT catalogNameLen,
                                 SQLCHAR*    schema_name,
                                 SQLSMALLINT schemaNameLen,
@@ -1225,7 +1225,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalogName, catalogNameLen);
+        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
         std::string schema = SqlStringToString(schema_name, schemaNameLen);
         std::string table = SqlStringToString(table_name, tableNameLen);
 

@@ -976,7 +976,7 @@ namespace ignite
              * Get column metadata.
              * @return Column metadata.
              */
-            const meta::TableMetaVector& GetMeta() const
+            const meta::table_meta_vector& GetMeta() const
             {
                 return meta;
             }
@@ -989,7 +989,7 @@ namespace ignite
             virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Columns metadata. */
-            meta::TableMetaVector meta;
+            meta::table_meta_vector meta;
         };
 
         /**
