@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
@@ -41,6 +43,6 @@ public interface TxCleanupCommand extends PartitionCommand {
      * Returns a transaction commit timestamp.
      */
     default @Nullable HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.ofNullable(commitTimestampLong());
+        return nullableHybridTimestamp(commitTimestampLong());
     }
 }

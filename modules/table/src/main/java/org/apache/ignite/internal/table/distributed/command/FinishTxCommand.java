@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -42,7 +44,7 @@ public interface FinishTxCommand extends PartitionCommand {
      * Returns a transaction commit timestamp.
      */
     default @Nullable HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.ofNullable(commitTimestampLong());
+        return nullableHybridTimestamp(commitTimestampLong());
     }
 
     /**

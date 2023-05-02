@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -77,7 +78,7 @@ public class TestHybridClock implements HybridClock {
 
     @Override
     public HybridTimestamp now() {
-        return HybridTimestamp.of(nowLong());
+        return hybridTimestamp(nowLong());
     }
 
     /**
@@ -97,7 +98,7 @@ public class TestHybridClock implements HybridClock {
             long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                return HybridTimestamp.of(newLatestTime);
+                return hybridTimestamp(newLatestTime);
             }
         }
     }

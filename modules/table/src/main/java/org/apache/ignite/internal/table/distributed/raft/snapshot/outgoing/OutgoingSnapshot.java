@@ -322,7 +322,9 @@ public class OutgoingSnapshot {
         int count = rowVersionsN2O.size();
         List<ByteBuffer> buffers = new ArrayList<>(count);
 
-        long[] commitTimestamps = new long[rowVersionsN2O.get(0).isWriteIntent() ? count - 1 : count];
+        int commitTimestampsCount = rowVersionsN2O.get(0).isWriteIntent() ? count - 1 : count;
+        long[] commitTimestamps = new long[commitTimestampsCount];
+
         UUID transactionId = null;
         UUID commitTableId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;

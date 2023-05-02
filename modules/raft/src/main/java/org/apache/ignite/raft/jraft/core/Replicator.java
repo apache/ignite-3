@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableLongTime;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Metric;
@@ -744,7 +744,7 @@ public class Replicator implements ThreadId.OnError {
     private void sendEmptyEntries(final boolean isHeartbeat,
         final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
-        rb.timestampLong(nullableLongTime(options.getNode().clockNow()));
+        rb.timestampLong(hybridTimestampToLong(options.getNode().clockNow()));
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
             // id is unlock in installSnapshot
             installSnapshot();
@@ -1659,7 +1659,7 @@ public class Replicator implements ThreadId.OnError {
             RecycleUtil.recycle(byteBufList);
         }
 
-        rb.timestampLong(nullableLongTime(this.options.getNode().clockNow()));
+        rb.timestampLong(hybridTimestampToLong(this.options.getNode().clockNow()));
 
         final AppendEntriesRequest request = rb.build();
         if (LOG.isDebugEnabled()) {

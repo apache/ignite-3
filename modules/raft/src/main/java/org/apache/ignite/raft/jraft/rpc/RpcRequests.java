@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import java.util.Collection;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.annotations.Marshallable;
@@ -178,7 +178,7 @@ public final class RpcRequests {
         long timestampLong();
 
         default HybridTimestamp timestamp() {
-            return HybridTimestamp.of(timestampLong());
+            return hybridTimestamp(timestampLong());
         }
     }
 
@@ -193,7 +193,7 @@ public final class RpcRequests {
         long timestampLong();
 
         default @Nullable HybridTimestamp timestamp() {
-            return HybridTimestamp.ofNullable(timestampLong());
+            return nullableHybridTimestamp(timestampLong());
         }
     }
 

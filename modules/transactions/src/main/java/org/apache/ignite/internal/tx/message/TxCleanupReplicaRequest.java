@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -62,7 +64,7 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      * @return Commit timestamp.
      */
     default @Nullable HybridTimestamp commitTimestamp() {
-        return HybridTimestamp.ofNullable(commitTimestampLong());
+        return nullableHybridTimestamp(commitTimestampLong());
     }
 
     /**

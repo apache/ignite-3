@@ -20,6 +20,7 @@ package org.apache.ignite.internal.hlc;
 import static java.lang.Math.max;
 import static java.time.Clock.systemUTC;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -51,15 +52,6 @@ public class HybridClockImpl implements HybridClock {
         this.latestTime = currentTime();
     }
 
-    /**
-     * The constructor which initializes the latest time to some initial time.
-     *
-     * @param initialTime Initial time.
-     */
-    public HybridClockImpl(HybridTimestamp initialTime) {
-        this.latestTime = HybridTimestamp.nullableLongTime(initialTime);
-    }
-
     private static long currentTime() {
         return systemUTC().instant().toEpochMilli() << LOGICAL_TIME_BITS_SIZE;
     }
@@ -82,7 +74,7 @@ public class HybridClockImpl implements HybridClock {
 
     @Override
     public HybridTimestamp now() {
-        return HybridTimestamp.of(nowLong());
+        return hybridTimestamp(nowLong());
     }
 
     /**
@@ -102,7 +94,7 @@ public class HybridClockImpl implements HybridClock {
             long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                return HybridTimestamp.of(newLatestTime);
+                return hybridTimestamp(newLatestTime);
             }
         }
     }

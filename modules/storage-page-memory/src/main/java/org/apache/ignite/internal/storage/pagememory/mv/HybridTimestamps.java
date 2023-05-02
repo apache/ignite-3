@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableLongTime;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
@@ -39,7 +40,7 @@ public class HybridTimestamps {
     public static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
         long time = getLong(pageAddr, offset);
 
-        return HybridTimestamp.ofNullable(time);
+        return nullableHybridTimestamp(time);
     }
 
     /**
@@ -51,7 +52,7 @@ public class HybridTimestamps {
      * @return Number of bytes written.
      */
     public static int writeTimestampToMemory(long addr, int offset, @Nullable HybridTimestamp timestamp) {
-        putLong(addr, offset, nullableLongTime(timestamp));
+        putLong(addr, offset, hybridTimestampToLong(timestamp));
 
         return HYBRID_TIMESTAMP_SIZE;
     }
@@ -63,6 +64,6 @@ public class HybridTimestamps {
      * @param timestamp The timestamp to write.
      */
     public static void writeTimestampToBuffer(ByteBuffer buffer, @Nullable HybridTimestamp timestamp) {
-        buffer.putLong(nullableLongTime(timestamp));
+        buffer.putLong(hybridTimestampToLong(timestamp));
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
@@ -42,6 +44,6 @@ public class TransactionIds {
      * @return Begin timestamp of the transaction.
      */
     public static HybridTimestamp beginTimestamp(UUID transactionId) {
-        return HybridTimestamp.of(transactionId.getMostSignificantBits());
+        return hybridTimestamp(transactionId.getMostSignificantBits());
     }
 }

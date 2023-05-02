@@ -26,15 +26,16 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
     /** Serial version UID. */
-    private static final long serialVersionUID = 2459861612869605904L;
+    private static final long serialVersionUID = -4285668148196042529L;
 
-    /**
-     * Time value to store for {@code null} hybrid timestamp values.
-     */
+    /** Time value to store for {@code null} hybrid timestamp values. */
     public static final long NULL_HYBRID_TIMESTAMP = 0L;
 
     /** Number of bits in "logical time" part. */
     public static final int LOGICAL_TIME_BITS_SIZE = 2 * Byte.SIZE;
+
+    /** Mask to extract logical time. */
+    public static final long LOGICAL_TIME_MASK = (1L << LOGICAL_TIME_BITS_SIZE) - 1;
 
     /** Number of bits in "physical time" part. */
     public static final int PHYSICAL_TIME_BITS_SIZE = 6 * Byte.SIZE;
@@ -74,17 +75,21 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
         time = (physical << LOGICAL_TIME_BITS_SIZE) | logical;
 
+        // Negative time breaks comparison, we don't allow overflow of the physical time.
+        // "0" is a reserved value for "NULL_HYBRID_TIMESTAMP".
         if (time <= 0) {
             throw new IllegalArgumentException("Time is out of bounds: " + time);
         }
     }
 
     private HybridTimestamp(long time) {
+        this.time = time;
+
+        // Negative time breaks comparison, we don't allow overflow of the physical time.
+        // "0" is a reserved value for "NULL_HYBRID_TIMESTAMP".
         if (time <= 0) {
             throw new IllegalArgumentException("Time is out of bounds: " + time);
         }
-
-        this.time = time;
     }
 
     /**
@@ -93,7 +98,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      *
      * @throws IllegalArgumentException If timestamp is negative.
      */
-    public static @Nullable HybridTimestamp ofNullable(long time) {
+    public static @Nullable HybridTimestamp nullableHybridTimestamp(long time) {
         return time == NULL_HYBRID_TIMESTAMP ? null : new HybridTimestamp(time);
     }
 
@@ -102,7 +107,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      *
      * @throws IllegalArgumentException If timestamp is not positive.
      */
-    public static HybridTimestamp of(long time) {
+    public static HybridTimestamp hybridTimestamp(long time) {
         return new HybridTimestamp(time);
     }
 
@@ -110,7 +115,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Converts hybrid timestamp instance to a primitive {@code long} representation.
      * {@code null} is represented as {@link #NULL_HYBRID_TIMESTAMP}.
      */
-    public static long nullableLongTime(@Nullable HybridTimestamp timestamp) {
+    public static long hybridTimestampToLong(@Nullable HybridTimestamp timestamp) {
         return timestamp == null ? NULL_HYBRID_TIMESTAMP : timestamp.time;
     }
 
@@ -150,7 +155,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * @return The logical component.
      */
     public int getLogical() {
-        return (int) (time << PHYSICAL_TIME_BITS_SIZE >>> PHYSICAL_TIME_BITS_SIZE);
+        return (int) (time & LOGICAL_TIME_MASK);
     }
 
     /**

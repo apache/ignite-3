@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
@@ -35,7 +37,7 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * Returns time on the initiator node.
      */
     default HybridTimestamp initiatorTime() {
-        return HybridTimestamp.of(initiatorTimeLong());
+        return hybridTimestamp(initiatorTimeLong());
     }
 
     /**
@@ -58,6 +60,6 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * Convenient getter for {@link #safeTimeLong()}.
      */
     default HybridTimestamp safeTime() {
-        return HybridTimestamp.of(safeTimeLong());
+        return hybridTimestamp(safeTimeLong());
     }
 }

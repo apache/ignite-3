@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -32,6 +34,6 @@ public interface TxStateReplicaRequest extends ReplicaRequest {
     long readTimestampLong();
 
     default HybridTimestamp readTimestamp() {
-        return HybridTimestamp.of(readTimestampLong());
+        return hybridTimestamp(readTimestampLong());
     }
 }

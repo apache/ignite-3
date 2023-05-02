@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
@@ -172,7 +173,7 @@ class PartitionDataHelper implements ManuallyCloseable {
 
         long time = ~keyBuf.getLong(ROW_PREFIX_SIZE);
 
-        return HybridTimestamp.of(time);
+        return hybridTimestamp(time);
     }
 
     /**
@@ -189,7 +190,7 @@ class PartitionDataHelper implements ManuallyCloseable {
 
         long time = keyBuf.getLong(offset);
 
-        return HybridTimestamp.of(time);
+        return hybridTimestamp(time);
     }
 
     @Override
