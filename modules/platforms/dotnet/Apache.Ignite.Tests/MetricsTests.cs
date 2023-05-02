@@ -38,12 +38,18 @@ public class MetricsTests
     [TearDown]
     public void TearDown()
     {
-        // ReSharper disable once AccessToDisposedClosure
-        TestUtils.WaitForCondition(() => _listener.GetMetric("requests-active") == 0);
+        // ReSharper disable AccessToDisposedClosure
+        TestUtils.WaitForCondition(
+            () => _listener.GetMetric("requests-active") == 0,
+            3000,
+            () => "requests-active: " + _listener.GetMetric("requests-active"));
 
-        // ReSharper disable once AccessToDisposedClosure
-        TestUtils.WaitForCondition(() => _listener.GetMetric("connections-active") == 0);
+        TestUtils.WaitForCondition(
+            () => _listener.GetMetric("connections-active") == 0,
+            3000,
+            () => "connections-active: " + _listener.GetMetric("connections-active"));
 
+        // ReSharper restore AccessToDisposedClosure
         _listener.Dispose();
     }
 
@@ -91,7 +97,7 @@ public class MetricsTests
     public async Task TestConnectionsLost()
     {
         using var server = new FakeServer();
-        using var client = await server.ConnectClientAsync();
+        using var client = await server.ConnectClientAsync(GetConfig());
 
         Assert.AreEqual(0, _listener.GetMetric("connections-lost"));
         Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
@@ -192,6 +198,13 @@ public class MetricsTests
         await client.Tables.GetTablesAsync();
         Assert.AreEqual(3, _listener.GetMetric("requests-retried"));
     }
+
+    private static IgniteClientConfiguration GetConfig() =>
+        new()
+        {
+            SocketTimeout = TimeSpan.FromMilliseconds(100),
+            RetryPolicy = new RetryNonePolicy()
+        };
 
     private static IgniteClientConfiguration GetConfigWithDelay() =>
         new()
