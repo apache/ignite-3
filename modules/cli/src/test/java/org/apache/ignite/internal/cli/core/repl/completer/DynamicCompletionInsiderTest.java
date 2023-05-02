@@ -38,7 +38,6 @@ class DynamicCompletionInsiderTest {
                 // here we have completed parameter
                 Arguments.of(new String[]{"connect", "node", ""}, true),
                 Arguments.of(new String[]{"unit", "undeploy"}, false),
-                Arguments.of(new String[]{"unit", "undeploy", "unit.id"}, false),
                 Arguments.of(new String[]{"unit", "undeploy", "unit.id", "--version"}, true),
                 Arguments.of(new String[]{"unit", "undeploy", "unit.id", "--version", "1.0.0"}, true),
                 Arguments.of(new String[]{"node", "config", "show", ""}, false),

@@ -138,7 +138,7 @@ public class UrlOptionsNegativeTest {
                 arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19090
                 // arguments(UnitDeployCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
                 arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
@@ -163,7 +163,7 @@ public class UrlOptionsNegativeTest {
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19090
                 // arguments(UnitDeployReplCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
+                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(UnitStatusReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
                 arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.annotations.MessageGroup;
@@ -65,22 +66,27 @@ public class NetworkMessageTypes {
     public static final short HANDSHAKE_FINISH = 5;
 
     /**
+     * Type for {@link HandshakeRejectedMessage}.
+     */
+    public static final short HANDSHAKE_REJECTED = 6;
+
+    /**
      * Type for {@link AcknowledgementMessage}.
      */
-    public static final short ACKNOWLEDGEMENT = 6;
+    public static final short ACKNOWLEDGEMENT = 7;
 
     /**
      * Type for {@link ClassDescriptorMessage}.
      */
-    public static final short CLASS_DESCRIPTOR_MESSAGE = 7;
+    public static final short CLASS_DESCRIPTOR_MESSAGE = 8;
 
     /**
      * Type for {@link FieldDescriptorMessage}.
      */
-    public static final short FIELD_DESCRIPTOR_MESSAGE = 8;
+    public static final short FIELD_DESCRIPTOR_MESSAGE = 9;
 
     /**
      * Type for {@link ClassDescriptorListMessage}.
      */
-    public static final short CLASS_DESCRIPTOR_LIST_MESSAGE = 9;
+    public static final short CLASS_DESCRIPTOR_LIST_MESSAGE = 10;
 }

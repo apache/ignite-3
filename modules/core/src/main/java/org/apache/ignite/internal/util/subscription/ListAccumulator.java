@@ -15,28 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.util.subscription;
 
-import org.apache.ignite.internal.metastorage.Entry;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
 
 /**
- * Values accumulator. Implementation should NOT be thead-safe.
+ * Plain list accumulator.
  *
+ * @param <T> Stream elements value type.
  * @param <R> Result value type.
  */
-public interface Accumulator<R> {
-    /**
-     * Accumulate provided value.
-     *
-     * @param item Item from metastore.
-     */
-    void accumulate(Entry item);
+public class ListAccumulator<T, R> implements Accumulator<T, List<R>> {
+    private final Function<T, R> mapper;
+
+    private final List<R> result = new ArrayList<>();
 
     /**
-     * Returns all accumulated values transformed to required type.
+     * Constructor.
      *
-     * @return All accumulated values transformed to required type.
-     * @throws AccumulateException in case when accumulation or transformation failed.
+     * @param mapper Value mapper.
      */
-    R get() throws AccumulateException;
+    public ListAccumulator(Function<T, R> mapper) {
+        this.mapper = mapper;
+    }
+
+    @Override
+    public void accumulate(T value) {
+        R apply = mapper.apply(value);
+        if (apply != null) {
+            result.add(apply);
+        }
+    }
+
+    @Override
+    public List<R> get() throws AccumulateException {
+        return result;
+    }
 }

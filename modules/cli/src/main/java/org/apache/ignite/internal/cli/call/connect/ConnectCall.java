@@ -77,9 +77,9 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl));
 
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
-        } catch (ApiException | IllegalArgumentException e) {
+        } catch (Exception e) {
             session.disconnect();
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
+            return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }
     }
 
@@ -89,5 +89,13 @@ public class ConnectCall implements Call<UrlCallInput, String> {
 
     private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
         return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
+    }
+
+    private static IgniteCliApiException handleException(Exception e, String nodeUrl) {
+        if (e instanceof IgniteCliApiException) {
+            return (IgniteCliApiException) e;
+        } else {
+            return new IgniteCliApiException(e, nodeUrl);
+        }
     }
 }

@@ -15,43 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.util.subscription;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
-import org.apache.ignite.internal.metastorage.Entry;
 
 /**
  * Plain list accumulator. The resulted list will be sorted.
  *
- * @param <T> Result value type.
+ * @param <R> Result value type.
  */
-public class SortedListAccumulator<T extends Comparable<T>> implements Accumulator<List<T>> {
-    private final Function<Entry, T> mapper;
-
-    private final List<T> result = new ArrayList<>();
+public class SortedListAccumulator<T, R extends Comparable<R>> extends ListAccumulator<T, R> {
 
     /**
      * Constructor.
      *
      * @param mapper Value mapper.
      */
-    public SortedListAccumulator(Function<Entry, T> mapper) {
-        this.mapper = mapper;
+    public SortedListAccumulator(Function<T, R> mapper) {
+        super(mapper);
     }
 
     @Override
-    public void accumulate(Entry value) {
-        T apply = mapper.apply(value);
-        if (apply != null) {
-            result.add(apply);
-        }
-    }
-
-    @Override
-    public List<T> get() throws AccumulateException {
+    public List<R> get() throws AccumulateException {
+        List<R> result = super.get();
         Collections.sort(result);
         return result;
     }

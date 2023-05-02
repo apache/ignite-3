@@ -15,31 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
-
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.network.recovery;
 
 /**
- * InboxCloseMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Represents a set of IDs that became stale.
+ *
+ * @see StaleIdDetector
  */
-@Transferable(value = SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE)
-public interface InboxCloseMessage extends NetworkMessage, Serializable {
+public interface StaleIds extends StaleIdDetector {
     /**
-     * Get query ID.
+     * Marks a node ID as stale.
+     *
+     * @param nodeId ID to mark as stale.
      */
-    UUID queryId();
-
-    /**
-     * Get fragment ID.
-     */
-    long fragmentId();
-
-    /**
-     * Get exchange ID.
-     */
-    long exchangeId();
+    void markAsStale(String nodeId);
 }

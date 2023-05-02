@@ -15,44 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.network.recovery;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.function.Function;
-import org.apache.ignite.internal.metastorage.Entry;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Plain list accumulator.
- *
- * @param <T> Result value type.
+ * Implementation of {@link StaleIds} that holds its state in memory.
  */
-public class ListAccumulator<T extends Comparable<T>> implements Accumulator<List<T>> {
-    private final Function<Entry, T> mapper;
+public class InMemoryStaleIds implements StaleIds {
+    private final Set<String> ids = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    private final List<T> result = new ArrayList<>();
-
-    /**
-     * Constructor.
-     *
-     * @param mapper Value mapper.
-     */
-    public ListAccumulator(Function<Entry, T> mapper) {
-        this.mapper = mapper;
+    @Override
+    public boolean isIdStale(String nodeId) {
+        return ids.contains(nodeId);
     }
 
     @Override
-    public void accumulate(Entry value) {
-        T apply = mapper.apply(value);
-        if (apply != null) {
-            result.add(apply);
-        }
-    }
-
-    @Override
-    public List<T> get() throws AccumulateException {
-        Collections.sort(result);
-        return result;
+    public void markAsStale(String nodeId) {
+        ids.add(nodeId);
     }
 }

@@ -99,16 +99,18 @@ public class DirectPropertiesTest {
         public String str = "bar";
     }
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(DirectConfiguration.KEY),
-            Set.of(),
-            new TestConfigurationStorage(LOCAL),
-            List.of(),
-            List.of()
-    );
+    private ConfigurationRegistry registry;
 
     @BeforeEach
     void setUp() {
+        registry = new ConfigurationRegistry(
+                List.of(DirectConfiguration.KEY),
+                Set.of(),
+                new TestConfigurationStorage(LOCAL),
+                List.of(),
+                List.of()
+        );
+
         registry.start();
 
         registry.initializeDefaults();
