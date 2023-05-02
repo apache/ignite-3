@@ -155,14 +155,14 @@ public class SortedIndexLocker implements IndexLocker {
         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         // Find next key.
-        PeekCursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
 
-        //noinspection ResultOfMethodCallIgnored
-        cursor.hasNext();
-
-        // "peek" works the same as "next" when "hasNext" is called. The only difference is that it returns null instead of throwing
-        // an exception, if nothing is found.
-        BinaryTuple nextKey = indexKey(cursor.peek());
+        BinaryTuple nextKey;
+        if (cursor.hasNext()) {
+            nextKey = cursor.next().indexColumns();
+        } else { // Otherwise INF.
+            nextKey = POSITIVE_INF;
+        }
 
         var nextLockKey = new LockKey(indexId, nextKey.byteBuffer());
 

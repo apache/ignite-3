@@ -183,6 +183,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertTrue(waitForCondition(() -> !scannedRows.isEmpty(), 10_000));
 
+        assertEquals(1, scannedRows.size());
+
         assertFalse(scanned.isDone());
 
         table.keyValueView().put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"));
