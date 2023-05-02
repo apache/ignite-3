@@ -31,7 +31,6 @@ set(SOURCES
     config/connection_info.cpp
     config/connection_string_parser.cpp
     connection.cpp
-    cursor.cpp
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp
@@ -41,29 +40,10 @@ set(SOURCES
     odbc.cpp
     entry_points.cpp
     dsn_config.cpp
-    query/column_metadata_query.cpp
     query/data_query.cpp
-    query/batch_query.cpp
-    query/foreign_keys_query.cpp
-    query/primary_keys_query.cpp
-    query/table_metadata_query.cpp
-    query/type_info_query.cpp
-    query/special_columns_query.cpp
-    query/streaming_query.cpp
-    sql/sql_parser.cpp
-    sql/sql_lexer.cpp
-    sql/sql_set_streaming_command.cpp
-    sql/sql_utils.cpp
-    streaming/streaming_batch.cpp
-    streaming/streaming_context.cpp
     ssl_mode.cpp
     protocol_version.cpp
-    result_page.cpp
-    row.cpp
-    nested_tx_mode.cpp
-    engine_mode.cpp
     message.cpp
-    column.cpp
     statement.cpp
     type_traits.cpp
     utility.cpp
@@ -72,10 +52,6 @@ set(SOURCES
 
 if (WIN32)
     list(APPEND SOURCES
-        system/win/system_dsn.cpp
-        system/win/ui/custom_window.cpp
-        system/win/ui/dsn_configuration_window.cpp
-        system/win/ui/window.cpp
         module.def
     )
 endif ()

@@ -102,30 +102,30 @@ namespace ignite
 
     SQLRETURN SQLAllocEnv(SQLHENV* env)
     {
-        using Environment;
+        using environment;
 
         LOG_MSG("SQLAllocEnv called");
 
-        *env = reinterpret_cast<SQLHENV>(new Environment());
+        *env = reinterpret_cast<SQLHENV>(new environment());
 
         return SQL_SUCCESS;
     }
 
     SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC* conn)
     {
-        using Environment;
+        using environment;
         using connection;
 
         LOG_MSG("SQLAllocConnect called");
 
         *conn = SQL_NULL_HDBC;
 
-        Environment *environment = reinterpret_cast<Environment*>(env);
+        environment *environment = reinterpret_cast<environment*>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
 
-        connection *connection = environment->CreateConnection();
+        connection *connection = environment->create_connection();
 
         if (!connection)
             return environment->get_diagnostic_records().get_return_code();
@@ -179,11 +179,11 @@ namespace ignite
 
     SQLRETURN SQLFreeEnv(SQLHENV env)
     {
-        using Environment;
+        using environment;
 
         LOG_MSG("SQLFreeEnv called: " << env);
 
-        Environment *environment = reinterpret_cast<Environment*>(env);
+        environment *environment = reinterpret_cast<environment*>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
@@ -850,7 +850,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        statement->SetAttribute(attr, value, valueLen);
+        statement->set_attribute(attr, value, valueLen);
 
         return statement->get_diagnostic_records().get_return_code();
     }
@@ -1061,15 +1061,15 @@ namespace ignite
         {
             case SQL_HANDLE_ENV:
             {
-                Environment *env = reinterpret_cast<Environment*>(handle);
+                environment *env = reinterpret_cast<environment*>(handle);
 
                 if (!env)
                     return SQL_INVALID_HANDLE;
 
                 if (completionType == SQL_COMMIT)
-                    env->TransactionCommit();
+                    env->transaction_commit();
                 else
-                    env->TransactionRollback();
+                    env->transaction_rollback();
 
                 result = env->get_diagnostic_records().get_return_code();
 
@@ -1084,9 +1084,9 @@ namespace ignite
                     return SQL_INVALID_HANDLE;
 
                 if (completionType == SQL_COMMIT)
-                    conn->TransactionCommit();
+                    conn->transaction_commit();
                 else
-                    conn->TransactionRollback();
+                    conn->transaction_rollback();
 
                 result = conn->get_diagnostic_records().get_return_code();
 
@@ -1137,17 +1137,17 @@ namespace ignite
                             SQLPOINTER  value,
                             SQLINTEGER  valueLen)
     {
-        using Environment;
+        using environment;
 
         LOG_MSG("SQLSetEnvAttr called");
         LOG_MSG("Attribute: " << attr << ", Value: " << (size_t)value);
 
-        Environment *environment = reinterpret_cast<Environment*>(env);
+        environment *environment = reinterpret_cast<environment*>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
 
-        environment->SetAttribute(attr, value, valueLen);
+        environment->set_attribute(attr, value, valueLen);
 
         return environment->get_diagnostic_records().get_return_code();
     }
@@ -1165,7 +1165,7 @@ namespace ignite
 
         LOG_MSG("SQLGetEnvAttr called");
 
-        Environment *environment = reinterpret_cast<Environment*>(env);
+        environment *environment = reinterpret_cast<environment*>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
@@ -1366,7 +1366,7 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        connection->SetAttribute(attr, value, valueLen);
+        connection->set_attribute(attr, value, valueLen);
 
         return connection->get_diagnostic_records().get_return_code();
     }

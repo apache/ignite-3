@@ -35,7 +35,7 @@ namespace ignite
 {
     namespace odbc
     {
-        class Environment;
+        class environment;
         class Statement;
 
         /**
@@ -43,7 +43,7 @@ namespace ignite
          */
         class connection : public diagnosable_adapter
         {
-            friend class Environment;
+            friend class environment;
         public:
             /**
              * Operation with timeout result.
@@ -287,12 +287,12 @@ namespace ignite
             /**
              * Perform transaction commit.
              */
-            void TransactionCommit();
+            void transaction_commit();
 
             /**
              * Perform transaction rollback.
              */
-            void TransactionRollback();
+            void transaction_rollback();
 
             /**
              * Get connection attribute.
@@ -311,7 +311,7 @@ namespace ignite
              * @param value Value pointer.
              * @param valueLen Value length.
              */
-            void SetAttribute(int attr, void* value, SQLINTEGER valueLen);
+            void set_attribute(int attr, void* value, SQLINTEGER valueLen);
 
         private:
             IGNITE_NO_COPY_ASSIGNMENT(connection);
@@ -415,7 +415,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            sql_result InternalTransactionCommit();
+            sql_result internal_transaction_commit();
 
             /**
              * Perform transaction rollback on all the associated connections.
@@ -423,7 +423,7 @@ namespace ignite
              *
              * @return Operation result.
              */
-            sql_result InternalTransactionRollback();
+            sql_result internal_transaction_rollback();
 
             /**
              * Get connection attribute.
@@ -435,7 +435,7 @@ namespace ignite
              * @param valueLen Resulting value length.
              * @return Operation result.
              */
-            sql_result InternalGetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
+            sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
 
             /**
              * Set connection attribute.
@@ -446,7 +446,7 @@ namespace ignite
              * @param valueLen Value length.
              * @return Operation result.
              */
-            sql_result InternalSetAttribute(int attr, void* value, SQLINTEGER valueLen);
+            sql_result internal_set_attribute(int attr, void* value, SQLINTEGER valueLen);
 
             /**
              * Receive specified number of bytes.
@@ -509,10 +509,10 @@ namespace ignite
             /**
              * Constructor.
              */
-            connection(Environment* env);
+            connection(environment* env);
 
             /** Parent. */
-            Environment* env;
+            environment* env;
 
             /** Client Socket. */
             std::auto_ptr<network::SocketClient> socket;

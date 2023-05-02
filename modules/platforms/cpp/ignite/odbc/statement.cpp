@@ -219,12 +219,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::SetAttribute(int attr, void* value, SQLINTEGER valueLen)
+        void Statement::set_attribute(int attr, void* value, SQLINTEGER valueLen)
         {
-            IGNITE_ODBC_API_CALL(InternalSetAttribute(attr, value, valueLen));
+            IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, valueLen));
         }
 
-        sql_result Statement::InternalSetAttribute(int attr, void* value, SQLINTEGER)
+        sql_result Statement::internal_set_attribute(int attr, void* value, SQLINTEGER)
         {
             switch (attr)
             {
@@ -372,10 +372,10 @@ namespace ignite
 
         void Statement::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
         {
-            IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buf, bufLen, valueLen));
+            IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, bufLen, valueLen));
         }
 
-        sql_result Statement::InternalGetAttribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
+        sql_result Statement::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
         {
             if (!buf)
             {

@@ -55,7 +55,7 @@ namespace ignite
 {
     namespace odbc
     {
-        connection::connection(Environment* env) :
+        connection::connection(environment* env) :
             env(env),
             socket(),
             timeout(0),
@@ -216,7 +216,7 @@ namespace ignite
 
         void connection::Deregister()
         {
-            env->DeregisterConnection(this);
+            env->deregister_connection(this);
         }
 
         sql_result connection::InternalRelease()
@@ -413,12 +413,12 @@ namespace ignite
             return diagnostic_record(sql_state, message, "", "", row_num, column_num);
         }
 
-        void connection::TransactionCommit()
+        void connection::transaction_commit()
         {
-            IGNITE_ODBC_API_CALL(InternalTransactionCommit());
+            IGNITE_ODBC_API_CALL(internal_transaction_commit());
         }
 
-        sql_result connection::InternalTransactionCommit()
+        sql_result connection::internal_transaction_commit()
         {
             std::string schema = config.GetSchema();
 
@@ -454,12 +454,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void connection::TransactionRollback()
+        void connection::transaction_rollback()
         {
-            IGNITE_ODBC_API_CALL(InternalTransactionRollback());
+            IGNITE_ODBC_API_CALL(internal_transaction_rollback());
         }
 
-        sql_result connection::InternalTransactionRollback()
+        sql_result connection::internal_transaction_rollback()
         {
             std::string schema = config.GetSchema();
 
@@ -497,10 +497,10 @@ namespace ignite
 
         void connection::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
         {
-            IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buf, bufLen, valueLen));
+            IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, bufLen, valueLen));
         }
 
-        sql_result connection::InternalGetAttribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
+        sql_result connection::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
         {
             if (!buf)
             {
@@ -571,12 +571,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void connection::SetAttribute(int attr, void* value, SQLINTEGER valueLen)
+        void connection::set_attribute(int attr, void* value, SQLINTEGER valueLen)
         {
-            IGNITE_ODBC_API_CALL(InternalSetAttribute(attr, value, valueLen));
+            IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, valueLen));
         }
 
-        sql_result connection::InternalSetAttribute(int attr, void* value, SQLINTEGER)
+        sql_result connection::internal_set_attribute(int attr, void* value, SQLINTEGER)
         {
             switch (attr)
             {

@@ -15,138 +15,130 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_ENVIRONMENT
-#define _IGNITE_ODBC_ENVIRONMENT
-
-#include <set>
+#pragma once
 
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 
-namespace ignite
+#include <set>
+
+namespace ignite {
+class connection;
+
+/**
+ * ODBC environment.
+ */
+class environment : public diagnosable_adapter
 {
-    namespace odbc
-    {
-        class connection;
+public:
+    /** Connection set type. */
+    typedef std::set<connection*> connection_set;
 
-        /**
-         * ODBC environment.
-         */
-        class Environment : public diagnosable_adapter
-        {
-        public:
-            /** Connection set type. */
-            typedef std::set<connection*> ConnectionSet;
+    // Delete
+    environment(environment &&) = delete;
+    environment(const environment &) = delete;
+    environment &operator=(environment &&) = delete;
+    environment &operator=(const environment &) = delete;
 
-            /**
-             * Constructor.
-             */
-            Environment();
+    // Default
+    environment() = default;
 
-            /**
-             * Destructor.
-             */
-            ~Environment();
+    /**
+     * Create connection associated with the environment.
+     *
+     * @return Pointer to valid instance on success or NULL on failure.
+     */
+    connection* create_connection();
 
-            /**
-             * Create connection associated with the environment.
-             *
-             * @return Pointer to valid instance on success or NULL on failure.
-             */
-            connection* CreateConnection();
+    /**
+     * Deregister connection.
+     *
+     * @param conn Connection to deregister.
+     */
+    void deregister_connection(connection* conn);
 
-            /**
-             * Deregister connection.
-             *
-             * @param conn Connection to deregister.
-             */
-            void DeregisterConnection(connection* conn);
+    /**
+     * Perform transaction commit on all the associated connections.
+     */
+    void transaction_commit();
 
-            /**
-             * Perform transaction commit on all the associated connections.
-             */
-            void TransactionCommit();
+    /**
+     * Perform transaction rollback on all the associated connections.
+     */
+    void transaction_rollback();
 
-            /**
-             * Perform transaction rollback on all the associated connections.
-             */
-            void TransactionRollback();
+    /**
+     * Set attribute.
+     *
+     * @param attr Attribute to set.
+     * @param value Value.
+     * @param len Value length if the attribute is of string type.
+     */
+    void set_attribute(int32_t attr, void* value, int32_t len);
 
-            /**
-             * Set attribute.
-             *
-             * @param attr Attribute to set.
-             * @param value Value.
-             * @param len Value length if the attribute is of string type.
-             */
-            void SetAttribute(int32_t attr, void* value, int32_t len);
+    /**
+     * Get attribute.
+     *
+     * @param attr Attribute to set.
+     * @param buffer Buffer to put value to.
+     */
+    void get_attribute(int32_t attr, application_data_buffer& buffer);
 
-            /**
-             * Get attribute.
-             *
-             * @param attr Attribute to set.
-             * @param buffer Buffer to put value to.
-             */
-            void get_attribute(int32_t attr, application_data_buffer& buffer);
+private:
 
-        private:
-            IGNITE_NO_COPY_ASSIGNMENT(Environment);
+    /**
+     * Create connection associated with the environment.
+     * Internal call.
+     *
+     * @return Pointer to valid instance on success or NULL on failure.
+     * @return Operation result.
+     */
+    sql_result internal_create_connection(connection*& connection);
 
-            /**
-             * Create connection associated with the environment.
-             * Internal call.
-             *
-             * @return Pointer to valid instance on success or NULL on failure.
-             * @return Operation result.
-             */
-            sql_result InternalCreateConnection(connection*& connection);
+    /**
+     * Perform transaction commit on all the associated connections.
+     * Internal call.
+     *
+     * @return Operation result.
+     */
+    sql_result internal_transaction_commit();
 
-            /**
-             * Perform transaction commit on all the associated connections.
-             * Internal call.
-             *
-             * @return Operation result.
-             */
-            sql_result InternalTransactionCommit();
+    /**
+     * Perform transaction rollback on all the associated connections.
+     * Internal call.
+     *
+     * @return Operation result.
+     */
+    sql_result internal_transaction_rollback();
 
-            /**
-             * Perform transaction rollback on all the associated connections.
-             * Internal call.
-             *
-             * @return Operation result.
-             */
-            sql_result InternalTransactionRollback();
+    /**
+     * Set attribute.
+     * Internal call.
+     *
+     * @param attr Attribute to set.
+     * @param value Value.
+     * @param len Value length if the attribute is of string type.
+     * @return Operation result.
+     */
+    sql_result internal_set_attribute(int32_t attr, void* value, int32_t len);
 
-            /**
-             * Set attribute.
-             * Internal call.
-             *
-             * @param attr Attribute to set.
-             * @param value Value.
-             * @param len Value length if the attribute is of string type.
-             * @return Operation result.
-             */
-            sql_result InternalSetAttribute(int32_t attr, void* value, int32_t len);
+    /**
+     * Get attribute.
+     * Internal call.
+     *
+     * @param attr Attribute to set.
+     * @param buffer Buffer to put value to.
+     * @return Operation result.
+     */
+    sql_result internal_get_attribute(int32_t attr, application_data_buffer& buffer);
 
-            /**
-             * Get attribute.
-             * Internal call.
-             *
-             * @param attr Attribute to set.
-             * @param buffer Buffer to put value to.
-             * @return Operation result.
-             */
-            sql_result InternalGetAttribute(int32_t attr, application_data_buffer& buffer);
+    /** Associated connections. */
+    connection_set m_connections;
 
-            /** Assotiated connections. */
-            ConnectionSet connections;
+    /** ODBC version. */
+    int32_t m_odbc_version{SQL_OV_ODBC3};
 
-            /** ODBC version. */
-            int32_t odbcVersion;
+    /** ODBC null-termination of string behaviour. */
+    int32_t m_odbc_nts{SQL_TRUE};
+};
 
-            /** ODBC null-termintaion of string behaviour. */
-            int32_t odbcNts;
-        };
-    }
-}
-
-#endif //_IGNITE_ODBC_ENVIRONMENT
+} // namespace ignite

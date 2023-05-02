@@ -23,196 +23,175 @@
 
 namespace ignite
 {
-    namespace odbc
+
+connection* environment::create_connection()
+{
+    connection* connection;
+
+    IGNITE_ODBC_API_CALL(internal_create_connection(connection));
+
+    return connection;
+}
+
+void environment::deregister_connection(connection* conn)
+{
+    m_connections.erase(conn);
+}
+
+sql_result environment::internal_create_connection(connection*& connection)
+{
+    connection = new connection(this);
+
+    if (!connection)
     {
-        Environment::Environment() :
-            connections(),
-            odbcVersion(SQL_OV_ODBC3),
-            odbcNts(SQL_TRUE)
+        add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    m_connections.insert(connection);
+
+    return sql_result::AI_SUCCESS;
+}
+
+void environment::transaction_commit()
+{
+    IGNITE_ODBC_API_CALL(internal_transaction_commit());
+}
+
+sql_result environment::internal_transaction_commit()
+{
+    sql_result res = sql_result::AI_SUCCESS;
+
+    for (auto conn : m_connections)
+    {
+        conn->transaction_commit();
+
+        diagnostic_record_storage& diag = conn->get_diagnostic_records();
+
+        if (diag.get_status_records_number() > 0)
         {
-            srand(GetRandSeed());
+            add_status_record(diag.get_status_record(1));
+            res = sql_result::AI_SUCCESS_WITH_INFO;
         }
+    }
 
-        Environment::~Environment()
+    return res;
+}
+
+void environment::transaction_rollback()
+{
+    IGNITE_ODBC_API_CALL(internal_transaction_rollback());
+}
+
+sql_result environment::internal_transaction_rollback()
+{
+    sql_result res = sql_result::AI_SUCCESS;
+
+    for (auto conn : m_connections)
+    {
+        conn->transaction_rollback();
+
+        diagnostic_record_storage& diag = conn->get_diagnostic_records();
+
+        if (diag.get_status_records_number() > 0)
         {
-            // No-op.
+            add_status_record(diag.get_status_record(1));
+            res = sql_result::AI_SUCCESS_WITH_INFO;
         }
+    }
 
-        connection* Environment::CreateConnection()
+    return res;
+}
+
+void environment::set_attribute(int32_t attr, void* value, int32_t len)
+{
+    IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, len));
+}
+
+sql_result environment::internal_set_attribute(int32_t attr, void* value, int32_t len)
+{
+    UNUSED_VALUE(len);
+
+    environment_attribute attribute = environment_attribute_to_internal(attr);
+
+    switch (attribute)
+    {
+        case environment_attribute::ODBC_VERSION:
         {
-            connection* connection;
+            auto version = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
 
-            IGNITE_ODBC_API_CALL(InternalCreateConnection(connection));
-
-            return connection;
-        }
-
-        void Environment::DeregisterConnection(connection* conn)
-        {
-            connections.erase(conn);
-        }
-
-        sql_result Environment::InternalCreateConnection(connection*& connection)
-        {
-            connection = new connection(this);
-
-            if (!connection)
+            if (version != m_odbc_version)
             {
-                add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
+                add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                    "ODBC version is not supported.");
 
-                return sql_result::AI_ERROR;
+                return sql_result::AI_SUCCESS_WITH_INFO;
             }
-
-            connections.insert(connection);
 
             return sql_result::AI_SUCCESS;
         }
 
-        void Environment::TransactionCommit()
+        case environment_attribute::OUTPUT_NTS:
         {
-            IGNITE_ODBC_API_CALL(InternalTransactionCommit());
-        }
+            auto nts = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
 
-        sql_result Environment::InternalTransactionCommit()
-        {
-            sql_result res = sql_result::AI_SUCCESS;
-
-            for (ConnectionSet::iterator it = connections.begin(); it != connections.end(); ++it)
+            if (nts != m_odbc_nts)
             {
-                connection* conn = *it;
+                add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
+                    "Only null-termination of strings is supported.");
 
-                conn->TransactionCommit();
-
-                diagnostic_record_storage& diag = conn->get_diagnostic_records();
-
-                if (diag.get_status_records_number() > 0)
-                {
-                    add_status_record(diag.get_status_record(1));
-
-                    res = sql_result::AI_SUCCESS_WITH_INFO;
-                }
+                return sql_result::AI_SUCCESS_WITH_INFO;
             }
 
-            return res;
+            return sql_result::AI_SUCCESS;
         }
 
-        void Environment::TransactionRollback()
-        {
-            IGNITE_ODBC_API_CALL(InternalTransactionRollback());
-        }
-
-        sql_result Environment::InternalTransactionRollback()
-        {
-            sql_result res = sql_result::AI_SUCCESS;
-
-            for (ConnectionSet::iterator it = connections.begin(); it != connections.end(); ++it)
-            {
-                connection* conn = *it;
-
-                conn->TransactionRollback();
-
-                diagnostic_record_storage& diag = conn->get_diagnostic_records();
-
-                if (diag.get_status_records_number() > 0)
-                {
-                    add_status_record(diag.get_status_record(1));
-
-                    res = sql_result::AI_SUCCESS_WITH_INFO;
-                }
-            }
-
-            return res;
-        }
-
-        void Environment::SetAttribute(int32_t attr, void* value, int32_t len)
-        {
-            IGNITE_ODBC_API_CALL(InternalSetAttribute(attr, value, len));
-        }
-
-        sql_result Environment::InternalSetAttribute(int32_t attr, void* value, int32_t len)
-        {
-            IGNITE_UNUSED(len);
-
-            environment_attribute attribute = environment_attribute_to_internal(attr);
-
-            switch (attribute)
-            {
-                case environment_attribute::ODBC_VERSION:
-                {
-                    int32_t version = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
-
-                    if (version != odbcVersion)
-                    {
-                        add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
-                            "ODBC version is not supported.");
-
-                        return sql_result::AI_SUCCESS_WITH_INFO;
-                    }
-
-                    return sql_result::AI_SUCCESS;
-                }
-
-                case environment_attribute::OUTPUT_NTS:
-                {
-                    int32_t nts = static_cast<int32_t>(reinterpret_cast<intptr_t>(value));
-
-                    if (nts != odbcNts)
-                    {
-                        add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED,
-                            "Only null-termination of strings is supported.");
-
-                        return sql_result::AI_SUCCESS_WITH_INFO;
-                    }
-
-                    return sql_result::AI_SUCCESS;
-                }
-
-                case environment_attribute::UNKNOWN:
-                default:
-                    break;
-            }
-
-            add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-                "Attribute is not supported.");
-
-            return sql_result::AI_ERROR;
-        }
-
-        void Environment::get_attribute(int32_t attr, application_data_buffer& buffer)
-        {
-            IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buffer));
-        }
-
-        sql_result Environment::InternalGetAttribute(int32_t attr, application_data_buffer& buffer)
-        {
-            environment_attribute attribute = environment_attribute_to_internal(attr);
-
-            switch (attribute)
-            {
-                case environment_attribute::ODBC_VERSION:
-                {
-                    buffer.put_int32(odbcVersion);
-
-                    return sql_result::AI_SUCCESS;
-                }
-
-                case environment_attribute::OUTPUT_NTS:
-                {
-                    buffer.put_int32(odbcNts);
-
-                    return sql_result::AI_SUCCESS;
-                }
-
-                case environment_attribute::UNKNOWN:
-                default:
-                    break;
-            }
-
-            add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-                "Attribute is not supported.");
-
-            return sql_result::AI_ERROR;
-        }
+        case environment_attribute::UNKNOWN:
+        default:
+            break;
     }
+
+    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+        "Attribute is not supported.");
+
+    return sql_result::AI_ERROR;
 }
 
+void environment::get_attribute(int32_t attr, application_data_buffer& buffer)
+{
+    IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buffer));
+}
+
+sql_result environment::internal_get_attribute(int32_t attr, application_data_buffer& buffer)
+{
+    environment_attribute attribute = environment_attribute_to_internal(attr);
+
+    switch (attribute)
+    {
+        case environment_attribute::ODBC_VERSION:
+        {
+            buffer.put_int32(m_odbc_version);
+
+            return sql_result::AI_SUCCESS;
+        }
+
+        case environment_attribute::OUTPUT_NTS:
+        {
+            buffer.put_int32(m_odbc_nts);
+
+            return sql_result::AI_SUCCESS;
+        }
+
+        case environment_attribute::UNKNOWN:
+        default:
+            break;
+    }
+
+    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+        "Attribute is not supported.");
+
+    return sql_result::AI_ERROR;
+}
+
+} // namespace ignite

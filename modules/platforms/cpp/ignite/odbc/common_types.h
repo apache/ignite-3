@@ -272,7 +272,7 @@ enum class diagnostic_field
 };
 
 /**
- * Environment attribute.
+ * environment attribute.
  */
 enum class environment_attribute
 {
@@ -390,7 +390,7 @@ diagnostic_field diagnostic_field_to_internal(std::int16_t field);
 /**
  * Convert environment attribute to internal environment_attribute type value.
  *
- * @param attr Environment attribute.
+ * @param attr environment attribute.
  * @return Internal environment_attribute type value.
  */
 environment_attribute environment_attribute_to_internal(std::int32_t attr);

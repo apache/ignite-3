@@ -99,7 +99,7 @@ public:
      * @param value Value pointer.
      * @param valueLen Value length.
      */
-    void SetAttribute(int attr, void* value, SQLINTEGER valueLen);
+    void set_attribute(int attr, void* value, SQLINTEGER valueLen);
 
     /**
      * Get statement attribute.
@@ -402,7 +402,7 @@ private:
      * @param valueLen Value length.
      * @return Operation result.
      */
-    sql_result InternalSetAttribute(int attr, void* value, SQLINTEGER valueLen);
+    sql_result internal_set_attribute(int attr, void* value, SQLINTEGER valueLen);
 
     /**
      * Get statement attribute.
@@ -414,7 +414,7 @@ private:
      * @param valueLen Resulting value length.
      * @return Operation result.
      */
-    sql_result InternalGetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
+    sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
 
     /**
      * Get number m_parameters required by the prepared statement.
