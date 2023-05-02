@@ -630,6 +630,7 @@ data: {
     # Example: SqlParseTimeStampZ().
     dataTypeParserMethods: [
       "UuidType(s)",
+      "IgniteDateTimeTypeName()"
     ]
 
     # Binary operators tokens.
