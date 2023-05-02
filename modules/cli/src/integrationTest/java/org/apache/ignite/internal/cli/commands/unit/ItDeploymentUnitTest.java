@@ -57,20 +57,6 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     }
 
     @Test
-    @DisplayName("Should deploy a unit without version")
-    void deployWithoutVersion() {
-        // When deploy without version
-        execute("unit", "deploy", "test.unit.id.2", "--path", testFile);
-
-        // Then
-        assertAll(
-                this::assertExitCodeIsZero,
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Done")
-        );
-    }
-
-    @Test
     @DisplayName("Should undeploy a unit with version")
     void undeploy() {
         // When deploy
@@ -130,7 +116,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should deploy a unit from directory")
     void deployDirectory() {
         // When deploy with version
-        execute("unit", "deploy", "test.unit.id.5", "--path", testDirectory.toString());
+        execute("unit", "deploy", "test.unit.id.6", "--version", "1.0.0", "--path", testDirectory.toString());
 
         // Then
         assertAll(
