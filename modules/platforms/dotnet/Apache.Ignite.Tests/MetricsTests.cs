@@ -39,6 +39,8 @@ public class MetricsTests
     public void TearDown()
     {
         // ReSharper disable AccessToDisposedClosure
+        // TODO: This fails with "-1 active requests", and it is an ObservableCounter,
+        // so it is not about decrement coming later, but about incorrect counting somewhere in ClientSocket (on Dispose?).
         TestUtils.WaitForCondition(
             () => _listener.GetMetric("requests-active") == 0,
             3000,
