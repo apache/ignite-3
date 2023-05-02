@@ -281,7 +281,7 @@ public class TypeUtils {
             } else if (val instanceof byte[]) {
                 return new ByteString((byte[]) val);
             } else {
-                assert val instanceof ByteString : "Expected ByteString but got " + val + "<" + val.getClass().getTypeName() + ">";
+                assert val instanceof ByteString : "Expected ByteString but got " + val + ", type=" + val.getClass().getTypeName();
                 return val;
             }
         } else if (val instanceof Number && storageType != val.getClass()) {
