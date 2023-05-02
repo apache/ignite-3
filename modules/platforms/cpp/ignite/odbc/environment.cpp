@@ -178,7 +178,7 @@ namespace ignite
             return sql_result::AI_ERROR;
         }
 
-        void Environment::GetAttribute(int32_t attr, application_data_buffer& buffer)
+        void Environment::get_attribute(int32_t attr, application_data_buffer& buffer)
         {
             IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buffer));
         }

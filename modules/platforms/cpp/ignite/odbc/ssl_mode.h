@@ -49,6 +49,6 @@ enum class ssl_mode
  * @param val Value to convert.
  * @return String value.
  */
-[[nodiscard]] std::string ToString(ssl_mode val);
+[[nodiscard]] std::string to_string(ssl_mode val);
 
 } // namespace ignite

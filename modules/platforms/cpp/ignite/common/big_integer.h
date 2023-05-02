@@ -263,7 +263,7 @@ public:
     void add(std::uint64_t x);
 
     /**
-     * Compare this instance to another.
+     * compare this instance to another.
      *
      * @param other Another instance.
      * @param ignoreSign If set to true than only magnitudes are compared.

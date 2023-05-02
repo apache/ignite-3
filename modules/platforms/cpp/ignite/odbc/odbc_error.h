@@ -27,6 +27,7 @@ namespace ignite
 
 /**
  * ODBC error.
+ * TODO: Derive from std::exception
  */
 class odbc_error
 {
@@ -40,12 +41,9 @@ public:
      * @param state SQL state.
      * @param message Error message.
      */
-    odbc_error(sql_state state, std::string message) :
-        m_state(state),
-        m_message(std::move(message))
-    {
-        // No-op.
-    }
+    odbc_error(sql_state state, std::string message)
+        : m_state(state)
+        , m_message(std::move(message)) { }
 
     /**
      * Get state.

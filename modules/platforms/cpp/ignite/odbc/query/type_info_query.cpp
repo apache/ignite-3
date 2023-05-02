@@ -129,32 +129,32 @@ namespace ignite
                 using namespace ignite::impl::binary;
                 using namespace ignite::type_traits;
 
-                using meta::ColumnMeta;
+                using meta::column_meta;
 
                 columnsMeta.reserve(19);
 
                 const std::string sch;
                 const std::string tbl;
 
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TYPE_NAME",          IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DATA_TYPE",          IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "COLUMN_SIZE",        IGNITE_TYPE_INT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "LITERAL_PREFIX",     IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "LITERAL_SUFFIX",     IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "CREATE_PARAMS",      IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "NULLABLE",           IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "CASE_SENSITIVE",     IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "SEARCHABLE",         IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "UNSIGNED_ATTRIBUTE", IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "FIXED_PREC_SCALE",   IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "AUTO_UNIQUE_VALUE",  IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "LOCAL_TYPE_NAME",    IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "MINIMUM_SCALE",      IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "MAXIMUM_SCALE",      IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "SQL_DATA_TYPE",      IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "SQL_DATETIME_SUB",   IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "NUM_PREC_RADIX",     IGNITE_TYPE_INT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "INTERVAL_PRECISION", IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "TYPE_NAME",          IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "DATA_TYPE",          IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "COLUMN_SIZE",        IGNITE_TYPE_INT));
+                columnsMeta.push_back(column_meta(sch, tbl, "LITERAL_PREFIX",     IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "LITERAL_SUFFIX",     IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "CREATE_PARAMS",      IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "NULLABLE",           IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "CASE_SENSITIVE",     IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "SEARCHABLE",         IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "UNSIGNED_ATTRIBUTE", IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "FIXED_PREC_SCALE",   IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "AUTO_UNIQUE_VALUE",  IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "LOCAL_TYPE_NAME",    IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "MINIMUM_SCALE",      IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "MAXIMUM_SCALE",      IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "SQL_DATA_TYPE",      IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "SQL_DATETIME_SUB",   IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "NUM_PREC_RADIX",     IGNITE_TYPE_INT));
+                columnsMeta.push_back(column_meta(sch, tbl, "INTERVAL_PRECISION", IGNITE_TYPE_SHORT));
 
                 assert(is_sql_type_supported(sqlType) || sqlType == SQL_ALL_TYPES);
 
@@ -191,7 +191,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            const meta::ColumnMetaVector* TypeInfoQuery::GetMeta()
+            const meta::column_meta_vector* TypeInfoQuery::GetMeta()
             {
                 return &columnsMeta;
             }

@@ -58,7 +58,7 @@ namespace ignite
                 return MakeRequestExecute();
             }
 
-            const meta::ColumnMetaVector* DataQuery::GetMeta()
+            const meta::column_meta_vector* DataQuery::GetMeta()
             {
                 if (!resultMetaAvailable)
                 {
@@ -487,18 +487,18 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            void DataQuery::SetResultsetMeta(const meta::ColumnMetaVector& value)
+            void DataQuery::SetResultsetMeta(const meta::column_meta_vector& value)
             {
                 resultMeta.assign(value.begin(), value.end());
                 resultMetaAvailable = true;
 
                 for (size_t i = 0; i < resultMeta.size(); ++i)
                 {
-                    meta::ColumnMeta& meta = resultMeta.at(i);
-                    LOG_MSG("\n[" << i << "] SchemaName:     " << meta.GetSchemaName()
-                        <<  "\n[" << i << "] TypeName:       " << meta.GetTableName()
-                        <<  "\n[" << i << "] ColumnName:     " << meta.GetColumnName()
-                        <<  "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta.GetDataType()));
+                    meta::column_meta& meta = resultMeta.at(i);
+                    LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name()
+                        <<  "\n[" << i << "] TypeName:       " << meta.get_table_name()
+                        <<  "\n[" << i << "] ColumnName:     " << meta.get_column_name()
+                        <<  "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta.get_data_type()));
                 }
             }
         }

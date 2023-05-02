@@ -15,251 +15,202 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_META_COLUMN_META
-#define _IGNITE_ODBC_META_COLUMN_META
-
-#include <stdint.h>
-#include <string>
-
-#include "ignite/impl/binary/binary_reader_impl.h"
+#pragma once
 
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/utility.h"
 
-namespace ignite
+#include "ignite/protocol/reader.h"
+#include "ignite/common/ignite_type.h"
+
+#include <cstdint>
+#include <string>
+#include <utility>
+
+namespace ignite {
+
+/**
+ * Nullability type.
+ */
+enum class nullability
 {
-    namespace odbc
+    NO_NULL = 0,
+
+    NULLABLE = 1,
+
+    NULLABILITY_UNKNOWN = 2
+};
+
+/**
+ * Nullability from int value.
+ *
+ * @param int_value Int value.
+ * @return Nullability.
+ */
+[[nodiscard]] nullability nullability_from_int(std::int8_t int_value);
+
+/**
+ * Convert to SQL constant.
+ *
+ * @param value Nullability.
+ * @return SQL constant.
+ */
+[[nodiscard]] SQLLEN nullability_to_sql(nullability value);
+
+/**
+ * Column metadata.
+ */
+class column_meta
+{
+public:
+    /**
+     * Convert attribute ID to string containing its name.
+     * Debug function.
+     * @param type Attribute ID.
+     * @return Null-terminated string containing attribute name.
+     */
+    static const char* attr_id_to_string(std::uint16_t id);
+
+    // Default
+    column_meta() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param schema_name Schema name.
+     * @param table_name Table name.
+     * @param column_name Column name.
+     * @param data_type Data type.
+     */
+    column_meta(std::string schema_name, std::string table_name, std::string column_name, ignite_type data_type)
+        : m_schema_name(std::move(schema_name))
+        , m_table_name(std::move(table_name))
+        , m_column_name(std::move(column_name))
+        , m_data_type(data_type) { }
+
+    /**
+     * Read using reader.
+     * @param reader Reader.
+     * @param ver Server version.
+     */
+    void read(protocol::reader &reader, const protocol_version& ver);
+
+    /**
+     * Get schema name.
+     *
+     * @return Schema name.
+     */
+    [[nodiscard]] const std::string& get_schema_name() const
     {
-        namespace meta
-        {
-            /**
-             * Nullability type.
-             */
-            struct Nullability
-            {
-                enum Type
-                {
-                    NO_NULL = 0,
-
-                    NULLABLE = 1,
-
-                    NULLABILITY_UNKNOWN = 2
-                };
-
-                /**
-                 * Convert to SQL constant.
-                 *
-                 * @param nullability Nullability.
-                 * @return SQL constant.
-                 */
-                static SQLLEN ToSql(int32_t nullability);
-            };
-
-            using namespace ignite::odbc;
-
-            /**
-             * Column metadata.
-             */
-            class ColumnMeta
-            {
-            public:
-                /**
-                 * Convert attribute ID to string containing its name.
-                 * Debug function.
-                 * @param type Attribute ID.
-                 * @return Null-terminated string containing attribute name.
-                 */
-                static const char* AttrIdToString(uint16_t id);
-
-                /**
-                 * Default constructor.
-                 */
-                ColumnMeta()
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Constructor.
-                 *
-                 * @param schemaName Schema name.
-                 * @param tableName Table name.
-                 * @param columnName Column name.
-                 * @param typeName Type name.
-                 * @param dataType Data type.
-                 */
-                ColumnMeta(const std::string& schemaName, const std::string& tableName,
-                           const std::string& columnName, int8_t dataType) :
-                    schemaName(schemaName), tableName(tableName), columnName(columnName), dataType(dataType),
-                    precision(-1), scale(-1), nullability(Nullability::NULLABILITY_UNKNOWN)
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Destructor.
-                 */
-                ~ColumnMeta()
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Copy constructor.
-                 */
-                ColumnMeta(const ColumnMeta& other) :
-                    schemaName(other.schemaName),
-                    tableName(other.tableName),
-                    columnName(other.columnName),
-                    dataType(other.dataType),
-                    precision(other.precision),
-                    scale(other.scale),
-                    nullability(other.nullability)
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Copy operator.
-                 */
-                ColumnMeta& operator=(const ColumnMeta& other)
-                {
-                    schemaName = other.schemaName;
-                    tableName = other.tableName;
-                    columnName = other.columnName;
-                    dataType = other.dataType;
-                    precision = other.precision;
-                    scale = other.scale;
-                    nullability = other.nullability;
-
-                    return *this;
-                }
-
-                /**
-                 * Read using reader.
-                 * @param reader Reader.
-                 * @param ver Server version.
-                 */
-                void Read(ignite::impl::binary::BinaryReaderImpl& reader, const ProtocolVersion& ver);
-
-                /**
-                 * Get schema name.
-                 * @return Schema name.
-                 */
-                const std::string& GetSchemaName() const
-                {
-                    return schemaName;
-                }
-
-                /**
-                 * Get table name.
-                 * @return Table name.
-                 */
-                const std::string& GetTableName() const
-                {
-                    return tableName;
-                }
-
-                /**
-                 * Get column name.
-                 * @return Column name.
-                 */
-                const std::string& GetColumnName() const
-                {
-                    return columnName;
-                }
-
-                /**
-                 * Get data type.
-                 * @return Data type.
-                 */
-                int8_t GetDataType() const
-                {
-                    return dataType;
-                }
-
-                /**
-                 * Get column precision.
-                 * @return Column precision.
-                 */
-                int32_t GetPrecision() const
-                {
-                    return precision;
-                }
-
-                /**
-                 * Get column scale.
-                 * @return Column scale.
-                 */
-                int32_t GetScale() const
-                {
-                    return scale;
-                }
-
-                /**
-                 * Get column nullability.
-                 * @return Column nullability.
-                 */
-                int32_t GetNullability() const
-                {
-                    return nullability;
-                }
-
-                /**
-                 * Try to get attribute of a string type.
-                 *
-                 * @param fieldId Field ID.
-                 * @param value Output attribute value.
-                 * @return True if the attribute supported and false otherwise.
-                 */
-                bool GetAttribute(uint16_t fieldId, std::string& value) const;
-
-                /**
-                 * Try to get attribute of a integer type.
-                 *
-                 * @param fieldId Field ID.
-                 * @param value Output attribute value.
-                 * @return True if the attribute supported and false otherwise.
-                 */
-                bool GetAttribute(uint16_t fieldId, SQLLEN& value) const;
-
-            private:
-                /** Schema name. */
-                std::string schemaName;
-
-                /** Table name. */
-                std::string tableName;
-
-                /** Column name. */
-                std::string columnName;
-
-                /** Data type. */
-                int8_t dataType;
-
-                /** Column precision. */
-                int32_t precision;
-
-                /** Column scale. */
-                int32_t scale;
-
-                /** Column nullability. */
-                int32_t nullability;
-            };
-
-            /** Column metadata vector alias. */
-            typedef std::vector<ColumnMeta> ColumnMetaVector;
-
-            /**
-             * Read columns metadata collection.
-             * @param reader Reader.
-             * @param meta Collection.
-             * @param ver Server protocol version.
-             */
-            void ReadColumnMetaVector(ignite::impl::binary::BinaryReaderImpl& reader, ColumnMetaVector& meta,
-                    const ProtocolVersion& ver);
-        }
+        return m_schema_name;
     }
-}
 
-#endif //_IGNITE_ODBC_META_COLUMN_META
+    /**
+     * Get table name.
+     * @return Table name.
+     */
+    [[nodiscard]] const std::string& get_table_name() const
+    {
+        return m_table_name;
+    }
+
+    /**
+     * Get column name.
+     * @return Column name.
+     */
+    [[nodiscard]] const std::string& get_column_name() const
+    {
+        return m_column_name;
+    }
+
+    /**
+     * Get data type.
+     * @return Data type.
+     */
+    [[nodiscard]] ignite_type get_data_type() const
+    {
+        return m_data_type;
+    }
+
+    /**
+     * Get column precision.
+     * @return Column precision.
+     */
+    [[nodiscard]] std::int32_t get_precision() const
+    {
+        return m_precision;
+    }
+
+    /**
+     * Get column scale.
+     * @return Column scale.
+     */
+    [[nodiscard]] std::int32_t get_scale() const
+    {
+        return m_scale;
+    }
+
+    /**
+     * Get column nullability.
+     * @return Column nullability.
+     */
+    [[nodiscard]] nullability get_nullability() const
+    {
+        return m_nullability;
+    }
+
+    /**
+     * Try to get attribute of a string type.
+     *
+     * @param field_id Field ID.
+     * @param value Output attribute value.
+     * @return True if the attribute supported and false otherwise.
+     */
+    bool get_attribute(std::uint16_t field_id, std::string &value) const;
+
+    /**
+     * Try to get attribute of a integer type.
+     *
+     * @param field_id Field ID.
+     * @param value Output attribute value.
+     * @return True if the attribute supported and false otherwise.
+     */
+    bool get_attribute(std::uint16_t field_id, SQLLEN &value) const;
+
+private:
+    /** Schema name. */
+    std::string m_schema_name;
+
+    /** Table name. */
+    std::string m_table_name;
+
+    /** Column name. */
+    std::string m_column_name;
+
+    /** Data type. */
+    ignite_type m_data_type{0};
+
+    /** Column precision. */
+    std::int32_t m_precision{-1};
+
+    /** Column scale. */
+    std::int32_t m_scale{-1};
+
+    /** Column nullability. */
+    nullability m_nullability{nullability::NULLABILITY_UNKNOWN};
+};
+
+/** Column metadata vector alias. */
+typedef std::vector<column_meta> column_meta_vector;
+
+/**
+ * Read columns metadata collection.
+ *
+ * @param reader Reader.
+ * @param meta Collection.
+ * @param ver Server protocol version.
+ */
+void read_column_meta_vector(protocol::reader &reader, column_meta_vector& meta, const protocol_version &ver);
+
+} // namespace ignite

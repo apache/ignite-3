@@ -66,7 +66,7 @@ namespace ignite
                  *
                  * @return Column metadata.
                  */
-                virtual const meta::ColumnMetaVector* GetMeta();
+                virtual const meta::column_meta_vector* GetMeta();
 
                 /**
                  * Fetch next result row to application buffers.
@@ -147,7 +147,7 @@ namespace ignite
                 const parameter_set& params;
 
                 /** Columns metadata. */
-                meta::ColumnMetaVector resultMeta;
+                meta::column_meta_vector resultMeta;
 
                 /** Number of rows affected. */
                 std::vector<int64_t> rows_affected;

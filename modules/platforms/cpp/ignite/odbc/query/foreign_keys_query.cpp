@@ -46,27 +46,27 @@ namespace ignite
                 using namespace ignite::impl::binary;
                 using namespace ignite::type_traits;
 
-                using meta::ColumnMeta;
+                using meta::column_meta;
 
                 columnsMeta.reserve(14);
 
                 const std::string sch("");
                 const std::string tbl("");
 
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PKTABLE_CAT",   IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PKTABLE_SCHEM", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PKTABLE_NAME",  IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PKCOLUMN_NAME", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "FKTABLE_CAT",   IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "FKTABLE_SCHEM", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "FKTABLE_NAME",  IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "FKCOLUMN_NAME", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "KEY_SEQ",       IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "UPDATE_RULE",   IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DELETE_RULE",   IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "FK_NAME",       IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PK_NAME",       IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DEFERRABILITY", IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "PKTABLE_CAT",   IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "PKTABLE_SCHEM", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "PKTABLE_NAME",  IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "PKCOLUMN_NAME", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "FKTABLE_CAT",   IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "FKTABLE_SCHEM", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "FKTABLE_NAME",  IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "FKCOLUMN_NAME", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "KEY_SEQ",       IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "UPDATE_RULE",   IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "DELETE_RULE",   IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "FK_NAME",       IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "PK_NAME",       IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "DEFERRABILITY", IGNITE_TYPE_SHORT));
             }
 
             ForeignKeysQuery::~ForeignKeysQuery()
@@ -81,7 +81,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            const meta::ColumnMetaVector* ForeignKeysQuery::GetMeta()
+            const meta::column_meta_vector* ForeignKeysQuery::GetMeta()
             {
                 return &columnsMeta;
             }

@@ -42,21 +42,21 @@ namespace ignite
                 using namespace ignite::impl::binary;
                 using namespace ignite::type_traits;
 
-                using meta::ColumnMeta;
+                using meta::column_meta;
 
                 columnsMeta.reserve(8);
 
                 const std::string sch("");
                 const std::string tbl("");
 
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "SCOPE",          IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "COLUMN_NAME",    IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DATA_TYPE",      IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TYPE_NAME",      IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "COLUMN_SIZE",    IGNITE_TYPE_INT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "BUFFER_LENGTH",  IGNITE_TYPE_INT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DECIMAL_DIGITS", IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PSEUDO_COLUMN",  IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "SCOPE",          IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "COLUMN_NAME",    IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "DATA_TYPE",      IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "TYPE_NAME",      IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "COLUMN_SIZE",    IGNITE_TYPE_INT));
+                columnsMeta.push_back(column_meta(sch, tbl, "BUFFER_LENGTH",  IGNITE_TYPE_INT));
+                columnsMeta.push_back(column_meta(sch, tbl, "DECIMAL_DIGITS", IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "PSEUDO_COLUMN",  IGNITE_TYPE_SHORT));
             }
 
             SpecialColumnsQuery::~SpecialColumnsQuery()
@@ -71,7 +71,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            const meta::ColumnMetaVector* SpecialColumnsQuery::GetMeta()
+            const meta::column_meta_vector* SpecialColumnsQuery::GetMeta()
             {
                 return &columnsMeta;
             }

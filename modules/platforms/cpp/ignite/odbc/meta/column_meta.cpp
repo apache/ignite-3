@@ -17,339 +17,332 @@
 
 #include "ignite/common/utils.h"
 
-#include "../common_types.h"
-#include "../log.h"
-#include "../type_traits.h"
-#include "column_meta.h"
+#include "ignite/odbc/log.h"
+#include "ignite/odbc/type_traits.h"
+#include "ignite/odbc/string_utils.h"
+#include "ignite/odbc/meta/column_meta.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
-namespace ignite
-{
-    namespace odbc
-    {
-        namespace meta
-        {
+namespace ignite {
 
 #define DBG_STR_CASE(x) case x: return #x
 
-            const char* ColumnMeta::AttrIdToString(uint16_t id)
-            {
-                switch (id)
-                {
-                    DBG_STR_CASE(SQL_DESC_LABEL);
-                    DBG_STR_CASE(SQL_DESC_BASE_COLUMN_NAME);
-                    DBG_STR_CASE(SQL_DESC_NAME);
-                    DBG_STR_CASE(SQL_DESC_TABLE_NAME);
-                    DBG_STR_CASE(SQL_DESC_BASE_TABLE_NAME);
-                    DBG_STR_CASE(SQL_DESC_SCHEMA_NAME);
-                    DBG_STR_CASE(SQL_DESC_CATALOG_NAME);
-                    DBG_STR_CASE(SQL_DESC_LITERAL_PREFIX);
-                    DBG_STR_CASE(SQL_DESC_LITERAL_SUFFIX);
-                    DBG_STR_CASE(SQL_DESC_TYPE_NAME);
-                    DBG_STR_CASE(SQL_DESC_LOCAL_TYPE_NAME);
-                    DBG_STR_CASE(SQL_DESC_FIXED_PREC_SCALE);
-                    DBG_STR_CASE(SQL_DESC_AUTO_UNIQUE_VALUE);
-                    DBG_STR_CASE(SQL_DESC_CASE_SENSITIVE);
-                    DBG_STR_CASE(SQL_DESC_CONCISE_TYPE);
-                    DBG_STR_CASE(SQL_DESC_TYPE);
-                    DBG_STR_CASE(SQL_DESC_DISPLAY_SIZE);
-                    DBG_STR_CASE(SQL_DESC_LENGTH);
-                    DBG_STR_CASE(SQL_DESC_OCTET_LENGTH);
-                    DBG_STR_CASE(SQL_DESC_NULLABLE);
-                    DBG_STR_CASE(SQL_DESC_NUM_PREC_RADIX);
-                    DBG_STR_CASE(SQL_DESC_PRECISION);
-                    DBG_STR_CASE(SQL_DESC_SCALE);
-                    DBG_STR_CASE(SQL_DESC_SEARCHABLE);
-                    DBG_STR_CASE(SQL_DESC_UNNAMED);
-                    DBG_STR_CASE(SQL_DESC_UNSIGNED);
-                    DBG_STR_CASE(SQL_DESC_UPDATABLE);
-                    DBG_STR_CASE(SQL_COLUMN_LENGTH);
-                    DBG_STR_CASE(SQL_COLUMN_PRECISION);
-                    DBG_STR_CASE(SQL_COLUMN_SCALE);
-                default:
-                    break;
-                }
-                return "<< UNKNOWN ID >>";
-            }
+const char* column_meta::attr_id_to_string(uint16_t id)
+{
+    switch (id)
+    {
+        DBG_STR_CASE(SQL_DESC_LABEL);
+        DBG_STR_CASE(SQL_DESC_BASE_COLUMN_NAME);
+        DBG_STR_CASE(SQL_DESC_NAME);
+        DBG_STR_CASE(SQL_DESC_TABLE_NAME);
+        DBG_STR_CASE(SQL_DESC_BASE_TABLE_NAME);
+        DBG_STR_CASE(SQL_DESC_SCHEMA_NAME);
+        DBG_STR_CASE(SQL_DESC_CATALOG_NAME);
+        DBG_STR_CASE(SQL_DESC_LITERAL_PREFIX);
+        DBG_STR_CASE(SQL_DESC_LITERAL_SUFFIX);
+        DBG_STR_CASE(SQL_DESC_TYPE_NAME);
+        DBG_STR_CASE(SQL_DESC_LOCAL_TYPE_NAME);
+        DBG_STR_CASE(SQL_DESC_FIXED_PREC_SCALE);
+        DBG_STR_CASE(SQL_DESC_AUTO_UNIQUE_VALUE);
+        DBG_STR_CASE(SQL_DESC_CASE_SENSITIVE);
+        DBG_STR_CASE(SQL_DESC_CONCISE_TYPE);
+        DBG_STR_CASE(SQL_DESC_TYPE);
+        DBG_STR_CASE(SQL_DESC_DISPLAY_SIZE);
+        DBG_STR_CASE(SQL_DESC_LENGTH);
+        DBG_STR_CASE(SQL_DESC_OCTET_LENGTH);
+        DBG_STR_CASE(SQL_DESC_NULLABLE);
+        DBG_STR_CASE(SQL_DESC_NUM_PREC_RADIX);
+        DBG_STR_CASE(SQL_DESC_PRECISION);
+        DBG_STR_CASE(SQL_DESC_SCALE);
+        DBG_STR_CASE(SQL_DESC_SEARCHABLE);
+        DBG_STR_CASE(SQL_DESC_UNNAMED);
+        DBG_STR_CASE(SQL_DESC_UNSIGNED);
+        DBG_STR_CASE(SQL_DESC_UPDATABLE);
+        DBG_STR_CASE(SQL_COLUMN_LENGTH);
+        DBG_STR_CASE(SQL_COLUMN_PRECISION);
+        DBG_STR_CASE(SQL_COLUMN_SCALE);
+    default:
+        break;
+    }
+    return "<< UNKNOWN ID >>";
+}
 
 #undef DBG_STR_CASE
 
-            SQLLEN Nullability::ToSql(int32_t nullability)
-            {
-                switch (nullability)
-                {
-                    case Nullability::NO_NULL:
-                        return SQL_NO_NULLS;
-
-                    case Nullability::NULLABLE:
-                        return SQL_NULLABLE;
-
-                    case Nullability::NULLABILITY_UNKNOWN:
-                        return SQL_NULLABLE_UNKNOWN;
-
-                    default:
-                        break;
-                }
-
-                assert(false);
-                return SQL_NULLABLE_UNKNOWN;
-            }
-
-            void ColumnMeta::Read(ignite::impl::binary::BinaryReaderImpl& reader, const ProtocolVersion& ver)
-            {
-                utility::ReadString(reader, schemaName);
-                utility::ReadString(reader, tableName);
-                utility::ReadString(reader, columnName);
-
-                dataType = reader.ReadInt8();
-
-                if (ver >= ProtocolVersion::VERSION_2_7_0)
-                {
-                    precision = reader.ReadInt32();
-                    scale = reader.ReadInt32();
-                }
-
-                if (ver >= ProtocolVersion::VERSION_2_8_0)
-                    nullability = reader.ReadInt8();
-            }
-
-            bool ColumnMeta::GetAttribute(uint16_t fieldId, std::string& value) const 
-            {
-                using namespace ignite::impl::binary;
-
-                switch (fieldId)
-                {
-                    case SQL_DESC_LABEL:
-                    case SQL_DESC_BASE_COLUMN_NAME:
-                    case SQL_DESC_NAME:
-                    {
-                        value = columnName;
-
-                        return true;
-                    }
-
-                    case SQL_DESC_TABLE_NAME:
-                    case SQL_DESC_BASE_TABLE_NAME:
-                    {
-                        value = tableName;
-
-                        return true;
-                    }
-
-                    case SQL_DESC_SCHEMA_NAME:
-                    {
-                        value = schemaName;
-
-                        return true;
-                    }
-
-                    case SQL_DESC_CATALOG_NAME:
-                    {
-                        value.clear();
-
-                        return true;
-                    }
-
-                    case SQL_DESC_LITERAL_PREFIX:
-                    case SQL_DESC_LITERAL_SUFFIX:
-                    {
-                        if (dataType == IGNITE_TYPE_STRING)
-                            value = "'";
-                        else
-                            value.clear();
-
-                        return true;
-                    }
-
-                    case SQL_DESC_TYPE_NAME:
-                    case SQL_DESC_LOCAL_TYPE_NAME:
-                    {
-                        value = ignite_type_to_sql_type_name(dataType);
-
-                        return true;
-                    }
-
-                    case SQL_DESC_PRECISION:
-                    case SQL_COLUMN_LENGTH:
-                    case SQL_COLUMN_PRECISION:
-                    {
-                        if (precision == -1)
-                            return false;
-
-                        value = lexical_cast<std::string>(precision);
-
-                        return true;
-                    }
-
-                    case SQL_DESC_SCALE:
-                    case SQL_COLUMN_SCALE:
-                    {
-                        if (scale == -1)
-                            return false;
-
-                        value = lexical_cast<std::string>(scale);
-
-                        return true;
-                    }
-
-                    default:
-                        return false;
-                }
-            }
-
-            bool ColumnMeta::GetAttribute(uint16_t fieldId, SQLLEN& value) const
-            {
-                using namespace ignite::impl::binary;
-
-                switch (fieldId)
-                {
-                    case SQL_DESC_FIXED_PREC_SCALE:
-                    {
-                        if (scale == -1)
-                            value = SQL_FALSE;
-                        else
-                            value = SQL_TRUE;
-
-                        break;
-                    }
-
-                    case SQL_DESC_AUTO_UNIQUE_VALUE:
-                    {
-                        value = SQL_FALSE;
-
-                        break;
-                    }
-
-                    case SQL_DESC_CASE_SENSITIVE:
-                    {
-                        if (dataType == IGNITE_TYPE_STRING)
-                            value = SQL_TRUE;
-                        else
-                            value = SQL_FALSE;
-
-                        break;
-                    }
-
-                    case SQL_DESC_CONCISE_TYPE:
-                    case SQL_DESC_TYPE:
-                    {
-                        value = ignite_type_to_sql_type(dataType);
-
-                        break;
-                    }
-
-                    case SQL_DESC_DISPLAY_SIZE:
-                    {
-                        value = ignite_type_display_size(dataType);
-
-                        break;
-                    }
-
-                    case SQL_DESC_LENGTH:
-                    case SQL_DESC_OCTET_LENGTH:
-                    case SQL_COLUMN_LENGTH:
-                    {
-                        if (precision == -1)
-                            value = ignite_type_transfer_length(dataType);
-                        else
-                            value = precision;
-
-                        break;
-                    }
-
-                    case SQL_DESC_NULLABLE:
-                    {
-                        value = Nullability::ToSql(nullability);
-
-                        break;
-                    }
-
-                    case SQL_DESC_NUM_PREC_RADIX:
-                    {
-                        value = ignite_type_num_precision_radix(dataType);
-
-                        break;
-                    }
-
-                    case SQL_DESC_PRECISION:
-                    case SQL_COLUMN_PRECISION:
-                    {
-                        if (precision == -1)
-                            value = ignite_type_column_size(dataType);
-                        else
-                            value = precision;
-
-                        break;
-                    }
-
-                    case SQL_DESC_SCALE:
-                    case SQL_COLUMN_SCALE:
-                    {
-                        if (scale == -1)
-                        {
-                            value = ignite_type_decimal_digits(dataType);
-
-                            if (value < 0)
-                                value = 0;
-                        }
-                        else
-                            value = scale;
-
-                        break;
-                    }
-
-                    case SQL_DESC_SEARCHABLE:
-                    {
-                        value = SQL_PRED_BASIC;
-
-                        break;
-                    }
-
-                    case SQL_DESC_UNNAMED:
-                    {
-                        value = columnName.empty() ? SQL_UNNAMED : SQL_NAMED;
-
-                        break;
-                    }
-
-                    case SQL_DESC_UNSIGNED:
-                    {
-                        value = is_ignite_type_unsigned(dataType) ? SQL_TRUE : SQL_FALSE;
-
-                        break;
-                    }
-
-                    case SQL_DESC_UPDATABLE:
-                    {
-                        value = SQL_ATTR_READWRITE_UNKNOWN;
-
-                        break;
-                    }
-
-                    default:
-                        return false;
-                }
-
-                LOG_MSG("value: " << value);
-
-                return true;
-            }
-
-            void ReadColumnMetaVector(ignite::impl::binary::BinaryReaderImpl& reader, ColumnMetaVector& meta,
-                const ProtocolVersion& ver)
-            {
-                int32_t metaNum = reader.ReadInt32();
-
-                meta.clear();
-                meta.reserve(static_cast<size_t>(metaNum));
-
-                for (int32_t i = 0; i < metaNum; ++i)
-                {
-                    meta.push_back(ColumnMeta());
-
-                    meta.back().Read(reader, ver);
-                }
-            }
-        }
+nullability nullability_from_int(std::int8_t int_value) {
+    switch (int_value) {
+        case std::int8_t(nullability::NO_NULL):
+            return nullability::NO_NULL;
+        case std::int8_t(nullability::NULLABLE):
+            return nullability::NULLABLE;
+        default:
+            return nullability::NULLABILITY_UNKNOWN;
     }
 }
+
+SQLLEN nullability_to_sql(nullability value)
+{
+    switch (value)
+    {
+        case nullability::NO_NULL:
+            return SQL_NO_NULLS;
+
+        case nullability::NULLABLE:
+            return SQL_NULLABLE;
+
+        case nullability::NULLABILITY_UNKNOWN:
+            return SQL_NULLABLE_UNKNOWN;
+
+        default:
+            break;
+    }
+
+    assert(false);
+    return SQL_NULLABLE_UNKNOWN;
+}
+
+void column_meta::read(protocol::reader &reader, const protocol_version &ver)
+{
+    utility::ReadString(reader, m_schema_name);
+    utility::ReadString(reader, m_table_name);
+    utility::ReadString(reader, m_column_name);
+
+    m_data_type = ignite_type(reader.read_int8());
+    m_precision = reader.read_int32();
+    m_scale = reader.read_int32();
+    m_nullability = nullability_from_int(reader.read_int8());
+}
+
+bool column_meta::get_attribute(uint16_t field_id, std::string& value) const
+{
+    switch (field_id)
+    {
+        case SQL_DESC_LABEL:
+        case SQL_DESC_BASE_COLUMN_NAME:
+        case SQL_DESC_NAME:
+        {
+            value = m_column_name;
+
+            return true;
+        }
+
+        case SQL_DESC_TABLE_NAME:
+        case SQL_DESC_BASE_TABLE_NAME:
+        {
+            value = m_table_name;
+
+            return true;
+        }
+
+        case SQL_DESC_SCHEMA_NAME:
+        {
+            value = m_schema_name;
+
+            return true;
+        }
+
+        case SQL_DESC_CATALOG_NAME:
+        {
+            value.clear();
+
+            return true;
+        }
+
+        case SQL_DESC_LITERAL_PREFIX:
+        case SQL_DESC_LITERAL_SUFFIX:
+        {
+            if (m_data_type == ignite_type::STRING)
+                value = "'";
+            else
+                value.clear();
+
+            return true;
+        }
+
+        case SQL_DESC_TYPE_NAME:
+        case SQL_DESC_LOCAL_TYPE_NAME:
+        {
+            value = ignite_type_to_sql_type_name(m_data_type);
+
+            return true;
+        }
+
+        case SQL_DESC_PRECISION:
+        case SQL_COLUMN_LENGTH:
+        case SQL_COLUMN_PRECISION:
+        {
+            if (m_precision == -1)
+                return false;
+
+            value = lexical_cast<std::string>(m_precision);
+
+            return true;
+        }
+
+        case SQL_DESC_SCALE:
+        case SQL_COLUMN_SCALE:
+        {
+            if (m_scale == -1)
+                return false;
+
+            value = lexical_cast<std::string>(m_scale);
+
+            return true;
+        }
+
+        default:
+            return false;
+    }
+}
+
+bool column_meta::get_attribute(uint16_t field_id, SQLLEN& value) const
+{
+    switch (field_id)
+    {
+        case SQL_DESC_FIXED_PREC_SCALE:
+        {
+            if (m_scale == -1)
+                value = SQL_FALSE;
+            else
+                value = SQL_TRUE;
+
+            break;
+        }
+
+        case SQL_DESC_AUTO_UNIQUE_VALUE:
+        {
+            value = SQL_FALSE;
+
+            break;
+        }
+
+        case SQL_DESC_CASE_SENSITIVE:
+        {
+            if (m_data_type == ignite_type::STRING)
+                value = SQL_TRUE;
+            else
+                value = SQL_FALSE;
+
+            break;
+        }
+
+        case SQL_DESC_CONCISE_TYPE:
+        case SQL_DESC_TYPE:
+        {
+            value = ignite_type_to_sql_type(m_data_type);
+
+            break;
+        }
+
+        case SQL_DESC_DISPLAY_SIZE:
+        {
+            value = ignite_type_display_size(m_data_type);
+
+            break;
+        }
+
+        case SQL_DESC_LENGTH:
+        case SQL_DESC_OCTET_LENGTH:
+        case SQL_COLUMN_LENGTH:
+        {
+            if (m_precision == -1)
+                value = ignite_type_transfer_length(m_data_type);
+            else
+                value = m_precision;
+
+            break;
+        }
+
+        case SQL_DESC_NULLABLE:
+        {
+            value = nullability_to_sql(m_nullability);
+
+            break;
+        }
+
+        case SQL_DESC_NUM_PREC_RADIX:
+        {
+            value = ignite_type_num_precision_radix(m_data_type);
+
+            break;
+        }
+
+        case SQL_DESC_PRECISION:
+        case SQL_COLUMN_PRECISION:
+        {
+            if (m_precision == -1)
+                value = ignite_type_column_size(m_data_type);
+            else
+                value = m_precision;
+
+            break;
+        }
+
+        case SQL_DESC_SCALE:
+        case SQL_COLUMN_SCALE:
+        {
+            if (m_scale == -1)
+            {
+                value = ignite_type_decimal_digits(m_data_type);
+
+                if (value < 0)
+                    value = 0;
+            }
+            else
+                value = m_scale;
+
+            break;
+        }
+
+        case SQL_DESC_SEARCHABLE:
+        {
+            value = SQL_PRED_BASIC;
+
+            break;
+        }
+
+        case SQL_DESC_UNNAMED:
+        {
+            value = m_column_name.empty() ? SQL_UNNAMED : SQL_NAMED;
+
+            break;
+        }
+
+        case SQL_DESC_UNSIGNED:
+        {
+            value = is_ignite_type_unsigned(m_data_type) ? SQL_TRUE : SQL_FALSE;
+
+            break;
+        }
+
+        case SQL_DESC_UPDATABLE:
+        {
+            value = SQL_ATTR_READWRITE_UNKNOWN;
+
+            break;
+        }
+
+        default:
+            return false;
+    }
+
+    LOG_MSG("value: " << value);
+
+    return true;
+}
+
+void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver)
+{
+    std::int32_t meta_num = reader.read_int32();
+
+    meta.clear();
+    meta.reserve(static_cast<size_t>(meta_num));
+
+    for (std::int32_t i = 0; i < meta_num; ++i)
+    {
+        meta.emplace_back();
+        meta.back().read(reader, ver);
+    }
+}
+
+} // namespace ignite

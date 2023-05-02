@@ -66,7 +66,7 @@ namespace ignite
                  *
                  * @return Column metadata.
                  */
-                virtual const meta::ColumnMetaVector* GetMeta();
+                virtual const meta::column_meta_vector* GetMeta();
 
                 /**
                  * Fetch next result row to application buffers.
@@ -196,7 +196,7 @@ namespace ignite
                  * @param columnIdx Column index.
                  * @return General SQL result.
                  */
-                void SetResultsetMeta(const meta::ColumnMetaVector& value);
+                void SetResultsetMeta(const meta::column_meta_vector& value);
 
                 /**
                  * Close query.
@@ -218,7 +218,7 @@ namespace ignite
                 bool resultMetaAvailable;
 
                 /** Result set metadata. */
-                meta::ColumnMetaVector resultMeta;
+                meta::column_meta_vector resultMeta;
 
                 /** Cursor. */
                 std::auto_ptr<Cursor> cursor;

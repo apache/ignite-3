@@ -86,7 +86,7 @@ namespace ignite
              * @param attr Attribute to set.
              * @param buffer Buffer to put value to.
              */
-            void GetAttribute(int32_t attr, application_data_buffer& buffer);
+            void get_attribute(int32_t attr, application_data_buffer& buffer);
 
         private:
             IGNITE_NO_COPY_ASSIGNMENT(Environment);

@@ -71,18 +71,18 @@ namespace ignite
                 using namespace ignite::impl::binary;
                 using namespace ignite::type_traits;
 
-                using meta::ColumnMeta;
+                using meta::column_meta;
 
                 columnsMeta.reserve(5);
 
                 const std::string sch("");
                 const std::string tbl("");
 
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_CAT",   IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_SCHEM", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_NAME",  IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_TYPE",  IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "REMARKS",     IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_CAT",   IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_SCHEM", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_NAME",  IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_TYPE",  IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "REMARKS",     IGNITE_TYPE_STRING));
             }
 
             TableMetadataQuery::~TableMetadataQuery()
@@ -108,7 +108,7 @@ namespace ignite
                 return result;
             }
 
-            const meta::ColumnMetaVector* TableMetadataQuery::GetMeta()
+            const meta::column_meta_vector* TableMetadataQuery::GetMeta()
             {
                 return &columnsMeta;
             }
@@ -167,13 +167,13 @@ namespace ignite
 
                     case ResultColumn::TABLE_SCHEM:
                     {
-                        buffer.put_string(currentColumn.GetSchemaName());
+                        buffer.put_string(currentColumn.get_schema_name());
                         break;
                     }
 
                     case ResultColumn::TABLE_NAME:
                     {
-                        buffer.put_string(currentColumn.GetTableName());
+                        buffer.put_string(currentColumn.get_table_name());
                         break;
                     }
 
@@ -256,8 +256,8 @@ namespace ignite
                 for (size_t i = 0; i < meta.size(); ++i)
                 {
                     LOG_MSG("\n[" << i << "] CatalogName: " << meta[i].GetCatalogName()
-                         << "\n[" << i << "] SchemaName:  " << meta[i].GetSchemaName()
-                         << "\n[" << i << "] TableName:   " << meta[i].GetTableName()
+                         << "\n[" << i << "] SchemaName:  " << meta[i].get_schema_name()
+                         << "\n[" << i << "] TableName:   " << meta[i].get_table_name()
                          << "\n[" << i << "] TableType:   " << meta[i].GetTableType());
                 }
 

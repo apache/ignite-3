@@ -91,25 +91,25 @@ namespace ignite
                 using namespace ignite::impl::binary;
                 using namespace ignite::type_traits;
 
-                using meta::ColumnMeta;
+                using meta::column_meta;
 
                 columnsMeta.reserve(12);
 
                 const std::string sch;
                 const std::string tbl;
 
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_CAT",      IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_SCHEM",    IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_NAME",     IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "COLUMN_NAME",    IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DATA_TYPE",      IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TYPE_NAME",      IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "COLUMN_SIZE",    IGNITE_TYPE_INT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "BUFFER_LENGTH",  IGNITE_TYPE_INT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "DECIMAL_DIGITS", IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "NUM_PREC_RADIX", IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "NULLABLE",       IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "REMARKS",        IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_CAT",      IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_SCHEM",    IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_NAME",     IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "COLUMN_NAME",    IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "DATA_TYPE",      IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "TYPE_NAME",      IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "COLUMN_SIZE",    IGNITE_TYPE_INT));
+                columnsMeta.push_back(column_meta(sch, tbl, "BUFFER_LENGTH",  IGNITE_TYPE_INT));
+                columnsMeta.push_back(column_meta(sch, tbl, "DECIMAL_DIGITS", IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "NUM_PREC_RADIX", IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "NULLABLE",       IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "REMARKS",        IGNITE_TYPE_STRING));
             }
 
             ColumnMetadataQuery::~ColumnMetadataQuery()
@@ -135,7 +135,7 @@ namespace ignite
                 return result;
             }
 
-            const meta::ColumnMetaVector* ColumnMetadataQuery::GetMeta()
+            const meta::column_meta_vector* ColumnMetadataQuery::GetMeta()
             {
                 return &columnsMeta;
             }
@@ -182,8 +182,8 @@ namespace ignite
                     return sql_result::AI_ERROR;
                 }
 
-                const meta::ColumnMeta& currentColumn = *cursor;
-                uint8_t columnType = currentColumn.GetDataType();
+                const meta::column_meta& currentColumn = *cursor;
+                uint8_t columnType = currentColumn.get_data_type();
 
                 switch (columnIdx)
                 {
@@ -195,19 +195,19 @@ namespace ignite
 
                     case ResultColumn::TABLE_SCHEM:
                     {
-                        buffer.put_string(currentColumn.GetSchemaName());
+                        buffer.put_string(currentColumn.get_schema_name());
                         break;
                     }
 
                     case ResultColumn::TABLE_NAME:
                     {
-                        buffer.put_string(currentColumn.GetTableName());
+                        buffer.put_string(currentColumn.get_table_name());
                         break;
                     }
 
                     case ResultColumn::COLUMN_NAME:
                     {
-                        buffer.put_string(currentColumn.GetColumnName());
+                        buffer.put_string(currentColumn.get_column_name());
                         break;
                     }
 
@@ -219,7 +219,7 @@ namespace ignite
 
                     case ResultColumn::TYPE_NAME:
                     {
-                        buffer.put_string(ignite_type_to_sql_type_name(currentColumn.GetDataType()));
+                        buffer.put_string(ignite_type_to_sql_type_name(currentColumn.get_data_type()));
                         break;
                     }
 
@@ -328,10 +328,10 @@ namespace ignite
 
                 for (size_t i = 0; i < meta.size(); ++i)
                 {
-                    LOG_MSG("\n[" << i << "] SchemaName:     " << meta[i].GetSchemaName()
-                         << "\n[" << i << "] TableName:      " << meta[i].GetTableName()
-                         << "\n[" << i << "] ColumnName:     " << meta[i].GetColumnName()
-                         << "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta[i].GetDataType()));
+                    LOG_MSG("\n[" << i << "] SchemaName:     " << meta[i].get_schema_name()
+                         << "\n[" << i << "] TableName:      " << meta[i].get_table_name()
+                         << "\n[" << i << "] ColumnName:     " << meta[i].get_column_name()
+                         << "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta[i].get_data_type()));
                 }
 
                 return sql_result::AI_SUCCESS;

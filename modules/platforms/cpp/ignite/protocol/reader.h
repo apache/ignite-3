@@ -120,6 +120,13 @@ public:
     }
 
     /**
+     * Read int8.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::int8_t read_int8() { return read_object<std::int8_t>(); }
+
+    /**
      * Read int16.
      *
      * @return Value.

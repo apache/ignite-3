@@ -75,7 +75,7 @@ namespace ignite
                 return res;
             }
 
-            const meta::ColumnMetaVector* BatchQuery::GetMeta()
+            const meta::column_meta_vector* BatchQuery::GetMeta()
             {
                 return &resultMeta;
             }

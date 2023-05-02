@@ -163,9 +163,9 @@ namespace ignite
 
             if (versionStr.is_set() && !config.IsProtocolVersionSet())
             {
-                ProtocolVersion version = ProtocolVersion::FromString(versionStr.get_value());
+                protocol_version version = protocol_version::from_string(versionStr.get_value());
 
-                if (!version.IsSupported())
+                if (!version.is_supported())
                     version = configuration::default_value::protocolVersion;
 
                 config.SetProtocolVersion(version);
@@ -213,12 +213,12 @@ namespace ignite
             settable_value<std::string> nestedTxModeStr = ReadDsnString(dsn, connection_string_parser::key::nestedTxMode);
 
             if (nestedTxModeStr.is_set() && !config.IsNestedTxModeSet())
-                config.SetNestedTxMode(nested_tx_mode::FromString(nestedTxModeStr.get_value(), config.GetNestedTxMode()));
+                config.SetNestedTxMode(nested_tx_mode::from_string(nestedTxModeStr.get_value(), config.GetNestedTxMode()));
 
             settable_value<std::string> engineModeStr = ReadDsnString(dsn, connection_string_parser::key::engineMode);
 
             if (engineModeStr.is_set() && !config.IsEngineModeSet())
-                config.SetEngineMode(EngineMode::FromString(engineModeStr.get_value(), config.GetEngineMode()));
+                config.SetEngineMode(EngineMode::from_string(engineModeStr.get_value(), config.GetEngineMode()));
         }
     }
 }

@@ -385,7 +385,7 @@ int sql_result_to_return_code(sql_result result);
  * @param field ODBC field type.
  * @return Internal diagnostic_field type value.
  */
-diagnostic_field diagnostic_field_to_internal(int16_t field);
+diagnostic_field diagnostic_field_to_internal(std::int16_t field);
 
 /**
  * Convert environment attribute to internal environment_attribute type value.
@@ -393,7 +393,7 @@ diagnostic_field diagnostic_field_to_internal(int16_t field);
  * @param attr Environment attribute.
  * @return Internal environment_attribute type value.
  */
-environment_attribute environment_attribute_to_internal(int32_t attr);
+environment_attribute environment_attribute_to_internal(std::int32_t attr);
 
 /**
  * Convert request response status to SQL state.
@@ -401,6 +401,6 @@ environment_attribute environment_attribute_to_internal(int32_t attr);
  * @param status Response status.
  * @return SQL state.
  */
-sql_state response_status_to_sql_state(int32_t status);
+sql_state response_status_to_sql_state(std::int32_t status);
 
 } // namespace ignite

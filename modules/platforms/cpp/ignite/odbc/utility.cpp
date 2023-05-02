@@ -105,7 +105,7 @@ namespace ignite
 
             const BigInteger &unscaled = decimal.GetUnscaledValue();
 
-            writer.WriteInt32(decimal.GetScale());
+            writer.WriteInt32(decimal.get_scale());
 
             FixedSizeArray<int8_t> magnitude;
 

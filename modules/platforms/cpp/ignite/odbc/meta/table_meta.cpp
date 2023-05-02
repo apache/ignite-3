@@ -26,8 +26,8 @@ namespace ignite
             void TableMeta::Read(ignite::impl::binary::BinaryReaderImpl & reader)
             {
                 utility::ReadString(reader, catalogName);
-                utility::ReadString(reader, schemaName);
-                utility::ReadString(reader, tableName);
+                utility::ReadString(reader, schema_name);
+                utility::ReadString(reader, table_name);
                 utility::ReadString(reader, tableType);
             }
 

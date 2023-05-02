@@ -115,7 +115,7 @@ namespace ignite
              * @param bufLen Buffer length.
              * @param valueLen Resulting value length.
              */
-            void GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
+            void get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
 
             /**
              * Get number m_parameters required by the prepared statement.
@@ -255,7 +255,7 @@ namespace ignite
              *
              * @return Column metadata.
              */
-            const meta::ColumnMetaVector* GetMeta();
+            const meta::column_meta_vector* GetMeta();
 
             /**
              * Check if data is available.
@@ -338,12 +338,12 @@ namespace ignite
              * Get type info of the parameter of the prepared statement.
              *
              * @param paramNum - parameter index.
-             * @param dataType - Data type.
+             * @param data_type - Data type.
              * @param paramSize - Size of the parameter.
              * @param decimalDigits - big_decimal digits.
              * @param nullable - Nullability flag.
              */
-            void DescribeParam(int16_t paramNum, int16_t* dataType,
+            void DescribeParam(int16_t paramNum, int16_t* data_type,
                 SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable);
 
         private:
@@ -656,13 +656,13 @@ namespace ignite
              * Get type info of the parameter of the prepared statement.
              *
              * @param paramNum - parameter index.
-             * @param dataType - Data type.
+             * @param data_type - Data type.
              * @param paramSize - Size of the parameter.
              * @param decimalDigits - big_decimal digits.
              * @param nullable - Nullability flag.
              * @return Operation result.
              */
-            sql_result InternalDescribeParam(int16_t paramNum, int16_t* dataType,
+            sql_result InternalDescribeParam(int16_t paramNum, int16_t* data_type,
                 SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable);
 
             /**

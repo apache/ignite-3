@@ -159,16 +159,16 @@ namespace ignite
 
                     int id = 0;
 
-                    const ProtocolVersion::VersionSet& supported = ProtocolVersion::GetSupported();
+                    const protocol_version::version_set& supported = protocol_version::get_supported();
 
-                    ProtocolVersion version = config.GetProtocolVersion();
+                    protocol_version version = config.GetProtocolVersion();
 
-                    if (!version.IsSupported())
-                        version = ProtocolVersion::GetCurrent();
+                    if (!version.is_supported())
+                        version = protocol_version::get_current();
 
-                    for (ProtocolVersion::VersionSet::const_iterator it = supported.begin(); it != supported.end(); ++it)
+                    for (protocol_version::version_set::const_iterator it = supported.begin(); it != supported.end(); ++it)
                     {
-                        protocolVersionComboBox->AddString(it->ToString());
+                        protocolVersionComboBox->AddString(it->to_string());
 
                         if (*it == version)
                             protocolVersionComboBox->SetSelection(id);
@@ -297,10 +297,10 @@ namespace ignite
 
                     int checkBoxSize = (sizeX - 3 * INTERVAL) / 2;
 
-                    ProtocolVersion version = config.GetProtocolVersion();
+                    protocol_version version = config.GetProtocolVersion();
 
-                    if (!version.IsSupported())
-                        version = ProtocolVersion::GetCurrent();
+                    if (!version.is_supported())
+                        version = protocol_version::get_current();
 
                     int rowPos = posY + 2 * INTERVAL;
 
@@ -324,7 +324,7 @@ namespace ignite
                         const EngineMode::ModeSet &supported = EngineMode::GetValidValues();
 
                         for (EngineMode::ModeSet::const_iterator it = supported.begin(); it != supported.end(); ++it) {
-                            engineModeComboBox->AddString(EngineMode::ToString(*it));
+                            engineModeComboBox->AddString(EngineMode::to_string(*it));
 
                             if (*it == config.GetEngineMode())
                                 engineModeComboBox->SetSelection(id);
@@ -333,7 +333,7 @@ namespace ignite
                         }
                     }
 
-                    engineModeComboBox->SetEnabled(version >= ProtocolVersion::VERSION_2_13_0);
+                    engineModeComboBox->SetEnabled(version >= protocol_version::VERSION_2_13_0);
 
                     rowPos += INTERVAL + ROW_HEIGHT;
 
@@ -349,7 +349,7 @@ namespace ignite
 
                         for (nested_tx_mode::ModeSet::const_iterator it = supported.begin();
                              it != supported.end(); ++it) {
-                            nestedTxModeComboBox->AddString(nested_tx_mode::ToString(*it));
+                            nestedTxModeComboBox->AddString(nested_tx_mode::to_string(*it));
 
                             if (*it == config.GetNestedTxMode())
                                 nestedTxModeComboBox->SetSelection(id);
@@ -358,7 +358,7 @@ namespace ignite
                         }
                     }
 
-                    nestedTxModeComboBox->SetEnabled(version >= ProtocolVersion::VERSION_2_5_0);
+                    nestedTxModeComboBox->SetEnabled(version >= protocol_version::VERSION_2_5_0);
 
                     rowPos += INTERVAL + ROW_HEIGHT;
 
@@ -382,13 +382,13 @@ namespace ignite
                     lazyCheckBox = CreateCheckBox(labelPosX, rowPos, checkBoxSize, ROW_HEIGHT,
                         "Lazy", ChildId::LAZY_CHECK_BOX, config.IsLazy());
 
-                    lazyCheckBox->SetEnabled(version >= ProtocolVersion::VERSION_2_1_5);
+                    lazyCheckBox->SetEnabled(version >= protocol_version::VERSION_2_1_5);
 
                     skipReducerOnUpdateCheckBox = CreateCheckBox(labelPosX + checkBoxSize + INTERVAL, rowPos,
                         checkBoxSize, ROW_HEIGHT, "Skip reducer on update", ChildId::SKIP_REDUCER_ON_UPDATE_CHECK_BOX,
                         config.IsSkipReducerOnUpdate());
 
-                    skipReducerOnUpdateCheckBox->SetEnabled(version >= ProtocolVersion::VERSION_2_3_0);
+                    skipReducerOnUpdateCheckBox->SetEnabled(version >= protocol_version::VERSION_2_3_0);
 
                     rowPos += ROW_HEIGHT + INTERVAL;
 
@@ -479,11 +479,11 @@ namespace ignite
                                     std::string versionStr;
                                     protocolVersionComboBox->GetText(versionStr);
 
-                                    ProtocolVersion version = ProtocolVersion::FromString(versionStr);
-                                    lazyCheckBox->SetEnabled(version >= ProtocolVersion::VERSION_2_1_5);
-                                    skipReducerOnUpdateCheckBox->SetEnabled(version >= ProtocolVersion::VERSION_2_3_0);
-                                    nestedTxModeComboBox->SetEnabled(version >= ProtocolVersion::VERSION_2_5_0);
-                                    engineModeComboBox->SetEnabled(version >= ProtocolVersion::VERSION_2_13_0);
+                                    protocol_version version = protocol_version::from_string(versionStr);
+                                    lazyCheckBox->SetEnabled(version >= protocol_version::VERSION_2_1_5);
+                                    skipReducerOnUpdateCheckBox->SetEnabled(version >= protocol_version::VERSION_2_3_0);
+                                    nestedTxModeComboBox->SetEnabled(version >= protocol_version::VERSION_2_5_0);
+                                    engineModeComboBox->SetEnabled(version >= protocol_version::VERSION_2_13_0);
 
                                     break;
                                 }
@@ -570,9 +570,9 @@ namespace ignite
                             diag.get_status_record(1).get_message_text().c_str());
                     }
 
-                    ProtocolVersion version = ProtocolVersion::FromString(versionStr);
+                    protocol_version version = protocol_version::from_string(versionStr);
 
-                    if (!version.IsSupported())
+                    if (!version.is_supported())
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Protocol version is not supported.");
 
                     cfg.SetDsn(dsnStr);
@@ -634,14 +634,14 @@ namespace ignite
 
                     nestedTxModeComboBox->GetText(nestedTxModeStr);
 
-                    nested_tx_mode nestedTxMode = nested_tx_mode::FromString(nestedTxModeStr,
+                    nested_tx_mode nestedTxMode = nested_tx_mode::from_string(nestedTxModeStr,
                                                                                config.GetNestedTxMode());
 
                     std::string engineModeStr;
 
                     engineModeComboBox->GetText(engineModeStr);
 
-                    EngineMode::Type engineMode = EngineMode::FromString(engineModeStr, config.GetEngineMode());
+                    EngineMode::Type engineMode = EngineMode::from_string(engineModeStr, config.GetEngineMode());
 
                     bool distributedJoins = distributedJoinsCheckBox->IsChecked();
                     bool enforceJoinOrder = enforceJoinOrderCheckBox->IsChecked();
@@ -652,8 +652,8 @@ namespace ignite
 
                     LOG_MSG("Retrieving arguments:");
                     LOG_MSG("Page size:              " << page_size);
-                    LOG_MSG("SQL Engine Mode:        " << EngineMode::ToString(engineMode));
-                    LOG_MSG("Nested TX Mode:         " << nested_tx_mode::ToString(nestedTxMode));
+                    LOG_MSG("SQL Engine Mode:        " << EngineMode::to_string(engineMode));
+                    LOG_MSG("Nested TX Mode:         " << nested_tx_mode::to_string(nestedTxMode));
                     LOG_MSG("Distributed Joins:      " << (distributedJoins ? "true" : "false"));
                     LOG_MSG("Enforce Join Order:     " << (enforceJoinOrder ? "true" : "false"));
                     LOG_MSG("Replicated only:        " << (replicatedOnly ? "true" : "false"));

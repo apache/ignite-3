@@ -99,7 +99,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Configuration. */
@@ -134,7 +134,7 @@ namespace ignite
              * @param writer Writer.
              * @param ver Version.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version& ver) const;
 
         private:
             /** Schema name. */
@@ -184,7 +184,7 @@ namespace ignite
              * @param writer Writer.
              * @param ver Version.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion& ver) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version& ver) const;
 
         private:
             /** Schema name. */
@@ -234,7 +234,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Query ID. */
@@ -264,7 +264,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Query ID. */
@@ -298,7 +298,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Schema search pattern. */
@@ -334,7 +334,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Schema. */
@@ -370,7 +370,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Column search pattern. */
@@ -417,7 +417,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Schema. */
@@ -458,7 +458,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Query ID. */
@@ -494,7 +494,7 @@ namespace ignite
              * Write request using provided writer.
              * @param writer Writer.
              */
-            void write(impl::binary::BinaryWriterImpl& writer, const ProtocolVersion&) const;
+            void write(impl::binary::BinaryWriterImpl& writer, const protocol_version&) const;
 
         private:
             /** Schema name. */
@@ -532,7 +532,7 @@ namespace ignite
              * @param reader Reader.
              * @param ver Protocol version.
              */
-            void Read(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion& ver);
+            void Read(impl::binary::BinaryReaderImpl& reader, const protocol_version& ver);
 
             /**
              * Get request processing status.
@@ -556,7 +556,7 @@ namespace ignite
             /**
              * Read data if response status is response_status::SUCCESS.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl&, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl&, const protocol_version&);
 
         private:
             /** Request processing status. */
@@ -604,7 +604,7 @@ namespace ignite
              * Current host Apache Ignite version.
              * @return Current host Apache Ignite version.
              */
-            const ProtocolVersion& GetCurrentVer() const
+            const protocol_version& GetCurrentVer() const
             {
                 return currentVer;
             }
@@ -613,14 +613,14 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            void Read(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            void Read(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
         private:
             /** Handshake accepted. */
             bool accepted;
 
             /** Node's protocol version. */
-            ProtocolVersion currentVer;
+            protocol_version currentVer;
 
             /** Optional error message. */
             std::string error;
@@ -656,7 +656,7 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Query ID. */
             int64_t queryId;
@@ -691,7 +691,7 @@ namespace ignite
              * Get column metadata.
              * @return Column metadata.
              */
-            const meta::ColumnMetaVector& GetMeta() const
+            const meta::column_meta_vector& GetMeta() const
             {
                 return meta;
             }
@@ -710,13 +710,13 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion& ver);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version& ver);
 
             /** Query ID. */
             int64_t queryId;
 
             /** Columns metadata. */
-            meta::ColumnMetaVector meta;
+            meta::column_meta_vector meta;
 
             /** Number of affected rows. */
             std::vector<int64_t> affectedRows;
@@ -771,7 +771,7 @@ namespace ignite
              * @param reader Reader.
              * @param ver Protocol version.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion& ver);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version& ver);
 
             /** Affected rows. */
             std::vector<int64_t> affectedRows;
@@ -832,7 +832,7 @@ namespace ignite
              * @param reader Reader.
              * @param ver Protocol version.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion& ver);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version& ver);
 
             /** Error message. */
             std::string errorMessage;
@@ -875,7 +875,7 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Query ID. */
             int64_t queryId;
@@ -904,7 +904,7 @@ namespace ignite
              * Get column metadata.
              * @return Column metadata.
              */
-            const meta::ColumnMetaVector& GetMeta() const
+            const meta::column_meta_vector& GetMeta() const
             {
                 return meta;
             }
@@ -914,10 +914,10 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Columns metadata. */
-            meta::ColumnMetaVector meta;
+            meta::column_meta_vector meta;
         };
 
         /**
@@ -940,7 +940,7 @@ namespace ignite
              * Get column metadata.
              * @return Column metadata.
              */
-            const meta::ColumnMetaVector& GetMeta() const
+            const meta::column_meta_vector& GetMeta() const
             {
                 return meta;
             }
@@ -950,10 +950,10 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Columns metadata. */
-            meta::ColumnMetaVector meta;
+            meta::column_meta_vector meta;
         };
 
         /**
@@ -986,7 +986,7 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Columns metadata. */
             meta::TableMetaVector meta;
@@ -1022,7 +1022,7 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Columns metadata. */
             std::vector<int8_t> typeIds;
@@ -1059,7 +1059,7 @@ namespace ignite
              * Read response using provided reader.
              * @param reader Reader.
              */
-            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const ProtocolVersion&);
+            virtual void ReadOnSuccess(impl::binary::BinaryReaderImpl& reader, const protocol_version&);
 
             /** Query ID. */
             int64_t queryId;

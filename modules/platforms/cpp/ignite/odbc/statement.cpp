@@ -134,7 +134,7 @@ namespace ignite
 
         sql_result Statement::InternalGetColumnNumber(int32_t &res)
         {
-            const meta::ColumnMetaVector* meta = GetMeta();
+            const meta::column_meta_vector* meta = GetMeta();
 
             if (!meta)
                 return sql_result::AI_ERROR;
@@ -370,7 +370,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
+        void Statement::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
         {
             IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buf, bufLen, valueLen));
         }
@@ -1050,7 +1050,7 @@ namespace ignite
             return errors == 0 ? sql_result::AI_NO_DATA : sql_result::AI_ERROR;
         }
 
-        const meta::ColumnMetaVector* Statement::GetMeta()
+        const meta::column_meta_vector* Statement::GetMeta()
         {
             if (!currentQuery.get())
             {
@@ -1094,7 +1094,7 @@ namespace ignite
         sql_result Statement::InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
             int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf)
         {
-            const meta::ColumnMetaVector *meta = GetMeta();
+            const meta::column_meta_vector *meta = GetMeta();
 
             LOG_MSG("Collumn ID: " << colIdx << ", Attribute ID: " << attrId);
 
@@ -1109,18 +1109,18 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            const meta::ColumnMeta& columnMeta = meta->at(colIdx - 1);
+            const meta::column_meta& columnMeta = meta->at(colIdx - 1);
 
             bool found = false;
 
             if (numbuf)
-                found = columnMeta.GetAttribute(attrId, *numbuf);
+                found = columnMeta.get_attribute(attrId, *numbuf);
 
             if (!found)
             {
                 std::string out;
 
-                found = columnMeta.GetAttribute(attrId, out);
+                found = columnMeta.get_attribute(attrId, out);
 
                 size_t outSize = out.size();
 
@@ -1274,14 +1274,14 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::DescribeParam(int16_t paramNum, int16_t* dataType,
+        void Statement::DescribeParam(int16_t paramNum, int16_t* data_type,
             SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable)
         {
             IGNITE_ODBC_API_CALL(InternalDescribeParam(paramNum,
-                dataType, paramSize, decimalDigits, nullable));
+                data_type, paramSize, decimalDigits, nullable));
         }
 
-        sql_result Statement::InternalDescribeParam(int16_t paramNum, int16_t* dataType,
+        sql_result Statement::InternalDescribeParam(int16_t paramNum, int16_t* data_type,
             SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable)
         {
             query::Query *qry = currentQuery.get();
@@ -1313,8 +1313,8 @@ namespace ignite
                 type = m_parameters.get_param_type(paramNum, impl::binary::IGNITE_HDR_NULL);
             }
 
-            if (dataType)
-                *dataType = ignite_type_to_sql_type(type);
+            if (data_type)
+                *data_type = ignite_type_to_sql_type(type);
 
             if (paramSize)
                 *paramSize = ignite_type_column_size(type);

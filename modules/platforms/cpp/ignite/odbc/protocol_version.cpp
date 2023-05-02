@@ -15,173 +15,139 @@
  * limitations under the License.
  */
 
+#include "ignite/odbc/protocol_version.h"
+#include "ignite/odbc/utility.h"
+#include "ignite/odbc/odbc_error.h"
+
 #include <sstream>
-
-#include <ignite/ignite_error.h>
-
-#include "protocol_version.h"
-#include "utility.h"
 
 namespace ignite
 {
-    namespace odbc
-    {
-        const ProtocolVersion ProtocolVersion::VERSION_2_1_0(2, 1, 0);
-        const ProtocolVersion ProtocolVersion::VERSION_2_1_5(2, 1, 5);
-        const ProtocolVersion ProtocolVersion::VERSION_2_3_0(2, 3, 0);
-        const ProtocolVersion ProtocolVersion::VERSION_2_3_2(2, 3, 2);
-        const ProtocolVersion ProtocolVersion::VERSION_2_5_0(2, 5, 0);
-        const ProtocolVersion ProtocolVersion::VERSION_2_7_0(2, 7, 0);
-        const ProtocolVersion ProtocolVersion::VERSION_2_8_0(2, 8, 0);
-        const ProtocolVersion ProtocolVersion::VERSION_2_13_0(2, 13, 0);
+const protocol_version protocol_version::VERSION_3_0_0(3, 0, 0);
 
-        ProtocolVersion::VersionSet::value_type supportedArray[] = {
-            ProtocolVersion::VERSION_2_1_0,
-            ProtocolVersion::VERSION_2_1_5,
-            ProtocolVersion::VERSION_2_3_0,
-            ProtocolVersion::VERSION_2_3_2,
-            ProtocolVersion::VERSION_2_5_0,
-            ProtocolVersion::VERSION_2_7_0,
-            ProtocolVersion::VERSION_2_8_0,
-            ProtocolVersion::VERSION_2_13_0
-        };
+protocol_version::version_set::value_type supported_array[] = {
+    protocol_version::VERSION_3_0_0,
+};
 
-        const ProtocolVersion::VersionSet ProtocolVersion::supported(supportedArray,
-            supportedArray + (sizeof(supportedArray) / sizeof(supportedArray[0])));
+const protocol_version::version_set protocol_version::m_supported(supported_array,
+    supported_array + (sizeof(supported_array) / sizeof(supported_array[0])));
 
-        ProtocolVersion::ProtocolVersion(int16_t vmajor, int16_t vminor, int16_t vmaintenance) :
-            vmajor(vmajor),
-            vminor(vminor),
-            vmaintenance(vmaintenance)
-        {
-            // No-op.
-        }
-
-        ProtocolVersion::ProtocolVersion() :
-            vmajor(0),
-            vminor(0),
-            vmaintenance(0)
-        {
-            // No-op.
-        }
-
-        const ProtocolVersion::VersionSet& ProtocolVersion::GetSupported()
-        {
-            return supported;
-        }
-
-        const ProtocolVersion& ProtocolVersion::GetCurrent()
-        {
-            return VERSION_2_13_0;
-        }
-
-        void ThrowParseError()
-        {
-            throw IgniteError(IgniteError::IGNITE_ERR_GENERIC,
-                "Invalid version format. Valid format is X.Y.Z, where X, Y and Z are major, "
-                "minor and maintenance version parts of Ignite since which protocol is introduced.");
-        }
-
-        ProtocolVersion ProtocolVersion::FromString(const std::string& version)
-        {
-            ProtocolVersion res;
-
-            std::stringstream buf(version);
-
-            buf >> res.vmajor;
-
-            if (!buf.good())
-                ThrowParseError();
-
-            if (buf.get() != '.' || !buf.good())
-                ThrowParseError();
-
-            buf >> res.vminor;
-
-            if (!buf.good())
-                ThrowParseError();
-
-            if (buf.get() != '.' || !buf.good())
-                ThrowParseError();
-
-            buf >> res.vmaintenance;
-
-            if (buf.bad())
-                ThrowParseError();
-
-            return res;
-        }
-
-        std::string ProtocolVersion::ToString() const
-        {
-            std::stringstream buf;
-            buf << vmajor << '.' << vminor << '.' << vmaintenance;
-
-            return buf.str();
-        }
-
-        int16_t ProtocolVersion::GetMajor() const
-        {
-            return vmajor;
-        }
-
-        int16_t ProtocolVersion::GetMinor() const
-        {
-            return vminor;
-        }
-
-        int16_t ProtocolVersion::GetMaintenance() const
-        {
-            return vmaintenance;
-        }
-
-        bool ProtocolVersion::IsSupported() const
-        {
-            return supported.count(*this) != 0;
-        }
-
-        int32_t ProtocolVersion::Compare(const ProtocolVersion& other) const
-        {
-            int32_t res = vmajor - other.vmajor;
-
-            if (res == 0)
-                res = vminor - other.vminor;
-
-            if (res == 0)
-                res = vmaintenance - other.vmaintenance;
-
-            return res;
-        }
-
-        bool operator==(const ProtocolVersion& val1, const ProtocolVersion& val2)
-        {
-            return val1.Compare(val2) == 0;
-        }
-
-        bool operator!=(const ProtocolVersion& val1, const ProtocolVersion& val2)
-        {
-            return val1.Compare(val2) != 0;
-        }
-
-        bool operator<(const ProtocolVersion& val1, const ProtocolVersion& val2)
-        {
-            return val1.Compare(val2) < 0;
-        }
-
-        bool operator<=(const ProtocolVersion& val1, const ProtocolVersion& val2)
-        {
-            return val1.Compare(val2) <= 0;
-        }
-
-        bool operator>(const ProtocolVersion& val1, const ProtocolVersion& val2)
-        {
-            return val1.Compare(val2) > 0;
-        }
-
-        bool operator>=(const ProtocolVersion& val1, const ProtocolVersion& val2)
-        {
-            return val1.Compare(val2) >= 0;
-        }
-    }
+const protocol_version::version_set& protocol_version::get_supported()
+{
+    return m_supported;
 }
 
+const protocol_version& protocol_version::get_current()
+{
+    return VERSION_3_0_0;
+}
+
+void throw_parse_error()
+{
+    throw odbc_error(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE,
+        "Invalid version format. Valid format is X.Y.Z, where X, Y and Z are major, "
+        "minor and maintenance version parts of Ignite since which protocol is introduced.");
+}
+
+protocol_version protocol_version::from_string(const std::string& version)
+{
+    protocol_version res;
+
+    std::stringstream buf(version);
+
+    buf >> res.m_major;
+
+    if (!buf.good())
+        throw_parse_error();
+
+    if (buf.get() != '.' || !buf.good())
+        throw_parse_error();
+
+    buf >> res.m_minor;
+
+    if (!buf.good())
+        throw_parse_error();
+
+    if (buf.get() != '.' || !buf.good())
+        throw_parse_error();
+
+    buf >> res.m_maintenance;
+
+    if (buf.bad())
+        throw_parse_error();
+
+    return res;
+}
+
+std::string protocol_version::to_string() const
+{
+    std::stringstream buf;
+    buf << m_major << '.' << m_minor << '.' << m_maintenance;
+
+    return buf.str();
+}
+
+int16_t protocol_version::get_major() const
+{
+    return m_major;
+}
+
+int16_t protocol_version::get_minor() const
+{
+    return m_minor;
+}
+
+int16_t protocol_version::get_maintenance() const
+{
+    return m_maintenance;
+}
+
+bool protocol_version::is_supported() const
+{
+    return m_supported.count(*this) != 0;
+}
+
+int32_t protocol_version::compare(const protocol_version& other) const
+{
+    int32_t res = m_major - other.m_major;
+
+    if (res == 0)
+        res = m_minor - other.m_minor;
+
+    if (res == 0)
+        res = m_maintenance - other.m_maintenance;
+
+    return res;
+}
+
+bool operator==(const protocol_version& val1, const protocol_version& val2)
+{
+    return val1.compare(val2) == 0;
+}
+
+bool operator!=(const protocol_version& val1, const protocol_version& val2)
+{
+    return val1.compare(val2) != 0;
+}
+
+bool operator<(const protocol_version& val1, const protocol_version& val2)
+{
+    return val1.compare(val2) < 0;
+}
+
+bool operator<=(const protocol_version& val1, const protocol_version& val2)
+{
+    return val1.compare(val2) <= 0;
+}
+
+bool operator>(const protocol_version& val1, const protocol_version& val2)
+{
+    return val1.compare(val2) > 0;
+}
+
+bool operator>=(const protocol_version& val1, const protocol_version& val2)
+{
+    return val1.compare(val2) >= 0;
+}
+
+} // namespace ignite

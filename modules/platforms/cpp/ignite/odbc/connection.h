@@ -302,7 +302,7 @@ namespace ignite
              * @param bufLen Buffer length.
              * @param valueLen Resulting value length.
              */
-            void GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
+            void get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
 
             /**
              * Set connection attribute.

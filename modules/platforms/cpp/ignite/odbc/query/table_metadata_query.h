@@ -67,7 +67,7 @@ namespace ignite
                  *
                  * @return Column metadata.
                  */
-                virtual const meta::ColumnMetaVector* GetMeta();
+                virtual const meta::column_meta_vector* GetMeta();
 
                 /**
                  * Fetch next result row to application buffers.
@@ -151,7 +151,7 @@ namespace ignite
                 meta::TableMetaVector::iterator cursor;
 
                 /** Columns metadata. */
-                meta::ColumnMetaVector columnsMeta;
+                meta::column_meta_vector columnsMeta;
             };
         }
     }

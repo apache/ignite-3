@@ -495,7 +495,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void connection::GetAttribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
+        void connection::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
         {
             IGNITE_ODBC_API_CALL(InternalGetAttribute(attr, buf, bufLen, valueLen));
         }
@@ -638,17 +638,17 @@ namespace ignite
 
         sql_result connection::MakeRequestHandshake()
         {
-            ProtocolVersion protocolVersion = config.GetProtocolVersion();
+            protocol_version protocolVersion = config.GetProtocolVersion();
 
-            if (!protocolVersion.IsSupported())
+            if (!protocolVersion.is_supported())
             {
                 add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                    "Protocol version is not supported: " + protocolVersion.ToString());
+                    "Protocol version is not supported: " + protocolVersion.to_string());
 
                 return sql_result::AI_ERROR;
             }
 
-            if (protocolVersion < ProtocolVersion::VERSION_2_5_0 && !config.GetUser().empty())
+            if (protocolVersion < protocol_version::VERSION_2_5_0 && !config.GetUser().empty())
             {
                 add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
                     "Authentication is not allowed for protocol version below 2.5.0");
@@ -698,9 +698,9 @@ namespace ignite
                     constructor << "Additional info: " << rsp.GetError() << " ";
 
                 constructor << "Current version of the protocol, used by the server node is "
-                            << rsp.GetCurrentVer().ToString() << ", "
+                            << rsp.GetCurrentVer().to_string() << ", "
                             << "driver protocol version introduced in version "
-                            << protocolVersion.ToString() << ".";
+                            << protocolVersion.to_string() << ".";
 
                 add_status_record(sql_state::S08004_CONNECTION_REJECTED, constructor.str());
 

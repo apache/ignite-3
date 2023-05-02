@@ -57,7 +57,7 @@ namespace ignite
                  *
                  * @return Column metadata.
                  */
-                virtual const meta::ColumnMetaVector* GetMeta();
+                virtual const meta::column_meta_vector* GetMeta();
 
                 /**
                  * Fetch next result row to application buffers.
@@ -107,7 +107,7 @@ namespace ignite
                 IGNITE_NO_COPY_ASSIGNMENT(TypeInfoQuery);
 
                 /** Columns metadata. */
-                meta::ColumnMetaVector columnsMeta;
+                meta::column_meta_vector columnsMeta;
 
                 /** Executed flag. */
                 bool executed;

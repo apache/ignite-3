@@ -68,7 +68,7 @@ public:
     [[nodiscard]] const network::end_point &get_address() const { return m_address; }
 
     /**
-     * Compare to another instance.
+     * compare to another instance.
      *
      * @param other Another instance.
      * @return Negative value if less, positive if larger and zero, if equals

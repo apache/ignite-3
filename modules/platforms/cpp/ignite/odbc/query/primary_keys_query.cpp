@@ -69,19 +69,19 @@ namespace ignite
                 using namespace ignite::impl::binary;
                 using namespace ignite::type_traits;
 
-                using meta::ColumnMeta;
+                using meta::column_meta;
 
                 columnsMeta.reserve(6);
 
                 const std::string sch("");
                 const std::string tbl("");
 
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_CAT",   IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_SCHEM", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "TABLE_NAME",  IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "COLUMN_NAME", IGNITE_TYPE_STRING));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "KEY_SEQ",     IGNITE_TYPE_SHORT));
-                columnsMeta.push_back(ColumnMeta(sch, tbl, "PK_NAME",     IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_CAT",   IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_SCHEM", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "TABLE_NAME",  IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "COLUMN_NAME", IGNITE_TYPE_STRING));
+                columnsMeta.push_back(column_meta(sch, tbl, "KEY_SEQ",     IGNITE_TYPE_SHORT));
+                columnsMeta.push_back(column_meta(sch, tbl, "PK_NAME",     IGNITE_TYPE_STRING));
             }
 
             PrimaryKeysQuery::~PrimaryKeysQuery()
@@ -103,7 +103,7 @@ namespace ignite
                 return sql_result::AI_SUCCESS;
             }
 
-            const meta::ColumnMetaVector* PrimaryKeysQuery::GetMeta()
+            const meta::column_meta_vector* PrimaryKeysQuery::GetMeta()
             {
                 return &columnsMeta;
             }
@@ -154,19 +154,19 @@ namespace ignite
 
                     case ResultColumn::TABLE_SCHEM:
                     {
-                        buffer.put_string(currentColumn.GetSchemaName());
+                        buffer.put_string(currentColumn.get_schema_name());
                         break;
                     }
 
                     case ResultColumn::TABLE_NAME:
                     {
-                        buffer.put_string(currentColumn.GetTableName());
+                        buffer.put_string(currentColumn.get_table_name());
                         break;
                     }
 
                     case ResultColumn::COLUMN_NAME:
                     {
-                        buffer.put_string(currentColumn.GetColumnName());
+                        buffer.put_string(currentColumn.get_column_name());
                         break;
                     }
 

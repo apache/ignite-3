@@ -49,13 +49,13 @@ namespace ignite
                  * Constructor.
                  *
                  * @param catalogName Catalog name.
-                 * @param schemaName Schema name.
-                 * @param tableName Table name.
+                 * @param schema_name Schema name.
+                 * @param table_name Table name.
                  * @param tableType Table type.
                  */
-                TableMeta(const std::string& catalogName, const std::string& schemaName,
-                          const std::string& tableName, const std::string& tableType) :
-                    catalogName(catalogName), schemaName(schemaName), tableName(tableName),
+                TableMeta(const std::string& catalogName, const std::string& schema_name,
+                          const std::string& table_name, const std::string& tableType) :
+                    catalogName(catalogName), schema_name(schema_name), table_name(table_name),
                     tableType(tableType)
                 {
                     // No-op.
@@ -74,8 +74,8 @@ namespace ignite
                  */
                 TableMeta(const TableMeta& other) :
                     catalogName(other.catalogName),
-                    schemaName(other.schemaName),
-                    tableName(other.tableName),
+                    schema_name(other.schema_name),
+                    table_name(other.table_name),
                     tableType(other.tableType)
                 {
                     // No-op.
@@ -87,8 +87,8 @@ namespace ignite
                 TableMeta& operator=(const TableMeta& other)
                 {
                     catalogName = other.catalogName;
-                    schemaName = other.schemaName;
-                    tableName = other.tableName;
+                    schema_name = other.schema_name;
+                    table_name = other.table_name;
                     tableType = other.tableType;
 
                     return *this;
@@ -113,18 +113,18 @@ namespace ignite
                  * Get schema name.
                  * @return Schema name.
                  */
-                const std::string& GetSchemaName() const
+                const std::string& get_schema_name() const
                 {
-                    return schemaName;
+                    return schema_name;
                 }
 
                 /**
                  * Get table name.
                  * @return Table name.
                  */
-                const std::string& GetTableName() const
+                const std::string& get_table_name() const
                 {
-                    return tableName;
+                    return table_name;
                 }
 
                 /**
@@ -141,10 +141,10 @@ namespace ignite
                 std::string catalogName;
 
                 /** Schema name. */
-                std::string schemaName;
+                std::string schema_name;
 
                 /** Table name. */
-                std::string tableName;
+                std::string table_name;
 
                 /** Table type. */
                 std::string tableType;

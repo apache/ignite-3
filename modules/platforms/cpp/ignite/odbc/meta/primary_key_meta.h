@@ -118,7 +118,7 @@ namespace ignite
                  * Get schema name.
                  * @return Schema name.
                  */
-                const std::string& GetSchemaName() const
+                const std::string& get_schema_name() const
                 {
                     return schema;
                 }
@@ -127,7 +127,7 @@ namespace ignite
                  * Get table name.
                  * @return Table name.
                  */
-                const std::string& GetTableName() const
+                const std::string& get_table_name() const
                 {
                     return table;
                 }
@@ -136,7 +136,7 @@ namespace ignite
                  * Get column name.
                  * @return Column name.
                  */
-                const std::string& GetColumnName() const
+                const std::string& get_column_name() const
                 {
                     return table;
                 }

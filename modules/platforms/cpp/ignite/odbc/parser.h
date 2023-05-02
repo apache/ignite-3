@@ -48,7 +48,7 @@ namespace ignite
              * @param cap Initial capasity.
              */
             Parser(int32_t cap = DEFAULT_MEM_ALLOCATION) :
-                protocolVer(ProtocolVersion::GetCurrent()),
+                protocolVer(protocol_version::get_current()),
                 inMem(cap),
                 outMem(cap),
                 outStream(&outMem)
@@ -117,7 +117,7 @@ namespace ignite
              *
              * @param ver Version to set.
              */
-            void SetProtocolVersion(const ProtocolVersion& ver)
+            void SetProtocolVersion(const protocol_version& ver)
             {
                 protocolVer = ver;
             }
@@ -136,7 +136,7 @@ namespace ignite
             }
 
             /** Protocol version. */
-            ProtocolVersion protocolVer;
+            protocol_version protocolVer;
 
             /** Input operational memory. */
             impl::interop::InteropUnpooledMemory inMem;

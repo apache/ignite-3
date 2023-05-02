@@ -15,196 +15,173 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_PROTOCOL_VERSION
-#define _IGNITE_ODBC_PROTOCOL_VERSION
+#pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 #include <set>
 
-namespace ignite
+namespace ignite {
+
+/** Protocol version. */
+class protocol_version
 {
-    namespace odbc
-    {
-        /** Protocol version. */
-        class ProtocolVersion
-        {
-        public:
-            /** Version 2.1.0. */
-            static const ProtocolVersion VERSION_2_1_0;
+public:
+    /** Version 3.0.0. */
+    static const protocol_version VERSION_3_0_0;
 
-            /** Version 2.1.5: added "lazy" flag. */
-            static const ProtocolVersion VERSION_2_1_5;
+    /** Version set. */
+    typedef std::set<protocol_version> version_set;
 
-            /** Version 2.3.0: added "skipReducerOnUpdate" flag. */
-            static const ProtocolVersion VERSION_2_3_0;
+    /**
+     * Get string to version map.
+     *
+     * @return String to version map.
+     */
+    static const version_set& get_supported();
 
-            /** Version 2.3.2: added multiple statements support. */
-            static const ProtocolVersion VERSION_2_3_2;
+    /**
+     * Get current version.
+     *
+     * @return Current version.
+     */
+    static const protocol_version& get_current();
 
-            /** Version 2.5.0: added authentication and transactions support. */
-            static const ProtocolVersion VERSION_2_5_0;
+    /**
+     * Parse string and extract protocol version.
+     *
+     * @throw IgniteException if version can not be parsed.
+     * @param version Version string to parse.
+     * @return Protocol version.
+     */
+    static protocol_version from_string(const std::string& version);
 
-            /** Version 2.7.0: added fields precision and scale. */
-            static const ProtocolVersion VERSION_2_7_0;
+    /**
+     * Convert to string value.
+     *
+     * @return Protocol version.
+     */
+    [[nodiscard]] std::string to_string() const;
 
-            /** Version 2.8.0: added column nullability info. */
-            static const ProtocolVersion VERSION_2_8_0;
+    /**
+     * Default constructor.
+     */
+    protocol_version() = default;
 
-            /** Version 2.13.0: added ability to choose of query engine support. */
-            static const ProtocolVersion VERSION_2_13_0;
+    /**
+     * Constructor.
+     *
+     * @param vmajor Major version part.
+     * @param vminor Minor version part.
+     * @param vmaintenance Maintenance version part.
+     */
+    protocol_version(std::int16_t vmajor, std::int16_t vminor, std::int16_t vmaintenance)
+        : m_major(vmajor)
+        , m_minor(vminor)
+        , m_maintenance(vmaintenance) { }
 
-            typedef std::set<ProtocolVersion> VersionSet;
+    /**
+     * Get major part.
+     *
+     * @return Major part.
+     */
+    [[nodiscard]] std::int16_t get_major() const;
 
-            /**
-             * Get string to version map.
-             *
-             * @return String to version map.
-             */
-            static const VersionSet& GetSupported();
+    /**
+     * Get minor part.
+     *
+     * @return Minor part.
+     */
+    [[nodiscard]] std::int16_t get_minor() const;
 
-            /**
-             * Get current version.
-             *
-             * @return Current version.
-             */
-            static const ProtocolVersion& GetCurrent();
+    /**
+     * Get maintenance part.
+     *
+     * @return Maintenance part.
+     */
+    [[nodiscard]] std::int16_t get_maintenance() const;
 
-            /**
-             * Parse string and extract protocol version.
-             *
-             * @throw IgniteException if version can not be parsed.
-             * @param version Version string to parse.
-             * @return Protocol version.
-             */
-            static ProtocolVersion FromString(const std::string& version);
+    /**
+     * Check if the version is supported.
+     *
+     * @return True if the version is supported.
+     */
+    [[nodiscard]] bool is_supported() const;
 
-            /**
-             * Convert to string value.
-             *
-             * @return Protocol version.
-             */
-            std::string ToString() const;
+    /**
+     * compare to another value.
+     *
+     * @param other Instance to compare to.
+     * @return Zero if equals, negative number if less and positive if more.
+     */
+    [[nodiscard]] std::int32_t compare(const protocol_version& other) const;
 
-            /**
-             * Default constructor.
-             */
-            ProtocolVersion();
+    /**
+     * Comparison operator.
+     *
+     * @param val1 First value.
+     * @param val2 Second value.
+     * @return True if equal.
+     */
+    friend bool operator==(const protocol_version& val1, const protocol_version& val2);
 
-            /**
-             * Constructor.
-             *
-             * @param vmajor Major version part.
-             * @param vminor Minor version part.
-             * @param vmaintenance Maintenance version part.
-             */
-            ProtocolVersion(int16_t vmajor, int16_t vminor, int16_t vmaintenance);
+    /**
+     * Comparison operator.
+     *
+     * @param val1 First value.
+     * @param val2 Second value.
+     * @return True if not equal.
+     */
+    friend bool operator!=(const protocol_version& val1, const protocol_version& val2);
 
-            /**
-             * Get major part.
-             *
-             * @return Major part.
-             */
-            int16_t GetMajor() const;
+    /**
+     * Comparison operator.
+     *
+     * @param val1 First value.
+     * @param val2 Second value.
+     * @return True if less.
+     */
+    friend bool operator<(const protocol_version& val1, const protocol_version& val2);
 
-            /**
-             * Get minor part.
-             *
-             * @return Minor part.
-             */
-            int16_t GetMinor() const;
+    /**
+     * Comparison operator.
+     *
+     * @param val1 First value.
+     * @param val2 Second value.
+     * @return True if less or equal.
+     */
+    friend bool operator<=(const protocol_version& val1, const protocol_version& val2);
 
-            /**
-             * Get maintenance part.
-             *
-             * @return Maintenance part.
-             */
-            int16_t GetMaintenance() const;
+    /**
+     * Comparison operator.
+     *
+     * @param val1 First value.
+     * @param val2 Second value.
+     * @return True if greater.
+     */
+    friend bool operator>(const protocol_version& val1, const protocol_version& val2);
 
-            /**
-             * Check if the version is supported.
-             *
-             * @return True if the version is supported.
-             */
-            bool IsSupported() const;
+    /**
+     * Comparison operator.
+     *
+     * @param val1 First value.
+     * @param val2 Second value.
+     * @return True if greater or equal.
+     */
+    friend bool operator>=(const protocol_version& val1, const protocol_version& val2);
 
-            /**
-             * Compare to another value.
-             *
-             * @param other Instance to compare to.
-             * @return Zero if equeals, negative number if less and positive if more.
-             */
-            int32_t Compare(const ProtocolVersion& other) const;
+private:
+    /** Set of supported versions. */
+    const static version_set m_supported;
 
-            /**
-             * Comparison operator.
-             *
-             * @param val1 First value.
-             * @param val2 Second value.
-             * @return True if equal.
-             */
-            friend bool operator==(const ProtocolVersion& val1, const ProtocolVersion& val2);
+    /** Major part. */
+    std::int16_t m_major{0};
 
-            /**
-             * Comparison operator.
-             *
-             * @param val1 First value.
-             * @param val2 Second value.
-             * @return True if not equal.
-             */
-            friend bool operator!=(const ProtocolVersion& val1, const ProtocolVersion& val2);
+    /** Minor part. */
+    std::int16_t m_minor{0};
 
-            /**
-             * Comparison operator.
-             *
-             * @param val1 First value.
-             * @param val2 Second value.
-             * @return True if less.
-             */
-            friend bool operator<(const ProtocolVersion& val1, const ProtocolVersion& val2);
+    /** Maintenance part. */
+    std::int16_t m_maintenance{0};
+};
 
-            /**
-             * Comparison operator.
-             *
-             * @param val1 First value.
-             * @param val2 Second value.
-             * @return True if less or equal.
-             */
-            friend bool operator<=(const ProtocolVersion& val1, const ProtocolVersion& val2);
-
-            /**
-             * Comparison operator.
-             *
-             * @param val1 First value.
-             * @param val2 Second value.
-             * @return True if gretter.
-             */
-            friend bool operator>(const ProtocolVersion& val1, const ProtocolVersion& val2);
-
-            /**
-             * Comparison operator.
-             *
-             * @param val1 First value.
-             * @param val2 Second value.
-             * @return True if gretter or equal.
-             */
-            friend bool operator>=(const ProtocolVersion& val1, const ProtocolVersion& val2);
-
-        private:
-            /** Set of supported versions. */
-            const static VersionSet supported;
-
-            /** Major part. */
-            int16_t vmajor;
-
-            /** Minor part. */
-            int16_t vminor;
-
-            /** Maintenance part. */
-            int16_t vmaintenance;
-        };
-    }
-}
-
-#endif //_IGNITE_ODBC_PROTOCOL_VERSION
+} // namespace ignite

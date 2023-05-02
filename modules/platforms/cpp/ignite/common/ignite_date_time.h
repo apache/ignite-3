@@ -57,7 +57,7 @@ public:
     [[nodiscard]] constexpr const ignite_time &time() const noexcept { return *this; }
 
     /**
-     * Compare to another value.
+     * compare to another value.
      *
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
