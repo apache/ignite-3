@@ -188,7 +188,8 @@ public class MetricsTests
         new()
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),
-            SocketTimeout = TimeSpan.FromMilliseconds(50)
+            SocketTimeout = TimeSpan.FromMilliseconds(50),
+            RetryPolicy = new RetryNonePolicy()
         };
 
     private sealed class Listener : IDisposable
