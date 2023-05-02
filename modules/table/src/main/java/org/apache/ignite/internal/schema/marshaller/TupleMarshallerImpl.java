@@ -29,7 +29,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
@@ -343,32 +342,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
      */
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
-        for (var col : schema.keyColumns().columns()) {
-            if (binaryTupleRebuildRequired(col)) {
-                return true;
-            }
-        }
-
-        for (var col : schema.valueColumns().columns()) {
-            if (binaryTupleRebuildRequired(col)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Determines whether binary tuple rebuild is required if the given column is present in the schema.
-     *
-     * @param col Column.
-     * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
-     */
-    private static boolean binaryTupleRebuildRequired(Column col) {
-        // Time-based columns require normalization according to the specified precision.
-        return col.type().spec() == NativeTypeSpec.DATETIME
-                || col.type().spec() == NativeTypeSpec.TIME
-                || col.type().spec() == NativeTypeSpec.TIMESTAMP;
+        // Temporal columns require normalization according to the specified precision.
+        return schema.hasTemporalColumns();
     }
 
     /**
