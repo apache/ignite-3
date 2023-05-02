@@ -80,6 +80,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -189,7 +190,9 @@ public class PartitionCommandListenerTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
-                dsCfg
+                dsCfg,
+                safeTimeTracker,
+                mock(LowWatermark.class)
         ));
 
         commandListener = new PartitionListener(
@@ -283,14 +286,16 @@ public class PartitionCommandListenerTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
-                dsCfg
+                dsCfg,
+                safeTimeTracker,
+                mock(LowWatermark.class)
         );
 
         PartitionListener testCommandListener = new PartitionListener(
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L)
         );
 

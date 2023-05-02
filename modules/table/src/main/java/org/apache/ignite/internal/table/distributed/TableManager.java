@@ -742,7 +742,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     storage,
                                     table.indexStorageAdapters(partId),
-                                    dsCfg
+                                    dsCfg,
+                                    safeTimeTracker,
+                                    lowWatermark
                             );
 
                             mvGc.addStorage(replicaGrpId, storageUpdateHandler);
@@ -2063,7 +2065,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 partId,
                                 partitionDataStorage,
                                 tbl.indexStorageAdapters(partId),
-                                dstZoneCfg.dataStorage()
+                                dstZoneCfg.dataStorage(),
+                                safeTimeTracker,
+                                lowWatermark
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
