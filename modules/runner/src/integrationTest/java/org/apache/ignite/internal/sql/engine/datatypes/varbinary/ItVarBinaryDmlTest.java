@@ -53,6 +53,18 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
                 .check();
     }
 
+    /** {@code INSERT} a HEX literal. */
+    @Test
+    public void testInsertHexLiteral() {
+        byte[] value = {(byte) 0xAA, (byte) 0xBB, (byte) 0xCC};
+
+        runSql("INSERT INTO t VALUES (1, x'AABBCC')");
+
+        checkQuery("SELECT test_key FROM t WHERE id = 1")
+                .returns(VarBinary.fromBytes(value))
+                .check();
+    }
+
     /** {@inheritDoc} */
     @Override
     protected DataTypeTestSpec<VarBinary> getTypeSpec() {
