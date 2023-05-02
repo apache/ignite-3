@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.direct.DirectPropertiesTest;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -77,16 +78,25 @@ public class InternalIdTest {
     public static class InternalIdFooConfigurationSchema extends InternalIdPolymorphicConfigurationSchema {
     }
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(InternalIdParentConfiguration.KEY),
-            Set.of(),
-            new TestConfigurationStorage(LOCAL),
-            List.of(InternalIdInternalConfigurationSchema.class),
-            List.of(InternalIdFooConfigurationSchema.class)
-    );
+    private ConfigurationRegistry registry;
+
+    private ConfigurationTreeGenerator generator;
 
     @BeforeEach
     void setUp() {
+        generator = new ConfigurationTreeGenerator(
+                List.of(InternalIdParentConfiguration.KEY),
+                List.of(InternalIdInternalConfigurationSchema.class),
+                List.of(InternalIdFooConfigurationSchema.class)
+        );
+
+        registry = new ConfigurationRegistry(
+                List.of(InternalIdParentConfiguration.KEY),
+                Set.of(),
+                new TestConfigurationStorage(LOCAL),
+                generator
+        );
+
         registry.start();
 
         registry.initializeDefaults();
@@ -95,6 +105,8 @@ public class InternalIdTest {
     @AfterEach
     void tearDown() throws Exception {
         registry.stop();
+
+        generator.close();
     }
 
     /**

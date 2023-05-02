@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -43,6 +42,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,11 +57,13 @@ public class StorageUpdateHandler {
 
     private final TableIndexStoragesSupplier indexes;
 
-    /** Last recorded GC low watermark. */
-    private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
-
-    /** Data storage configuration. */
     private final DataStorageConfiguration dsCfg;
+
+    /** Partition safe time tracker. */
+    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
+
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
 
     /**
      * The constructor.
@@ -70,17 +72,22 @@ public class StorageUpdateHandler {
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
      * @param dsCfg Data storage configuration.
+     * @param safeTimeTracker Partition safe time tracker.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
             TableIndexStoragesSupplier indexes,
-            DataStorageConfiguration dsCfg
+            DataStorageConfiguration dsCfg,
+            PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker,
+            LowWatermark lowWatermark
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
         this.dsCfg = dsCfg;
+        this.safeTimeTracker = safeTimeTracker;
+        this.lowWatermark = lowWatermark;
     }
 
     /**
@@ -106,28 +113,6 @@ public class StorageUpdateHandler {
             @Nullable ByteBuffer rowBuffer,
             @Nullable Consumer<RowId> onReplication
     ) {
-        handleUpdate(txId, rowUuid, commitPartitionId, rowBuffer, onReplication, null);
-    }
-
-    /**
-     * Handles single update.
-     *
-     * @param txId Transaction id.
-     * @param rowUuid Row UUID.
-     * @param commitPartitionId Commit partition id.
-     * @param rowBuffer Row buffer.
-     * @param onReplication Callback on replication.
-     * @param lowWatermark GC low watermark.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
-    public void handleUpdate(
-            UUID txId,
-            UUID rowUuid,
-            TablePartitionId commitPartitionId,
-            @Nullable ByteBuffer rowBuffer,
-            @Nullable Consumer<RowId> onReplication,
-            @Nullable HybridTimestamp lowWatermark
-    ) {
         storage.runConsistently(locker -> {
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
@@ -152,11 +137,11 @@ public class StorageUpdateHandler {
             return null;
         });
 
-        executeBatchGc(lowWatermark);
+        executeBatchGc();
     }
 
     /**
-     * Handles multiple updates.
+     * Handle multiple updates.
      *
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
@@ -168,26 +153,6 @@ public class StorageUpdateHandler {
             Map<UUID, ByteBuffer> rowsToUpdate,
             TablePartitionId commitPartitionId,
             @Nullable Consumer<Collection<RowId>> onReplication
-    ) {
-        handleUpdateAll(txId, rowsToUpdate, commitPartitionId, onReplication, null);
-    }
-
-    /**
-     * Handle multiple updates.
-     *
-     * @param txId Transaction id.
-     * @param rowsToUpdate Collection of rows to update.
-     * @param commitPartitionId Commit partition id.
-     * @param onReplication On replication callback.
-     * @param lowWatermark GC low watermark.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
-    public void handleUpdateAll(
-            UUID txId,
-            Map<UUID, ByteBuffer> rowsToUpdate,
-            TablePartitionId commitPartitionId,
-            @Nullable Consumer<Collection<RowId>> onReplication,
-            @Nullable HybridTimestamp lowWatermark
     ) {
         storage.runConsistently(locker -> {
             UUID commitTblId = commitPartitionId.tableId();
@@ -224,29 +189,17 @@ public class StorageUpdateHandler {
             return null;
         });
 
-        executeBatchGc(lowWatermark);
+        executeBatchGc();
     }
 
-    private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
-        if (newLwm == null) {
+    void executeBatchGc() {
+        HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+        if (lwm == null || safeTimeTracker.current().compareTo(lwm) < 0) {
             return;
         }
 
-        @Nullable HybridTimestamp oldLwm;
-        do {
-            oldLwm = lastRecordedLwm.get();
-
-            if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
-                break;
-            }
-        } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
-
-        if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
-            // Iff the lwm we have is the new lwm.
-            // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
-            // concurrently and it become greater. If that's the case, another thread will perform the GC.
-            vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
-        }
+        vacuumBatch(lwm, dsCfg.gcOnUpdateBatchSize().value());
     }
 
     /**
@@ -464,5 +417,12 @@ public class StorageUpdateHandler {
         assert lastRowId != null || finish : "indexId=" + indexId + ", partitionId=" + partitionId;
 
         index.storage().setNextRowIdToBuild(finish ? null : lastRowId.increment());
+    }
+
+    /**
+     * Returns the partition safe time tracker.
+     */
+    public PendingComparableValuesTracker<HybridTimestamp> getSafeTimeTracker() {
+        return safeTimeTracker;
     }
 }

@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -237,7 +238,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void nodeReturnedToPhysicalTopologyReturnsToLogicalTopology() throws Exception {
+    void nodeReturnedToPhysicalTopologyDoesNotReturnToLogicalTopology() throws Exception {
         IgniteImpl entryNode = node(0);
 
         IgniteImpl secondIgnite = startNode(1);
@@ -257,7 +258,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         entryNode.stopDroppingMessages();
 
-        assertTrue(secondIgniteAppeared.await(10, TimeUnit.SECONDS), "Did not see second node coming back in time");
+        assertFalse(secondIgniteAppeared.await(3, TimeUnit.SECONDS), "Second node returned to logical topology");
     }
 
     private static void makeSecondNodeDisappearForFirstNode(IgniteImpl firstIgnite, IgniteImpl secondIgnite) throws InterruptedException {
@@ -334,6 +335,26 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             // Stop the second node manually, because it couldn't start successfully.
             IgnitionManager.stop(testNodeName(testInfo, 1));
         }
+    }
+
+    @Test
+    void nodeLeavesLogicalTopologyOnStop() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        stopNode(1);
+
+        Event leaveEvent = events.poll(10, TimeUnit.SECONDS);
+
+        assertThat(events, is(empty()));
+
+        assertThat(leaveEvent, is(notNullValue()));
+
+        assertThat(leaveEvent.eventType, is(EventType.LEFT));
+        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
     }
 
     private static void setInfiniteClusterFailoverTimeout(IgniteImpl node) throws Exception {

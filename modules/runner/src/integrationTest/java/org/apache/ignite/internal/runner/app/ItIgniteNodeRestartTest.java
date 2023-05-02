@@ -70,6 +70,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
@@ -88,6 +89,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -118,7 +120,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -261,12 +262,18 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         } catch (IOException e) {
             throw new NodeConfigWriteException("Failed to write config content to file.", e);
         }
+
+        var generator = new ConfigurationTreeGenerator(
+                modules.local().rootKeys(),
+                modules.local().internalSchemaExtensions(),
+                modules.local().polymorphicSchemaExtensions()
+        );
+
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configFile),
-                modules.local().internalSchemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                new LocalFileConfigurationStorage(configFile, generator),
+                generator
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
@@ -277,7 +284,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
-                defaultSerializationRegistry()
+                defaultSerializationRegistry(),
+                new VaultStateIds(vault)
         );
 
         HybridClock hybridClock = new HybridClockImpl();
@@ -432,12 +440,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         vault.putName(name).join();
 
         nodeCfgMgr.start();
-
-        try {
-            nodeCfgMgr.bootstrap(configFile);
-        } catch (Exception e) {
-            throw new IgniteException("Unable to parse user-specific configuration.", e);
-        }
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(

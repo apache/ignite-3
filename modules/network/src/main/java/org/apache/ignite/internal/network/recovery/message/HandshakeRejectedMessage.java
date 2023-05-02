@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.network.recovery.message;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.NetworkMessage;
+import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_REJECTED;
+
 import org.apache.ignite.network.annotations.Transferable;
 
-/** Message with a {@link HybridTimestamp}. */
-@Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+/**
+ * Handshake rejected message, contains the reason for a rejection.
+ * This message is sent from a server to a client or wise versa.
+ * After this message is received it makes no sense to retry connections with same node identity (launch ID must be changed
+ * to make a retry).
+ */
+@Transferable(HANDSHAKE_REJECTED)
+public interface HandshakeRejectedMessage extends InternalMessage {
     /**
-     * Returns physical time.
+     * Returns rejection reason.
+     *
+     * @return Reason of the rejection.
      */
-    long physical();
-
-    /**
-     * Returns logical time.
-     */
-    int logical();
-
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
-    }
+    String reason();
 }

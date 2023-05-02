@@ -356,6 +356,7 @@ paths:
               required:
               - unitContent
               - unitId
+              - unitVersion
               type: object
               properties:
                 unitId:
@@ -413,39 +414,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UnitStatus'
-        "500":
-          description: Internal error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units/{unitId}:
-    delete:
-      tags:
-      - deployment
-      summary: Undeploy latest unit REST method.
-      description: Undeploys the latest unit with the provided unitId.
-      operationId: undeployLatestUnit
-      parameters:
-      - name: unitId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: The ID of the deployment unit.
-      responses:
-        "200":
-          description: Unit undeployed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Void'
-        "404":
-          description: Unit with provided identifier and version does not exist.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
         "500":
           description: Internal error.
           content:
