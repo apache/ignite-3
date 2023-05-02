@@ -476,7 +476,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                 this.sessionId = null;
 
-                cleaner.clean(sessionId);
+                if (sessionId != null) {
+                    cleaner.clean(sessionId);
+                }
             }
         }
 

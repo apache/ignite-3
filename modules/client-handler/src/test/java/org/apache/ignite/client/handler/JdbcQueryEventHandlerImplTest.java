@@ -281,6 +281,15 @@ class JdbcQueryEventHandlerImplTest {
         verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any());
     }
 
+    @Test
+    public void contextClosedBeforeSessionCreated() {
+        acquireConnectionId();
+
+        resourceRegistry.close();
+
+        verify(queryProcessor, times(0)).closeSession(null);
+    }
+
     private long acquireConnectionId() {
         JdbcConnectResult result = await(eventHandler.connect());
 
