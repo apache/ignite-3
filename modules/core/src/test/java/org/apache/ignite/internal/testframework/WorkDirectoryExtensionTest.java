@@ -380,7 +380,7 @@ class WorkDirectoryExtensionTest {
     /**
      * Tests {@code WorkDirectoryExtension} lifecycle works correctly on a test class with all test methods being disabled.
      *
-     * @see <a href="https://issues.apache.org/jira/browse/IGNITE_15799">IGNITE_15799</a>
+     * @see <a href="https://issues.apache.org/jira/browse/IGNITE-15799">IGNITE-15799</a>
      */
     @Test
     void testEmptyClass() {
