@@ -68,8 +68,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             SchemaDescriptor schema = schemaReg.schema();
 
             if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
-                SchemaDescriptor tupleSchema = ((SchemaAware)tuple).schema();
-                BinaryTupleReader tupleReader = ((BinaryTupleContainer)tuple).binaryTuple();
+                SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
+                BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
 
                 if (tupleSchema != null
                         && tupleReader != null
