@@ -174,12 +174,12 @@ public class Lease implements Serializable {
 
     @Override
     public String toString() {
-        return "Lease{" +
-                "leaseholder=" + leaseholder +
-                ", accepted=" + accepted +
-                ", startTime=" + startTime +
-                ", expirationTime=" + expirationTime +
-                ", prolong=" + prolong +
-                '}';
+        return "Lease{"
+                + "leaseholder=" + leaseholder
+                + ", accepted=" + accepted
+                + ", startTime=" + startTime
+                + ", expirationTime=" + expirationTime
+                + ", prolong=" + prolong
+                + '}';
     }
 }
