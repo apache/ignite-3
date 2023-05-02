@@ -824,7 +824,7 @@ connection_info::connection_info(const configuration& config) : config(config)
     //    associated with a given connection handle are in asynchronous mode or all are in synchronous mode.
     //    A statement handle on a connection cannot be in asynchronous mode while another statement handle
     //    on the same connection is in synchronous mode, and vice versa.
-    // SQL_AM_STATEMENT = Statement level asynchronous execution is supported.Some statement handles
+    // SQL_AM_STATEMENT = statement level asynchronous execution is supported.Some statement handles
     //    associated with a connection handle can be in asynchronous mode, while other statement handles on
     //    the same connection are in synchronous mode.
     // SQL_AM_NONE = Asynchronous mode is not supported.

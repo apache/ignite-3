@@ -320,7 +320,7 @@ enum class response_status
     /** Required table does not have a descriptor set. */
     NULL_TABLE_DESCRIPTOR = 3002,
 
-    /** Statement type does not match that declared by JDBC driver. */
+    /** statement type does not match that declared by JDBC driver. */
     STMT_TYPE_MISMATCH = 3003,
 
     /** DROP TABLE failed. */

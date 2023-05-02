@@ -50,7 +50,7 @@ void parameter::write(protocol::writer& writer, int offset, SQLULEN idx) const
         case SQL_VARCHAR:
         case SQL_LONGVARCHAR:
         {
-            WriteString(writer, buf.get_string(m_column_size));
+            writer.write(buf.get_string(m_column_size));
             break;
         }
 
@@ -149,7 +149,8 @@ void parameter::write(protocol::writer& writer, int offset, SQLULEN idx) const
             big_decimal dec;
             buf.get_decimal(dec);
 
-            WriteDecimal(writer, dec);
+            // TODO: IGNITE-19205 Implement proper parameter data writing.
+            //writer.write(dec);
 
             break;
         }

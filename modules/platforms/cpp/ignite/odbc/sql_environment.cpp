@@ -15,51 +15,48 @@
  * limitations under the License.
  */
 
-#include <cstdlib>
-
-#include "connection.h"
-#include "environment.h"
-#include "ignite/odbc/system/odbc_constants.h"
+#include "ignite/odbc/sql_connection.h"
+#include "ignite/odbc/sql_environment.h"
 
 namespace ignite
 {
 
-connection* environment::create_connection()
+sql_connection *sql_environment::create_connection()
 {
-    connection* connection;
+    sql_connection * connection;
 
     IGNITE_ODBC_API_CALL(internal_create_connection(connection));
 
     return connection;
 }
 
-void environment::deregister_connection(connection* conn)
+void sql_environment::deregister_connection(sql_connection * conn)
 {
     m_connections.erase(conn);
 }
 
-sql_result environment::internal_create_connection(connection*& connection)
+sql_result sql_environment::internal_create_connection(sql_connection *& conn)
 {
-    connection = new connection(this);
+    conn = new sql_connection(this);
 
-    if (!connection)
+    if (!conn)
     {
         add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 
         return sql_result::AI_ERROR;
     }
 
-    m_connections.insert(connection);
+    m_connections.insert(conn);
 
     return sql_result::AI_SUCCESS;
 }
 
-void environment::transaction_commit()
+void sql_environment::transaction_commit()
 {
     IGNITE_ODBC_API_CALL(internal_transaction_commit());
 }
 
-sql_result environment::internal_transaction_commit()
+sql_result sql_environment::internal_transaction_commit()
 {
     sql_result res = sql_result::AI_SUCCESS;
 
@@ -79,12 +76,12 @@ sql_result environment::internal_transaction_commit()
     return res;
 }
 
-void environment::transaction_rollback()
+void sql_environment::transaction_rollback()
 {
     IGNITE_ODBC_API_CALL(internal_transaction_rollback());
 }
 
-sql_result environment::internal_transaction_rollback()
+sql_result sql_environment::internal_transaction_rollback()
 {
     sql_result res = sql_result::AI_SUCCESS;
 
@@ -104,12 +101,12 @@ sql_result environment::internal_transaction_rollback()
     return res;
 }
 
-void environment::set_attribute(int32_t attr, void* value, int32_t len)
+void sql_environment::set_attribute(int32_t attr, void* value, int32_t len)
 {
     IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, len));
 }
 
-sql_result environment::internal_set_attribute(int32_t attr, void* value, int32_t len)
+sql_result sql_environment::internal_set_attribute(int32_t attr, void* value, int32_t len)
 {
     UNUSED_VALUE(len);
 
@@ -158,12 +155,12 @@ sql_result environment::internal_set_attribute(int32_t attr, void* value, int32_
     return sql_result::AI_ERROR;
 }
 
-void environment::get_attribute(int32_t attr, application_data_buffer& buffer)
+void sql_environment::get_attribute(int32_t attr, application_data_buffer& buffer)
 {
     IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buffer));
 }
 
-sql_result environment::internal_get_attribute(int32_t attr, application_data_buffer& buffer)
+sql_result sql_environment::internal_get_attribute(int32_t attr, application_data_buffer& buffer)
 {
     environment_attribute attribute = environment_attribute_to_internal(attr);
 

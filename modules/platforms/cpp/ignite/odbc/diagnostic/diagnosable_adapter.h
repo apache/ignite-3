@@ -19,19 +19,18 @@
 
 #include "ignite/odbc/diagnostic/diagnosable.h"
 
-#define IGNITE_ODBC_API_CALL(...)                   \
-        m_diagnostic_records.reset();                  \
-        sql_result result = (__VA_ARGS__);          \
+#define IGNITE_ODBC_API_CALL(...)                       \
+        m_diagnostic_records.reset();                   \
+        sql_result result = (__VA_ARGS__);              \
         m_diagnostic_records.set_header_record(result)
 
-#define IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS                     \
-        m_diagnostic_records.reset();                              \
+#define IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS                             \
+        m_diagnostic_records.reset();                                   \
         m_diagnostic_records.set_header_record(sql_result::AI_SUCCESS)
 
 namespace ignite
 {
 class odbc_error;
-class connection;
 
 /**
  * Diagnosable interface.
@@ -39,13 +38,8 @@ class connection;
 class diagnosable_adapter : public diagnosable
 {
 public:
-    /**
-     * Constructor.
-     *
-     * @param connection Pointer to connection. Used to create diagnostic records with connection info.
-     */
-    explicit diagnosable_adapter(const connection* connection = nullptr)
-        : m_connection(connection) { }
+    // Default
+    diagnosable_adapter() = default;
 
     /**
      * Get diagnostic record.
@@ -110,10 +104,6 @@ public:
 protected:
     /** Diagnostic records. */
     diagnostic_record_storage m_diagnostic_records;
-
-private:
-    /** Connection. */
-    const connection *m_connection;
 };
 
 } // namespace ignite

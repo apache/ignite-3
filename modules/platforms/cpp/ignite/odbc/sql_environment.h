@@ -22,39 +22,39 @@
 #include <set>
 
 namespace ignite {
-class connection;
+class sql_connection;
 
 /**
  * ODBC environment.
  */
-class environment : public diagnosable_adapter
+class sql_environment : public diagnosable_adapter
 {
 public:
     /** Connection set type. */
-    typedef std::set<connection*> connection_set;
+    typedef std::set<sql_connection *> connection_set;
 
     // Delete
-    environment(environment &&) = delete;
-    environment(const environment &) = delete;
-    environment &operator=(environment &&) = delete;
-    environment &operator=(const environment &) = delete;
+    sql_environment(sql_environment &&) = delete;
+    sql_environment(const sql_environment &) = delete;
+    sql_environment &operator=(sql_environment &&) = delete;
+    sql_environment &operator=(const sql_environment &) = delete;
 
     // Default
-    environment() = default;
+    sql_environment() = default;
 
     /**
      * Create connection associated with the environment.
      *
      * @return Pointer to valid instance on success or NULL on failure.
      */
-    connection* create_connection();
+    sql_connection * create_connection();
 
     /**
      * Deregister connection.
      *
      * @param conn Connection to deregister.
      */
-    void deregister_connection(connection* conn);
+    void deregister_connection(sql_connection * conn);
 
     /**
      * Perform transaction commit on all the associated connections.
@@ -92,7 +92,7 @@ private:
      * @return Pointer to valid instance on success or NULL on failure.
      * @return Operation result.
      */
-    sql_result internal_create_connection(connection*& connection);
+    sql_result internal_create_connection(sql_connection *& connection);
 
     /**
      * Perform transaction commit on all the associated connections.

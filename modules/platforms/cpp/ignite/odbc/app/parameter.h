@@ -27,7 +27,7 @@
 namespace ignite {
 
 /**
- * Statement parameter.
+ * statement parameter.
  */
 class parameter
 {

@@ -21,6 +21,7 @@
 
 #include <array>
 #include <climits>
+#include <cassert>
 #include <type_traits>
 
 /**

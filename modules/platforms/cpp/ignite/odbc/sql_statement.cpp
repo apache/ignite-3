@@ -17,32 +17,19 @@
 
 #include <limits>
 
-#include "connection.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "log.h"
 #include "message.h"
 #include "odbc_error.h"
-#include "query/batch_query.h"
-#include "query/column_metadata_query.h"
-#include "query/data_query.h"
-#include "query/foreign_keys_query.h"
-#include "query/internal_query.h"
-#include "query/primary_keys_query.h"
-#include "query/special_columns_query.h"
-#include "query/streaming_query.h"
-#include "query/table_metadata_query.h"
-#include "query/type_info_query.h"
-#include "sql/sql_parser.h"
-#include "sql/sql_set_streaming_command.h"
-#include "sql/sql_utils.h"
-#include "statement.h"
+#include "sql_connection.h"
+#include "sql_statement.h"
 #include "utility.h"
 
 namespace ignite
 {
     namespace odbc
     {
-        Statement::Statement(connection& parent) :
+    sql_statement::sql_statement(connection& parent) :
             connection(parent),
             column_bindings(),
             currentQuery(),
@@ -56,17 +43,17 @@ namespace ignite
             // No-op.
         }
 
-        Statement::~Statement()
+        sql_statement::~sql_statement()
         {
             // No-op.
         }
 
-        void Statement::BindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
+        void sql_statement::BindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
         {
             IGNITE_ODBC_API_CALL(InternalBindColumn(column_idx, targetType, targetValue, bufferLength, strLengthOrIndicator));
         }
 
-        sql_result Statement::InternalBindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
+        sql_result sql_statement::InternalBindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
         {
             using namespace type_traits;
             odbc_native_type driverType = to_driver_type(targetType);
@@ -98,32 +85,32 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::SafeBindColumn(uint16_t column_idx, const application_data_buffer& buffer)
+        void sql_statement::SafeBindColumn(uint16_t column_idx, const application_data_buffer& buffer)
         {
             column_bindings[column_idx] = buffer;
         }
 
-        void Statement::SafeUnbindColumn(uint16_t column_idx)
+        void sql_statement::SafeUnbindColumn(uint16_t column_idx)
         {
             column_bindings.erase(column_idx);
         }
 
-        void Statement::SafeUnbindAllColumns()
+        void sql_statement::SafeUnbindAllColumns()
         {
             column_bindings.clear();
         }
 
-        void Statement::SetColumnBindOffsetPtr(int * ptr)
+        void sql_statement::SetColumnBindOffsetPtr(int * ptr)
         {
             columnBindOffset = ptr;
         }
 
-        int* Statement::GetColumnBindOffsetPtr()
+        int*sql_statement::GetColumnBindOffsetPtr()
         {
             return columnBindOffset;
         }
 
-        int32_t Statement::get_column_number()
+        int32_t sql_statement::get_column_number()
         {
             int32_t res;
 
@@ -132,7 +119,7 @@ namespace ignite
             return res;
         }
 
-        sql_result Statement::InternalGetColumnNumber(int32_t &res)
+        sql_result sql_statement::InternalGetColumnNumber(int32_t &res)
         {
             const column_meta_vector* meta = get_meta();
 
@@ -144,14 +131,14 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::bind_parameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
+        void sql_statement::bind_parameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
             SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen)
         {
             IGNITE_ODBC_API_CALL(InternalBindParameter(paramIdx, ioType, bufferType, paramSqlType, columnSize,
                 decDigits, buffer, bufferLen, resLen));
         }
 
-        sql_result Statement::InternalBindParameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType,
+        sql_result sql_statement::InternalBindParameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType,
             int16_t paramSqlType, SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen)
         {
             using namespace type_traits;
@@ -219,12 +206,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::set_attribute(int attr, void* value, SQLINTEGER valueLen)
+        void sql_statement::set_attribute(int attr, void* value, SQLINTEGER valueLen)
         {
             IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, valueLen));
         }
 
-        sql_result Statement::internal_set_attribute(int attr, void* value, SQLINTEGER)
+        sql_result sql_statement::internal_set_attribute(int attr, void* value, SQLINTEGER)
         {
             switch (attr)
             {
@@ -337,15 +324,15 @@ namespace ignite
 
                 case SQL_ATTR_QUERY_TIMEOUT:
                 {
-                    SQLULEN uTimeout = reinterpret_cast<SQLULEN>(value);
+                    SQLULEN u_timeout = reinterpret_cast<SQLULEN>(value);
 
-                    if (uTimeout > INT32_MAX)
+                    if (u_timeout > INT32_MAX)
                     {
                         timeout = INT32_MAX;
 
                         std::stringstream ss;
 
-                        ss << "Value is too big: " << uTimeout << ", changing to " << timeout << ".";
+                        ss << "Value is too big: " << u_timeout << ", changing to " << timeout << ".";
                         std::string msg = ss.str();
 
                         add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, msg);
@@ -353,7 +340,7 @@ namespace ignite
                         return sql_result::AI_SUCCESS_WITH_INFO;
                     }
 
-                    timeout = static_cast<int32_t>(uTimeout);
+                    timeout = static_cast<int32_t>(u_timeout);
 
                     break;
                 }
@@ -370,12 +357,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
+        void sql_statement::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
         {
             IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, bufLen, valueLen));
         }
 
-        sql_result Statement::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
+        sql_result sql_statement::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
         {
             if (!buf)
             {
@@ -517,9 +504,9 @@ namespace ignite
 
                 case SQL_ATTR_QUERY_TIMEOUT:
                 {
-                    SQLULEN *uTimeout = reinterpret_cast<SQLULEN*>(buf);
+                    SQLULEN *u_timeout = reinterpret_cast<SQLULEN*>(buf);
 
-                    *uTimeout = static_cast<SQLULEN>(timeout);
+                    *u_timeout = static_cast<SQLULEN>(timeout);
 
                     break;
                 }
@@ -536,12 +523,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::get_parameters_number(uint16_t& paramNum)
+        void sql_statement::get_parameters_number(uint16_t& paramNum)
         {
             IGNITE_ODBC_API_CALL(InternalGetParametersNumber(paramNum));
         }
 
-        sql_result Statement::InternalGetParametersNumber(uint16_t& paramNum)
+        sql_result sql_statement::InternalGetParametersNumber(uint16_t& paramNum)
         {
             if (!currentQuery.get())
             {
@@ -570,19 +557,19 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::set_param_bind_offset_ptr(int* ptr)
+        void sql_statement::set_param_bind_offset_ptr(int* ptr)
         {
             IGNITE_ODBC_API_CALL_ALWAYS_SUCCESS;
 
             m_parameters.set_param_bind_offset_ptr(ptr);
         }
 
-        void Statement::GetColumnData(uint16_t column_idx, application_data_buffer& buffer)
+        void sql_statement::GetColumnData(uint16_t column_idx, application_data_buffer& buffer)
         {
             IGNITE_ODBC_API_CALL(InternalGetColumnData(column_idx, buffer));
         }
 
-        sql_result Statement::InternalGetColumnData(uint16_t column_idx,
+        sql_result sql_statement::InternalGetColumnData(uint16_t column_idx,
             application_data_buffer& buffer)
         {
             if (!currentQuery.get())
@@ -598,12 +585,12 @@ namespace ignite
             return res;
         }
 
-        void Statement::PrepareSqlQuery(const std::string& query)
+        void sql_statement::PrepareSqlQuery(const std::string& query)
         {
             IGNITE_ODBC_API_CALL(InternalPrepareSqlQuery(query));
         }
 
-        sql_result Statement::ProcessInternalCommand(const std::string& query)
+        sql_result sql_statement::ProcessInternalCommand(const std::string& query)
         {
             try
             {
@@ -627,12 +614,12 @@ namespace ignite
             }
         }
 
-        bool Statement::IsStreamingActive() const
+        bool sql_statement::IsStreamingActive() const
         {
             return connection.GetStreamingContext().is_enabled();
         }
 
-        sql_result Statement::InternalPrepareSqlQuery(const std::string& query)
+        sql_result sql_statement::InternalPrepareSqlQuery(const std::string& query)
         {
             if (sql_utils::IsInternalCommand(query))
                 return ProcessInternalCommand(query);
@@ -660,12 +647,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::ExecuteSqlQuery(const std::string& query)
+        void sql_statement::ExecuteSqlQuery(const std::string& query)
         {
             IGNITE_ODBC_API_CALL(InternalExecuteSqlQuery(query));
         }
 
-        sql_result Statement::InternalExecuteSqlQuery(const std::string& query)
+        sql_result sql_statement::InternalExecuteSqlQuery(const std::string& query)
         {
             sql_result result = InternalPrepareSqlQuery(query);
 
@@ -675,12 +662,12 @@ namespace ignite
             return InternalExecuteSqlQuery();
         }
 
-        void Statement::ExecuteSqlQuery()
+        void sql_statement::ExecuteSqlQuery()
         {
             IGNITE_ODBC_API_CALL(InternalExecuteSqlQuery());
         }
 
-        sql_result Statement::InternalExecuteSqlQuery()
+        sql_result sql_statement::InternalExecuteSqlQuery()
         {
             if (!currentQuery.get())
             {
@@ -734,7 +721,7 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        sql_result Statement::ProcessInternalQuery()
+        sql_result sql_statement::ProcessInternalQuery()
         {
             assert(currentQuery->get_type() == query::query_type::INTERNAL);
 
@@ -771,13 +758,13 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::ExecuteGetColumnsMetaQuery(const std::string& schema,
+        void sql_statement::ExecuteGetColumnsMetaQuery(const std::string& schema,
             const std::string& table, const std::string& column)
         {
             IGNITE_ODBC_API_CALL(InternalExecuteGetColumnsMetaQuery(schema, table, column));
         }
 
-        sql_result Statement::InternalExecuteGetColumnsMetaQuery(const std::string& schema,
+        sql_result sql_statement::InternalExecuteGetColumnsMetaQuery(const std::string& schema,
             const std::string& table, const std::string& column)
         {
             if (currentQuery.get())
@@ -786,7 +773,7 @@ namespace ignite
             std::string schema0(schema);
 
             if (schema0.empty())
-                schema0 = connection.GetSchema();
+                schema0 = connection.get_schema();
 
             currentQuery.reset(new query::ColumnMetadataQuery(*this,
                 connection, schema, table, column));
@@ -794,14 +781,14 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        void Statement::ExecuteGetTablesMetaQuery(const std::string& catalog,
+        void sql_statement::ExecuteGetTablesMetaQuery(const std::string& catalog,
             const std::string& schema, const std::string& table, const std::string& tableType)
         {
             IGNITE_ODBC_API_CALL(InternalExecuteGetTablesMetaQuery(
                 catalog, schema, table, tableType));
         }
 
-        sql_result Statement::InternalExecuteGetTablesMetaQuery(const std::string& catalog,
+        sql_result sql_statement::InternalExecuteGetTablesMetaQuery(const std::string& catalog,
             const std::string& schema, const std::string& table, const std::string& tableType)
         {
             if (currentQuery.get())
@@ -813,7 +800,7 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        void Statement::ExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
+        void sql_statement::ExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
             const std::string& primarySchema, const std::string& primaryTable,
             const std::string& foreignCatalog, const std::string& foreignSchema,
             const std::string& foreignTable)
@@ -822,7 +809,7 @@ namespace ignite
                 primarySchema, primaryTable, foreignCatalog, foreignSchema, foreignTable));
         }
 
-        sql_result Statement::InternalExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
+        sql_result sql_statement::InternalExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
             const std::string& primarySchema, const std::string& primaryTable,
             const std::string& foreignCatalog, const std::string& foreignSchema,
             const std::string& foreignTable)
@@ -836,13 +823,13 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        void Statement::ExecuteGetPrimaryKeysQuery(const std::string& catalog,
+        void sql_statement::ExecuteGetPrimaryKeysQuery(const std::string& catalog,
             const std::string& schema, const std::string& table)
         {
             IGNITE_ODBC_API_CALL(InternalExecuteGetPrimaryKeysQuery(catalog, schema, table));
         }
 
-        sql_result Statement::InternalExecuteGetPrimaryKeysQuery(const std::string& catalog,
+        sql_result sql_statement::InternalExecuteGetPrimaryKeysQuery(const std::string& catalog,
             const std::string& schema, const std::string& table)
         {
             if (currentQuery.get())
@@ -854,7 +841,7 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        void Statement::ExecuteSpecialColumnsQuery(int16_t type,
+        void sql_statement::ExecuteSpecialColumnsQuery(int16_t type,
             const std::string& catalog, const std::string& schema,
             const std::string& table, int16_t scope, int16_t nullable)
         {
@@ -862,7 +849,7 @@ namespace ignite
                 catalog, schema, table, scope, nullable));
         }
 
-        sql_result Statement::InternalExecuteSpecialColumnsQuery(int16_t type,
+        sql_result sql_statement::InternalExecuteSpecialColumnsQuery(int16_t type,
             const std::string& catalog, const std::string& schema,
             const std::string& table, int16_t scope, int16_t nullable)
         {
@@ -883,12 +870,12 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        void Statement::ExecuteGetTypeInfoQuery(int16_t sqlType)
+        void sql_statement::ExecuteGetTypeInfoQuery(int16_t sqlType)
         {
             IGNITE_ODBC_API_CALL(InternalExecuteGetTypeInfoQuery(sqlType));
         }
 
-        sql_result Statement::InternalExecuteGetTypeInfoQuery(int16_t sqlType)
+        sql_result sql_statement::InternalExecuteGetTypeInfoQuery(int16_t sqlType)
         {
             if (sqlType != SQL_ALL_TYPES && !is_sql_type_supported(sqlType))
             {
@@ -908,12 +895,12 @@ namespace ignite
             return currentQuery->execute();
         }
 
-        void Statement::FreeResources(int16_t option)
+        void sql_statement::FreeResources(int16_t option)
         {
             IGNITE_ODBC_API_CALL(InternalFreeResources(option));
         }
 
-        sql_result Statement::InternalFreeResources(int16_t option)
+        sql_result sql_statement::InternalFreeResources(int16_t option)
         {
             switch (option)
             {
@@ -952,12 +939,12 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::close()
+        void sql_statement::close()
         {
             IGNITE_ODBC_API_CALL(internal_close());
         }
 
-        sql_result Statement::internal_close()
+        sql_result sql_statement::internal_close()
         {
             if (!currentQuery.get())
                 return sql_result::AI_SUCCESS;
@@ -967,7 +954,7 @@ namespace ignite
             return result;
         }
 
-        sql_result Statement::StopStreaming()
+        sql_result sql_statement::StopStreaming()
         {
             if (!IsStreamingActive())
                 return sql_result::AI_SUCCESS;
@@ -979,12 +966,12 @@ namespace ignite
             return result;
         }
 
-        void Statement::FetchScroll(int16_t orientation, int64_t offset)
+        void sql_statement::FetchScroll(int16_t orientation, int64_t offset)
         {
             IGNITE_ODBC_API_CALL(InternalFetchScroll(orientation, offset));
         }
 
-        sql_result Statement::InternalFetchScroll(int16_t orientation, int64_t offset)
+        sql_result sql_statement::InternalFetchScroll(int16_t orientation, int64_t offset)
         {
             UNUSED_VALUE offset;
 
@@ -999,12 +986,12 @@ namespace ignite
             return InternalFetchRow();
         }
 
-        void Statement::FetchRow()
+        void sql_statement::FetchRow()
         {
             IGNITE_ODBC_API_CALL(InternalFetchRow());
         }
 
-        sql_result Statement::InternalFetchRow()
+        sql_result sql_statement::InternalFetchRow()
         {
             if (rowsFetched)
                 *rowsFetched = 0;
@@ -1050,7 +1037,7 @@ namespace ignite
             return errors == 0 ? sql_result::AI_NO_DATA : sql_result::AI_ERROR;
         }
 
-        const column_meta_vector* Statement::get_meta()
+        const column_meta_vector*sql_statement::get_meta()
         {
             if (!currentQuery.get())
             {
@@ -1062,17 +1049,17 @@ namespace ignite
             return currentQuery->get_meta();
         }
 
-        bool Statement::is_data_available() const
+        bool sql_statement::is_data_available() const
         {
             return currentQuery.get() && currentQuery->is_data_available();
         }
 
-        void Statement::MoreResults()
+        void sql_statement::MoreResults()
         {
             IGNITE_ODBC_API_CALL(InternalMoreResults());
         }
 
-        sql_result Statement::InternalMoreResults()
+        sql_result sql_statement::InternalMoreResults()
         {
             if (!currentQuery.get())
             {
@@ -1084,14 +1071,14 @@ namespace ignite
             return currentQuery->next_result_set();
         }
 
-        void Statement::GetColumnAttribute(uint16_t colIdx, uint16_t attrId,
+        void sql_statement::GetColumnAttribute(uint16_t colIdx, uint16_t attrId,
             char* strbuf, int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf)
         {
             IGNITE_ODBC_API_CALL(InternalGetColumnAttribute(colIdx, attrId,
                 strbuf, buffer_len, result_len, numbuf));
         }
 
-        sql_result Statement::InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
+        sql_result sql_statement::InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
             int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf)
         {
             const column_meta_vector *meta = get_meta();
@@ -1142,7 +1129,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        int64_t Statement::affected_rows()
+        int64_t sql_statement::affected_rows()
         {
             int64_t rowCnt = 0;
 
@@ -1151,7 +1138,7 @@ namespace ignite
             return rowCnt;
         }
 
-        sql_result Statement::InternalAffectedRows(int64_t& rowCnt)
+        sql_result sql_statement::InternalAffectedRows(int64_t& rowCnt)
         {
             if (!currentQuery.get())
             {
@@ -1165,32 +1152,32 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::SetRowsFetchedPtr(SQLINTEGER* ptr)
+        void sql_statement::SetRowsFetchedPtr(SQLINTEGER* ptr)
         {
             rowsFetched = ptr;
         }
 
-        SQLINTEGER* Statement::GetRowsFetchedPtr()
+        SQLINTEGER*sql_statement::GetRowsFetchedPtr()
         {
             return rowsFetched;
         }
 
-        void Statement::SetRowStatusesPtr(SQLUSMALLINT* ptr)
+        void sql_statement::SetRowStatusesPtr(SQLUSMALLINT* ptr)
         {
             rowStatuses = ptr;
         }
 
-        SQLUSMALLINT * Statement::GetRowStatusesPtr()
+        SQLUSMALLINT *sql_statement::GetRowStatusesPtr()
         {
             return rowStatuses;
         }
 
-        void Statement::SelectParam(void** paramPtr)
+        void sql_statement::SelectParam(void** paramPtr)
         {
             IGNITE_ODBC_API_CALL(InternalSelectParam(paramPtr));
         }
 
-        sql_result Statement::InternalSelectParam(void** paramPtr)
+        sql_result sql_statement::InternalSelectParam(void** paramPtr)
         {
             if (!paramPtr)
             {
@@ -1235,12 +1222,12 @@ namespace ignite
             return res;
         }
 
-        void Statement::put_data(void* data, SQLLEN len)
+        void sql_statement::put_data(void* data, SQLLEN len)
         {
             IGNITE_ODBC_API_CALL(InternalPutData(data, len));
         }
 
-        sql_result Statement::InternalPutData(void* data, SQLLEN len)
+        sql_result sql_statement::InternalPutData(void* data, SQLLEN len)
         {
             if (!data && len != 0 && len != SQL_DEFAULT_PARAM && len != SQL_NULL_DATA)
             {
@@ -1274,14 +1261,14 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::DescribeParam(int16_t paramNum, int16_t* data_type,
+        void sql_statement::DescribeParam(int16_t paramNum, int16_t* data_type,
             SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable)
         {
             IGNITE_ODBC_API_CALL(InternalDescribeParam(paramNum,
                 data_type, paramSize, decimalDigits, nullable));
         }
 
-        sql_result Statement::InternalDescribeParam(int16_t paramNum, int16_t* data_type,
+        sql_result sql_statement::InternalDescribeParam(int16_t paramNum, int16_t* data_type,
             SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable)
         {
             query::query *qry = currentQuery.get();
@@ -1328,7 +1315,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        sql_result Statement::UpdateParamsMeta()
+        sql_result sql_statement::UpdateParamsMeta()
         {
             query::query *qry0 = currentQuery.get();
 
@@ -1337,7 +1324,7 @@ namespace ignite
 
             query::data_query* qry = static_cast<query::data_query*>(qry0);
 
-            const std::string& schema = connection.GetSchema();
+            const std::string& schema = connection.get_schema();
             const std::string& sql = qry->get_sql();
 
             QueryGetParamsMetaRequest req(schema, sql);
@@ -1345,7 +1332,7 @@ namespace ignite
 
             try
             {
-                connection.SyncMessage(req, rsp);
+                connection.sync_message(req, rsp);
             }
             catch (const odbc_error& err)
             {
@@ -1379,7 +1366,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        uint16_t Statement::sql_resultToRowResult(sql_result value)
+        uint16_t sql_statement::sql_resultToRowResult(sql_result value)
         {
             switch (value)
             {

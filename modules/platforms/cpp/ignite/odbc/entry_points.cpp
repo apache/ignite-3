@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-#include <ignite/common/common.h>
-
+#include "log.h"
 #include "odbc.h"
 
-#include "log.h"
+#include "ignite/common/config.h"
 
-#include "utility.h"
+#ifdef __JETBRAINS_IDE__
+#   pragma clang diagnostic push
+#   pragma ide diagnostic ignored "readability-non-const-parameter"
+#endif
 
 SQLRETURN SQL_API SQLGetInfo(SQLHDBC        conn,
                              SQLUSMALLINT   infoType,
@@ -381,7 +383,7 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV     env,
 }
 
 SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT    stmt,
-                                    SQLUSMALLINT idType,
+                                    SQLUSMALLINT id_type,
                                     SQLCHAR*    catalog_name,
                                     SQLSMALLINT catalogNameLen,
                                     SQLCHAR*    schema_name,
@@ -391,7 +393,7 @@ SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT    stmt,
                                     SQLUSMALLINT scope,
                                     SQLUSMALLINT nullable)
 {
-    return ignite::SQLSpecialColumns(stmt, idType, catalog_name, catalogNameLen, schema_name,
+    return ignite::SQLSpecialColumns(stmt, id_type, catalog_name, catalogNameLen, schema_name,
         schemaNameLen, table_name, tableNameLen, scope, nullable);
 }
 
@@ -450,7 +452,7 @@ SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC     conn,
 
 SQLRETURN SQL_API SQLCancel(SQLHSTMT stmt)
 {
-    IGNITE_UNUSED(stmt);
+    UNUSED_VALUE(stmt);
 
     LOG_MSG("SQLCancel called");
     return SQL_SUCCESS;
@@ -464,13 +466,13 @@ SQLRETURN SQL_API SQLColAttributes(SQLHSTMT     stmt,
                                    SQLSMALLINT* strAttrResLen,
                                    SQLLEN*      numAttrBuf)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(colNum);
-    IGNITE_UNUSED(field_id);
-    IGNITE_UNUSED(strAttrBuf);
-    IGNITE_UNUSED(strAttrBufLen);
-    IGNITE_UNUSED(strAttrResLen);
-    IGNITE_UNUSED(numAttrBuf);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(colNum);
+    UNUSED_VALUE(field_id);
+    UNUSED_VALUE(strAttrBuf);
+    UNUSED_VALUE(strAttrBufLen);
+    UNUSED_VALUE(strAttrResLen);
+    UNUSED_VALUE(numAttrBuf);
 
     LOG_MSG("SQLColAttributes called");
     return SQL_SUCCESS;
@@ -481,10 +483,10 @@ SQLRETURN SQL_API SQLGetCursorName(SQLHSTMT     stmt,
                                    SQLSMALLINT  nameBufLen,
                                    SQLSMALLINT* nameResLen)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(nameBuf);
-    IGNITE_UNUSED(nameBufLen);
-    IGNITE_UNUSED(nameResLen);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(nameBuf);
+    UNUSED_VALUE(nameBufLen);
+    UNUSED_VALUE(nameResLen);
 
     LOG_MSG("SQLGetCursorName called");
     return SQL_SUCCESS;
@@ -494,9 +496,9 @@ SQLRETURN SQL_API SQLSetCursorName(SQLHSTMT     stmt,
                                    SQLCHAR*     name,
                                    SQLSMALLINT  nameLen)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(name);
-    IGNITE_UNUSED(nameLen);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(name);
+    UNUSED_VALUE(nameLen);
 
     LOG_MSG("SQLSetCursorName called");
     return SQL_SUCCESS;
@@ -506,9 +508,9 @@ SQLRETURN SQL_API SQLGetConnectOption(SQLHDBC       conn,
                                       SQLUSMALLINT  option,
                                       SQLPOINTER    value)
 {
-    IGNITE_UNUSED(conn);
-    IGNITE_UNUSED(option);
-    IGNITE_UNUSED(value);
+    UNUSED_VALUE(conn);
+    UNUSED_VALUE(option);
+    UNUSED_VALUE(value);
 
     LOG_MSG("SQLGetConnectOption called");
     return SQL_SUCCESS;
@@ -518,9 +520,9 @@ SQLRETURN SQL_API SQLGetStmtOption(SQLHSTMT     stmt,
                                    SQLUSMALLINT option,
                                    SQLPOINTER   value)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(option);
-    IGNITE_UNUSED(value);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(option);
+    UNUSED_VALUE(value);
 
     LOG_MSG("SQLGetStmtOption called");
     return SQL_SUCCESS;
@@ -530,9 +532,9 @@ SQLRETURN SQL_API SQLSetConnectOption(SQLHDBC       conn,
                                       SQLUSMALLINT  option,
                                       SQLULEN       value)
 {
-    IGNITE_UNUSED(conn);
-    IGNITE_UNUSED(option);
-    IGNITE_UNUSED(value);
+    UNUSED_VALUE(conn);
+    UNUSED_VALUE(option);
+    UNUSED_VALUE(value);
 
     LOG_MSG("SQLSetConnectOption called");
     return SQL_SUCCESS;
@@ -542,9 +544,9 @@ SQLRETURN SQL_API SQLSetStmtOption(SQLHSTMT     stmt,
                                    SQLUSMALLINT option,
                                    SQLULEN      value)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(option);
-    IGNITE_UNUSED(value);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(option);
+    UNUSED_VALUE(value);
 
     LOG_MSG("SQLSetStmtOption called");
     return SQL_SUCCESS;
@@ -560,15 +562,15 @@ SQLRETURN SQL_API SQLStatistics(SQLHSTMT        stmt,
                                 SQLUSMALLINT    unique,
                                 SQLUSMALLINT    reserved)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalog_name);
-    IGNITE_UNUSED(catalogNameLen);
-    IGNITE_UNUSED(schema_name);
-    IGNITE_UNUSED(schemaNameLen);
-    IGNITE_UNUSED(table_name);
-    IGNITE_UNUSED(tableNameLen);
-    IGNITE_UNUSED(unique);
-    IGNITE_UNUSED(reserved);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(catalog_name);
+    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(schema_name);
+    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(table_name);
+    UNUSED_VALUE(tableNameLen);
+    UNUSED_VALUE(unique);
+    UNUSED_VALUE(reserved);
 
     LOG_MSG("SQLStatistics called");
     return SQL_SUCCESS;
@@ -581,12 +583,12 @@ SQLRETURN SQL_API SQLBrowseConnect(SQLHDBC      conn,
                                    SQLSMALLINT  outConnectionStrBufLen,
                                    SQLSMALLINT* outConnectionStrResLen)
 {
-    IGNITE_UNUSED(conn);
-    IGNITE_UNUSED(inConnectionStr);
-    IGNITE_UNUSED(inConnectionStrLen);
-    IGNITE_UNUSED(outConnectionStrBuf);
-    IGNITE_UNUSED(outConnectionStrBufLen);
-    IGNITE_UNUSED(outConnectionStrResLen);
+    UNUSED_VALUE(conn);
+    UNUSED_VALUE(inConnectionStr);
+    UNUSED_VALUE(inConnectionStrLen);
+    UNUSED_VALUE(outConnectionStrBuf);
+    UNUSED_VALUE(outConnectionStrBufLen);
+    UNUSED_VALUE(outConnectionStrResLen);
 
     LOG_MSG("SQLBrowseConnect called");
     return SQL_SUCCESS;
@@ -602,15 +604,15 @@ SQLRETURN SQL_API SQLProcedureColumns(SQLHSTMT      stmt,
                                       SQLCHAR *     column_name,
                                       SQLSMALLINT   columnNameLen)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalog_name);
-    IGNITE_UNUSED(catalogNameLen);
-    IGNITE_UNUSED(schema_name);
-    IGNITE_UNUSED(schemaNameLen);
-    IGNITE_UNUSED(procName);
-    IGNITE_UNUSED(procNameLen);
-    IGNITE_UNUSED(column_name);
-    IGNITE_UNUSED(columnNameLen);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(catalog_name);
+    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(schema_name);
+    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(procName);
+    UNUSED_VALUE(procNameLen);
+    UNUSED_VALUE(column_name);
+    UNUSED_VALUE(columnNameLen);
 
     LOG_MSG("SQLProcedureColumns called");
     return SQL_SUCCESS;
@@ -621,10 +623,10 @@ SQLRETURN SQL_API SQLSetPos(SQLHSTMT        stmt,
                             SQLUSMALLINT    operation,
                             SQLUSMALLINT    lockType)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(row_num);
-    IGNITE_UNUSED(operation);
-    IGNITE_UNUSED(lockType);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(row_num);
+    UNUSED_VALUE(operation);
+    UNUSED_VALUE(lockType);
 
     LOG_MSG("SQLSetPos called");
     return SQL_SUCCESS;
@@ -635,10 +637,10 @@ SQLRETURN SQL_API SQLSetScrollOptions(SQLHSTMT      stmt,
                                       SQLLEN        crowKeyset,
                                       SQLUSMALLINT  crowRowset)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(concurrency);
-    IGNITE_UNUSED(crowKeyset);
-    IGNITE_UNUSED(crowRowset);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(concurrency);
+    UNUSED_VALUE(crowKeyset);
+    UNUSED_VALUE(crowRowset);
 
     LOG_MSG("SQLSetScrollOptions called");
     return SQL_SUCCESS;
@@ -647,8 +649,8 @@ SQLRETURN SQL_API SQLSetScrollOptions(SQLHSTMT      stmt,
 SQLRETURN SQL_API SQLBulkOperations(SQLHSTMT       stmt,
                                     SQLUSMALLINT   operation)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(operation);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(operation);
 
     LOG_MSG("SQLBulkOperations called");
     return SQL_SUCCESS;
@@ -662,13 +664,13 @@ SQLRETURN SQL_API SQLTablePrivileges(SQLHSTMT      stmt,
                                      SQLCHAR*      table_name,
                                      SQLSMALLINT   tableNameLen)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalog_name);
-    IGNITE_UNUSED(catalogNameLen);
-    IGNITE_UNUSED(schema_name);
-    IGNITE_UNUSED(schemaNameLen);
-    IGNITE_UNUSED(table_name);
-    IGNITE_UNUSED(tableNameLen);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(catalog_name);
+    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(schema_name);
+    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(table_name);
+    UNUSED_VALUE(tableNameLen);
 
     LOG_MSG("SQLTablePrivileges called");
     return SQL_SUCCESS;
@@ -676,8 +678,8 @@ SQLRETURN SQL_API SQLTablePrivileges(SQLHSTMT      stmt,
 
 SQLRETURN SQL_API SQLCopyDesc(SQLHDESC src, SQLHDESC dst)
 {
-    IGNITE_UNUSED(src);
-    IGNITE_UNUSED(dst);
+    UNUSED_VALUE(src);
+    UNUSED_VALUE(dst);
 
     LOG_MSG("SQLCopyDesc called");
     return SQL_SUCCESS;
@@ -690,12 +692,12 @@ SQLRETURN SQL_API SQLGetDescField(SQLHDESC      descr,
                                   SQLINTEGER    bufferLen,
                                   SQLINTEGER*   resLen)
 {
-    IGNITE_UNUSED(descr);
-    IGNITE_UNUSED(recNum);
-    IGNITE_UNUSED(field_id);
-    IGNITE_UNUSED(buffer);
-    IGNITE_UNUSED(bufferLen);
-    IGNITE_UNUSED(resLen);
+    UNUSED_VALUE(descr);
+    UNUSED_VALUE(recNum);
+    UNUSED_VALUE(field_id);
+    UNUSED_VALUE(buffer);
+    UNUSED_VALUE(bufferLen);
+    UNUSED_VALUE(resLen);
 
     LOG_MSG("SQLGetDescField called");
     return SQL_SUCCESS;
@@ -713,17 +715,17 @@ SQLRETURN SQL_API SQLGetDescRec(SQLHDESC        DescriptorHandle,
                                 SQLSMALLINT*    scale,
                                 SQLSMALLINT*    nullable)
 {
-    IGNITE_UNUSED(DescriptorHandle);
-    IGNITE_UNUSED(RecNumber);
-    IGNITE_UNUSED(nameBuffer);
-    IGNITE_UNUSED(nameBufferLen);
-    IGNITE_UNUSED(strLen);
-    IGNITE_UNUSED(type);
-    IGNITE_UNUSED(subType);
-    IGNITE_UNUSED(len);
-    IGNITE_UNUSED(precision);
-    IGNITE_UNUSED(scale);
-    IGNITE_UNUSED(nullable);
+    UNUSED_VALUE(DescriptorHandle);
+    UNUSED_VALUE(RecNumber);
+    UNUSED_VALUE(nameBuffer);
+    UNUSED_VALUE(nameBufferLen);
+    UNUSED_VALUE(strLen);
+    UNUSED_VALUE(type);
+    UNUSED_VALUE(subType);
+    UNUSED_VALUE(len);
+    UNUSED_VALUE(precision);
+    UNUSED_VALUE(scale);
+    UNUSED_VALUE(nullable);
 
     LOG_MSG("SQLGetDescRec called");
     return SQL_SUCCESS;
@@ -735,11 +737,11 @@ SQLRETURN SQL_API SQLSetDescField(SQLHDESC      descr,
                                   SQLPOINTER    buffer,
                                   SQLINTEGER    bufferLen)
 {
-    IGNITE_UNUSED(descr);
-    IGNITE_UNUSED(recNum);
-    IGNITE_UNUSED(field_id);
-    IGNITE_UNUSED(buffer);
-    IGNITE_UNUSED(bufferLen);
+    UNUSED_VALUE(descr);
+    UNUSED_VALUE(recNum);
+    UNUSED_VALUE(field_id);
+    UNUSED_VALUE(buffer);
+    UNUSED_VALUE(bufferLen);
 
     LOG_MSG("SQLSetDescField called");
     return SQL_SUCCESS;
@@ -756,16 +758,16 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC      descr,
                                 SQLLEN*       resLen,
                                 SQLLEN*       id)
 {
-    IGNITE_UNUSED(descr);
-    IGNITE_UNUSED(recNum);
-    IGNITE_UNUSED(type);
-    IGNITE_UNUSED(subType);
-    IGNITE_UNUSED(len);
-    IGNITE_UNUSED(precision);
-    IGNITE_UNUSED(scale);
-    IGNITE_UNUSED(buffer);
-    IGNITE_UNUSED(resLen);
-    IGNITE_UNUSED(id);
+    UNUSED_VALUE(descr);
+    UNUSED_VALUE(recNum);
+    UNUSED_VALUE(type);
+    UNUSED_VALUE(subType);
+    UNUSED_VALUE(len);
+    UNUSED_VALUE(precision);
+    UNUSED_VALUE(scale);
+    UNUSED_VALUE(buffer);
+    UNUSED_VALUE(resLen);
+    UNUSED_VALUE(id);
 
     LOG_MSG("SQLSetDescRec called");
     return SQL_SUCCESS;
@@ -781,15 +783,15 @@ SQLRETURN SQL_API SQLColumnPrivileges(SQLHSTMT      stmt,
                                       SQLCHAR*      column_name,
                                       SQLSMALLINT   columnNameLen)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalog_name);
-    IGNITE_UNUSED(catalogNameLen);
-    IGNITE_UNUSED(schema_name);
-    IGNITE_UNUSED(schemaNameLen);
-    IGNITE_UNUSED(table_name);
-    IGNITE_UNUSED(tableNameLen);
-    IGNITE_UNUSED(column_name);
-    IGNITE_UNUSED(columnNameLen);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(catalog_name);
+    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(schema_name);
+    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(table_name);
+    UNUSED_VALUE(tableNameLen);
+    UNUSED_VALUE(column_name);
+    UNUSED_VALUE(columnNameLen);
 
     LOG_MSG("SQLColumnPrivileges called");
     return SQL_SUCCESS;
@@ -799,9 +801,9 @@ SQLRETURN SQL_API SQLParamOptions(SQLHSTMT  stmt,
                                   SQLULEN   paramSetSize,
                                   SQLULEN*  paramsProcessed)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(paramSetSize);
-    IGNITE_UNUSED(paramsProcessed);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(paramSetSize);
+    UNUSED_VALUE(paramsProcessed);
 
     LOG_MSG("SQLParamOptions called");
     return SQL_SUCCESS;
@@ -815,14 +817,18 @@ SQLRETURN SQL_API SQLProcedures(SQLHSTMT        stmt,
                                 SQLCHAR*        table_name,
                                 SQLSMALLINT     tableNameLen)
 {
-    IGNITE_UNUSED(stmt);
-    IGNITE_UNUSED(catalog_name);
-    IGNITE_UNUSED(catalogNameLen);
-    IGNITE_UNUSED(schema_name);
-    IGNITE_UNUSED(schemaNameLen);
-    IGNITE_UNUSED(table_name);
-    IGNITE_UNUSED(tableNameLen);
+    UNUSED_VALUE(stmt);
+    UNUSED_VALUE(catalog_name);
+    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(schema_name);
+    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(table_name);
+    UNUSED_VALUE(tableNameLen);
 
     LOG_MSG("SQLProcedures called");
     return SQL_SUCCESS;
 }
+
+#ifdef __JETBRAINS_IDE__
+#   pragma clang diagnostic pop
+#endif

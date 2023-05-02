@@ -235,16 +235,16 @@ SQLRETURN SQLGetEnvAttr(SQLHENV     env,
                         SQLINTEGER  valueBufLen,
                         SQLINTEGER* valueResLen);
 
-SQLRETURN SQLSpecialColumns(SQLHSTMT    stmt,
-                            SQLSMALLINT idType,
-                            SQLCHAR*    catalog_name,
-                            SQLSMALLINT catalogNameLen,
-                            SQLCHAR*    schema_name,
-                            SQLSMALLINT schemaNameLen,
-                            SQLCHAR*    table_name,
-                            SQLSMALLINT tableNameLen,
-                            SQLSMALLINT scope,
-                            SQLSMALLINT nullable);
+SQLRETURN SQLSpecialColumns(SQLHSTMT     stmt,
+                            SQLUSMALLINT id_type,
+                            SQLCHAR*     catalog_name,
+                            SQLSMALLINT  catalogNameLen,
+                            SQLCHAR*     schema_name,
+                            SQLSMALLINT  schemaNameLen,
+                            SQLCHAR*     table_name,
+                            SQLSMALLINT  tableNameLen,
+                            SQLUSMALLINT scope,
+                            SQLUSMALLINT nullable);
 
 SQLRETURN SQLParamData(SQLHSTMT stmt, SQLPOINTER* value);
 

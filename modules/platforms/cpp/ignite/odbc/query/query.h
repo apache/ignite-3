@@ -20,7 +20,6 @@
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 #include "ignite/odbc/meta/column_meta.h"
-#include "ignite/odbc/row.h"
 
 #include <map>
 #include <cstdint>

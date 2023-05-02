@@ -22,11 +22,10 @@
 
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/config/connection_string_parser.h"
-#include "ignite/odbc/connection.h"
-#include "ignite/odbc/dsn_config.h"
-#include "ignite/odbc/environment.h"
 #include "ignite/odbc/odbc.h"
-#include "ignite/odbc/statement.h"
+#include "ignite/odbc/sql_connection.h"
+#include "ignite/odbc/sql_environment.h"
+#include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/type_traits.h"
 
 #include <cstdio>
@@ -42,7 +41,7 @@ namespace ignite
                          SQLSMALLINT    infoValueMax,
                          SQLSMALLINT*   length)
     {
-        using connection;
+        using connection_info;
         using connection_info;
 
         LOG_MSG("SQLGetInfo called: "
@@ -50,7 +49,7 @@ namespace ignite
             << std::hex << reinterpret_cast<size_t>(infoValue) << ", " << infoValueMax << ", "
             << std::hex << reinterpret_cast<size_t>(length));
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
@@ -76,8 +75,8 @@ namespace ignite
 
             case SQL_HANDLE_DESC:
             {
-                using connection;
-                connection *connection = reinterpret_cast<connection*>(parent);
+                using sql_connection;
+                sql_connection *connection = reinterpret_cast<sql_connection *>(parent);
 
                 if (!connection)
                     return SQL_INVALID_HANDLE;
@@ -102,32 +101,32 @@ namespace ignite
 
     SQLRETURN SQLAllocEnv(SQLHENV* env)
     {
-        using environment;
+        using sql_environment;
 
         LOG_MSG("SQLAllocEnv called");
 
-        *env = reinterpret_cast<SQLHENV>(new environment());
+        *env = reinterpret_cast<SQLHENV>(new sql_environment());
 
         return SQL_SUCCESS;
     }
 
     SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC* conn)
     {
-        using environment;
-        using connection;
+        using sql_connection;
+        using sql_connection;
 
         LOG_MSG("SQLAllocConnect called");
 
         *conn = SQL_NULL_HDBC;
 
-        environment *environment = reinterpret_cast<environment*>(env);
+        sql_environment *environment = reinterpret_cast<sql_environment *>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
 
-        connection *connection = environment->create_connection();
+        sql_connection *connection = environment->create_connection();
 
-        if (!connection)
+        if (!cluster_connection)
             return environment->get_diagnostic_records().get_return_code();
 
         *conn = reinterpret_cast<SQLHDBC>(connection);
@@ -137,19 +136,19 @@ namespace ignite
 
     SQLRETURN SQLAllocStmt(SQLHDBC conn, SQLHSTMT* stmt)
     {
-        using connection;
-        using Statement;
+        using sql_statement;
+        using sql_statement;
 
         LOG_MSG("SQLAllocStmt called");
 
         *stmt = SQL_NULL_HDBC;
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        Statement *statement = connection->CreateStatement();
+        sql_statement *statement = connection->create_statement();
 
         *stmt = reinterpret_cast<SQLHSTMT>(statement);
 
@@ -179,11 +178,11 @@ namespace ignite
 
     SQLRETURN SQLFreeEnv(SQLHENV env)
     {
-        using environment;
+        using sql_environment;
 
         LOG_MSG("SQLFreeEnv called: " << env);
 
-        environment *environment = reinterpret_cast<environment*>(env);
+        sql_environment *environment = reinterpret_cast<sql_environment *>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
@@ -195,16 +194,16 @@ namespace ignite
 
     SQLRETURN SQLFreeConnect(SQLHDBC conn)
     {
-        using connection;
+        using sql_connection;
 
         LOG_MSG("SQLFreeConnect called");
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        connection->Deregister();
+        connection->deregister();
 
         delete connection;
 
@@ -213,11 +212,11 @@ namespace ignite
 
     SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLFreeStmt called [option=" << option << ']');
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -235,11 +234,11 @@ namespace ignite
 
     SQLRETURN SQLCloseCursor(SQLHSTMT stmt)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLCloseCursor called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         statement->close();
 
@@ -255,9 +254,9 @@ namespace ignite
                                SQLSMALLINT* outConnectionStringLen,
                                SQLUSMALLINT driverCompletion)
     {
-        IGNITE_UNUSED(driverCompletion);
+        UNUSED_VALUE(driverCompletion);
 
-        using connection;
+        using copy_string_to_buffer;
         using diagnostic_record_storage;
         using sql_string_to_string;
         using copy_string_to_buffer;
@@ -266,13 +265,13 @@ namespace ignite
         if (inConnectionString)
             LOG_MSG("Connection String: [" << inConnectionString << "]");
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
 
         std::string connectStr = sql_string_to_string(inConnectionString, inConnectionStringLen);
-        connection->Establish(connectStr, windowHandle);
+        connection->establish(connectStr, windowHandle);
 
         diagnostic_record_storage& diag = connection->get_diagnostic_records();
         if (!diag.is_successful())
@@ -299,18 +298,18 @@ namespace ignite
                          SQLCHAR*       auth,
                          SQLSMALLINT    authLen)
     {
-        IGNITE_UNUSED(userName);
-        IGNITE_UNUSED(userNameLen);
-        IGNITE_UNUSED(auth);
-        IGNITE_UNUSED(authLen);
+        UNUSED_VALUE(userName);
+        UNUSED_VALUE(userNameLen);
+        UNUSED_VALUE(auth);
+        UNUSED_VALUE(authLen);
 
-        using connection;
+        using configuration;
         using configuration;
         using sql_string_to_string;
 
         LOG_MSG("SQLConnect called\n");
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
@@ -323,35 +322,35 @@ namespace ignite
 
         ReadDsnConfiguration(dsn.c_str(), config, &connection->get_diagnostic_records());
 
-        connection->Establish(config);
+        connection->establish(config);
 
         return connection->get_diagnostic_records().get_return_code();
     }
 
     SQLRETURN SQLDisconnect(SQLHDBC conn)
     {
-        using connection;
+        using sql_connection;
 
         LOG_MSG("SQLDisconnect called");
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        connection->Release();
+        connection->release();
 
         return connection->get_diagnostic_records().get_return_code();
     }
 
     SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
     {
-        using Statement;
+        using sql_statement;
         using sql_string_to_string;
 
         LOG_MSG("SQLPrepare called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -367,11 +366,11 @@ namespace ignite
 
     SQLRETURN SQLExecute(SQLHSTMT stmt)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLExecute called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -383,12 +382,12 @@ namespace ignite
 
     SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
     {
-        using Statement;
+        using sql_statement;
         using sql_string_to_string;
 
         LOG_MSG("SQLExecDirect called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -411,7 +410,7 @@ namespace ignite
     {
         using namespace type_traits;
 
-        using Statement;
+        using application_data_buffer;
         using application_data_buffer;
 
         LOG_MSG("SQLBindCol called: index=" << colNum << ", type=" << targetType << 
@@ -419,7 +418,7 @@ namespace ignite
                 ", bufferLength=" << bufferLength << 
                 ", lengthInd=" << reinterpret_cast<size_t>(strLengthOrIndicator));
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -431,11 +430,11 @@ namespace ignite
 
     SQLRETURN SQLFetch(SQLHSTMT stmt)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLFetch called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -447,12 +446,12 @@ namespace ignite
 
     SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLFetchScroll called");
         LOG_MSG("Orientation: " << orientation << " Offset: " << offset);
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -488,12 +487,12 @@ namespace ignite
 
     SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
     {
-        using Statement;
+        using column_meta_vector;
         using column_meta_vector;
 
         LOG_MSG("SQLNumResultCols called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -519,12 +518,12 @@ namespace ignite
                         SQLCHAR*    tableType,
                         SQLSMALLINT tableTypeLen)
     {
-        using Statement;
+        using sql_statement;
         using sql_string_to_string;
 
         LOG_MSG("SQLTables called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -554,12 +553,12 @@ namespace ignite
                          SQLCHAR*       column_name,
                          SQLSMALLINT    columnNameLen)
     {
-        using Statement;
+        using sql_statement;
         using sql_string_to_string;
 
         LOG_MSG("SQLColumns called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -581,11 +580,11 @@ namespace ignite
 
     SQLRETURN SQLMoreResults(SQLHSTMT stmt)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLMoreResults called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -606,11 +605,11 @@ namespace ignite
                                SQLLEN       bufferLen,
                                SQLLEN*      resLen)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLBindParameter called: " << paramIdx << ", " << bufferType << ", " << paramSqlType);
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -627,7 +626,7 @@ namespace ignite
                            SQLINTEGER   outQueryBufferLen,
                            SQLINTEGER*  outQueryLen)
     {
-        IGNITE_UNUSED(conn);
+        UNUSED_VALUE(conn);
 
         using namespace utility;
 
@@ -652,13 +651,13 @@ namespace ignite
                               SQLSMALLINT*    strAttrLen,
                               SQLLEN*         numericAttr)
     {
-        using Statement;
+        using column_meta;
         using column_meta_vector;
         using column_meta;
 
         LOG_MSG("SQLColAttribute called: " << field_id << " (" << column_meta::attr_id_to_string(field_id) << ")");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -692,12 +691,12 @@ namespace ignite
                              SQLSMALLINT*   decimalDigits,
                              SQLSMALLINT*   nullable)
     {
-        using Statement;
+        using sql_statement;
         using SQLLEN;
 
         LOG_MSG("SQLDescribeCol called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -741,11 +740,11 @@ namespace ignite
 
     SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN* rowCnt)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLRowCount called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -774,12 +773,12 @@ namespace ignite
                              SQLCHAR*       foreignTableName,
                              SQLSMALLINT    foreignTableNameLen)
     {
-        using Statement;
+        using sql_statement;
         using sql_string_to_string;
 
         LOG_MSG("SQLForeignKeys called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -810,7 +809,7 @@ namespace ignite
                              SQLINTEGER     valueBufLen,
                              SQLINTEGER*    valueResLen)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLGetStmtAttr called");
 
@@ -820,7 +819,7 @@ namespace ignite
         LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -835,7 +834,7 @@ namespace ignite
                              SQLPOINTER  value,
                              SQLINTEGER  valueLen)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLSetStmtAttr called: " << attr);
 
@@ -845,7 +844,7 @@ namespace ignite
         LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -863,12 +862,12 @@ namespace ignite
                              SQLCHAR*       table_name,
                              SQLSMALLINT    tableNameLen)
     {
-        using Statement;
+        using sql_statement;
         using sql_string_to_string;
 
         LOG_MSG("SQLPrimaryKeys called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -888,11 +887,11 @@ namespace ignite
 
     SQLRETURN SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* paramCnt)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLNumParams called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1035,11 +1034,11 @@ namespace ignite
 
     SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)
     {
-        using Statement;
+        using sql_statement;
 
         LOG_MSG("SQLGetTypeInfo called: [type=" << type << ']');
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1061,7 +1060,7 @@ namespace ignite
         {
             case SQL_HANDLE_ENV:
             {
-                environment *env = reinterpret_cast<environment*>(handle);
+                sql_environment *env = reinterpret_cast<sql_environment *>(handle);
 
                 if (!env)
                     return SQL_INVALID_HANDLE;
@@ -1113,12 +1112,12 @@ namespace ignite
     {
         using namespace type_traits;
 
-        using Statement;
+        using application_data_buffer;
         using application_data_buffer;
 
         LOG_MSG("SQLGetData called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1137,12 +1136,12 @@ namespace ignite
                             SQLPOINTER  value,
                             SQLINTEGER  valueLen)
     {
-        using environment;
+        using sql_environment;
 
         LOG_MSG("SQLSetEnvAttr called");
         LOG_MSG("Attribute: " << attr << ", Value: " << (size_t)value);
 
-        environment *environment = reinterpret_cast<environment*>(env);
+        sql_environment *environment = reinterpret_cast<sql_environment *>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
@@ -1165,7 +1164,7 @@ namespace ignite
 
         LOG_MSG("SQLGetEnvAttr called");
 
-        environment *environment = reinterpret_cast<environment*>(env);
+        sql_environment *environment = reinterpret_cast<sql_environment *>(env);
 
         if (!environment)
             return SQL_INVALID_HANDLE;
@@ -1182,16 +1181,16 @@ namespace ignite
         return environment->get_diagnostic_records().get_return_code();
     }
 
-    SQLRETURN SQLSpecialColumns(SQLHSTMT    stmt,
-                                SQLSMALLINT idType,
-                                SQLCHAR*    catalog_name,
-                                SQLSMALLINT catalogNameLen,
-                                SQLCHAR*    schema_name,
-                                SQLSMALLINT schemaNameLen,
-                                SQLCHAR*    table_name,
-                                SQLSMALLINT tableNameLen,
-                                SQLSMALLINT scope,
-                                SQLSMALLINT nullable)
+    SQLRETURN SQLSpecialColumns(SQLHSTMT     stmt,
+                                SQLUSMALLINT id_type,
+                                SQLCHAR*     catalog_name,
+                                SQLSMALLINT  catalogNameLen,
+                                SQLCHAR*     schema_name,
+                                SQLSMALLINT  schemaNameLen,
+                                SQLCHAR*     table_name,
+                                SQLSMALLINT  tableNameLen,
+                                SQLUSMALLINT scope,
+                                SQLUSMALLINT nullable)
     {
         using namespace odbc;
 
@@ -1199,7 +1198,7 @@ namespace ignite
 
         LOG_MSG("SQLSpecialColumns called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1212,7 +1211,7 @@ namespace ignite
         LOG_MSG("schema: " << schema);
         LOG_MSG("table: " << table);
 
-        statement->ExecuteSpecialColumnsQuery(idType, catalog, schema, table, scope, nullable);
+        statement->ExecuteSpecialColumnsQuery(id_type, catalog, schema, table, scope, nullable);
 
         return statement->get_diagnostic_records().get_return_code();
     }
@@ -1223,7 +1222,7 @@ namespace ignite
 
         LOG_MSG("SQLParamData called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1239,7 +1238,7 @@ namespace ignite
 
         LOG_MSG("SQLPutData called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1260,7 +1259,7 @@ namespace ignite
 
         LOG_MSG("SQLDescribeParam called");
 
-        Statement *statement = reinterpret_cast<Statement*>(stmt);
+        sql_statement *statement = reinterpret_cast<sql_statement *>(stmt);
 
         if (!statement)
             return SQL_INVALID_HANDLE;
@@ -1342,7 +1341,7 @@ namespace ignite
 
         LOG_MSG("SQLGetConnectAttr called");
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;
@@ -1357,11 +1356,11 @@ namespace ignite
                                         SQLPOINTER value,
                                         SQLINTEGER valueLen)
     {
-        using connection;
+        using sql_connection;
 
         LOG_MSG("SQLSetConnectAttr called(" << attr << ", " << value << ")");
 
-        connection *connection = reinterpret_cast<connection*>(conn);
+        sql_connection *connection = reinterpret_cast<sql_connection *>(conn);
 
         if (!connection)
             return SQL_INVALID_HANDLE;

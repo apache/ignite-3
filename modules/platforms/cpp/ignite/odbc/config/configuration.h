@@ -21,6 +21,8 @@
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/ssl_mode.h"
 
+#include "ignite/network/tcp_range.h"
+
 #include <cstdint>
 #include <string>
 #include <map>

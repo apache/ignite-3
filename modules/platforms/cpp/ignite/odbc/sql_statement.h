@@ -29,20 +29,20 @@
 #include <cstdint>
 
 namespace ignite {
-class connection;
+class sql_connection;
 
 /**
  * SQL-statement abstraction. Holds SQL query user buffers data and
  * call result.
  */
-class Statement : public diagnosable_adapter
+class sql_statement : public diagnosable_adapter
 {
-    friend class connection;
+    friend class sql_connection;
 public:
     /**
      * Destructor.
      */
-    ~Statement();
+    ~sql_statement();
 
     /**
      * Bind result column to data buffer provided by application
@@ -341,7 +341,7 @@ public:
         SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable);
 
 private:
-    IGNITE_NO_COPY_ASSIGNMENT(Statement);
+    IGNITE_NO_COPY_ASSIGNMENT(statement);
 
 
     /**
@@ -677,10 +677,10 @@ private:
      *
      * @param parent Connection associated with the statement.
      */
-    Statement(connection& parent);
+    sql_statement(sql_connection & parent);
 
     /** Connection associated with the statement. */
-    connection& connection;
+    sql_connection & connection;
 
     /** Column bindings. */
     column_binding_map column_bindings;
