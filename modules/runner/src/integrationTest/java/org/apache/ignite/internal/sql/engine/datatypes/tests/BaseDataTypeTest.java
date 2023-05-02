@@ -69,7 +69,7 @@ import org.junit.jupiter.params.provider.Arguments;
  * <p>In order to test non-comparable types (e.g. java arrays) values of those types must be passed as {@link NativeTypeWrapper}.
  * In that case {@code T} must be an implementation of a {@link NativeTypeWrapper} for that type.
  *
- * Helper methods such as {@link #runSql(String, Object...)} and {@link #checkQuery(String)} support those values and unwrap them
+ * <p>Helper methods such as {@link #runSql(String, Object...)} and {@link #checkQuery(String)} support those values and unwrap them
  * when it is necessary. See {@link TestQueryProcessor}.
  *
  * @param <T> A storage type of a data type.
