@@ -159,16 +159,16 @@ namespace ignite
             if (skipReducerOnUpdate.is_set() && !config.IsSkipReducerOnUpdateSet())
                 config.SetSkipReducerOnUpdate(skipReducerOnUpdate.get_value());
 
-            settable_value<std::string> versionStr = ReadDsnString(dsn, connection_string_parser::key::protocolVersion);
+            settable_value<std::string> versionStr = ReadDsnString(dsn, connection_string_parser::key::m_protocol_version);
 
-            if (versionStr.is_set() && !config.IsProtocolVersionSet())
+            if (versionStr.is_set() && !config.is_protocol_version_set())
             {
                 protocol_version version = protocol_version::from_string(versionStr.get_value());
 
                 if (!version.is_supported())
-                    version = configuration::default_value::protocolVersion;
+                    version = configuration::default_value::m_protocol_version;
 
-                config.SetProtocolVersion(version);
+                config.set_protocol_version(version);
             }
 
             settable_value<int32_t> page_size = ReadDsnInt(dsn, connection_string_parser::key::page_size);

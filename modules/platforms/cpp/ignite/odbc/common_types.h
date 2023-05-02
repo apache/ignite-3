@@ -398,7 +398,7 @@ environment_attribute environment_attribute_to_internal(std::int32_t attr);
 /**
  * Convert request response status to SQL state.
  *
- * @param status Response status.
+ * @param status response status.
  * @return SQL state.
  */
 sql_state response_status_to_sql_state(std::int32_t status);

@@ -15,228 +15,233 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_QUERY_DATA_QUERY
-#define _IGNITE_ODBC_QUERY_DATA_QUERY
+#pragma once
 
 #include "ignite/odbc/app/parameter_set.h"
 #include "ignite/odbc/cursor.h"
 #include "ignite/odbc/query/query.h"
 
+#include <memory>
+
 namespace ignite
 {
-    namespace odbc
+
+/** Connection forward-declaration. */
+class connection;
+
+/**
+ * Query.
+ */
+class data_query : public query
+{
+public:
+    // Delete
+    data_query(data_query &&) = delete;
+    data_query(const data_query &) = delete;
+    data_query &operator=(data_query &&) = delete;
+    data_query &operator=(const data_query &) = delete;
+
+    /**
+     * Constructor.
+     *
+     * @param diag Diagnostics collector.
+     * @param connection Associated connection.
+     * @param sql SQL query string.
+     * @param params SQL params.
+     * @param timeout Timeout.
+     */
+    data_query(diagnosable_adapter& diag, connection& connection, std::string sql, const parameter_set& params,
+        std::int32_t& timeout)
+        : query(diag, query_type::DATA)
+        , m_connection(connection)
+        , m_sql(std::move(sql))
+        , m_params(params)
+        , m_timeout(timeout) { }
+
+    /**
+     * Destructor.
+     */
+    virtual ~data_query();
+
+    /**
+     * Execute query.
+     *
+     * @return True on success.
+     */
+    sql_result execute() override;
+
+    /**
+     * Get column metadata.
+     *
+     * @return Column metadata.
+     */
+    const column_meta_vector* get_meta() override;
+
+    /**
+     * Fetch next result row to application buffers.
+     *
+     * @param column_bindings Application buffers to put data to.
+     * @return Operation result.
+     */
+    sql_result fetch_next_row(column_binding_map& column_bindings) override;
+
+    /**
+     * Get data of the specified column in the result set.
+     *
+     * @param column_idx Column index.
+     * @param buffer Buffer to put column data to.
+     * @return Operation result.
+     */
+    sql_result get_column(uint16_t column_idx, application_data_buffer& buffer) override;
+
+    /**
+     * Close query.
+     *
+     * @return Result.
+     */
+    sql_result close() override;
+
+    /**
+     * Check if data is available.
+     *
+     * @return True if data is available.
+     */
+    [[nodiscard]] bool is_data_available() const override;
+
+    /**
+     * Get number of rows affected by the statement.
+     *
+     * @return Number of rows affected by the statement.
+     */
+    [[nodiscard]] std::std::int64_t affected_rows() const override;
+
+    /**
+     * Move to the next result set.
+     *
+     * @return Operation result.
+     */
+    sql_result next_result_set() override;
+
+    /**
+     * Get SQL query string.
+     *
+     * @return SQL query string.
+     */
+    [[nodiscard]] const std::string& get_sql() const
     {
-        /** Connection forward-declaration. */
-        class connection;
-
-        namespace query
-        {
-            /**
-             * Query.
-             */
-            class DataQuery : public Query
-            {
-            public:
-                /**
-                 * Constructor.
-                 *
-                 * @param diag Diagnostics collector.
-                 * @param connection Associated connection.
-                 * @param sql SQL query string.
-                 * @param params SQL params.
-                 * @param timeout Timeout.
-                 */
-                DataQuery(diagnosable_adapter& diag, connection& connection, const std::string& sql,
-                    const parameter_set& params, int32_t& timeout);
-
-                /**
-                 * Destructor.
-                 */
-                virtual ~DataQuery();
-
-                /**
-                 * Execute query.
-                 *
-                 * @return True on success.
-                 */
-                virtual sql_result Execute();
-
-                /**
-                 * Get column metadata.
-                 *
-                 * @return Column metadata.
-                 */
-                virtual const meta::column_meta_vector* GetMeta();
-
-                /**
-                 * Fetch next result row to application buffers.
-                 *
-                 * @param columnBindings Application buffers to put data to.
-                 * @return Operation result.
-                 */
-                virtual sql_result FetchNextRow(column_binding_map& columnBindings);
-
-                /**
-                 * Get data of the specified column in the result set.
-                 *
-                 * @param columnIdx Column index.
-                 * @param buffer Buffer to put column data to.
-                 * @return Operation result.
-                 */
-                virtual sql_result GetColumn(uint16_t columnIdx, application_data_buffer& buffer);
-
-                /**
-                 * Close query.
-                 *
-                 * @return Result.
-                 */
-                virtual sql_result Close();
-
-                /**
-                 * Check if data is available.
-                 *
-                 * @return True if data is available.
-                 */
-                virtual bool DataAvailable() const;
-
-                /**
-                 * Get number of rows affected by the statement.
-                 *
-                 * @return Number of rows affected by the statement.
-                 */
-                virtual int64_t AffectedRows() const;
-
-                /**
-                 * Move to the next result set.
-                 *
-                 * @return Operaion result.
-                 */
-                virtual sql_result NextResultSet();
-
-                /**
-                 * Get SQL query string.
-                 *
-                 * @return SQL query string.
-                 */
-                const std::string& GetSql() const
-                {
-                    return sql;
-                }
-
-            private:
-                IGNITE_NO_COPY_ASSIGNMENT(DataQuery);
-
-                /**
-                 * Check whether all cursors are closed remotely.
-                 *
-                 * @return true, if all cursors closed remotely.
-                 */
-                bool IsClosedRemotely() const;
-
-                /**
-                 * Make query prepare request and use response to set internal
-                 * state.
-                 *
-                 * @return Result.
-                 */
-                sql_result MakeRequestPrepare();
-
-                /**
-                 * Make query execute request and use response to set internal
-                 * state.
-                 *
-                 * @return Result.
-                 */
-                sql_result MakeRequestExecute();
-
-                /**
-                 * Make query close request.
-                 *
-                 * @return Result.
-                 */
-                sql_result MakeRequestClose();
-
-                /**
-                 * Make data fetch request and use response to set internal state.
-                 *
-                 * @return Result.
-                 */
-                sql_result MakeRequestFetch();
-
-                /**
-                 * Make next result set request and use response to set internal state.
-                 *
-                 * @return Result.
-                 */
-                sql_result MakeRequestMoreResults();
-
-                /**
-                 * Make result set metadata request.
-                 *
-                 * @return Result.
-                 */
-                sql_result MakeRequestResultsetMeta();
-
-                /**
-                 * Process column conversion operation result.
-                 *
-                 * @param convRes Conversion result.
-                 * @param rowIdx Row index.
-                 * @param columnIdx Column index.
-                 * @return General SQL result.
-                 */
-                sql_result ProcessConversionResult(conversion_result convRes, int32_t rowIdx,
-                    int32_t columnIdx);;
-
-                /**
-                 * Process column conversion operation result.
-                 *
-                 * @param convRes Conversion result.
-                 * @param rowIdx Row index.
-                 * @param columnIdx Column index.
-                 * @return General SQL result.
-                 */
-                void SetResultsetMeta(const meta::column_meta_vector& value);
-
-                /**
-                 * Close query.
-                 *
-                 * @return Result.
-                 */
-                sql_result InternalClose();
-
-                /** Connection associated with the statement. */
-                connection& connection;
-
-                /** SQL Query. */
-                std::string sql;
-
-                /** parameter bindings. */
-                const parameter_set& params;
-
-                /** Result set metadata is available */
-                bool resultMetaAvailable;
-
-                /** Result set metadata. */
-                meta::column_meta_vector resultMeta;
-
-                /** Cursor. */
-                std::auto_ptr<Cursor> cursor;
-
-                /** Number of rows affected. */
-                std::vector<int64_t> rows_affected;
-
-                /** Rows affected index. */
-                size_t rowsAffectedIdx;
-
-                /** Cached next result page. */
-                std::auto_ptr<ResultPage> cachedNextPage;
-
-                /** Timeout. */
-                int32_t& timeout;
-            };
-        }
+        return m_sql;
     }
-}
 
-#endif //_IGNITE_ODBC_QUERY_DATA_QUERY
+private:
+
+    /**
+     * Check whether all cursors are closed remotely.
+     *
+     * @return true, if all cursors closed remotely.
+     */
+    [[nodiscard]] bool is_closed_remotely() const;
+
+    /**
+     * Make query prepare request and use response to set internal
+     * state.
+     *
+     * @return Result.
+     */
+    sql_result make_request_prepare();
+
+    /**
+     * Make query execute request and use response to set internal
+     * state.
+     *
+     * @return Result.
+     */
+    sql_result make_request_execute();
+
+    /**
+     * Make query close request.
+     *
+     * @return Result.
+     */
+    sql_result make_request_close();
+
+    /**
+     * Make data fetch request and use response to set internal state.
+     *
+     * @return Result.
+     */
+    sql_result make_request_fetch();
+
+    /**
+     * Make next result set request and use response to set internal state.
+     *
+     * @return Result.
+     */
+    sql_result make_request_more_results();
+
+    /**
+     * Make result set metadata request.
+     *
+     * @return Result.
+     */
+    sql_result make_request_resultset_meta();
+
+    /**
+     * Process column conversion operation result.
+     *
+     * @param convRes Conversion result.
+     * @param rowIdx Row index.
+     * @param column_idx Column index.
+     * @return General SQL result.
+     */
+    sql_result process_conversion_result(conversion_result convRes, std::int32_t rowIdx,
+        std::int32_t column_idx);;
+
+    /**
+     * Process column conversion operation result.
+     *
+     * @param convRes Conversion result.
+     * @param rowIdx Row index.
+     * @param column_idx Column index.
+     * @return General SQL result.
+     */
+    void set_resultset_meta(const column_meta_vector& value);
+
+    /**
+     * Close query.
+     *
+     * @return Result.
+     */
+    sql_result internal_close();
+
+    /** Connection associated with the statement. */
+    connection& m_connection;
+
+    /** SQL Query. */
+    std::string m_sql;
+
+    /** parameter bindings. */
+    const parameter_set& m_params;
+
+    /** Result set metadata is available */
+    bool m_result_meta_available{false};
+
+    /** Result set metadata. */
+    column_meta_vector m_result_meta;
+
+    /** Cursor. */
+    std::unique_ptr<Cursor> m_cursor;
+
+    /** Number of rows affected. */
+    std::vector<std::int64_t> m_rows_affected;
+
+    /** Rows affected index. */
+    size_t m_rows_affected_idx{0};
+
+    /** Cached next result page. */
+    std::unique_ptr<ResultPage> m_cached_next_page;
+
+    /** Timeout. */
+    std::int32_t& m_timeout;
+};
+
+} // namespace ignite

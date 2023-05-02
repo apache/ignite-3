@@ -74,7 +74,7 @@ namespace ignite
              *
              * @return Connection info.
              */
-            const config::connection_info& get_info() const;
+            const connection_info& get_info() const;
 
             /**
              * Get info of any type.
@@ -84,7 +84,7 @@ namespace ignite
              * @param buffer_len Result buffer length.
              * @param result_len Result value length pointer.
              */
-            void get_info(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len);
+            void get_info(connection_info::info_type type, void* buf, short buffer_len, short* result_len);
 
             /**
              * Establish connection to ODBC server.
@@ -99,7 +99,7 @@ namespace ignite
              *
              * @param cfg Configuration.
              */
-            void Establish(const config::configuration& cfg);
+            void Establish(const configuration& cfg);
 
             /**
              * Release established connection.
@@ -167,7 +167,7 @@ namespace ignite
              *
              * @return Connection configuration.
              */
-            const config::configuration& GetConfiguration() const;
+            const configuration& GetConfiguration() const;
 
             /**
              * Is auto commit.
@@ -203,7 +203,7 @@ namespace ignite
              * Uses provided timeout.
              *
              * @param req Request message.
-             * @param rsp Response message.
+             * @param rsp response message.
              * @param timeout Timeout. 0 means disabled.
              * @return @c true on success, @c false on timeout.
              * @throw odbc_error on error.
@@ -237,7 +237,7 @@ namespace ignite
              * Uses connection timeout.
              *
              * @param req Request message.
-             * @param rsp Response message.
+             * @param rsp response message.
              * @throw odbc_error on error.
              */
             template<typename ReqT, typename RspT>
@@ -329,7 +329,7 @@ namespace ignite
              * fail.
              *
              * @param req Request message.
-             * @param rsp Response message.
+             * @param rsp response message.
              * @param timeout Timeout.
              * @return @c true on success, @c false on timeout.
              * @throw odbc_error on error.
@@ -373,7 +373,7 @@ namespace ignite
              * @param cfg Configuration.
              * @return Operation result.
              */
-            sql_result InternalEstablish(const config::configuration& cfg);
+            sql_result InternalEstablish(const configuration& cfg);
 
             /**
              * Release established connection.
@@ -386,7 +386,7 @@ namespace ignite
             /**
              * Close connection.
              */
-            void Close();
+            void close();
 
             /**
              * Get info of any type.
@@ -398,7 +398,7 @@ namespace ignite
              * @param result_len Result value length pointer.
              * @return Operation result.
              */
-            sql_result InternalGetInfo(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len);
+            sql_result InternalGetInfo(connection_info::info_type type, void* buf, short buffer_len, short* result_len);
 
             /**
              * Create statement associated with the connection.
@@ -496,7 +496,7 @@ namespace ignite
              * @param cfg Configuration.
              * @param end_points End points.
              */
-            static void CollectAddresses(const config::configuration& cfg, std::vector<EndPoint>& end_points);
+            static void CollectAddresses(const configuration& cfg, std::vector<EndPoint>& end_points);
 
             /**
              * Retrieve timeout from parameter.
@@ -530,10 +530,10 @@ namespace ignite
             Parser parser;
 
             /** Configuration. */
-            config::configuration config;
+            configuration config;
 
             /** Connection info. */
-            config::connection_info info;
+            connection_info info;
 
             /** Streaming context. */
             streaming::StreamingContext streamingContext;

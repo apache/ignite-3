@@ -67,7 +67,7 @@ namespace ignite
                 currentPagePos < currentPage->get_size();
         }
 
-        bool Cursor::IsClosedRemotely() const
+        bool Cursor::is_closed_remotely() const
         {
             return currentPage.get() && currentPage->IsLast();
         }

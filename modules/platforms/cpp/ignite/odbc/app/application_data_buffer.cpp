@@ -941,7 +941,7 @@ std::string application_data_buffer::get_string(std::size_t maxLen) const
             if (!param_len)
                 break;
 
-            res = utility::SqlStringToString(
+            res = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
             if (res.size() > maxLen)
@@ -1051,7 +1051,7 @@ uuid application_data_buffer::get_uuid() const
             if (!param_len)
                 break;
 
-            std::string str = utility::SqlStringToString(
+            std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
             std::stringstream converter;
@@ -1285,7 +1285,7 @@ ignite_date application_data_buffer::get_date() const
             if (!param_len)
                 break;
 
-            std::string str = utility::SqlStringToString(
+            std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
             sscanf(str.c_str(), "%d-%d-%d %d:%d:%d", &tm_time.tm_year, &tm_time.tm_mon, // NOLINT(cert-err34-c)
@@ -1363,7 +1363,7 @@ ignite_timestamp application_data_buffer::get_timestamp() const
             if (!param_len)
                 break;
 
-            std::string str = utility::SqlStringToString(
+            std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
             sscanf(str.c_str(), "%d-%d-%d %d:%d:%d", &tm_time.tm_year, &tm_time.tm_mon, // NOLINT(cert-err34-c)
@@ -1426,7 +1426,7 @@ ignite_time application_data_buffer::get_time() const
             if (!param_len)
                 break;
 
-            std::string str = utility::SqlStringToString(
+            std::string str = sql_string_to_string(
                 reinterpret_cast<const unsigned char*>(get_data()), static_cast<std::int32_t>(param_len));
 
             sscanf(str.c_str(), "%d:%d:%d", &tm_time.tm_hour, &tm_time.tm_min, &tm_time.tm_sec); // NOLINT(cert-err34-c)
@@ -1520,7 +1520,7 @@ T* application_data_buffer::apply_offset(T* ptr, std::size_t elemSize) const
     if (!ptr)
         return ptr;
 
-    return utility::GetPointerWithOffset(ptr, m_byte_offset + elemSize * m_element_offset);
+    return get_pointer_with_offset(ptr, m_byte_offset + elemSize * m_element_offset);
 }
 
 bool application_data_buffer::is_data_at_exec() const

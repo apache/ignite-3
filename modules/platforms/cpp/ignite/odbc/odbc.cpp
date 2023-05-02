@@ -15,45 +15,24 @@
  * limitations under the License.
  */
 
+
+#include "ignite/odbc/system/odbc_constants.h"
+#include "ignite/odbc/log.h"
+#include "ignite/odbc/utility.h"
+
+#include "ignite/odbc/config/configuration.h"
+#include "ignite/odbc/config/connection_string_parser.h"
+#include "ignite/odbc/connection.h"
+#include "ignite/odbc/dsn_config.h"
+#include "ignite/odbc/environment.h"
+#include "ignite/odbc/odbc.h"
+#include "ignite/odbc/statement.h"
+#include "ignite/odbc/type_traits.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
-
-#include "ignite/odbc/system/odbc_constants.h"
-#include "ignite/odbc/system/system_dsn.h"
-#include "log.h"
-#include "utility.h"
-
-#include "config/configuration.h"
-#include "config/connection_string_parser.h"
-#include "connection.h"
-#include "dsn_config.h"
-#include "environment.h"
-#include "odbc.h"
-#include "statement.h"
-#include "type_traits.h"
-
-/**
- * Handle window handle.
- * @param windowHandle Window handle.
- * @param config Configuration.
- * @return @c true on success and @c false otherwise.
- */
-bool HandleParentWindow(SQLHWND windowHandle, ignite::config::configuration &config)
-{
-#ifdef _WIN32
-    if (windowHandle)
-    {
-        LOG_MSG("Parent window is passed. Creating configuration window.");
-        return DisplayConnectionWindow(windowHandle, config);
-    }
-#else
-    IGNITE_UNUSED(windowHandle);
-    IGNITE_UNUSED(config);
-#endif
-    return true;
-}
 
 namespace ignite
 {
@@ -64,7 +43,7 @@ namespace ignite
                          SQLSMALLINT*   length)
     {
         using connection;
-        using config::connection_info;
+        using connection_info;
 
         LOG_MSG("SQLGetInfo called: "
             << infoType << " (" << connection_info::info_type_to_string(infoType) << "), "
@@ -262,7 +241,7 @@ namespace ignite
 
         Statement *statement = reinterpret_cast<Statement*>(stmt);
 
-        statement->Close();
+        statement->close();
 
         return statement->get_diagnostic_records().get_return_code();
     }
@@ -280,8 +259,8 @@ namespace ignite
 
         using connection;
         using diagnostic_record_storage;
-        using utility::SqlStringToString;
-        using utility::CopyStringToBuffer;
+        using sql_string_to_string;
+        using copy_string_to_buffer;
 
         LOG_MSG("SQLDriverConnect called");
         if (inConnectionString)
@@ -292,14 +271,14 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        std::string connectStr = SqlStringToString(inConnectionString, inConnectionStringLen);
+        std::string connectStr = sql_string_to_string(inConnectionString, inConnectionStringLen);
         connection->Establish(connectStr, windowHandle);
 
         diagnostic_record_storage& diag = connection->get_diagnostic_records();
         if (!diag.is_successful())
             return diag.get_return_code();
 
-        size_t result_len = CopyStringToBuffer(connectStr,
+        size_t result_len = copy_string_to_buffer(connectStr,
             reinterpret_cast<char*>(outConnectionString),
             static_cast<size_t>(outConnectionStringBufferLen));
 
@@ -326,8 +305,8 @@ namespace ignite
         IGNITE_UNUSED(authLen);
 
         using connection;
-        using config::configuration;
-        using utility::SqlStringToString;
+        using configuration;
+        using sql_string_to_string;
 
         LOG_MSG("SQLConnect called\n");
 
@@ -336,9 +315,9 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
-        config::configuration config;
+        configuration config;
 
-        std::string dsn = SqlStringToString(server_name, serverNameLen);
+        std::string dsn = sql_string_to_string(server_name, serverNameLen);
 
         LOG_MSG("DSN: " << dsn);
 
@@ -368,7 +347,7 @@ namespace ignite
     SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
     {
         using Statement;
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLPrepare called");
 
@@ -377,7 +356,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string sql = SqlStringToString(query, queryLen);
+        std::string sql = sql_string_to_string(query, queryLen);
 
         LOG_MSG("SQL: " << sql);
 
@@ -405,7 +384,7 @@ namespace ignite
     SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
     {
         using Statement;
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLExecDirect called");
 
@@ -414,7 +393,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string sql = SqlStringToString(query, queryLen);
+        std::string sql = sql_string_to_string(query, queryLen);
 
         LOG_MSG("SQL: " << sql);
 
@@ -510,7 +489,7 @@ namespace ignite
     SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
     {
         using Statement;
-        using meta::column_meta_vector;
+        using column_meta_vector;
 
         LOG_MSG("SQLNumResultCols called");
 
@@ -541,7 +520,7 @@ namespace ignite
                         SQLSMALLINT tableTypeLen)
     {
         using Statement;
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLTables called");
 
@@ -550,10 +529,10 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
-        std::string schema = SqlStringToString(schema_name, schemaNameLen);
-        std::string table = SqlStringToString(table_name, tableNameLen);
-        std::string tableTypeStr = SqlStringToString(tableType, tableTypeLen);
+        std::string catalog = sql_string_to_string(catalog_name, catalogNameLen);
+        std::string schema = sql_string_to_string(schema_name, schemaNameLen);
+        std::string table = sql_string_to_string(table_name, tableNameLen);
+        std::string tableTypeStr = sql_string_to_string(tableType, tableTypeLen);
 
         LOG_MSG("catalog: " << catalog);
         LOG_MSG("schema: " << schema);
@@ -576,7 +555,7 @@ namespace ignite
                          SQLSMALLINT    columnNameLen)
     {
         using Statement;
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLColumns called");
 
@@ -585,10 +564,10 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
-        std::string schema = SqlStringToString(schema_name, schemaNameLen);
-        std::string table = SqlStringToString(table_name, tableNameLen);
-        std::string column = SqlStringToString(column_name, columnNameLen);
+        std::string catalog = sql_string_to_string(catalog_name, catalogNameLen);
+        std::string schema = sql_string_to_string(schema_name, schemaNameLen);
+        std::string table = sql_string_to_string(table_name, tableNameLen);
+        std::string column = sql_string_to_string(column_name, columnNameLen);
 
         LOG_MSG("catalog: " << catalog);
         LOG_MSG("schema: " << schema);
@@ -654,9 +633,9 @@ namespace ignite
 
         LOG_MSG("SQLNativeSql called");
 
-        std::string in = SqlStringToString(inQuery, inQueryLen);
+        std::string in = sql_string_to_string(inQuery, inQueryLen);
 
-        CopyStringToBuffer(in, reinterpret_cast<char*>(outQueryBuffer),
+        copy_string_to_buffer(in, reinterpret_cast<char*>(outQueryBuffer),
             static_cast<size_t>(outQueryBufferLen));
 
         if (outQueryLen)
@@ -674,8 +653,8 @@ namespace ignite
                               SQLLEN*         numericAttr)
     {
         using Statement;
-        using meta::column_meta_vector;
-        using meta::column_meta;
+        using column_meta_vector;
+        using column_meta;
 
         LOG_MSG("SQLColAttribute called: " << field_id << " (" << column_meta::attr_id_to_string(field_id) << ")");
 
@@ -771,7 +750,7 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        int64_t res = statement->AffectedRows();
+        int64_t res = statement->affected_rows();
 
         LOG_MSG("Row count: " << res);
 
@@ -796,7 +775,7 @@ namespace ignite
                              SQLSMALLINT    foreignTableNameLen)
     {
         using Statement;
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLForeignKeys called");
 
@@ -805,12 +784,12 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string primaryCatalog = SqlStringToString(primaryCatalogName, primaryCatalogNameLen);
-        std::string primarySchema = SqlStringToString(primarySchemaName, primarySchemaNameLen);
-        std::string primaryTable = SqlStringToString(primaryTableName, primaryTableNameLen);
-        std::string foreignCatalog = SqlStringToString(foreignCatalogName, foreignCatalogNameLen);
-        std::string foreignSchema = SqlStringToString(foreignSchemaName, foreignSchemaNameLen);
-        std::string foreignTable = SqlStringToString(foreignTableName, foreignTableNameLen);
+        std::string primaryCatalog = sql_string_to_string(primaryCatalogName, primaryCatalogNameLen);
+        std::string primarySchema = sql_string_to_string(primarySchemaName, primarySchemaNameLen);
+        std::string primaryTable = sql_string_to_string(primaryTableName, primaryTableNameLen);
+        std::string foreignCatalog = sql_string_to_string(foreignCatalogName, foreignCatalogNameLen);
+        std::string foreignSchema = sql_string_to_string(foreignSchemaName, foreignSchemaNameLen);
+        std::string foreignTable = sql_string_to_string(foreignTableName, foreignTableNameLen);
 
         LOG_MSG("primaryCatalog: " << primaryCatalog);
         LOG_MSG("primarySchema: " << primarySchema);
@@ -885,7 +864,7 @@ namespace ignite
                              SQLSMALLINT    tableNameLen)
     {
         using Statement;
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLPrimaryKeys called");
 
@@ -894,9 +873,9 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
-        std::string schema = SqlStringToString(schema_name, schemaNameLen);
-        std::string table = SqlStringToString(table_name, tableNameLen);
+        std::string catalog = sql_string_to_string(catalog_name, catalogNameLen);
+        std::string schema = sql_string_to_string(schema_name, schemaNameLen);
+        std::string table = sql_string_to_string(table_name, tableNameLen);
 
         LOG_MSG("catalog: " << catalog);
         LOG_MSG("schema: " << schema);
@@ -1027,7 +1006,7 @@ namespace ignite
         const diagnostic_record& record = records->get_status_record(recNum);
 
         if (sql_state)
-            CopyStringToBuffer(record.get_sql_state(), reinterpret_cast<char*>(sql_state), 6);
+            copy_string_to_buffer(record.get_sql_state(), reinterpret_cast<char*>(sql_state), 6);
 
         if (nativeError)
             *nativeError = 0;
@@ -1039,14 +1018,14 @@ namespace ignite
             if (!msgLen)
                 return SQL_ERROR;
 
-            CopyStringToBuffer(errMsg, reinterpret_cast<char*>(msgBuffer), static_cast<size_t>(msgBufferLen));
+            copy_string_to_buffer(errMsg, reinterpret_cast<char*>(msgBuffer), static_cast<size_t>(msgBufferLen));
 
             *msgLen = static_cast<SQLSMALLINT>(errMsg.size());
 
             return SQL_SUCCESS_WITH_INFO;
         }
 
-        CopyStringToBuffer(errMsg, reinterpret_cast<char*>(msgBuffer), static_cast<size_t>(msgBufferLen));
+        copy_string_to_buffer(errMsg, reinterpret_cast<char*>(msgBuffer), static_cast<size_t>(msgBufferLen));
 
         if (msgLen)
             *msgLen = static_cast<SQLSMALLINT>(errMsg.size());
@@ -1216,7 +1195,7 @@ namespace ignite
     {
         using namespace odbc;
 
-        using utility::SqlStringToString;
+        using sql_string_to_string;
 
         LOG_MSG("SQLSpecialColumns called");
 
@@ -1225,9 +1204,9 @@ namespace ignite
         if (!statement)
             return SQL_INVALID_HANDLE;
 
-        std::string catalog = SqlStringToString(catalog_name, catalogNameLen);
-        std::string schema = SqlStringToString(schema_name, schemaNameLen);
-        std::string table = SqlStringToString(table_name, tableNameLen);
+        std::string catalog = sql_string_to_string(catalog_name, catalogNameLen);
+        std::string schema = sql_string_to_string(schema_name, schemaNameLen);
+        std::string table = sql_string_to_string(table_name, tableNameLen);
 
         LOG_MSG("catalog: " << catalog);
         LOG_MSG("schema: " << schema);
@@ -1334,7 +1313,7 @@ namespace ignite
         record.mark_retrieved();
 
         if (state)
-            CopyStringToBuffer(record.get_sql_state(), reinterpret_cast<char*>(state), 6);
+            copy_string_to_buffer(record.get_sql_state(), reinterpret_cast<char*>(state), 6);
 
         if (error)
             *error = 0;

@@ -15,168 +15,118 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_QUERY_QUERY
-#define _IGNITE_ODBC_QUERY_QUERY
-
-#include <stdint.h>
-
-#include <map>
+#pragma once
 
 #include "ignite/odbc/common_types.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 #include "ignite/odbc/meta/column_meta.h"
 #include "ignite/odbc/row.h"
 
-namespace ignite
+#include <map>
+#include <cstdint>
+
+namespace ignite {
+
+/** Query type. */
+enum class query_type
 {
-    namespace odbc
+    /** Data query type. */
+    DATA,
+};
+
+/**
+ * Query.
+ */
+class query
+{
+public:
+    /**
+     * Execute query.
+     *
+     * @return Execution result.
+     */
+    virtual sql_result execute() = 0;
+
+    /**
+     * Fetch next result row to application buffers.
+     *
+     * @param column_bindings Application buffers to put data to.
+     * @return Operation result.
+     */
+    virtual sql_result fetch_next_row(column_binding_map& column_bindings) = 0;
+
+    /**
+     * Get data of the specified column in the result set.
+     *
+     * @param column_idx Column index.
+     * @param buffer Buffer to put column data to.
+     * @return Operation result.
+     */
+    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer& buffer) = 0;
+
+    /**
+     * Close query.
+     *
+     * @return Operation result.
+     */
+    virtual sql_result close() = 0;
+
+    /**
+     * Get column metadata.
+     *
+     * @return Column metadata.
+     */
+    [[nodiscard]] virtual const column_meta_vector* get_meta()
     {
-        namespace query
-        {
-            /** Query type. */
-            struct QueryType
-            {
-                enum Type
-                {
-                    /** Column metadata query type. */
-                    COLUMN_METADATA,
+        static const column_meta_vector empty;
 
-                    /** Data query type. */
-                    DATA,
-
-                    /** Batch query type. */
-                    BATCH,
-
-                    /** Streaming query type. */
-                    STREAMING,
-
-                    /** Foreign keys query type. */
-                    FOREIGN_KEYS,
-
-                    /** Primary keys query type. */
-                    PRIMARY_KEYS,
-
-                    /** Special columns query type. */
-                    SPECIAL_COLUMNS,
-
-                    /** Table metadata query type. */
-                    TABLE_METADATA,
-
-                    /** Type info query type. */
-                    TYPE_INFO,
-
-                    /** Internal query, that should be parsed by a driver itself. */
-                    INTERNAL
-                };
-            };
-
-            /**
-             * Query.
-             */
-            class Query
-            {
-            public:
-                /**
-                 * Destructor.
-                 */
-                virtual ~Query()
-                {
-                    // No-op.
-                }
-
-                /**
-                 * Execute query.
-                 *
-                 * @return True on success.
-                 */
-                virtual sql_result Execute() = 0;
-
-                /**
-                 * Fetch next result row to application buffers.
-                 *
-                 * @param columnBindings Application buffers to put data to.
-                 * @return Operation result.
-                 */
-                virtual sql_result FetchNextRow(column_binding_map& columnBindings) = 0;
-
-                /**
-                 * Get data of the specified column in the result set.
-                 *
-                 * @param columnIdx Column index.
-                 * @param buffer Buffer to put column data to.
-                 * @return Operation result.
-                 */
-                virtual sql_result GetColumn(uint16_t columnIdx, application_data_buffer& buffer) = 0;
-
-                /**
-                 * Close query.
-                 *
-                 * @return True on success.
-                 */
-                virtual sql_result Close() = 0;
-
-                /**
-                 * Get column metadata.
-                 *
-                 * @return Column metadata.
-                 */
-                virtual const meta::column_meta_vector* GetMeta()
-                {
-                    static const meta::column_meta_vector empty;
-
-                    return &empty;
-                }
-
-                /**
-                 * Check if data is available.
-                 *
-                 * @return True if data is available.
-                 */
-                virtual bool DataAvailable() const = 0;
-
-                /**
-                 * Get number of rows affected by the statement.
-                 *
-                 * @return Number of rows affected by the statement.
-                 */
-                virtual int64_t AffectedRows() const = 0;
-
-                /**
-                 * Move to the next result set.
-                 *
-                 * @return Operation result.
-                 */
-                virtual sql_result NextResultSet() = 0;
-
-                /**
-                 * Get query type.
-                 *
-                 * @return Query type.
-                 */
-                QueryType::Type get_type() const
-                {
-                    return type;
-                }
-
-            protected:
-                /**
-                 * Constructor.
-                 */
-                Query(diagnosable_adapter& diag, QueryType::Type type) :
-                    diag(diag),
-                    type(type)
-                {
-                    // No-op.
-                }
-
-                /** Diagnostics collector. */
-                diagnosable_adapter& diag;
-
-                /** Query type. */
-                QueryType::Type type;
-            };
-        }
+        return &empty;
     }
-}
 
-#endif //_IGNITE_ODBC_QUERY_QUERY
+    /**
+     * Check if data is available.
+     *
+     * @return True if data is available.
+     */
+    [[nodiscard]] virtual bool is_data_available() const = 0;
+
+    /**
+     * Get number of rows affected by the statement.
+     *
+     * @return Number of rows affected by the statement.
+     */
+    [[nodiscard]] virtual std::int64_t affected_rows() const = 0;
+
+    /**
+     * Move to the next result set.
+     *
+     * @return Operation result.
+     */
+    virtual sql_result next_result_set() = 0;
+
+    /**
+     * Get query type.
+     *
+     * @return Query type.
+     */
+    [[nodiscard]] query_type get_type() const
+    {
+        return m_type;
+    }
+
+protected:
+    /**
+     * Constructor.
+     */
+    query(diagnosable_adapter& diag, query_type type)
+        : m_diag(diag)
+        , m_type(type) { }
+
+    /** Diagnostics collector. */
+    diagnosable_adapter &m_diag;
+
+    /** Query type. */
+    query_type m_type;
+};
+
+} // namespace ignite

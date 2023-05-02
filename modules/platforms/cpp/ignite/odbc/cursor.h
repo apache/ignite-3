@@ -74,7 +74,7 @@ namespace ignite
              *
              * @return true, if the cursor closed remotely.
              */
-            bool IsClosedRemotely() const;
+            bool is_closed_remotely() const;
 
             /**
              * Get query ID.

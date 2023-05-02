@@ -25,6 +25,7 @@
 
 namespace ignite {
 
+const protocol_version configuration::default_value::protocol_version{protocol_version::get_current()};
 const std::string configuration::default_value::driver{"Apache Ignite"};
 const std::string configuration::default_value::address{};
 const std::int32_t configuration::default_value::page_size{1024};

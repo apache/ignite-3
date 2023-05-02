@@ -15,493 +15,471 @@
  * limitations under the License.
  */
 
-#include "data_query.h"
-#include "../connection.h"
-#include "../log.h"
-#include "../message.h"
-#include "../odbc_error.h"
-#include "batch_query.h"
+#include <utility>
+
+#include "ignite/odbc/query/data_query.h"
+#include "ignite/odbc/connection.h"
+#include "ignite/odbc/log.h"
+#include "ignite/odbc/message.h"
+#include "ignite/odbc/odbc_error.h"
 
 namespace ignite
 {
-    namespace odbc
+
+data_query::~data_query()
+{
+    internal_close();
+}
+
+sql_result data_query::execute()
+{
+    if (m_cursor.get())
+        internal_close();
+
+    return make_request_execute();
+}
+
+const column_meta_vector* data_query::get_meta()
+{
+    if (!m_result_meta_available)
     {
-        namespace query
+        make_request_resultset_meta();
+
+        if (!m_result_meta_available)
+            return 0;
+    }
+
+    return &m_result_meta;
+}
+
+sql_result data_query::fetch_next_row(column_binding_map& column_bindings)
+{
+    if (!m_cursor.get())
+    {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (!m_cursor->HasData())
+        return sql_result::AI_NO_DATA;
+
+    m_cursor->Increment();
+
+    if (m_cursor->NeedDataUpdate())
+    {
+        if (m_cached_next_page.get())
+            m_cursor->UpdateData(m_cached_next_page);
+        else
         {
-            DataQuery::DataQuery(diagnosable_adapter& diag, connection& connection, const std::string& sql,
-                const parameter_set& params, int32_t& timeout) :
-                Query(diag, QueryType::DATA),
-                connection(connection),
-                sql(sql),
-                params(params),
-                resultMetaAvailable(false),
-                resultMeta(),
-                cursor(),
-                rows_affected(),
-                rowsAffectedIdx(0),
-                cachedNextPage(),
-                timeout(timeout)
-            {
-                // No-op.
-            }
+            sql_result result = make_request_fetch();
 
-            DataQuery::~DataQuery()
-            {
-                InternalClose();
-            }
-
-            sql_result DataQuery::Execute()
-            {
-                if (cursor.get())
-                    InternalClose();
-
-                return MakeRequestExecute();
-            }
-
-            const meta::column_meta_vector* DataQuery::GetMeta()
-            {
-                if (!resultMetaAvailable)
-                {
-                    MakeRequestResultsetMeta();
-
-                    if (!resultMetaAvailable)
-                        return 0;
-                }
-
-                return &resultMeta;
-            }
-
-            sql_result DataQuery::FetchNextRow(column_binding_map& columnBindings)
-            {
-                if (!cursor.get())
-                {
-                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
-
-                    return sql_result::AI_ERROR;
-                }
-
-                if (!cursor->HasData())
-                    return sql_result::AI_NO_DATA;
-
-                cursor->Increment();
-
-                if (cursor->NeedDataUpdate())
-                {
-                    if (cachedNextPage.get())
-                        cursor->UpdateData(cachedNextPage);
-                    else
-                    {
-                        sql_result result = MakeRequestFetch();
-
-                        if (result != sql_result::AI_SUCCESS)
-                            return result;
-                    }
-                }
-
-                if (!cursor->HasData())
-                    return sql_result::AI_NO_DATA;
-
-                Row* row = cursor->GetRow();
-
-                if (!row)
-                {
-                    diag.add_status_record("Unknown error.");
-
-                    return sql_result::AI_ERROR;
-                }
-
-                for (int32_t i = 1; i < row->get_size() + 1; ++i)
-                {
-                    column_binding_map::iterator it = columnBindings.find(i);
-
-                    if (it == columnBindings.end())
-                        continue;
-
-                    conversion_result convRes = row->ReadColumnToBuffer(i, it->second);
-
-                    sql_result result = ProcessConversionResult(convRes, 0, i);
-
-                    if (result == sql_result::AI_ERROR)
-                        return sql_result::AI_ERROR;
-                }
-
-                return sql_result::AI_SUCCESS;
-            }
-
-            sql_result DataQuery::GetColumn(uint16_t columnIdx, application_data_buffer& buffer)
-            {
-                if (!cursor.get())
-                {
-                    diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
-
-                    return sql_result::AI_ERROR;
-                }
-
-                Row* row = cursor->GetRow();
-
-                if (!row)
-                {
-                    diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
-                        "Cursor has reached end of the result set.");
-
-                    return sql_result::AI_ERROR;
-                }
-
-                conversion_result convRes = row->ReadColumnToBuffer(columnIdx, buffer);
-
-                sql_result result = ProcessConversionResult(convRes, 0, columnIdx);
-
+            if (result != sql_result::AI_SUCCESS)
                 return result;
-            }
-
-            sql_result DataQuery::Close()
-            {
-                return InternalClose();
-            }
-
-            sql_result DataQuery::InternalClose()
-            {
-                if (!cursor.get())
-                    return sql_result::AI_SUCCESS;
-
-                sql_result result = sql_result::AI_SUCCESS;
-
-                if (!IsClosedRemotely())
-                    result = MakeRequestClose();
-
-                if (result == sql_result::AI_SUCCESS)
-                {
-                    cursor.reset();
-
-                    rowsAffectedIdx = 0;
-
-                    rows_affected.clear();
-                }
-
-                return result;
-            }
-
-            bool DataQuery::DataAvailable() const
-            {
-                return cursor.get() && cursor->HasData();
-            }
-
-            int64_t DataQuery::AffectedRows() const
-            {
-                int64_t affected = rowsAffectedIdx < rows_affected.size() ? rows_affected[rowsAffectedIdx] : 0;
-
-                if (affected >= 0)
-                    return affected;
-
-                return connection.GetConfiguration().get_page_size();
-            }
-
-            sql_result DataQuery::NextResultSet()
-            {
-                if (rowsAffectedIdx + 1 >= rows_affected.size())
-                {
-                    InternalClose();
-
-                    return sql_result::AI_NO_DATA;
-                }
-
-                sql_result res = MakeRequestMoreResults();
-
-                if (res == sql_result::AI_SUCCESS)
-                    ++rowsAffectedIdx;
-
-                return res;
-            }
-
-            bool DataQuery::IsClosedRemotely() const
-            {
-                for (size_t i = 0; i < rows_affected.size(); ++i)
-                {
-                    if (rows_affected[i] < 0)
-                        return false;
-                }
-
-                return true;
-            }
-
-            sql_result DataQuery::MakeRequestExecute()
-            {
-                const std::string& schema = connection.GetSchema();
-
-                QueryExecuteRequest req(schema, sql, params, timeout, connection.IsAutoCommit());
-                QueryExecuteResponse rsp;
-
-                try
-                {
-                    connection.SyncMessage(req, rsp);
-                }
-                catch (const odbc_error& err)
-                {
-                    diag.add_status_record(err);
-
-                    return sql_result::AI_ERROR;
-                }
-                catch (const IgniteError& err)
-                {
-                    diag.add_status_record(err.GetText());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                if (rsp.get_state() != response_status::SUCCESS)
-                {
-                    LOG_MSG("Error: " << rsp.GetError());
-
-                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                rows_affected = rsp.GetAffectedRows();
-                SetResultsetMeta(rsp.GetMeta());
-
-                LOG_MSG("Query id: " << rsp.GetQueryId());
-                LOG_MSG("Affected Rows list size: " << rows_affected.size());
-
-                cursor.reset(new Cursor(rsp.GetQueryId()));
-
-                rowsAffectedIdx = 0;
-
-                return sql_result::AI_SUCCESS;
-            }
-
-            sql_result DataQuery::MakeRequestClose()
-            {
-                QueryCloseRequest req(cursor->GetQueryId());
-                QueryCloseResponse rsp;
-
-                try
-                {
-                    connection.SyncMessage(req, rsp);
-                }
-                catch (const odbc_error& err)
-                {
-                    diag.add_status_record(err);
-
-                    return sql_result::AI_ERROR;
-                }
-                catch (const IgniteError& err)
-                {
-                    diag.add_status_record(err.GetText());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                LOG_MSG("Query id: " << rsp.GetQueryId());
-
-                if (rsp.get_state() != response_status::SUCCESS)
-                {
-                    LOG_MSG("Error: " << rsp.GetError());
-
-                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                return sql_result::AI_SUCCESS;
-            }
-
-            sql_result DataQuery::MakeRequestFetch()
-            {
-                std::auto_ptr<ResultPage> resultPage(new ResultPage());
-
-                QueryFetchRequest req(cursor->GetQueryId(), connection.GetConfiguration().get_page_size());
-                QueryFetchResponse rsp(*resultPage);
-
-                try
-                {
-                    connection.SyncMessage(req, rsp);
-                }
-                catch (const odbc_error& err)
-                {
-                    diag.add_status_record(err);
-
-                    return sql_result::AI_ERROR;
-                }
-                catch (const IgniteError& err)
-                {
-                    diag.add_status_record(err.GetText());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                if (rsp.get_state() != response_status::SUCCESS)
-                {
-                    LOG_MSG("Error: " << rsp.GetError());
-
-                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                LOG_MSG("Page size:    " << resultPage->get_size());
-                LOG_MSG("Page is last: " << resultPage->IsLast());
-
-                cursor->UpdateData(resultPage);
-
-                return sql_result::AI_SUCCESS;
-            }
-
-            sql_result DataQuery::MakeRequestMoreResults()
-            {
-                std::auto_ptr<ResultPage> resultPage(new ResultPage());
-
-                QueryMoreResultsRequest req(cursor->GetQueryId(), connection.GetConfiguration().get_page_size());
-                QueryMoreResultsResponse rsp(*resultPage);
-
-                try
-                {
-                    connection.SyncMessage(req, rsp);
-                }
-                catch (const odbc_error& err)
-                {
-                    diag.add_status_record(err);
-
-                    return sql_result::AI_ERROR;
-                }
-                catch (const IgniteError& err)
-                {
-                    diag.add_status_record(err.GetText());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                if (rsp.get_state() != response_status::SUCCESS)
-                {
-                    LOG_MSG("Error: " << rsp.GetError());
-
-                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                LOG_MSG("Page size:    " << resultPage->get_size());
-                LOG_MSG("Page is last: " << resultPage->IsLast());
-
-                cachedNextPage = resultPage;
-                cursor.reset(new Cursor(rsp.GetQueryId()));
-
-                return sql_result::AI_SUCCESS;
-            }
-
-            sql_result DataQuery::MakeRequestResultsetMeta()
-            {
-                const std::string& schema = connection.GetSchema();
-
-                QueryGetResultsetMetaRequest req(schema, sql);
-                QueryGetResultsetMetaResponse rsp;
-
-                try
-                {
-                    connection.SyncMessage(req, rsp);
-                }
-                catch (const odbc_error& err)
-                {
-                    diag.add_status_record(err);
-
-                    return sql_result::AI_ERROR;
-                }
-                catch (const IgniteError& err)
-                {
-                    diag.add_status_record(err.GetText());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                if (rsp.get_state() != response_status::SUCCESS)
-                {
-                    LOG_MSG("Error: " << rsp.GetError());
-
-                    diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
-
-                    return sql_result::AI_ERROR;
-                }
-
-                SetResultsetMeta(rsp.GetMeta());
-
-                return sql_result::AI_SUCCESS;
-            }
-
-            sql_result DataQuery::ProcessConversionResult(conversion_result convRes, int32_t rowIdx,
-                int32_t columnIdx)
-            {
-                switch (convRes)
-                {
-                    case conversion_result::AI_SUCCESS:
-                    {
-                        return sql_result::AI_SUCCESS;
-                    }
-
-                    case conversion_result::AI_NO_DATA:
-                    {
-                        return sql_result::AI_NO_DATA;
-                    }
-
-                    case conversion_result::AI_VARLEN_DATA_TRUNCATED:
-                    {
-                        diag.add_status_record(sql_state::S01004_DATA_TRUNCATED,
-                            "Buffer is too small for the column data. Truncated from the right.", rowIdx, columnIdx);
-
-                        return sql_result::AI_SUCCESS_WITH_INFO;
-                    }
-
-                    case conversion_result::AI_FRACTIONAL_TRUNCATED:
-                    {
-                        diag.add_status_record(sql_state::S01S07_FRACTIONAL_TRUNCATION,
-                            "Buffer is too small for the column data. Fraction truncated.", rowIdx, columnIdx);
-
-                        return sql_result::AI_SUCCESS_WITH_INFO;
-                    }
-
-                    case conversion_result::AI_INDICATOR_NEEDED:
-                    {
-                        diag.add_status_record(sql_state::S22002_INDICATOR_NEEDED,
-                            "Indicator is needed but not suplied for the column buffer.", rowIdx, columnIdx);
-
-                        return sql_result::AI_SUCCESS_WITH_INFO;
-                    }
-
-                    case conversion_result::AI_UNSUPPORTED_CONVERSION:
-                    {
-                        diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-                            "Data conversion is not supported.", rowIdx, columnIdx);
-
-                        return sql_result::AI_SUCCESS_WITH_INFO;
-                    }
-
-                    case conversion_result::AI_FAILURE:
-                    default:
-                    {
-                        diag.add_status_record(sql_state::S01S01_ERROR_IN_ROW,
-                            "Can not retrieve row column.", rowIdx, columnIdx);
-
-                        break;
-                    }
-                }
-
-                return sql_result::AI_ERROR;
-            }
-
-            void DataQuery::SetResultsetMeta(const meta::column_meta_vector& value)
-            {
-                resultMeta.assign(value.begin(), value.end());
-                resultMetaAvailable = true;
-
-                for (size_t i = 0; i < resultMeta.size(); ++i)
-                {
-                    meta::column_meta& meta = resultMeta.at(i);
-                    LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name()
-                        <<  "\n[" << i << "] TypeName:       " << meta.get_table_name()
-                        <<  "\n[" << i << "] ColumnName:     " << meta.get_column_name()
-                        <<  "\n[" << i << "] ColumnType:     " << static_cast<int32_t>(meta.get_data_type()));
-                }
-            }
         }
     }
+
+    if (!m_cursor->HasData())
+        return sql_result::AI_NO_DATA;
+
+    Row* row = m_cursor->GetRow();
+
+    if (!row)
+    {
+        m_diag.add_status_record("Unknown error.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    for (std::int32_t i = 1; i < row->get_size() + 1; ++i)
+    {
+        column_binding_map::iterator it = column_bindings.find(i);
+
+        if (it == column_bindings.end())
+            continue;
+
+        conversion_result convRes = row->ReadColumnToBuffer(i, it->second);
+
+        sql_result result = process_conversion_result(convRes, 0, i);
+
+        if (result == sql_result::AI_ERROR)
+            return sql_result::AI_ERROR;
+    }
+
+    return sql_result::AI_SUCCESS;
 }
+
+sql_result data_query::get_column(uint16_t column_idx, application_data_buffer& buffer)
+{
+    if (!m_cursor.get())
+    {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    Row* row = m_cursor->GetRow();
+
+    if (!row)
+    {
+        m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE,
+            "Cursor has reached end of the result set.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    conversion_result convRes = row->ReadColumnToBuffer(column_idx, buffer);
+
+    sql_result result = process_conversion_result(convRes, 0, column_idx);
+
+    return result;
+}
+
+sql_result data_query::close()
+{
+    return internal_close();
+}
+
+sql_result data_query::internal_close()
+{
+    if (!m_cursor.get())
+        return sql_result::AI_SUCCESS;
+
+    sql_result result = sql_result::AI_SUCCESS;
+
+    if (!is_closed_remotely())
+        result = make_request_close();
+
+    if (result == sql_result::AI_SUCCESS)
+    {
+        m_cursor.reset();
+        m_rows_affected_idx = 0;
+        m_rows_affected.clear();
+    }
+
+    return result;
+}
+
+bool data_query::is_data_available() const
+{
+    return m_cursor.get() && m_cursor->HasData();
+}
+
+int64_t data_query::affected_rows() const
+{
+    int64_t affected = m_rows_affected_idx < m_rows_affected.size() ? m_rows_affected[m_rows_affected_idx] : 0;
+
+    if (affected >= 0)
+        return affected;
+
+    return m_connection.GetConfiguration().get_page_size();
+}
+
+sql_result data_query::next_result_set()
+{
+    if (m_rows_affected_idx + 1 >= m_rows_affected.size())
+    {
+        internal_close();
+
+        return sql_result::AI_NO_DATA;
+    }
+
+    sql_result res = make_request_more_results();
+
+    if (res == sql_result::AI_SUCCESS)
+        ++m_rows_affected_idx;
+
+    return res;
+}
+
+bool data_query::is_closed_remotely() const
+{
+    for (size_t i = 0; i < m_rows_affected.size(); ++i)
+    {
+        if (m_rows_affected[i] < 0)
+            return false;
+    }
+
+    return true;
+}
+
+sql_result data_query::make_request_execute()
+{
+    const std::string& schema = m_connection.GetSchema();
+
+    QueryExecuteRequest req(schema, sql, params, timeout, m_connection.IsAutoCommit());
+    QueryExecuteResponse rsp;
+
+    try
+    {
+        m_connection.SyncMessage(req, rsp);
+    }
+    catch (const odbc_error& err)
+    {
+        m_diag.add_status_record(err);
+
+        return sql_result::AI_ERROR;
+    }
+    catch (const IgniteError& err)
+    {
+        m_diag.add_status_record(err.GetText());
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (rsp.get_state() != response_status::SUCCESS)
+    {
+        LOG_MSG("Error: " << rsp.get_error());
+
+        m_diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.get_error());
+
+        return sql_result::AI_ERROR;
+    }
+
+    m_rows_affected = rsp.GetAffectedRows();
+    set_resultset_meta(rsp.get_meta());
+
+    LOG_MSG("Query id: " << rsp.GetQueryId());
+    LOG_MSG("Affected Rows list size: " << m_rows_affected.size());
+
+    m_cursor.reset(new Cursor(rsp.GetQueryId()));
+
+    m_rows_affected_idx = 0;
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::make_request_close()
+{
+    QueryCloseRequest req(m_cursor->GetQueryId());
+    QueryCloseResponse rsp;
+
+    try
+    {
+        m_connection.SyncMessage(req, rsp);
+    }
+    catch (const odbc_error& err)
+    {
+        m_diag.add_status_record(err);
+
+        return sql_result::AI_ERROR;
+    }
+    catch (const IgniteError& err)
+    {
+        m_diag.add_status_record(err.GetText());
+
+        return sql_result::AI_ERROR;
+    }
+
+    LOG_MSG("Query id: " << rsp.GetQueryId());
+
+    if (rsp.get_state() != response_status::SUCCESS)
+    {
+        LOG_MSG("Error: " << rsp.get_error());
+
+        m_diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.get_error());
+
+        return sql_result::AI_ERROR;
+    }
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::make_request_fetch()
+{
+    std::unique_ptr<ResultPage> resultPage(new ResultPage());
+
+    QueryFetchRequest req(m_cursor->GetQueryId(), m_connection.GetConfiguration().get_page_size());
+    QueryFetchResponse rsp(*resultPage);
+
+    try
+    {
+        m_connection.SyncMessage(req, rsp);
+    }
+    catch (const odbc_error& err)
+    {
+        m_diag.add_status_record(err);
+
+        return sql_result::AI_ERROR;
+    }
+    catch (const IgniteError& err)
+    {
+        m_diag.add_status_record(err.GetText());
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (rsp.get_state() != response_status::SUCCESS)
+    {
+        LOG_MSG("Error: " << rsp.get_error());
+
+        m_diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.get_error());
+
+        return sql_result::AI_ERROR;
+    }
+
+    LOG_MSG("Page size:    " << resultPage->get_size());
+    LOG_MSG("Page is last: " << resultPage->IsLast());
+
+    m_cursor->UpdateData(resultPage);
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::make_request_more_results()
+{
+    std::unique_ptr<ResultPage> resultPage(new ResultPage());
+
+    QueryMoreResultsRequest req(m_cursor->GetQueryId(), m_connection.GetConfiguration().get_page_size());
+    QueryMoreResultsResponse rsp(*resultPage);
+
+    try
+    {
+        m_connection.SyncMessage(req, rsp);
+    }
+    catch (const odbc_error& err)
+    {
+        m_diag.add_status_record(err);
+
+        return sql_result::AI_ERROR;
+    }
+    catch (const IgniteError& err)
+    {
+        m_diag.add_status_record(err.GetText());
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (rsp.get_state() != response_status::SUCCESS)
+    {
+        LOG_MSG("Error: " << rsp.get_error());
+
+        m_diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.get_error());
+
+        return sql_result::AI_ERROR;
+    }
+
+    LOG_MSG("Page size:    " << resultPage->get_size());
+    LOG_MSG("Page is last: " << resultPage->IsLast());
+
+    m_cached_next_page = resultPage;
+    m_cursor.reset(new Cursor(rsp.GetQueryId()));
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::make_request_resultset_meta()
+{
+    const std::string& schema = m_connection.GetSchema();
+
+    QueryGetResultsetMetaRequest req(schema, sql);
+    QueryGetResultsetMetaResponse rsp;
+
+    try
+    {
+        m_connection.SyncMessage(req, rsp);
+    }
+    catch (const odbc_error& err)
+    {
+        m_diag.add_status_record(err);
+
+        return sql_result::AI_ERROR;
+    }
+    catch (const IgniteError& err)
+    {
+        m_diag.add_status_record(err.GetText());
+
+        return sql_result::AI_ERROR;
+    }
+
+    if (rsp.get_state() != response_status::SUCCESS)
+    {
+        LOG_MSG("Error: " << rsp.get_error());
+
+        m_diag.add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.get_error());
+
+        return sql_result::AI_ERROR;
+    }
+
+    set_resultset_meta(rsp.get_meta());
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::process_conversion_result(conversion_result convRes, std::int32_t rowIdx,
+    std::int32_t column_idx)
+{
+    switch (convRes)
+    {
+        case conversion_result::AI_SUCCESS:
+        {
+            return sql_result::AI_SUCCESS;
+        }
+
+        case conversion_result::AI_NO_DATA:
+        {
+            return sql_result::AI_NO_DATA;
+        }
+
+        case conversion_result::AI_VARLEN_DATA_TRUNCATED:
+        {
+            m_diag.add_status_record(sql_state::S01004_DATA_TRUNCATED,
+                "Buffer is too small for the column data. Truncated from the right.", rowIdx, column_idx);
+
+            return sql_result::AI_SUCCESS_WITH_INFO;
+        }
+
+        case conversion_result::AI_FRACTIONAL_TRUNCATED:
+        {
+            m_diag.add_status_record(sql_state::S01S07_FRACTIONAL_TRUNCATION,
+                "Buffer is too small for the column data. Fraction truncated.", rowIdx, column_idx);
+
+            return sql_result::AI_SUCCESS_WITH_INFO;
+        }
+
+        case conversion_result::AI_INDICATOR_NEEDED:
+        {
+            m_diag.add_status_record(sql_state::S22002_INDICATOR_NEEDED,
+                "Indicator is needed but not suplied for the column buffer.", rowIdx, column_idx);
+
+            return sql_result::AI_SUCCESS_WITH_INFO;
+        }
+
+        case conversion_result::AI_UNSUPPORTED_CONVERSION:
+        {
+            m_diag.add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
+                "Data conversion is not supported.", rowIdx, column_idx);
+
+            return sql_result::AI_SUCCESS_WITH_INFO;
+        }
+
+        case conversion_result::AI_FAILURE:
+        default:
+        {
+            m_diag.add_status_record(sql_state::S01S01_ERROR_IN_ROW,
+                "Can not retrieve row column.", rowIdx, column_idx);
+
+            break;
+        }
+    }
+
+    return sql_result::AI_ERROR;
+}
+
+void data_query::set_resultset_meta(const column_meta_vector& value)
+{
+    m_result_meta.assign(value.begin(), value.end());
+    m_result_meta_available = true;
+
+    for (size_t i = 0; i < m_result_meta.size(); ++i)
+    {
+        column_meta& meta = m_result_meta.at(i);
+        LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name()
+            <<  "\n[" << i << "] TypeName:       " << meta.get_table_name()
+            <<  "\n[" << i << "] ColumnName:     " << meta.get_column_name()
+            <<  "\n[" << i << "] ColumnType:     " << static_cast<std::int32_t>(meta.get_data_type()));
+    }
+}
+
+} // namespace ignite
 

@@ -15,148 +15,39 @@
  * limitations under the License.
  */
 
-#include <cassert>
-
-#include <ignite/impl/binary/binary_utils.h>
-
 #include "ignite/odbc/system/odbc_constants.h"
-#include "utility.h"
+#include "ignite/odbc/utility.h"
 
-namespace ignite
+namespace ignite {
+
+size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buffer_len)
 {
-    namespace utility
-    {
-        size_t CopyStringToBuffer(const std::string& str, char* buf, size_t buffer_len)
-        {
-            if (!buf || !buffer_len)
-                return 0;
+    if (!buf || !buffer_len)
+        return 0;
 
-            size_t bytesToCopy = std::min(str.size(), static_cast<size_t>(buffer_len - 1));
+    size_t bytes_to_copy = std::min(str.size(), static_cast<size_t>(buffer_len - 1));
 
-            memcpy(buf, str.data(), bytesToCopy);
-            buf[bytesToCopy] = 0;
+    memcpy(buf, str.data(), bytes_to_copy);
+    buf[bytes_to_copy] = 0;
 
-            return bytesToCopy;
-        }
-
-        void ReadString(ignite::impl::binary::BinaryReaderImpl& reader, std::string& str)
-        {
-            int32_t strLen = reader.ReadString(0, 0);
-
-            if (strLen > 0)
-            {
-                str.resize(strLen);
-
-                reader.ReadString(&str[0], static_cast<int32_t>(str.size()));
-            }
-            else
-            {
-                str.clear();
-
-                if (strLen == 0)
-                {
-                    char dummy;
-
-                    reader.ReadString(&dummy, sizeof(dummy));
-                }
-            }
-        }
-
-        void WriteString(ignite::impl::binary::BinaryWriterImpl& writer, const std::string & str)
-        {
-            writer.WriteString(str.data(), static_cast<int32_t>(str.size()));
-        }
-
-        void ReadDecimal(ignite::impl::binary::BinaryReaderImpl& reader, big_decimal& decimal)
-        {
-            int8_t hdr = reader.ReadInt8();
-
-            assert(hdr == ignite::impl::binary::IGNITE_TYPE_DECIMAL);
-
-            IGNITE_UNUSED(hdr);
-
-            int32_t scale = reader.ReadInt32();
-
-            int32_t len = reader.ReadInt32();
-
-            std::vector<int8_t> mag;
-
-            mag.resize(len);
-
-            impl::binary::BinaryUtils::ReadInt8Array(reader.GetStream(), mag.data(), static_cast<int32_t>(mag.size()));
-
-            int32_t sign = 1;
-            
-            if (mag[0] < 0)
-            {
-                mag[0] &= 0x7F;
-
-                sign = -1;
-            }
-
-            big_decimal res(mag.data(), static_cast<int32_t>(mag.size()), scale, sign);
-
-            decimal.Swap(res);
-        }
-
-        void WriteDecimal(ignite::impl::binary::BinaryWriterImpl& writer, const big_decimal& decimal)
-        {
-            writer.WriteInt8(ignite::impl::binary::IGNITE_TYPE_DECIMAL);
-
-            const BigInteger &unscaled = decimal.GetUnscaledValue();
-
-            writer.WriteInt32(decimal.get_scale());
-
-            FixedSizeArray<int8_t> magnitude;
-
-            unscaled.MagnitudeToBytes(magnitude);
-
-            int8_t addBit = unscaled.GetSign() == -1 ? -0x80 : 0;
-
-            if (magnitude[0] < 0)
-            {
-                writer.WriteInt32(magnitude.get_size() + 1);
-                writer.WriteInt8(addBit);
-            }
-            else
-            {
-                writer.WriteInt32(magnitude.get_size());
-                magnitude[0] |= addBit;
-            }
-
-            impl::binary::BinaryUtils::WriteInt8Array(writer.GetStream(), magnitude.get_data(), magnitude.get_size());
-        }
-
-        std::string SqlStringToString(const unsigned char* sqlStr, int32_t sqlStrLen)
-        {
-            std::string res;
-
-            const char* sqlStrC = reinterpret_cast<const char*>(sqlStr);
-
-            if (!sqlStr || !sqlStrLen)
-                return res;
-
-            if (sqlStrLen == SQL_NTS)
-                res.assign(sqlStrC);
-            else if (sqlStrLen > 0)
-                res.assign(sqlStrC, sqlStrLen);
-
-            return res;
-        }
-
-        void ReadByteArray(impl::binary::BinaryReaderImpl& reader, std::vector<int8_t>& res)
-        {
-            int32_t len = reader.ReadInt8Array(0, 0);
-
-            if (len > 0)
-            {
-                res.resize(len);
-
-                reader.ReadInt8Array(&res[0], static_cast<int32_t>(res.size()));
-            }
-            else
-                res.clear();
-        }
-    }
+    return bytes_to_copy;
 }
 
+std::string sql_string_to_string(const unsigned char* sql_str, std::int32_t sql_str_len)
+{
+    std::string res;
+
+    const char* sql_str_c = reinterpret_cast<const char*>(sql_str);
+
+    if (!sql_str || !sql_str_len)
+        return res;
+
+    if (sql_str_len == SQL_NTS)
+        res.assign(sql_str_c);
+    else if (sql_str_len > 0)
+        res.assign(sql_str_c, sql_str_len);
+
+    return res;
+}
+
+} // namespace ignite

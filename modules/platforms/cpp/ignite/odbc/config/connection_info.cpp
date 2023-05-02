@@ -2541,7 +2541,7 @@ sql_result connection_info::get_info(info_type type, void* buf,
             return sql_result::AI_ERROR;
 
         unsigned short strlen = static_cast<short>(
-            utility::CopyStringToBuffer(itStr->second,
+            copy_string_to_buffer(itStr->second,
                 reinterpret_cast<char*>(buf), buffer_len));
 
         if (result_len)

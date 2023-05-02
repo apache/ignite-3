@@ -44,7 +44,7 @@ namespace ignite
     {
         Statement::Statement(connection& parent) :
             connection(parent),
-            columnBindings(),
+            column_bindings(),
             currentQuery(),
             rowsFetched(0),
             rowStatuses(0),
@@ -61,12 +61,12 @@ namespace ignite
             // No-op.
         }
 
-        void Statement::BindColumn(uint16_t columnIdx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
+        void Statement::BindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
         {
-            IGNITE_ODBC_API_CALL(InternalBindColumn(columnIdx, targetType, targetValue, bufferLength, strLengthOrIndicator));
+            IGNITE_ODBC_API_CALL(InternalBindColumn(column_idx, targetType, targetValue, bufferLength, strLengthOrIndicator));
         }
 
-        sql_result Statement::InternalBindColumn(uint16_t columnIdx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
+        sql_result Statement::InternalBindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator)
         {
             using namespace type_traits;
             odbc_native_type driverType = to_driver_type(targetType);
@@ -90,27 +90,27 @@ namespace ignite
             {
                 application_data_buffer dataBuffer(driverType, targetValue, bufferLength, strLengthOrIndicator);
 
-                SafeBindColumn(columnIdx, dataBuffer);
+                SafeBindColumn(column_idx, dataBuffer);
             }
             else
-                SafeUnbindColumn(columnIdx);
+                SafeUnbindColumn(column_idx);
 
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::SafeBindColumn(uint16_t columnIdx, const application_data_buffer& buffer)
+        void Statement::SafeBindColumn(uint16_t column_idx, const application_data_buffer& buffer)
         {
-            columnBindings[columnIdx] = buffer;
+            column_bindings[column_idx] = buffer;
         }
 
-        void Statement::SafeUnbindColumn(uint16_t columnIdx)
+        void Statement::SafeUnbindColumn(uint16_t column_idx)
         {
-            columnBindings.erase(columnIdx);
+            column_bindings.erase(column_idx);
         }
 
         void Statement::SafeUnbindAllColumns()
         {
-            columnBindings.clear();
+            column_bindings.clear();
         }
 
         void Statement::SetColumnBindOffsetPtr(int * ptr)
@@ -134,7 +134,7 @@ namespace ignite
 
         sql_result Statement::InternalGetColumnNumber(int32_t &res)
         {
-            const meta::column_meta_vector* meta = GetMeta();
+            const column_meta_vector* meta = get_meta();
 
             if (!meta)
                 return sql_result::AI_ERROR;
@@ -550,7 +550,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (currentQuery->get_type() != query::QueryType::DATA)
+            if (currentQuery->get_type() != query::query_type::DATA)
             {
                 paramNum = 0;
 
@@ -577,12 +577,12 @@ namespace ignite
             m_parameters.set_param_bind_offset_ptr(ptr);
         }
 
-        void Statement::GetColumnData(uint16_t columnIdx, application_data_buffer& buffer)
+        void Statement::GetColumnData(uint16_t column_idx, application_data_buffer& buffer)
         {
-            IGNITE_ODBC_API_CALL(InternalGetColumnData(columnIdx, buffer));
+            IGNITE_ODBC_API_CALL(InternalGetColumnData(column_idx, buffer));
         }
 
-        sql_result Statement::InternalGetColumnData(uint16_t columnIdx,
+        sql_result Statement::InternalGetColumnData(uint16_t column_idx,
             application_data_buffer& buffer)
         {
             if (!currentQuery.get())
@@ -593,7 +593,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            sql_result res = currentQuery->GetColumn(columnIdx, buffer);
+            sql_result res = currentQuery->get_column(column_idx, buffer);
 
             return res;
         }
@@ -653,9 +653,9 @@ namespace ignite
             }
 
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
-            currentQuery.reset(new query::DataQuery(*this, connection, query, m_parameters, timeout));
+            currentQuery.reset(new query::data_query(*this, connection, query, m_parameters, timeout));
 
             return sql_result::AI_SUCCESS;
         }
@@ -689,27 +689,27 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (currentQuery->get_type() == query::QueryType::INTERNAL)
+            if (currentQuery->get_type() == query::query_type::INTERNAL)
             {
                 ProcessInternalQuery();
 
                 return sql_result::AI_SUCCESS;
             }
 
-            if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::QueryType::DATA)
+            if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::query_type::DATA)
             {
-                query::DataQuery& qry = static_cast<query::DataQuery&>(*currentQuery);
+                query::data_query& qry = static_cast<query::data_query&>(*currentQuery);
 
-                currentQuery.reset(new query::BatchQuery(*this, connection, qry.GetSql(), m_parameters, timeout));
+                currentQuery.reset(new query::BatchQuery(*this, connection, qry.get_sql(), m_parameters, timeout));
             }
-            else if (m_parameters.get_param_set_size() == 1 && currentQuery->get_type() == query::QueryType::BATCH)
+            else if (m_parameters.get_param_set_size() == 1 && currentQuery->get_type() == query::query_type::BATCH)
             {
                 query::BatchQuery& qry = static_cast<query::BatchQuery&>(*currentQuery);
 
-                currentQuery.reset(new query::DataQuery(*this, connection, qry.GetSql(), m_parameters, timeout));
+                currentQuery.reset(new query::data_query(*this, connection, qry.get_sql(), m_parameters, timeout));
             }
 
-            if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::QueryType::STREAMING)
+            if (m_parameters.get_param_set_size() > 1 && currentQuery->get_type() == query::query_type::STREAMING)
             {
                 add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                     "Batching is not supported in streaming mode.");
@@ -719,8 +719,8 @@ namespace ignite
 
             if (m_parameters.is_data_at_exec_needed())
             {
-                if (currentQuery->get_type() == query::QueryType::BATCH ||
-                    currentQuery->get_type() == query::QueryType::STREAMING)
+                if (currentQuery->get_type() == query::query_type::BATCH ||
+                    currentQuery->get_type() == query::query_type::STREAMING)
                 {
                     add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
                         "Data-at-execution is not supported with batching.");
@@ -731,12 +731,12 @@ namespace ignite
                 return sql_result::AI_NEED_DATA;
             }
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         sql_result Statement::ProcessInternalQuery()
         {
-            assert(currentQuery->get_type() == query::QueryType::INTERNAL);
+            assert(currentQuery->get_type() == query::query_type::INTERNAL);
 
             query::InternalQuery* qry = static_cast<query::InternalQuery*>(currentQuery.get());
             
@@ -753,9 +753,9 @@ namespace ignite
 
             LOG_MSG("Sending start streaming command");
 
-            query::DataQuery enablingQuery(*this, connection, qry->GetQuery(), m_parameters, timeout);
+            query::data_query enablingQuery(*this, connection, qry->GetQuery(), m_parameters, timeout);
 
-            sql_result res = enablingQuery.Execute();
+            sql_result res = enablingQuery.execute();
 
             if (res != sql_result::AI_SUCCESS)
                 return res;
@@ -764,7 +764,7 @@ namespace ignite
 
             connection.GetStreamingContext().Enable(cmd);
 
-            std::auto_ptr<query::Query> newQry(new query::StreamingQuery(*this, connection, m_parameters));
+            std::auto_ptr<query::query> newQry(new query::StreamingQuery(*this, connection, m_parameters));
 
             std::swap(currentQuery, newQry);
 
@@ -781,7 +781,7 @@ namespace ignite
             const std::string& table, const std::string& column)
         {
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
             std::string schema0(schema);
 
@@ -791,7 +791,7 @@ namespace ignite
             currentQuery.reset(new query::ColumnMetadataQuery(*this,
                 connection, schema, table, column));
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         void Statement::ExecuteGetTablesMetaQuery(const std::string& catalog,
@@ -805,12 +805,12 @@ namespace ignite
             const std::string& schema, const std::string& table, const std::string& tableType)
         {
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
             currentQuery.reset(new query::TableMetadataQuery(*this,
                 connection, catalog, schema, table, tableType));
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         void Statement::ExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
@@ -828,12 +828,12 @@ namespace ignite
             const std::string& foreignTable)
         {
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
             currentQuery.reset(new query::ForeignKeysQuery(*this, connection, primaryCatalog,
                 primarySchema, primaryTable, foreignCatalog, foreignSchema, foreignTable));
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         void Statement::ExecuteGetPrimaryKeysQuery(const std::string& catalog,
@@ -846,12 +846,12 @@ namespace ignite
             const std::string& schema, const std::string& table)
         {
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
             currentQuery.reset(new query::PrimaryKeysQuery(*this,
                 connection, catalog, schema, table));
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         void Statement::ExecuteSpecialColumnsQuery(int16_t type,
@@ -875,12 +875,12 @@ namespace ignite
             }
 
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
             currentQuery.reset(new query::SpecialColumnsQuery(*this, type,
                 catalog, schema, table, scope, nullable));
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         void Statement::ExecuteGetTypeInfoQuery(int16_t sqlType)
@@ -901,11 +901,11 @@ namespace ignite
             }
 
             if (currentQuery.get())
-                currentQuery->Close();
+                currentQuery->close();
 
             currentQuery.reset(new query::TypeInfoQuery(*this, sqlType));
 
-            return currentQuery->Execute();
+            return currentQuery->execute();
         }
 
         void Statement::FreeResources(int16_t option)
@@ -926,7 +926,7 @@ namespace ignite
 
                 case SQL_CLOSE:
                 {
-                    return InternalClose();
+                    return internal_close();
                 }
 
                 case SQL_UNBIND:
@@ -952,17 +952,17 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        void Statement::Close()
+        void Statement::close()
         {
-            IGNITE_ODBC_API_CALL(InternalClose());
+            IGNITE_ODBC_API_CALL(internal_close());
         }
 
-        sql_result Statement::InternalClose()
+        sql_result Statement::internal_close()
         {
             if (!currentQuery.get())
                 return sql_result::AI_SUCCESS;
 
-            sql_result result = currentQuery->Close();
+            sql_result result = currentQuery->close();
 
             return result;
         }
@@ -1018,7 +1018,7 @@ namespace ignite
 
             if (columnBindOffset)
             {
-                for (column_binding_map::iterator it = columnBindings.begin(); it != columnBindings.end(); ++it)
+                for (column_binding_map::iterator it = column_bindings.begin(); it != column_bindings.end(); ++it)
                     it->second.set_byte_offset(*columnBindOffset);
             }
 
@@ -1027,10 +1027,10 @@ namespace ignite
 
             for (SQLULEN i = 0; i < rowArraySize; ++i)
             {
-                for (column_binding_map::iterator it = columnBindings.begin(); it != columnBindings.end(); ++it)
+                for (column_binding_map::iterator it = column_bindings.begin(); it != column_bindings.end(); ++it)
                     it->second.set_element_offset(i);
 
-                sql_result res = currentQuery->FetchNextRow(columnBindings);
+                sql_result res = currentQuery->fetch_next_row(column_bindings);
 
                 if (res == sql_result::AI_SUCCESS || res == sql_result::AI_SUCCESS_WITH_INFO)
                     ++fetched;
@@ -1050,7 +1050,7 @@ namespace ignite
             return errors == 0 ? sql_result::AI_NO_DATA : sql_result::AI_ERROR;
         }
 
-        const meta::column_meta_vector* Statement::GetMeta()
+        const column_meta_vector* Statement::get_meta()
         {
             if (!currentQuery.get())
             {
@@ -1059,12 +1059,12 @@ namespace ignite
                 return 0;
             }
 
-            return currentQuery->GetMeta();
+            return currentQuery->get_meta();
         }
 
-        bool Statement::DataAvailable() const
+        bool Statement::is_data_available() const
         {
-            return currentQuery.get() && currentQuery->DataAvailable();
+            return currentQuery.get() && currentQuery->is_data_available();
         }
 
         void Statement::MoreResults()
@@ -1081,7 +1081,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            return currentQuery->NextResultSet();
+            return currentQuery->next_result_set();
         }
 
         void Statement::GetColumnAttribute(uint16_t colIdx, uint16_t attrId,
@@ -1094,7 +1094,7 @@ namespace ignite
         sql_result Statement::InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
             int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf)
         {
-            const meta::column_meta_vector *meta = GetMeta();
+            const column_meta_vector *meta = get_meta();
 
             LOG_MSG("Collumn ID: " << colIdx << ", Attribute ID: " << attrId);
 
@@ -1109,7 +1109,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            const meta::column_meta& columnMeta = meta->at(colIdx - 1);
+            const column_meta& columnMeta = meta->at(colIdx - 1);
 
             bool found = false;
 
@@ -1125,7 +1125,7 @@ namespace ignite
                 size_t outSize = out.size();
 
                 if (found && strbuf)
-                    outSize = utility::CopyStringToBuffer(out, strbuf, buffer_len);
+                    outSize = copy_string_to_buffer(out, strbuf, buffer_len);
 
                 if (found && result_len)
                     *result_len = static_cast<int16_t>(outSize);
@@ -1142,7 +1142,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        int64_t Statement::AffectedRows()
+        int64_t Statement::affected_rows()
         {
             int64_t rowCnt = 0;
 
@@ -1160,7 +1160,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            rowCnt = currentQuery->AffectedRows();
+            rowCnt = currentQuery->affected_rows();
 
             return sql_result::AI_SUCCESS;
         }
@@ -1227,7 +1227,7 @@ namespace ignite
                 return sql_result::AI_NEED_DATA;
             }
 
-            sql_result res = currentQuery->Execute();
+            sql_result res = currentQuery->execute();
 
             if (res != sql_result::AI_SUCCESS)
                 res = sql_result::AI_SUCCESS_WITH_INFO;
@@ -1284,7 +1284,7 @@ namespace ignite
         sql_result Statement::InternalDescribeParam(int16_t paramNum, int16_t* data_type,
             SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable)
         {
-            query::Query *qry = currentQuery.get();
+            query::query *qry = currentQuery.get();
             if (!qry)
             {
                 add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
@@ -1292,7 +1292,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (qry->get_type() != query::QueryType::DATA)
+            if (qry->get_type() != query::query_type::DATA)
             {
                 add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not SQL data query.");
 
@@ -1330,15 +1330,15 @@ namespace ignite
 
         sql_result Statement::UpdateParamsMeta()
         {
-            query::Query *qry0 = currentQuery.get();
+            query::query *qry0 = currentQuery.get();
 
             assert(qry0 != 0);
-            assert(qry0->get_type() == query::QueryType::DATA);
+            assert(qry0->get_type() == query::query_type::DATA);
 
-            query::DataQuery* qry = static_cast<query::DataQuery*>(qry0);
+            query::data_query* qry = static_cast<query::data_query*>(qry0);
 
             const std::string& schema = connection.GetSchema();
-            const std::string& sql = qry->GetSql();
+            const std::string& sql = qry->get_sql();
 
             QueryGetParamsMetaRequest req(schema, sql);
             QueryGetParamsMetaResponse rsp;
@@ -1362,9 +1362,9 @@ namespace ignite
 
             if (rsp.get_state() != response_status::SUCCESS)
             {
-                LOG_MSG("Error: " << rsp.GetError());
+                LOG_MSG("Error: " << rsp.get_error());
 
-                add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.GetError());
+                add_status_record(response_status_to_sql_state(rsp.get_state()), rsp.get_error());
 
                 return sql_result::AI_ERROR;
             }

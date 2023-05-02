@@ -15,93 +15,37 @@
  * limitations under the License.
  */
 
-#ifndef _IGNITE_ODBC_UTILITY
-#define _IGNITE_ODBC_UTILITY
+#pragma once
 
-#ifdef min
-#   undef min
-#endif //min
-
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 
-#include <ignite/common/utils.h>
-#include <ignite/common/decimal.h>
+namespace ignite {
 
-#include "ignite/impl/binary/binary_reader_impl.h"
-#include "ignite/impl/binary/binary_writer_impl.h"
-
-namespace ignite
+template<typename T>
+T* get_pointer_with_offset(T* ptr, size_t offset)
 {
-    namespace utility
-    {
-        /** Using common version of the util. */
-        using IntoLower;
-
-        template<typename T>
-        T* GetPointerWithOffset(T* ptr, size_t offset)
-        {
-            uint8_t* ptrBytes = (uint8_t*)ptr;
-
-            return (T*)(ptrBytes + offset);
-        }
-
-        /**
-         * Copy string to buffer of the specific length.
-         * @param str String to copy data from.
-         * @param buf Buffer to copy data to.
-         * @param buffer_len Length of the buffer.
-         * @return Length of the resulting string in buffer.
-         */
-        size_t CopyStringToBuffer(const std::string& str, char* buf, size_t buffer_len);
-
-        /**
-         * Read array from reader.
-         * @param reader Reader.
-         * @param res Resulting vector.
-         */
-        void ReadByteArray(impl::binary::BinaryReaderImpl& reader, std::vector<int8_t>& res);
-
-        /**
-         * Read string from reader.
-         * @param reader Reader.
-         * @param str String.
-         */
-        void ReadString(impl::binary::BinaryReaderImpl& reader, std::string& str);
-
-        /**
-         * Write string using writer.
-         * @param writer Writer.
-         * @param str String.
-         */
-        void WriteString(impl::binary::BinaryWriterImpl& writer, const std::string& str);
-
-        /**
-         * Read decimal value using reader.
-         *
-         * @param reader Reader.
-         * @param decimal big_decimal value.
-         */
-        void ReadDecimal(impl::binary::BinaryReaderImpl& reader, big_decimal& decimal);
-
-        /**
-         * Write decimal value using writer.
-         *
-         * @param writer Writer.
-         * @param decimal big_decimal value.
-         */
-        void WriteDecimal(impl::binary::BinaryWriterImpl& writer, const big_decimal& decimal);
-
-        /**
-         * Convert SQL string buffer to std::string.
-         *
-         * @param sqlStr SQL string buffer.
-         * @param sqlStrLen SQL string length.
-         * @return Standard string containing the same data.
-         */
-        std::string SqlStringToString(const unsigned char* sqlStr, int32_t sqlStrLen);
-    }
+    auto* ptr_bytes = static_cast<std::uint8_t*>(ptr);
+    return (T*)(ptr_bytes + offset);
 }
 
-#endif //_IGNITE_ODBC_UTILITY
+/**
+ * Copy string to buffer of the specific length.
+ *
+ * @param str String to copy data from.
+ * @param buf Buffer to copy data to.
+ * @param buffer_len Length of the buffer.
+ * @return Length of the resulting string in buffer.
+ */
+size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buffer_len);
+
+/**
+ * Convert SQL string buffer to std::string.
+ *
+ * @param sql_str SQL string buffer.
+ * @param sql_str_len SQL string length.
+ * @return Standard string containing the same data.
+ */
+std::string sql_string_to_string(const unsigned char* sql_str, std::int32_t sql_str_len);
+
+} // namespace ignite

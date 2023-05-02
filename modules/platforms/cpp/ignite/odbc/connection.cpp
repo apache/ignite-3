@@ -74,16 +74,16 @@ namespace ignite
             // No-op.
         }
 
-        const config::connection_info& connection::get_info() const
+        const connection_info& connection::get_info() const
         {
             return info;
         }
 
-        void connection::get_info(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len)
+        void connection::get_info(connection_info::info_type type, void* buf, short buffer_len, short* result_len)
         {
             LOG_MSG("SQLGetInfo called: "
                 << type << " ("
-                << config::connection_info::info_type_to_string(type) << "), "
+                << connection_info::info_type_to_string(type) << "), "
                 << std::hex << reinterpret_cast<size_t>(buf) << ", "
                 << buffer_len << ", "
                 << std::hex << reinterpret_cast<size_t>(result_len)
@@ -92,9 +92,9 @@ namespace ignite
             IGNITE_ODBC_API_CALL(InternalGetInfo(type, buf, buffer_len, result_len));
         }
 
-        sql_result connection::InternalGetInfo(config::connection_info::info_type type, void* buf, short buffer_len, short* result_len)
+        sql_result connection::InternalGetInfo(connection_info::info_type type, void* buf, short buffer_len, short* result_len)
         {
-            const config::connection_info& info = get_info();
+            const connection_info& info = get_info();
 
             sql_result res = info.get_info(type, buf, buffer_len, result_len);
 
@@ -111,8 +111,8 @@ namespace ignite
 
         sql_result connection::InternalEstablish(const std::string& connectStr, void* parentWindow)
         {
-            config::configuration config;
-            config::connection_string_parser parser(config);
+            configuration config;
+            connection_string_parser parser(config);
             parser.parse_connection_string(connectStr, &get_diagnostic_records());
 
             if (parentWindow)
@@ -136,7 +136,7 @@ namespace ignite
             return InternalEstablish(config);
         }
 
-        void connection::Establish(const config::configuration& cfg)
+        void connection::Establish(const configuration& cfg)
         {
             IGNITE_ODBC_API_CALL(InternalEstablish(cfg));
         }
@@ -175,7 +175,7 @@ namespace ignite
             return sql_result::AI_SUCCESS;
         }
 
-        sql_result connection::InternalEstablish(const config::configuration& cfg)
+        sql_result connection::InternalEstablish(const configuration& cfg)
         {
             using ssl::ssl_mode;
 
@@ -230,16 +230,16 @@ namespace ignite
                 return sql_result::AI_SUCCESS_WITH_INFO;
             }
 
-            Close();
+            close();
 
             return sql_result::AI_SUCCESS;
         }
 
-        void connection::Close()
+        void connection::close()
         {
             if (socket.get() != 0)
             {
-                socket->Close();
+                socket->close();
 
                 socket.reset();
             }
@@ -310,7 +310,7 @@ namespace ignite
 
                 if (res < 0 || res == network::SocketClient::WaitResult::TIMEOUT)
                 {
-                    Close();
+                    close();
 
                     return res < 0 ? OperationResult::FAIL : OperationResult::TIMEOUT;
                 }
@@ -342,7 +342,7 @@ namespace ignite
 
             if (hdr.len < 0)
             {
-                Close();
+                close();
 
                 throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
             }
@@ -381,7 +381,7 @@ namespace ignite
 
                 if (res < 0 || res == network::SocketClient::WaitResult::TIMEOUT)
                 {
-                    Close();
+                    close();
 
                     return res < 0 ? OperationResult::FAIL : OperationResult::TIMEOUT;
                 }
@@ -397,7 +397,7 @@ namespace ignite
             return config.GetSchema();
         }
 
-        const config::configuration& connection::GetConfiguration() const
+        const configuration& connection::GetConfiguration() const
         {
             return config;
         }
@@ -638,17 +638,17 @@ namespace ignite
 
         sql_result connection::MakeRequestHandshake()
         {
-            protocol_version protocolVersion = config.GetProtocolVersion();
+            protocol_version m_protocol_version = config.get_protocol_version();
 
-            if (!protocolVersion.is_supported())
+            if (!m_protocol_version.is_supported())
             {
                 add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                    "Protocol version is not supported: " + protocolVersion.to_string());
+                    "Protocol version is not supported: " + m_protocol_version.to_string());
 
                 return sql_result::AI_ERROR;
             }
 
-            if (protocolVersion < protocol_version::VERSION_2_5_0 && !config.GetUser().empty())
+            if (m_protocol_version < protocol_version::VERSION_2_5_0 && !config.GetUser().empty())
             {
                 add_status_record(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
                     "Authentication is not allowed for protocol version below 2.5.0");
@@ -656,8 +656,8 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            HandshakeRequest req(config);
-            HandshakeResponse rsp;
+            handshake_request req(config);
+            handshake_response rsp;
 
             try
             {
@@ -686,7 +686,7 @@ namespace ignite
                 return sql_result::AI_ERROR;
             }
 
-            if (!rsp.IsAccepted())
+            if (!rsp.is_accepted())
             {
                 LOG_MSG("Handshake message has been rejected.");
 
@@ -694,13 +694,13 @@ namespace ignite
 
                 constructor << "Node rejected handshake message. ";
 
-                if (!rsp.GetError().empty())
-                    constructor << "Additional info: " << rsp.GetError() << " ";
+                if (!rsp.get_error().empty())
+                    constructor << "Additional info: " << rsp.get_error() << " ";
 
                 constructor << "Current version of the protocol, used by the server node is "
-                            << rsp.GetCurrentVer().to_string() << ", "
+                            << rsp.get_current_ver().to_string() << ", "
                             << "driver protocol version introduced in version "
-                            << protocolVersion.to_string() << ".";
+                            << m_protocol_version.to_string() << ".";
 
                 add_status_record(sql_state::S08004_CONNECTION_REJECTED, constructor.str());
 
@@ -768,14 +768,14 @@ namespace ignite
             }
 
             if (!connected)
-                Close();
+                close();
             else
-                parser.SetProtocolVersion(config.GetProtocolVersion());
+                parser.set_protocol_version(config.get_protocol_version());
 
             return connected;
         }
 
-        void connection::CollectAddresses(const config::configuration& cfg, std::vector<EndPoint>& end_points)
+        void connection::CollectAddresses(const configuration& cfg, std::vector<EndPoint>& end_points)
         {
             end_points.clear();
 
