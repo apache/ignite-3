@@ -29,6 +29,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
@@ -70,12 +71,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 SchemaDescriptor tupleSchema = ((SchemaAware)tuple).schema();
                 BinaryTupleReader tupleReader = ((BinaryTupleContainer)tuple).binaryTuple();
 
-                if (tupleSchema != null && tupleReader != null) {
-                    if (tupleSchema.version() == schema.version()) {
-                        // TODO: The problem with precision of time values - BinaryTupleBuilder.putTime must accept precision.
-                        // Currently, normalization is handled by RowAssembler, which is not correct and can't be reused on the client.
-                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
-                    }
+                if (tupleSchema != null
+                        && tupleReader != null
+                        && tupleSchema.version() == schema.version()
+                        && !binaryTupleRebuildRequired(schema)) {
+                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
                 }
             }
 
@@ -332,8 +332,43 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param tup    Internal tuple.
      * @throws SchemaMismatchException If a tuple column value doesn't match the current column type.
      */
-    private void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
+    private static void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
         RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
+    }
+
+    /**
+     * Determines whether binary tuple rebuild is required.
+     *
+     * @param schema Schema.
+     * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
+     */
+    private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
+        for (var col : schema.keyColumns().columns()) {
+            if (binaryTupleRebuildRequired(col)) {
+                return true;
+            }
+        }
+
+        for (var col : schema.valueColumns().columns()) {
+            if (binaryTupleRebuildRequired(col)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Determines whether binary tuple rebuild is required if the given column is present in the schema.
+     *
+     * @param col Column.
+     * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
+     */
+    private static boolean binaryTupleRebuildRequired(Column col) {
+        // Time-based columns require normalization according to the specified precision.
+        return col.type().spec() == NativeTypeSpec.DATETIME
+                || col.type().spec() == NativeTypeSpec.TIME
+                || col.type().spec() == NativeTypeSpec.TIMESTAMP;
     }
 
     /**
