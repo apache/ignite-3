@@ -76,6 +76,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -590,6 +591,8 @@ public class ItRebalanceDistributedTest {
 
         private List<IgniteComponent> nodeComponents;
 
+        private final ConfigurationTreeGenerator generator;
+
         private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
                 = new ConcurrentHashMap<>();
 
@@ -607,15 +610,18 @@ public class ItRebalanceDistributedTest {
 
             vaultManager = createVault(name, dir);
 
+            generator = new ConfigurationTreeGenerator(
+                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
+            );
+
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     Set.of(),
-                    new LocalFileConfigurationStorage(configPath),
-                    List.of(),
-                    List.of()
+                    new LocalFileConfigurationStorage(configPath, generator),
+                    generator
             );
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -862,6 +868,8 @@ public class ItRebalanceDistributedTest {
                 }
             });
 
+
+            generator.close();
         }
 
         NetworkAddress address() {

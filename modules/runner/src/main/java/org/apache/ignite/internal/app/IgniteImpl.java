@@ -61,7 +61,7 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.NodeConfigReadException;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -85,6 +85,7 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -299,12 +300,17 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                modules.local().rootKeys(),
+                modules.local().internalSchemaExtensions(),
+                modules.local().polymorphicSchemaExtensions()
+        );
+
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configPath),
-                modules.local().internalSchemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                new LocalFileConfigurationStorage(configPath, generator),
+                generator
         );
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
@@ -319,7 +325,8 @@ public class IgniteImpl implements Ignite {
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
-                serializationRegistry
+                serializationRegistry,
+                new VaultStateIds(vaultMgr)
         );
 
         computeComponent = new ComputeComponentImpl(
@@ -643,14 +650,6 @@ public class IgniteImpl implements Ignite {
 
             // Node configuration manager startup.
             lifecycleManager.startComponent(nodeCfgMgr);
-
-            // Node configuration manager bootstrap.
-
-            try {
-                nodeCfgMgr.bootstrap(configPath);
-            } catch (Exception e) {
-                throw new NodeConfigReadException("Unable to parse user-specific configuration", e);
-            }
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
