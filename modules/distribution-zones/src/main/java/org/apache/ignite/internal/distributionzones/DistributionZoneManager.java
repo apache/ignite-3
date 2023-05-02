@@ -1583,7 +1583,9 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Remove redundant nodes that are not presented in the data nodes.
                 newDataNodes.entrySet().removeIf(e -> e.getValue() == 0);
 
-                //Do not save the empty data nodes list to avoid the distribution zone without a data nodes.
+                // Do not save the empty data nodes list to avoid the distribution zone without a data nodes.
+                // The method {@link RebalanceUtil#updatePendingAssignmentsKeys} will not change the assignments if the new data nodes set
+                // equals the old set, so the new rebalance will not be triggered.
                 byte[] newDataNodesBytes = newDataNodes.isEmpty() ? toBytes(dataNodesFromMetaStorage) : toBytes(newDataNodes);
 
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(zoneId, revision, newDataNodesBytes);
