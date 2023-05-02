@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,7 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class LeastRestrictiveTypesTest {
 
-    private static final IgniteTypeFactory TYPE_FACTORY = new IgniteTypeFactory();
+    private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
     private static final RelDataType TINYINT = TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT);
 

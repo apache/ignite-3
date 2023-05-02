@@ -103,6 +103,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         }
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
+
         TYPE_FACTORY = createTypeFactory(typeSys);
 
         DFLT_REX_BUILDER = createRexBuilder(TYPE_FACTORY);
@@ -181,9 +182,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.parameters = parameters;
         this.plannerTimeout = plannerTimeout;
 
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
+        typeFactory = TYPE_FACTORY;
 
-        typeFactory = createTypeFactory(typeSys);
+        assert TYPE_FACTORY.getTypeSystem() == cfg.getTypeSystem();
 
         rexBuilder = createRexBuilder(typeFactory);
     }
