@@ -86,6 +86,12 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         CALCITE_CONNECTION_CONFIG = new CalciteConnectionConfigImpl(props);
 
+        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
+
+        TYPE_FACTORY = createTypeFactory(typeSys);
+
+        DFLT_REX_BUILDER = createRexBuilder(TYPE_FACTORY);
+
         EMPTY_CONTEXT = builder().build();
 
         DUMMY_PLANNER = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
@@ -101,12 +107,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         for (RelTraitDef<?> def : EMPTY_CONTEXT.config().getTraitDefs()) {
             DUMMY_PLANNER.addRelTraitDef(def);
         }
-
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
-
-        TYPE_FACTORY = createTypeFactory(typeSys);
-
-        DFLT_REX_BUILDER = createRexBuilder(TYPE_FACTORY);
 
         RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
