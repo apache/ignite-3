@@ -152,7 +152,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             if (rows != null) {
                 for (RowId row : rows) {
-                    testMvPartitionStorage.commitWrite(row, ((TxCleanupCommand) cmd).commitTimestamp().asHybridTimestamp());
+                    testMvPartitionStorage.commitWrite(row, ((TxCleanupCommand) cmd).commitTimestamp());
                 }
             }
 
@@ -367,7 +367,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
-                .readTimestamp(clock.now())
+                .readTimestampLong(clock.nowLong())
                 .txId(TestTransactionIds.newTransactionId())
                 .build());
 
@@ -387,7 +387,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
-                .readTimestamp(readTimestamp)
+                .readTimestampLong(readTimestamp.longValue())
                 .txId(txId)
                 .build());
 
@@ -404,7 +404,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
-                .readTimestamp(clock.now())
+                .readTimestampLong(clock.nowLong())
                 .txId(TestTransactionIds.newTransactionId())
                 .build());
 
@@ -546,7 +546,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(grpId)
                 .transactionId(scanTxId)
-                .timestamp(clock.now())
+                .timestampLong(clock.nowLong())
                 .term(1L)
                 .scanId(1L)
                 .indexToUse(sortedIndexId)
@@ -562,7 +562,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(grpId)
                 .transactionId(scanTxId)
-                .timestamp(clock.now())
+                .timestampLong(clock.nowLong())
                 .term(1L)
                 .scanId(1L)
                 .indexToUse(sortedIndexId)
@@ -578,7 +578,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(grpId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .timestamp(clock.now())
+                .timestampLong(clock.nowLong())
                 .term(1L)
                 .scanId(2L)
                 .indexToUse(sortedIndexId)
@@ -597,7 +597,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(grpId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .timestamp(clock.now())
+                .timestampLong(clock.nowLong())
                 .term(1L)
                 .scanId(2L)
                 .indexToUse(sortedIndexId)
@@ -614,7 +614,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(grpId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .timestamp(clock.now())
+                .timestampLong(clock.nowLong())
                 .term(1L)
                 .scanId(2L)
                 .indexToUse(sortedIndexId)
@@ -1021,7 +1021,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
                     .txId(txId)
                     .commit(true)
-                    .commitTimestamp(now)
+                    .commitTimestampLong(now.longValue())
                     .term(1L)
                     .build()
             );
@@ -1206,7 +1206,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
                 .txId(txId)
                 .commit(true)
-                .commitTimestamp(clock.now())
+                .commitTimestampLong(clock.nowLong())
                 .term(1L)
                 .build()
         ).join();
