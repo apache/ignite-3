@@ -552,12 +552,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             CompletableFuture<? extends NetworkMessage> fut
     ) {
         if (recoverable(err)) {
-            LOG.warn(
-                    "Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
-                    err, sentRequest.getClass().getSimpleName()
-            );
-
-            scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
+            scheduleRetry(0, () -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
         } else {
             fut.completeExceptionally(err);
         }
@@ -582,13 +577,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 break;
 
             case EBUSY:
+                scheduleRetry(configuration.retryDelay().value(), () -> sendWithRetry(peer, requestFactory, stopTime, fut));
+
+                break;
+
             case EAGAIN:
-                scheduleRetry(() -> sendWithRetry(peer, requestFactory, stopTime, fut));
+                scheduleRetry(0, () -> sendWithRetry(peer, requestFactory, stopTime, fut));
 
                 break;
 
             case ENOENT:
-                scheduleRetry(() -> {
+                scheduleRetry(0, () -> {
                     // If changing peers or requesting a leader and something is not found
                     // probably target peer is doing rebalancing, try another peer.
                     if (sentRequest instanceof GetLeaderRequest || sentRequest instanceof ChangePeersAsyncRequest) {
@@ -605,11 +604,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             case UNKNOWN:
             case EINTERNAL:
                 if (resp.leaderId() == null) {
-                    scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
+                    scheduleRetry(configuration.retryDelay().value(), () -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
                 } else {
                     leader = parsePeer(resp.leaderId()); // Update a leader.
 
-                    scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut));
+                    scheduleRetry(configuration.retryDelay().value(), () -> sendWithRetry(leader, requestFactory, stopTime, fut));
                 }
 
                 break;
@@ -645,8 +644,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private void scheduleRetry(Runnable runnable) {
-        executor.schedule(runnable, configuration.retryDelay().value(), TimeUnit.MILLISECONDS);
+    private void scheduleRetry(long retryDelay, Runnable runnable) {
+        executor.schedule(runnable, retryDelay, TimeUnit.MILLISECONDS);
     }
 
     /**
