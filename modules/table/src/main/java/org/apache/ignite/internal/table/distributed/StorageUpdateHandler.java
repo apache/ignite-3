@@ -47,6 +47,7 @@ import org.jetbrains.annotations.Nullable;
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
  */
 public class StorageUpdateHandler {
+    /** Partition id. */
     private final int partitionId;
 
     /** Partition storage with access to MV data of a partition. */

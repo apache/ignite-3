@@ -255,7 +255,7 @@ public class MvGc implements ManuallyCloseable {
 
                             return true;
                         }, executor)
-                        .whenComplete((isLeftGarbage, throwable) -> {
+                        .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException
                                         || throwable.getCause() instanceof TrackerClosedException) {
@@ -271,7 +271,7 @@ public class MvGc implements ManuallyCloseable {
 
                             // If there is garbage left and the storage has not been deleted, then we will schedule the next garbage
                             // collection.
-                            if (isLeftGarbage && storageHandlerByPartitionId.containsKey(tablePartitionId)) {
+                            if (isGarbageLeft && storageHandlerByPartitionId.containsKey(tablePartitionId)) {
                                 scheduleGcForStorage(tablePartitionId);
                             }
                         });
