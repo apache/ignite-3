@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
@@ -36,6 +37,7 @@ import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlExplain;
@@ -65,6 +67,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.util.NlsString;
+import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -160,6 +164,57 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         if (literal.getTypeName() != SqlTypeName.DECIMAL) {
             super.validateLiteral(literal);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void validateValues(
+            SqlCall node,
+            RelDataType targetRowType,
+            SqlValidatorScope scope) {
+        assert node.getKind() == SqlKind.VALUES;
+
+        List<SqlNode> operands = node.getOperandList();
+
+        for (SqlNode operand : operands) {
+            SqlCall rowConstructor = (SqlCall) operand;
+
+            if (targetRowType.isStruct()) {
+                for (Pair<SqlNode, RelDataTypeField> pair : Pair.zip(rowConstructor.getOperandList(), targetRowType.getFieldList())) {
+                    RelDataType colType = pair.right.getType();
+                    SqlNode valType = pair.left;
+                    if (valType instanceof SqlCharStringLiteral || valType instanceof SqlDynamicParam) {
+                        String val0;
+
+                        if (valType instanceof SqlCharStringLiteral) {
+                            SqlCharStringLiteral charLiteral = (SqlCharStringLiteral) valType;
+
+                            val0 = charLiteral.getValueAs(NlsString.class).getValue();
+                        } else {
+                            SqlDynamicParam literal = (SqlDynamicParam) valType;
+
+                            Objects.checkIndex(literal.getIndex(), parameters.length);
+
+                            Object param = parameters[literal.getIndex()];
+
+                            if (!(param instanceof String))
+                                continue;
+
+                            val0 = (String) param;
+                        }
+
+                        int len = SqlTypeUtil.comparePrecision(val0.length(), colType.getPrecision()) > 0
+                                ? val0.stripTrailing().length() : val0.length();
+
+                        if (SqlTypeUtil.comparePrecision(len, colType.getPrecision()) > 0) {
+                            throw newValidationError(node, IgniteResource.INSTANCE.valueNotFitType(colType.toString()));
+                        }
+                    }
+                }
+            }
+        }
+
+        super.validateValues(node, targetRowType, scope);
     }
 
     /** {@inheritDoc} */

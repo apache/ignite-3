@@ -39,7 +39,7 @@ public class ValuesConverterRule extends AbstractIgniteConverterRule<LogicalValu
     /**
      * Creates a ConverterRule.
      */
-    protected ValuesConverterRule() {
+    private ValuesConverterRule() {
         super(LogicalValues.class, "ValuesConverterRule");
     }
 

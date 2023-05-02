@@ -29,6 +29,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.sql.validate.SqlValidatorException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -88,6 +90,79 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
             assertEquals(1, rows.size());
             assertEquals(val.length(), rows.get(0).get(0));
         }
+    }
+
+    /** Test correctness of char types limitation. */
+    @Test
+    public void charLimitation() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(6), f2 CHAR(6))");
+
+        // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f1) values (1, 'aaaadddd')"),
+                SqlValidatorException.class, "Value too long for type");
+
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f2) values (1, 'aaaadddd')"),
+                SqlValidatorException.class, "Value too long for type");
+
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar values (2, 'aaaaabbbbb', 'aaaadddd')"),
+                SqlValidatorException.class, "Value too long for type");
+
+        String tenSpaceStr = " ".repeat(10);
+        String threeSpaceStr = " ".repeat(3);
+
+        sql("insert into limitedChar values (1, '我叫什么名字', '我叫什么名字')");
+        sql("insert into limitedChar values (2, ' aaa" + tenSpaceStr + "', ' bbb" + tenSpaceStr + "')");
+        sql("insert into limitedChar values (3, '" + threeSpaceStr + "aaa    ', '" + threeSpaceStr + "bbb     ')");
+
+        assertQuery("SELECT f1, f2, LENGTH(f1), LENGTH(f2) FROM limitedChar ORDER BY pk")
+                .returns("我叫什么名字", "我叫什么名字", 6, 6)
+                .returns(" aaa  ", " bbb  ", 6, 6)
+                .returns(threeSpaceStr + "aaa", threeSpaceStr + "bbb", 6, 6)
+                .check();
+
+        sql("create table nonlimitedChar (pk int primary key, f1 VARCHAR, f2 VARCHAR)");
+
+        String longStr = "a".repeat(100);
+
+        sql("insert into nonlimitedChar values (10, '" + longStr + "', '" + longStr + "')");
+
+        //need to append additional check by PartitionReplicaListener
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar select * from nonlimitedChar"),
+                SqlValidatorException.class);
+    }
+
+    @Test
+    public void charLimitationWithDynamicParams() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(6), f2 CHAR(6))");
+
+        // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f1) values (1, ?)", "aaaadddd"),
+                SqlValidatorException.class, "Value too long for type");
+
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar(pk, f2) values (1, ?)", "aaaadddd"),
+                SqlValidatorException.class, "Value too long for type");
+
+        IgniteTestUtils.assertThrowsWithCause(() -> sql("insert into limitedChar values (2, ?, ?)", "aaaadddd", "aaaadddd"),
+                SqlValidatorException.class, "Value too long for type");
+
+        String tenSpaceStr = " ".repeat(10);
+        String threeSpaceStr = " ".repeat(3);
+
+        sql("insert into limitedChar values (1, ?, ?)", "我叫什么名字", "我叫什么名字");
+        sql("insert into limitedChar values (2, ?, ?)", " aaa" + tenSpaceStr, " bbb" + tenSpaceStr);
+        sql("insert into limitedChar values (3, ?, ?)", threeSpaceStr + "aaa    ", threeSpaceStr + "bbb     ");
+
+        assertQuery("SELECT f1, f2, LENGTH(f1), LENGTH(f2) FROM limitedChar ORDER BY pk")
+                .returns("我叫什么名字", "我叫什么名字", 6, 6)
+                .returns(" aaa  ", " bbb  ", 6, 6)
+                .returns(threeSpaceStr + "aaa", threeSpaceStr + "bbb", 6, 6)
+                .check();
+
+        sql("create table nonlimitedChar (pk int primary key, f1 VARCHAR)");
+
+        String longStr = "a".repeat(100);
+
+        sql("insert into nonlimitedChar values (1, ?)", longStr);
     }
 
     /** Tests NOT NULL and DEFAULT column constraints. */

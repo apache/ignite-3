@@ -140,7 +140,7 @@ public class ErrorGroups {
         public static final int DUPLICATE_KEYS_ERR = SQL_ERR_GROUP.registerErrorCode(10);
 
         /** Constraint violation: deleting a column that belongs to the primary key. */
-        public static final int DEL_PK_COMUMN_CONSTRAINT_ERR = SQL_ERR_GROUP.registerErrorCode(11);
+        public static final int DEL_PK_COLUMN_CONSTRAINT_ERR = SQL_ERR_GROUP.registerErrorCode(11);
 
         /**  Too many grouping expressions. */
         public static final int TOO_MANY_GROUPING_EXPRESSIONS_ERR = SQL_ERR_GROUP.registerErrorCode(12);
