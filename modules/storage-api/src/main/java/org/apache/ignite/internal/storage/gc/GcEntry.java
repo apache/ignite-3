@@ -15,49 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv.gc;
+package org.apache.ignite.internal.storage.gc;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.gc.GcEntry;
 
 /**
  * Row version in the version chain that should be garbage collected.
  */
-public class GcRowVersion implements GcEntry {
-    private final RowId rowId;
-
-    private final HybridTimestamp timestamp;
-
-    private final long link;
+public interface GcEntry {
+    /**
+     * Returns row ID.
+     */
+    RowId getRowId();
 
     /**
-     * Constructor.
-     *
-     * @param rowId Row ID.
-     * @param timestamp Row timestamp.
-     * @param link Row version link.
+     * Returns row timestamp.
      */
-    public GcRowVersion(RowId rowId, HybridTimestamp timestamp, long link) {
-        this.rowId = rowId;
-        this.timestamp = timestamp;
-        this.link = link;
-    }
-
-    @Override
-    public RowId getRowId() {
-        return rowId;
-    }
-
-    @Override
-    public HybridTimestamp getTimestamp() {
-        return timestamp;
-    }
-
-    /**
-     * Returns row version link.
-     */
-    public long getLink() {
-        return link;
-    }
+    HybridTimestamp getTimestamp();
 }

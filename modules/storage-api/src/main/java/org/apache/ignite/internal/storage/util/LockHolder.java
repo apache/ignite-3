@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.util;
 
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 
 /**
@@ -36,7 +35,7 @@ import java.util.concurrent.locks.Lock;
 class LockHolder<T extends Lock> {
     private final T lock;
 
-    private final AtomicInteger lockHolder = new AtomicInteger();
+    private int lockHoldersCount;
 
     LockHolder(T lock) {
         this.lock = lock;
@@ -44,22 +43,24 @@ class LockHolder<T extends Lock> {
 
     /**
      * Increment the count of lock holders ({@link Thread}).
+     * Not thread-safe, requires external synchronization.
      */
     void incrementHolders() {
-        int holders = lockHolder.incrementAndGet();
+        int count = ++lockHoldersCount;
 
-        assert holders > 0 : holders;
+        assert count > 0 : count;
     }
 
     /**
      * Decrements the count of lock holders ({@link Thread}), returns {@code true} if there are no more lock holders.
+     * Not thread-safe, requires external synchronization.
      */
     boolean decrementHolders() {
-        int holders = lockHolder.decrementAndGet();
+        int count = --lockHoldersCount;
 
-        assert holders >= 0 : holders;
+        assert count >= 0 : count;
 
-        return holders == 0;
+        return count == 0;
     }
 
     /**

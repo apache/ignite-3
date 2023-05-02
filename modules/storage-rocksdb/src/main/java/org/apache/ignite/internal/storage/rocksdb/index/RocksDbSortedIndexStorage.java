@@ -41,8 +41,8 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
@@ -74,16 +74,16 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
      *
      * @param descriptor Sorted Index descriptor.
      * @param indexCf Column family that stores the index data.
-     * @param partitionStorage Partition storage of the corresponding index.
+     * @param helper Partition data helper.
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbSortedIndexStorage(
             SortedIndexDescriptor descriptor,
             ColumnFamily indexCf,
-            RocksDbMvPartitionStorage partitionStorage,
+            PartitionDataHelper helper,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(descriptor.id(), partitionStorage, indexMetaStorage);
+        super(descriptor.id(), helper, indexMetaStorage);
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;
@@ -109,7 +109,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     public void put(IndexRow row) {
         busy(() -> {
             try {
-                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
                 writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
 
@@ -126,7 +126,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
                 writeBatch.delete(indexCf.handle(), rocksKey(row));
 
@@ -190,7 +190,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             byte @Nullable [] upperBound,
             Function<ByteBuffer, T> mapper
     ) {
-        Slice upperBoundSlice = upperBound == null ? new Slice(partitionStorage.partitionEndPrefix()) : new Slice(upperBound);
+        Slice upperBoundSlice = upperBound == null ? new Slice(helper.partitionEndPrefix()) : new Slice(upperBound);
 
         ReadOptions options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
 
@@ -290,7 +290,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                 }
 
                 if (key == null) {
-                    it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                    it.seek(lowerBound == null ? helper.partitionStartPrefix() : lowerBound);
                 } else {
                     it.seekForPrev(key);
 
@@ -299,7 +299,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                     } else {
                         RocksUtils.checkIterator(it);
 
-                        it.seek(lowerBound == null ? partitionStorage.partitionStartPrefix() : lowerBound);
+                        it.seek(lowerBound == null ? helper.partitionStartPrefix() : lowerBound);
                     }
                 }
             }
@@ -314,7 +314,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     }
 
     private IndexRow decodeRow(ByteBuffer bytes) {
-        assert bytes.getShort(0) == partitionStorage.partitionId();
+        assert bytes.getShort(0) == helper.partitionId();
 
         var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), binaryTupleSlice(bytes));
 
@@ -326,7 +326,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         long mostSignificantBits = bytes.getLong(bytes.limit() - Long.BYTES * 2);
         long leastSignificantBits = bytes.getLong(bytes.limit() - Long.BYTES);
 
-        return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
+        return new RowId(helper.partitionId(), mostSignificantBits, leastSignificantBits);
     }
 
     private byte[] rocksPrefix(BinaryTuplePrefix prefix) {
@@ -334,7 +334,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
         return ByteBuffer.allocate(PARTITION_ID_SIZE + bytes.remaining())
                 .order(KEY_BYTE_ORDER)
-                .putShort((short) partitionStorage.partitionId())
+                .putShort((short) helper.partitionId())
                 .put(bytes)
                 .array();
     }
@@ -344,7 +344,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
         return ByteBuffer.allocate(PARTITION_ID_SIZE + bytes.remaining() + ROW_ID_SIZE)
                 .order(KEY_BYTE_ORDER)
-                .putShort((short) partitionStorage.partitionId())
+                .putShort((short) helper.partitionId())
                 .put(bytes)
                 .putLong(row.rowId().mostSignificantBits())
                 .putLong(row.rowId().leastSignificantBits())
@@ -365,7 +365,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     public void destroyData(WriteBatch writeBatch) throws RocksDBException {
         byte[] constantPrefix = ByteBuffer.allocate(PARTITION_ID_SIZE)
                 .order(KEY_BYTE_ORDER)
-                .putShort((short) partitionStorage.partitionId())
+                .putShort((short) helper.partitionId())
                 .array();
 
         byte[] rangeEnd = incrementPrefix(constantPrefix);

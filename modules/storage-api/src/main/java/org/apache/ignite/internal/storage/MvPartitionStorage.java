@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,14 +48,43 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long REBALANCE_IN_PROGRESS = -1;
 
     /**
-     * Closure for executing write operations on the storage.
+     * Closure for executing write operations on the storage. All write operations, such as
+     * {@link #addWrite(RowId, BinaryRow, UUID, UUID, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
+     * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
+     * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)}) must hold lock on
+     * the corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
+     * result.
      *
      * @param <V> Type of the result returned from the closure.
      */
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
     interface WriteClosure<V> {
-        V execute() throws StorageException;
+        V execute(Locker locker) throws StorageException;
+    }
+
+    /**
+     * Parameter type for {@link WriteClosure#execute(Locker)}. Used to lock row IDs before updating the data. All acquired locks are
+     * released automatically after {@code execute} call is completed.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    interface Locker {
+        /**
+         * Locks passed row ID until the {@link WriteClosure#execute(Locker)} is completed.
+         * If the lock is already held by another thread, current thread will wait until the lock is released to acquire it.
+         *
+         * @param rowId Row ID to lock.
+         */
+        void lock(RowId rowId);
+
+        /**
+         * Tries to lock passed row ID. If successful, lock will be released when the {@link WriteClosure#execute(Locker)} is completed.
+         *
+         * @param rowId Row ID to lock.
+         * @return {@code true} if row ID has been locked successfully, or the lock has already been held by current thread.
+         *      {@code false} if lock is not held by the current thread and the attempt to acquire it has failed.
+         */
+        boolean tryLock(RowId rowId);
     }
 
     /**
@@ -218,6 +248,25 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Returns the head of GC queue.
+     *
+     * @param lowWatermark Upper bound for commit timestamp of GC entry, inclusive.
+     * @return Queue head or {@code null} if there are no entries below passed low watermark.
+     */
+    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+
+    /**
+     * Delete GC entry from the GC queue and corresponding version chain. Row ID of the entry must be locked to call this method.
+     *
+     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
+     * @return Polled binary row, or {@code null} if the entry has already been deleted by another thread.
+     *
+     * @see Locker#lock(RowId)
+     * @see Locker#tryLock(RowId)
+     */
+    @Nullable BinaryRow vacuum(GcEntry entry);
+
+    /**
      * Polls the oldest row in the partition, removing it at the same time.
      *
      * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
@@ -226,8 +275,33 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *      {@code null} if there's no such value.
      * @throws StorageException If failed to poll element for vacuum.
      */
+    //TODO IGNITE-19367 Remove this method and replace its usages with proper batch removes.
+    @Deprecated
     default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        throw new UnsupportedOperationException("pollForVacuum");
+        while (true) {
+            BinaryRowAndRowId binaryRowAndRowId = runConsistently(locker -> {
+                GcEntry gcEntry = peek(lowWatermark);
+
+                if (gcEntry == null) {
+                    return null;
+                }
+
+                //TODO IGNITE-19367 With batches, this call would have to become a "tryLock" to prevent deadlocks.
+                locker.lock(gcEntry.getRowId());
+
+                return new BinaryRowAndRowId(vacuum(gcEntry), gcEntry.getRowId());
+            });
+
+            if (binaryRowAndRowId == null) {
+                return null;
+            }
+
+            if (binaryRowAndRowId.binaryRow() == null) {
+                continue;
+            }
+
+            return binaryRowAndRowId;
+        }
     }
 
     /**

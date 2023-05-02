@@ -53,8 +53,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> abortWrite(ROW_ID),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
-                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
-                    () -> scanFirstVersion(ROW_ID)
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
             assertNull(read(ROW_ID, clock.now()));
@@ -70,8 +69,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> commitWrite(ROW_ID, clock.now()),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
-                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
-                    () -> scanFirstVersion(ROW_ID)
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW);
@@ -87,8 +85,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
-                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
-                    () -> scanFirstVersion(ROW_ID)
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW2);
@@ -232,13 +229,6 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private void scanFirstEntry(HybridTimestamp firstCommitTs) {
         try (var cursor = scan(firstCommitTs)) {
-            cursor.hasNext();
-        }
-    }
-
-    @SuppressWarnings("ResultOfMethodCallIgnored")
-    private void scanFirstVersion(RowId rowId) {
-        try (var cursor = scan(rowId)) {
             cursor.hasNext();
         }
     }
