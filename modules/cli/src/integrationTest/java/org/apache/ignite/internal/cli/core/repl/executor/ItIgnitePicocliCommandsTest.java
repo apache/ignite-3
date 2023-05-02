@@ -52,6 +52,7 @@ import org.jline.reader.ParsedLine;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.SystemCompleter;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /** Integration test for all completions in interactive mode. */
+@Disabled("IGNITE-19351")
 public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";

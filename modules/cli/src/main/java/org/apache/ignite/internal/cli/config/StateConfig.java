@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.config;
 
 import java.io.File;
 import java.io.IOException;
+import org.apache.ignite.internal.cli.config.exception.ConfigInitializationException;
 import org.apache.ignite.internal.cli.config.ini.IniConfig;
 import org.apache.ignite.internal.cli.config.ini.IniFile;
 

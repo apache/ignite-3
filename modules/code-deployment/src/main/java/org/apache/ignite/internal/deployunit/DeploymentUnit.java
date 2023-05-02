@@ -18,22 +18,17 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.io.InputStream;
+import java.util.Map;
 
 /**
  * Deployment unit interface.
  */
+@FunctionalInterface
 public interface DeploymentUnit {
     /**
-     * Unit name.
+     * Deployment unit content - a map from file name to input stream.
      *
-     * @return Name of deployment unit.
+     * @return Deployment unit content.
      */
-    String name();
-
-    /**
-     * Input stream with deployment unit content.
-     *
-     * @return input stream with deployment unit content.
-     */
-    InputStream content();
+    Map<String, InputStream> content();
 }

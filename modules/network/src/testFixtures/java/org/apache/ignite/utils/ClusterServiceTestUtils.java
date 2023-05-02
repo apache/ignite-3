@@ -30,6 +30,8 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
+import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterService;
@@ -75,8 +77,47 @@ public class ClusterServiceTestUtils {
      * @param nodeFinder               Node finder.
      */
     public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder) {
+        return clusterService(testInfo, port, nodeFinder, new InMemoryStaleIds());
+    }
+
+    /**
+     * Creates a cluster service and required node configuration manager beneath it. Populates node configuration with specified port.
+     * Manages configuration manager lifecycle: on cluster service start starts node configuration manager, on cluster service stop - stops
+     * node configuration manager.
+     *
+     * @param testInfo                 Test info.
+     * @param port                     Local port.
+     * @param nodeFinder               Node finder.
+     * @param staleIds                 Used to track stale launch IDs.
+     */
+    public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder, StaleIds staleIds) {
         String nodeName = testNodeName(testInfo, port);
 
+        return clusterService(nodeName, port, nodeFinder, staleIds);
+    }
+
+    /**
+     * Creates a cluster service with predefined name.
+     *
+     * @param nodeName Node name.
+     * @param port Local port.
+     * @param nodeFinder Node finder.
+     * @return Cluster service instance.
+     */
+    public static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder) {
+        return clusterService(nodeName, port, nodeFinder, new InMemoryStaleIds());
+    }
+
+    /**
+     * Creates a cluster service with predefined name.
+     *
+     * @param nodeName Node name.
+     * @param port Local port.
+     * @param nodeFinder Node finder.
+     * @param staleIds Used to track stale launch IDs.
+     * @return Cluster service instance.
+     */
+    private static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder, StaleIds staleIds) {
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
                 Set.of(),
@@ -95,7 +136,8 @@ public class ClusterServiceTestUtils {
                 nodeName,
                 networkConfiguration,
                 bootstrapFactory,
-                serializationRegistry
+                serializationRegistry,
+                staleIds
         );
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";

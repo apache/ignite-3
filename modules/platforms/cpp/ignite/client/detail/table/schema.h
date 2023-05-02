@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "ignite/client/detail/client_data_type.h"
-
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_type.h"
 #include "ignite/protocol/utils.h"
@@ -59,7 +57,7 @@ struct column {
 
         column res{};
         res.name = protocol::unpack_object<std::string>(arr.ptr[0]);
-        res.type = client_data_type::to_ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
+        res.type = static_cast<ignite_type>(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
         res.is_key = protocol::unpack_object<bool>(arr.ptr[2]);
         res.nullable = protocol::unpack_object<bool>(arr.ptr[3]);
         res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[5]);

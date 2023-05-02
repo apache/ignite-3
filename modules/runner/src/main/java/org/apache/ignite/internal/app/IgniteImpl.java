@@ -61,7 +61,7 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.NodeConfigReadException;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
@@ -85,6 +85,7 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -120,6 +121,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -206,7 +208,7 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    // TODO: IGNITE-16985 Design table management flow
+    // TODO: IGNITE-18856 Switch primary replica calls from Raft leader to primary replica
     // /** Placement driver manager. */
     //private final PlacementDriverManager placementDriverMgr;
 
@@ -298,12 +300,17 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                modules.local().rootKeys(),
+                modules.local().internalSchemaExtensions(),
+                modules.local().polymorphicSchemaExtensions()
+        );
+
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalFileConfigurationStorage(configPath),
-                modules.local().internalSchemaExtensions(),
-                modules.local().polymorphicSchemaExtensions()
+                new LocalFileConfigurationStorage(configPath, generator),
+                generator
         );
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
@@ -318,7 +325,8 @@ public class IgniteImpl implements Ignite {
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
-                serializationRegistry
+                serializationRegistry,
+                new VaultStateIds(vaultMgr)
         );
 
         computeComponent = new ComputeComponentImpl(
@@ -352,7 +360,8 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
 
-        txManager = new TxManagerImpl(replicaSvc, lockMgr, clock);
+        // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
+        txManager = new TxManagerImpl(replicaSvc, lockMgr, clock, new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()));
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
@@ -405,7 +414,7 @@ public class IgniteImpl implements Ignite {
                 raftGroupEventsClientListener
         );
 
-        // TODO: IGNITE-16985 Design table management flow
+        // TODO: IGNITE-18856 Switch primary replica calls from Raft leader to primary replica
         // placementDriverMgr = new PlacementDriverManager(
         //         metaStorageMgr,
         //         vaultMgr,
@@ -639,14 +648,6 @@ public class IgniteImpl implements Ignite {
 
             // Node configuration manager startup.
             lifecycleManager.startComponent(nodeCfgMgr);
-
-            // Node configuration manager bootstrap.
-
-            try {
-                nodeCfgMgr.bootstrap(configPath);
-            } catch (Exception e) {
-                throw new NodeConfigReadException("Unable to parse user-specific configuration", e);
-            }
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(

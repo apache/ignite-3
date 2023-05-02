@@ -228,6 +228,9 @@ namespace Apache.Ignite.Internal.Compute
             {
                 var reader = buf.GetReader();
 
+                // TODO IGNITE-19242: Retrieve new schema when necessary.
+                _ = reader.ReadInt32();
+
                 return (T)reader.ReadObjectFromBinaryTuple()!;
             }
         }

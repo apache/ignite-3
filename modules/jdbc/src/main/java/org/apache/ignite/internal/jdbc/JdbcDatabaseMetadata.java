@@ -36,8 +36,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
@@ -863,20 +866,28 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaTablesResult res
-                = conn.handler().tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).join();
+        try {
+            JdbcMetaTablesResult res
+                    = conn.handler().tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).get();
 
-        if (!res.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            if (!res.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+
+            List<List<Object>> rows = new LinkedList<>();
+
+            for (JdbcTableMeta tblMeta : res.meta()) {
+                rows.add(tableRow(tblMeta));
+            }
+
+            return new JdbcResultSet(rows, meta);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Metadata request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
         }
-
-        List<List<Object>> rows = new LinkedList<>();
-
-        for (JdbcTableMeta tblMeta : res.meta()) {
-            rows.add(tableRow(tblMeta));
-        }
-
-        return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
@@ -899,24 +910,32 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaSchemasResult res = conn.handler().schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).join();
+        try {
+            JdbcMetaSchemasResult res = conn.handler().schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).get();
 
-        if (!res.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            if (!res.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+
+            List<List<Object>> rows = new LinkedList<>();
+
+            for (String schema : res.schemas()) {
+                List<Object> row = new ArrayList<>(2);
+
+                row.add(schema);
+                row.add(CATALOG_NAME);
+
+                rows.add(row);
+            }
+
+            return new JdbcResultSet(rows, meta);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Metadata request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Metadata request canceled.", e);
         }
-
-        List<List<Object>> rows = new LinkedList<>();
-
-        for (String schema : res.schemas()) {
-            List<Object> row = new ArrayList<>(2);
-
-            row.add(schema);
-            row.add(CATALOG_NAME);
-
-            rows.add(row);
-        }
-
-        return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
@@ -972,20 +991,28 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
-                .join();
+        try {
+            JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
+                    .get();
 
-        if (!res.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            if (!res.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+
+            List<List<Object>> rows = new LinkedList<>();
+
+            for (int i = 0; i < res.meta().size(); ++i) {
+                rows.add(columnRow(res.meta().get(i), i + 1));
+            }
+
+            return new JdbcResultSet(rows, meta);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Metadata request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
         }
-
-        List<List<Object>> rows = new LinkedList<>();
-
-        for (int i = 0; i < res.meta().size(); ++i) {
-            rows.add(columnRow(res.meta().get(i), i + 1));
-        }
-
-        return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */
@@ -1067,19 +1094,27 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).join();
+        try {
+            JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).get();
 
-        if (!res.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            if (!res.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+
+            List<List<Object>> rows = new LinkedList<>();
+
+            for (JdbcPrimaryKeyMeta pkMeta : res.meta()) {
+                rows.addAll(primaryKeyRows(pkMeta));
+            }
+
+            return new JdbcResultSet(rows, meta);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Metadata request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
         }
-
-        List<List<Object>> rows = new LinkedList<>();
-
-        for (JdbcPrimaryKeyMeta pkMeta : res.meta()) {
-            rows.addAll(primaryKeyRows(pkMeta));
-        }
-
-        return new JdbcResultSet(rows, meta);
     }
 
     /** {@inheritDoc} */

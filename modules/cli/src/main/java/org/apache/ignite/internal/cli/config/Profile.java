@@ -24,21 +24,21 @@ import java.util.Map;
  */
 public interface Profile {
     /**
-     * Gets name of the profile.
+     * Gets name.
      *
      * @return profile name
      */
     String getName();
 
     /**
-     * Convenience method to get all properties from this profile.
+     * Gets all properties.
      *
      * @return map of all properties
      */
     Map<String, String> getAll();
 
     /**
-     * Convenience method to get a property from this profile.
+     * Gets a property.
      *
      * @param key property to get
      * @return property value or {@code null} if config doesn't contain this property
@@ -46,7 +46,7 @@ public interface Profile {
     String getProperty(String key);
 
     /**
-     * Convenience method to get a property from this profile.
+     * Gets a property.
      *
      * @param key property to get
      * @param defaultValue default value of the property
@@ -56,7 +56,7 @@ public interface Profile {
     String getProperty(String key, String defaultValue);
 
     /**
-     * Convenience method to set a property to this profile.
+     * Sets a property.
      *
      * @param key property to set
      * @param value value to set
@@ -64,7 +64,15 @@ public interface Profile {
     void setProperty(String key, String value);
 
     /**
-     * Convenience method to set properties to this profile.
+     * Removes a property.
+     *
+     * @param key property to remove
+     * @return removed property, or {@code null} if there was no such property.
+     */
+    String removeProperty(String key);
+
+    /**
+     * Set properties.
      *
      * @param values map of properties to set
      */

@@ -50,6 +50,10 @@ public class ClientTupleContainsKeyRequest {
         var tx = readTx(in, resources);
         var keyTuple = readTuple(in, table, true);
 
-        return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> out.packBoolean(t != null));
+        return table.recordView().getAsync(tx, keyTuple)
+                .thenAccept(t -> {
+                    out.packInt(table.schemaView().lastSchemaVersion());
+                    out.packBoolean(t != null);
+                });
     }
 }
