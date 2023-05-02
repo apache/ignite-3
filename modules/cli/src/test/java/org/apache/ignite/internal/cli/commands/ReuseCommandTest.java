@@ -21,22 +21,24 @@ import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
-//TODO: Change org.apache.ignite.cli.commands.CliCommandTestBase after fix https://github.com/remkop/picocli/issues/1733
+/**
+ * Tests that user objects are not reused if they are not singletons.
+ */
 @MicronautTest
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19296")
-class PicocliBugTest {
+@TestMethodOrder(MethodOrderer.MethodName.class)
+class ReuseCommandTest {
     @Inject
     private ApplicationContext context;
 
@@ -44,17 +46,11 @@ class PicocliBugTest {
 
     private StringWriter sout;
 
-    private StringWriter serr;
-
-    private int exitCode = Integer.MIN_VALUE;
-
     @BeforeEach
     public void setUp() {
         cmd = new CommandLine(Command.class, new MicronautFactory(context));
         sout = new StringWriter();
-        serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
-        cmd.setErr(new PrintWriter(serr));
     }
 
     @Test
@@ -66,18 +62,16 @@ class PicocliBugTest {
     @Test
     public void test2() {
         cmd.execute();
-        Assertions.assertEquals("", sout.toString());
+        Assertions.assertEquals("null", sout.toString());
     }
 
     @CommandLine.Command(name = "command")
-    @Singleton
     static class Command implements Runnable {
         @Option(names = "--option")
         private String option;
 
         @Spec
         CommandSpec spec;
-
 
         @Override
         public void run() {
