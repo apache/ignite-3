@@ -33,8 +33,10 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
+import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,6 +63,14 @@ import org.junit.jupiter.params.provider.Arguments;
  *
  * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
  * that their {@link ColumnType column type} is equal to {@code columnType} defined by {@link DataTypeTestSpec}.
+ *
+ * <p><b>Testing types that not implement {@link Comparable}.</b>
+ *
+ * <p>In order to test non-comparable types (e.g. java arrays) values of those types must be passed as {@link NativeTypeWrapper}.
+ * In that case {@code T} must be an implementation of a {@link NativeTypeWrapper} for that type.
+ *
+ * Helper methods such as {@link #runSql(String, Object...)} and {@link #checkQuery(String)} support those values and unwrap them
+ * when it is necessary. See {@link TestQueryProcessor}.
  *
  * @param <T> A storage type of a data type.
  */
