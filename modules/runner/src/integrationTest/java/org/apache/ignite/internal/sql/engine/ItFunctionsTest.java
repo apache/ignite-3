@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -32,6 +33,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -279,33 +281,11 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
         assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));
 
-        try {
-            sql("SELECT TYPEOF()");
-            fail();
-        } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"), e.toString());
-        }
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
 
-        try {
-            sql("SELECT TYPEOF(1, 2)");
-            fail();
-        } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"), e.toString());
-        }
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(1, 2)"), SqlValidatorException.class, "Invalid number of arguments");
 
-        try {
-            sql("SELECT TYPEOF(SELECT 1, '2')");
-            fail();
-        } catch (Exception e) {
-            assertInstanceOf(SqlValidatorException.class, e.getCause());
-        }
-
-        try {
-            sql("SELECT TYPEOF(SELECT 1, 2)");
-            fail();
-        } catch (Exception e) {
-            assertInstanceOf(SqlValidatorException.class, e.getCause());
-        }
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), CalciteContextException.class);
     }
 
     /**
