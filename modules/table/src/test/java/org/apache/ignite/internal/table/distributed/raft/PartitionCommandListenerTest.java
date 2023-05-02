@@ -93,11 +93,11 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterService;
@@ -613,13 +613,13 @@ public class PartitionCommandListenerTest {
      */
     private void insertAll() {
         Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
-        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, i);
 
-            rows.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
+            rows.put(TestTransactionIds.newTransactionId(), row.byteBuffer());
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -648,7 +648,7 @@ public class PartitionCommandListenerTest {
      * @param keyValueMapper Mep a value to update to the iter number.
      */
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
-        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
         Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
 
@@ -682,7 +682,7 @@ public class PartitionCommandListenerTest {
      * Deletes all rows.
      */
     private void deleteAll() {
-        UUID txId = Timestamp.nextVersion().toUuid();
+        UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
         Map<UUID, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
 
@@ -721,7 +721,7 @@ public class PartitionCommandListenerTest {
         List<UUID> txIds = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
+            UUID txId = TestTransactionIds.newTransactionId();
             Row row = getTestRow(i, keyValueMapper.apply(i));
             RowId rowId = readRow(row);
 
@@ -766,7 +766,7 @@ public class PartitionCommandListenerTest {
         List<UUID> txIds = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
+            UUID txId = TestTransactionIds.newTransactionId();
             Row row = getTestRow(i, i);
             RowId rowId = readRow(row);
 
@@ -844,7 +844,7 @@ public class PartitionCommandListenerTest {
         List<UUID> txIds = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextVersion().toUuid();
+            UUID txId = TestTransactionIds.newTransactionId();
             Row row = getTestRow(i, i);
             txIds.add(txId);
 
@@ -855,7 +855,7 @@ public class PartitionCommandListenerTest {
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
-                            .rowUuid(Timestamp.nextVersion().toUuid())
+                            .rowUuid(UUID.randomUUID())
                             .rowBuffer(row.byteBuffer())
                             .txId(txId)
                             .safeTime(hybridTimestamp(hybridClock.now()))

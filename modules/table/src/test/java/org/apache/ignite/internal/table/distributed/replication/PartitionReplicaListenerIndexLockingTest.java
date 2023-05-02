@@ -76,10 +76,10 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -100,7 +100,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final UUID PK_INDEX_ID = new UUID(0L, 1L);
     private static final UUID HASH_INDEX_ID = new UUID(0L, 2L);
     private static final UUID SORTED_INDEX_ID = new UUID(0L, 3L);
-    private static final UUID TRANSACTION_ID = Timestamp.nextVersion().toUuid();
+    private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final LockManager LOCK_MANAGER = new HeapLockManager();
     private static final TablePartitionId PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
@@ -221,7 +221,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         if (arg.type != RequestType.RW_INSERT) {
             var rowId = new RowId(PART_ID);
-            insertRows(List.of(new Pair<>(testBinaryRow, rowId)), Timestamp.nextVersion().toUuid());
+            insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
@@ -266,7 +266,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         if (arg.type != RequestType.RW_INSERT_ALL) {
             for (BinaryRow row : rows) {
                 var rowId = new RowId(PART_ID);
-                insertRows(List.of(new Pair<>(row, rowId)), Timestamp.nextVersion().toUuid());
+                insertRows(List.of(new Pair<>(row, rowId)), TestTransactionIds.newTransactionId());
             }
         }
 

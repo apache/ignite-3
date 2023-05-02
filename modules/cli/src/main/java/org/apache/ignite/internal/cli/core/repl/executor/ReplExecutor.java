@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
@@ -87,7 +88,7 @@ public class ReplExecutor {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
-    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
+    private static TailTipWidgets createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
         TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                 TailTipWidgets.TipType.COMPLETER);
         widgets.enable();
@@ -152,18 +153,31 @@ public class ReplExecutor {
     }
 
     private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
+        Consumer<Boolean> widgetsEnabler;
         if (repl.isTailTipWidgetsEnabled()) {
-            TailTipWidgets widgets = createWidgets(registry, reader);
-            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));
-            return;
+            TailTipWidgets widgets = createTailTipWidgets(registry, reader);
+            widgetsEnabler = enable -> {
+                if (enable) {
+                    widgets.enable();
+                } else {
+                    widgets.disable();
+                }
+            };
+        } else if (repl.isAutosuggestionsWidgetsEnabled()) {
+            AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
+            widgets.enable();
+            widgetsEnabler = enable -> {
+                if (enable) {
+                    widgets.enable();
+                } else {
+                    widgets.disable();
+                }
+            };
+        } else {
+            widgetsEnabler = enable -> {};
         }
 
-        if (repl.isAutosuggestionsWidgetsEnabled()) {
-            AutosuggestionWidgets autosuggestionWidgets = new AutosuggestionWidgets(reader);
-            autosuggestionWidgets.enable();
-        }
-
-        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
+        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgetsEnabler));
     }
 
     private LineReader createReader(Completer completer) {

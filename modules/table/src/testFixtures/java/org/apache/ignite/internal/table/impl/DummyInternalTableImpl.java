@@ -74,6 +74,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.Lazy;
@@ -183,7 +184,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
-                txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK) : txManager,
+                txManager == null
+                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef))
+                        : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,

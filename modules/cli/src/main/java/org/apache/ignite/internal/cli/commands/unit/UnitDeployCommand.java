@@ -42,7 +42,7 @@ import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 
 /** Command to deploy a unit. */
-@Command(name = "deploy", description = "Deploys a unit")
+@Command(name = "deploy", description = "Deploys a unit from file or a directory (non-recursively)")
 public class UnitDeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
@@ -53,7 +53,9 @@ public class UnitDeployCommand extends BaseCommand implements Callable<Integer> 
     private String id;
 
     /** Unit version. */
-    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT}, description = UNIT_VERSION_OPTION_DESC)
+    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT},
+            description = UNIT_VERSION_OPTION_DESC,
+            required = true)
     private String version;
 
     /** Unit path. */

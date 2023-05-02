@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * MailboxRegistry interface.
@@ -74,14 +72,4 @@ public interface MailboxRegistry extends LifecycleAware {
      * @return Registered inbox. May be {@code null} if execution was cancelled.
      */
     Inbox<?> inbox(UUID qryId, long exchangeId);
-
-    /**
-     * Returns all registered inboxes for provided query ID.
-     *
-     * @param qryId      Query ID. {@code null} means return inboxes with any query id.
-     * @param fragmentId Fragment Id. {@code -1} means return inboxes with any fragment id.
-     * @param exchangeId Exchange Id. {@code -1} means return inboxes with any exchange id.
-     * @return Registered inboxes.
-     */
-    Collection<Inbox<?>> inboxes(@Nullable UUID qryId, long fragmentId, long exchangeId);
 }

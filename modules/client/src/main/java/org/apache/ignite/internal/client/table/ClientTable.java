@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
@@ -152,6 +153,7 @@ public class ClientTable implements Table {
     }
 
     private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
+        // TODO IGNITE-19354 Same schema version is retrieved multiple times in concurrent scenarios
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
@@ -196,7 +198,7 @@ public class ClientTable implements Table {
             assert propCnt >= 7;
 
             var name = in.unpackString();
-            var type = in.unpackInt();
+            var type = ColumnTypeConverter.fromOrdinalOrThrow(in.unpackInt());
             var isKey = in.unpackBoolean();
             var isNullable = in.unpackBoolean();
             var isColocation = in.unpackBoolean();
@@ -253,28 +255,6 @@ public class ClientTable implements Table {
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader
-    ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, null);
-    }
-
-    <T> CompletableFuture<T> doSchemaOutInOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            @Nullable T defaultValue
-    ) {
-        return getLatestSchema()
-                .thenCompose(schema ->
-                        ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w),
-                                r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue)))
-                .thenCompose(t -> loadSchemaAndReadData(t, reader));
-    }
-
-    <T> CompletableFuture<T> doSchemaOutInOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider
@@ -296,26 +276,6 @@ public class ClientTable implements Table {
                             preferredNodeId);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
-    }
-
-    /**
-     * Performs a schema-based operation.
-     *
-     * @param opCode Op code.
-     * @param writer Writer.
-     * @param reader Reader.
-     * @param <T> Result type.
-     * @return Future representing pending completion of the operation.
-     */
-    public <T> CompletableFuture<T> doSchemaOutOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            Function<ClientMessageUnpacker, T> reader) {
-        return getLatestSchema()
-                .thenCompose(schema ->
-                        ch.serviceAsync(opCode,
-                                w -> writer.accept(schema, w),
-                                r -> reader.apply(r.in())));
     }
 
     /**
@@ -346,7 +306,11 @@ public class ClientTable implements Table {
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
-                            r -> reader.apply(r.in()),
+                            r -> {
+                                ensureSchemaLoadedAsync(r.in().unpackInt());
+
+                                return reader.apply(r.in());
+                            },
                             null,
                             preferredNodeId);
                 });
@@ -358,11 +322,13 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
             @Nullable T defaultValue
     ) {
+        int schemaVer = in.unpackInt();
+
         if (in.tryUnpackNil()) {
+            ensureSchemaLoadedAsync(schemaVer);
+
             return defaultValue;
         }
-
-        var schemaVer = in.unpackInt();
 
         var resSchema = schemaVer == knownSchema.version() ? knownSchema : schemas.get(schemaVer);
 
@@ -400,6 +366,14 @@ public class ClientTable implements Table {
         });
 
         return resFut;
+    }
+
+    private void ensureSchemaLoadedAsync(int schemaVer) {
+        if (schemas.get(schemaVer) == null) {
+            // The schema is not needed for current response.
+            // Load it in the background to keep the client up to date with the latest version.
+            loadSchema(schemaVer);
+        }
     }
 
     private CompletableFuture<List<String>> getPartitionAssignment() {

@@ -94,7 +94,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     @SuppressWarnings({"EmptyTryBlock", "unused"})
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15611")
     @Test
     public void testDefaultsIpv6() throws Exception {
         var url = "jdbc:ignite:thin://[::1]:10800";
@@ -506,25 +506,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             // Exception when called on closed connection
             checkConnectionClosed(() -> conn.nativeSQL(sqlText));
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18985")
-    public void testGetSetAutoCommit() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            boolean ac0 = conn.getAutoCommit();
-
-            conn.setAutoCommit(!ac0);
-            // assert no exception
-
-            conn.setAutoCommit(ac0);
-            // assert no exception
-
-            conn.close();
-
-            // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.setAutoCommit(ac0));
         }
     }
 

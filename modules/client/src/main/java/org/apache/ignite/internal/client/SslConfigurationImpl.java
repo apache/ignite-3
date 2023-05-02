@@ -33,13 +33,9 @@ public class SslConfigurationImpl implements SslConfiguration {
 
     private final @Nullable String keyStorePassword;
 
-    private final String keyStoreType;
-
     private final @Nullable String trustStorePath;
 
     private final @Nullable String trustStorePassword;
-
-    private final String trustStoreType;
 
     /** Main constructor. */
     SslConfigurationImpl(
@@ -48,20 +44,16 @@ public class SslConfigurationImpl implements SslConfiguration {
             @Nullable Iterable<String> ciphers,
             @Nullable String keyStorePath,
             @Nullable String keyStorePassword,
-            String keyStoreType,
             @Nullable String trustStorePath,
-            @Nullable String trustStorePassword,
-            String trustStoreType
+            @Nullable String trustStorePassword
     ) {
         this.enabled = enabled;
         this.clientAuth = clientAuth;
         this.ciphers = ciphers;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
-        this.keyStoreType = keyStoreType;
         this.trustStorePath = trustStorePath;
         this.trustStorePassword = trustStorePassword;
-        this.trustStoreType = trustStoreType;
     }
 
     /** {@inheritDoc} */
@@ -95,12 +87,6 @@ public class SslConfigurationImpl implements SslConfiguration {
 
     /** {@inheritDoc} */
     @Override
-    public String keyStoreType() {
-        return keyStoreType;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public @Nullable String trustStorePath() {
         return trustStorePath;
     }
@@ -111,9 +97,4 @@ public class SslConfigurationImpl implements SslConfiguration {
         return trustStorePassword;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String trustStoreType() {
-        return trustStoreType;
-    }
 }

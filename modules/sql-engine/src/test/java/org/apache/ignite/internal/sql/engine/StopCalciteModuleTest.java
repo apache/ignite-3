@@ -161,7 +161,6 @@ public class StopCalciteModuleTest {
         when(clusterSrvc.topologyService()).thenReturn(topologySrvc);
         when(topologySrvc.localMember()).thenReturn(localNode);
         when(topologySrvc.allMembers()).thenReturn(List.of(localNode));
-        when(topologySrvc.getByConsistentId(any())).thenReturn(localNode);
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
                 1,

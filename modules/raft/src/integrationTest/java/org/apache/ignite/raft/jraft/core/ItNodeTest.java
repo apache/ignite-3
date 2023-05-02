@@ -496,7 +496,7 @@ public class ItNodeTest {
 
     // TODO asch Broken then using volatile log. A follower with empty log can become a leader IGNITE-14832.
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14832")
     public void testVoteTimedoutStepDown() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 

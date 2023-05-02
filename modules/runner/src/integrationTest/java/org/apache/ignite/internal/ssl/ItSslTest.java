@@ -123,7 +123,6 @@ public class ItSslTest extends IgniteIntegrationTest {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
-                            .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
                             .build();
@@ -231,7 +230,6 @@ public class ItSslTest extends IgniteIntegrationTest {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
-                            .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
                             .build();
@@ -307,7 +305,6 @@ public class ItSslTest extends IgniteIntegrationTest {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
-                            .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
                             .build();
@@ -328,7 +325,6 @@ public class ItSslTest extends IgniteIntegrationTest {
                     SslConfiguration.builder()
                             .enabled(true)
                             .ciphers(List.of("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"))
-                            .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
                             .build();
@@ -449,7 +445,6 @@ public class ItSslTest extends IgniteIntegrationTest {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
-                            .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
                             .build();
@@ -468,7 +463,6 @@ public class ItSslTest extends IgniteIntegrationTest {
             var sslConfiguration =
                     SslConfiguration.builder()
                             .enabled(true)
-                            .trustStoreType("JKS")
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
                             .clientAuth(REQUIRE)

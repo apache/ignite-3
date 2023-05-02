@@ -49,6 +49,10 @@ public interface ConfigManager {
         return getConfig(profileName).getProperty(key, defaultValue);
     }
 
+    default String removeProperty(String key, String profileName) {
+        return getConfig(profileName).removeProperty(key);
+    }
+
     private Profile getConfig(String profileName) {
         return profileName == null ? getCurrentProfile() : getProfile(profileName);
     }
