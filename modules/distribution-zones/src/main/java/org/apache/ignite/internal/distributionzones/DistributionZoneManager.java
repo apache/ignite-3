@@ -1641,6 +1641,7 @@ public class DistributionZoneManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
             if (DEFAULT_ZONE_NAME.equals(zoneName)) {
                 return completedFuture(DEFAULT_ZONE_ID);
@@ -1702,13 +1703,21 @@ public class DistributionZoneManager implements IgniteComponent {
             ConfigurationNamedListListener<DistributionZoneView> awaitZoneListener = new ConfigurationNamedListListener<>() {
                 @Override
                 public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-                    if (ctx.newValue().zoneId() == id) {
-                        zoneExistFut.complete(null);
-
-                        zonesConfiguration.distributionZones().stopListenElements(this);
+                    if (!busyLock.enterBusy()) {
+                        throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
                     }
 
-                    return completedFuture(null);
+                    try {
+                        if (ctx.newValue().zoneId() == id) {
+                            zoneExistFut.complete(null);
+
+                            zonesConfiguration.distributionZones().stopListenElements(this);
+                        }
+
+                        return completedFuture(null);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
                 }
             };
 

@@ -339,6 +339,7 @@ public class ItRebalanceDistributedTest {
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
+        // Tests that the distribution zone created on node0 is available on node1.
         TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
                 "TBL1",
                 zoneName,

@@ -199,6 +199,7 @@ public class DistributionZonesTestUtil {
 
     /**
      * This method is used to initialize the meta storage revision before starting the distribution zone manager.
+     * TODO: IGNITE-19403 Watch listeners must be deployed after the zone manager starts.
      *
      * @param metaStorageManager Meta storage manager.
      * @throws NodeStoppingException If node is stopping.

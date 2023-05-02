@@ -1375,46 +1375,72 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<TableChange> tableInitChange
     ) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
+
         tableAsyncInternal(name)
                 .thenAccept(tbl -> {
                     if (tbl != null) {
                         tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
                     } else {
-                        distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, ex) -> {
-                            if (zoneId == null) {
-                                tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
-                            } else if (ex != null) {
-                                tblFut.completeExceptionally(ex);
-                            } else {
-                                cmgMgr.logicalTopology()
-                                        .handle((cmgTopology, e) -> {
-                                            if (e == null) {
-                                                distributionZoneManager.topologyVersionedDataNodes(zoneId, cmgTopology.version())
-                                                        .handle((dataNodes, e0) -> {
-                                                            if (e0 == null) {
-                                                                changeTablesConfiguration(
-                                                                        name,
-                                                                        zoneId,
-                                                                        dataNodes,
-                                                                        tableInitChange,
-                                                                        tblFut
-                                                                );
-                                                            } else {
-                                                                tblFut.completeExceptionally(e0);
-                                                            }
+                        if (!busyLock.enterBusy()) {
+                            throw new IgniteException(new NodeStoppingException());
+                        }
 
-                                                            return null;
-                                                        });
-                                            } else {
-                                                tblFut.completeExceptionally(e);
-                                            }
+                        try {
+                            distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, ex) -> {
+                                if (zoneId == null) {
+                                    tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
+                                } else if (ex != null) {
+                                    tblFut.completeExceptionally(ex);
+                                } else {
+                                    if (!busyLock.enterBusy()) {
+                                        throw new IgniteException(new NodeStoppingException());
+                                    }
 
-                                            return null;
-                                        });
-                            }
+                                    try {
+                                        cmgMgr.logicalTopology()
+                                                .handle((cmgTopology, e) -> {
+                                                    if (e == null) {
+                                                        if (!busyLock.enterBusy()) {
+                                                            throw new IgniteException(new NodeStoppingException());
+                                                        }
 
-                            return null;
-                        });
+                                                        try {
+                                                            distributionZoneManager.topologyVersionedDataNodes(zoneId,
+                                                                            cmgTopology.version())
+                                                                    .handle((dataNodes, e0) -> {
+                                                                        if (e0 == null) {
+                                                                            changeTablesConfiguration(
+                                                                                    name,
+                                                                                    zoneId,
+                                                                                    dataNodes,
+                                                                                    tableInitChange,
+                                                                                    tblFut
+                                                                            );
+                                                                        } else {
+                                                                            tblFut.completeExceptionally(e0);
+                                                                        }
+
+                                                                        return null;
+                                                                    });
+                                                        } finally {
+                                                            busyLock.leaveBusy();
+                                                        }
+                                                    } else {
+                                                        tblFut.completeExceptionally(e);
+                                                    }
+
+                                                    return null;
+                                                });
+                                    } finally {
+                                        busyLock.leaveBusy();
+                                    }
+                                }
+
+                                return null;
+                            });
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     }
                 });
 
@@ -1812,6 +1838,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
             // TODO: IGNITE-16288 directTableId should use async configuration API
             return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
