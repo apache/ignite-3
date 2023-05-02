@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
@@ -44,11 +47,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,6 +69,11 @@ public class LeaseUpdater {
 
     /** Lease holding interval. */
     public static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+
+    /** The lock is available when the actor is active. */
+    private final IgniteSpinBusyLock stateActorLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean active = new AtomicBoolean();
 
     /** Long lease interval. The interval is used between lease granting attempts. */
     private final long longLeaseInterval;
@@ -127,6 +138,8 @@ public class LeaseUpdater {
         this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
+
+        clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());
     }
 
     /**
@@ -134,22 +147,6 @@ public class LeaseUpdater {
      */
     public void init(String nodeName) {
         this.nodeName = nodeName;
-
-        clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, (msg0, sender, correlationId) -> {
-            if (!(msg0 instanceof StopLeaseProlongationMessage)) {
-                return;
-            }
-
-            StopLeaseProlongationMessage msg = (StopLeaseProlongationMessage) msg0;
-
-            ReplicationGroupId grpId = msg.groupId();
-
-            Lease lease = leaseTracker.getLease(grpId);
-
-            if (lease.isAccepted() && sender.equals(lease.getLeaseholder().name())) {
-                denyLease(grpId, lease);
-            }
-        });
 
         topologyTracker.startTrack();
         assignmentsTracker.startTrack();
@@ -167,6 +164,14 @@ public class LeaseUpdater {
      * Activates a lease updater to renew leases.
      */
     public void activate() {
+        if (!active.compareAndSet(false, true)) {
+            return;
+        }
+
+        if (stateActorLock.blockedByCurrentThread()) {
+            stateActorLock.unblock();
+        }
+
         leaseNegotiator = new LeaseNegotiator(clusterService);
 
         //TODO: IGNITE-18879 Implement lease maintenance.
@@ -179,6 +184,12 @@ public class LeaseUpdater {
      * Stops a dedicated thread to renew or assign leases.
      */
     public void deactivate() {
+        if (!active.compareAndSet(true, false)) {
+            return;
+        }
+
+        stateActorLock.block();
+
         //TODO: IGNITE-18879 Implement lease maintenance.
         if (updaterTread != null) {
             updaterTread.interrupt();
@@ -194,8 +205,9 @@ public class LeaseUpdater {
      *
      * @param grpId Replication group id.
      * @param lease Lease to deny.
+     * @return Future completes true when the lease will not prolong in the future, false otherwise.
      */
-    public void denyLease(ReplicationGroupId grpId, Lease lease) {
+    public CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease) {
         var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
 
         byte[] leaseRaw = ByteUtils.toBytes(lease);
@@ -204,7 +216,7 @@ public class LeaseUpdater {
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
-        msManager.invoke(
+        return msManager.invoke(
                 value(leaseKey).eq(leaseRaw),
                 put(leaseKey, ByteUtils.toBytes(deniedLease)),
                 noop()
@@ -393,6 +405,56 @@ public class LeaseUpdater {
             HybridTimestamp now = clock.now();
 
             return now.after(lease.getExpirationTime());
+        }
+    }
+
+    /**
+     * Message handler to process notification from replica side.
+     */
+    private class PlacementDriverActorMessageHandler implements NetworkMessageHandler {
+        @Override
+        public void onReceived(NetworkMessage msg0, String sender, @Nullable Long correlationId) {
+            if (!(msg0 instanceof PlacementDriverActorMessage)) {
+                return;
+            }
+
+            var msg = (PlacementDriverActorMessage) msg0;
+
+            if (!stateActorLock.enterBusy()) {
+                return;
+            }
+
+            try {
+                processMessageInternal(sender, msg);
+            } finally {
+                stateActorLock.leaveBusy();
+            }
+        }
+
+        /**
+         * Processes an placement driver actor message. The method should be invoked under state lock.
+         *
+         * @param sender Sender node name.
+         * @param msg Message.
+         */
+        private void processMessageInternal(String sender, PlacementDriverActorMessage msg) {
+            ReplicationGroupId grpId = msg.groupId();
+
+            Lease lease = leaseTracker.getLease(grpId);
+
+            if (msg instanceof StopLeaseProlongationMessage) {
+                if (lease.isProlong() && sender.equals(lease.getLeaseholder().name())) {
+                    denyLease(grpId, lease).whenComplete((res, th) -> {
+                        if (th != null) {
+                            LOG.warn("Prolongation was not denied due to exception [groupId={}]", th, grpId);
+                        } else {
+                            LOG.info("Lease deny prolonging message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
+                        }
+                    });
+                }
+            } else {
+                LOG.warn("Unknown message type [msg={}]", msg.getClass().getSimpleName());
+            }
         }
     }
 }

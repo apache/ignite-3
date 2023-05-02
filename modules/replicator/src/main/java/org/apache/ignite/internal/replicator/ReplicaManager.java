@@ -120,17 +120,17 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+        if (!(message instanceof ReplicaRequest)) {
+            return;
+        }
+
+        ReplicaRequest request = (ReplicaRequest) message;
+
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            if (!(message instanceof ReplicaRequest)) {
-                return;
-            }
-
-            ReplicaRequest request = (ReplicaRequest) message;
-
             // Notify the sender that the Replica is created and ready to process requests.
             if (request instanceof AwaitReplicaRequest) {
                 replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
@@ -197,13 +197,13 @@ public class ReplicaManager implements IgniteComponent {
             return;
         }
 
+        var msg = (PlacementDriverReplicaMessage) msg0;
+
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            PlacementDriverReplicaMessage msg = (PlacementDriverReplicaMessage) msg0;
-
             CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
 
             replicaFut
