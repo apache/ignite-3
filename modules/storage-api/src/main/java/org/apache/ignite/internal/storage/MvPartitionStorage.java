@@ -82,6 +82,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
          *
          * @param rowId Row ID to lock.
          * @return {@code true} if row ID has been locked successfully, or the lock has already been held by current thread.
+         *      {@code false} if lock is not held by the current thread and the attempt to acquire it has failed.
          */
         boolean tryLock(RowId rowId);
     }

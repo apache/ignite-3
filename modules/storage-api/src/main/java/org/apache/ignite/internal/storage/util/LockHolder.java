@@ -43,7 +43,7 @@ class LockHolder<T extends Lock> {
 
     /**
      * Increment the count of lock holders ({@link Thread}).
-     * Not thread-safe, required external synchronization.
+     * Not thread-safe, requires external synchronization.
      */
     void incrementHolders() {
         int count = ++lockHoldersCount;
@@ -53,7 +53,7 @@ class LockHolder<T extends Lock> {
 
     /**
      * Decrements the count of lock holders ({@link Thread}), returns {@code true} if there are no more lock holders.
-     * Not thread-safe, required external synchronization.
+     * Not thread-safe, requires external synchronization.
      */
     boolean decrementHolders() {
         int count = --lockHoldersCount;

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.util.Collections.unmodifiableSortedSet;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
@@ -75,7 +76,7 @@ public class PartitionListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
     /** Empty sorted set. */
-    private static final SortedSet<RowId> EMPTY_SET = new TreeSet<>();
+    private static final SortedSet<RowId> EMPTY_SET = unmodifiableSortedSet(new TreeSet<>());
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
