@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -349,11 +347,10 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         stopNode(1);
 
-        assertTrue(waitForCondition(() -> !events.isEmpty(), TimeUnit.SECONDS.toMillis(10)), "Did not see any events in time");
+        Event leaveEvent = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(events, hasSize(1));
+        assertThat(events, is(empty()));
 
-        Event leaveEvent = events.poll();
         assertThat(leaveEvent, is(notNullValue()));
 
         assertThat(leaveEvent.eventType, is(EventType.LEFT));
