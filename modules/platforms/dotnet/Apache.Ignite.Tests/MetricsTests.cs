@@ -36,7 +36,16 @@ public class MetricsTests
     public void SetUp() => _listener = new Listener();
 
     [TearDown]
-    public void TearDown() => _listener.Dispose();
+    public void TearDown()
+    {
+        // ReSharper disable once AccessToDisposedClosure
+        TestUtils.WaitForCondition(() => _listener.GetMetric("requests-active") == 0);
+
+        // ReSharper disable once AccessToDisposedClosure
+        TestUtils.WaitForCondition(() => _listener.GetMetric("connections-active") == 0);
+
+        _listener.Dispose();
+    }
 
     [Test]
     public async Task TestConnectionsMetrics()
