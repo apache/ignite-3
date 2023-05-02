@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.util.subscription;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import org.apache.ignite.internal.metastorage.Entry;
+
 
 /**
- * Implementation of {@link Subscriber} based on {@link Entry}.
+ * Implementation of {@link Subscriber} based on {@link Accumulator}.
  *
+ * @param <T> The subscribed item type.
  * @param <R> Result value type.
  */
-public class EntrySubscriber<R> implements Subscriber<Entry> {
+public class AccumulatorSubscriber<T, R> implements Subscriber<T> {
     private final CompletableFuture<R> result;
 
-    private final Accumulator<R> accumulator;
+    private final Accumulator<T, R> accumulator;
 
     /**
      * Constructor.
@@ -38,7 +39,7 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
      * @param result Result future.
      * @param accumulator Values accumulator.
      */
-    public EntrySubscriber(CompletableFuture<R> result, Accumulator<R> accumulator) {
+    AccumulatorSubscriber(CompletableFuture<R> result, Accumulator<T, R> accumulator) {
         this.result = result;
         this.accumulator = accumulator;
     }
@@ -49,7 +50,7 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
     }
 
     @Override
-    public void onNext(Entry item) {
+    public void onNext(T item) {
         accumulator.accumulate(item);
     }
 

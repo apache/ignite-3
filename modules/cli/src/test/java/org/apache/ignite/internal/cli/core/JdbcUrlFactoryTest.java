@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManage
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.junit.jupiter.api.Test;
 
 class JdbcUrlFactoryTest {
@@ -44,6 +45,23 @@ class JdbcUrlFactoryTest {
     void withSsl() {
         // Given config with JDBC SSL enabled
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslSecretConfig());
+
+        // Then JDBC URL is constructed with SSL settings
+        String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
+        String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
+                + "?sslEnabled=true"
+                + "&trustStorePath=ssl/truststore.jks"
+                + "&trustStorePassword=changeit"
+                + "&keyStorePath=ssl/keystore.p12"
+                + "&keyStorePassword=changeit";
+        assertEquals(expectedJdbcUrl, jdbcUrl);
+    }
+
+    @Test
+    void withSslEnabledExplicitly() {
+        // Given config with JDBC SSL enabled and ssl-enabled set to true in the config explicitly
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslSecretConfig());
+        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_SSL_ENABLED.value(), "true");
 
         // Then JDBC URL is constructed with SSL settings
         String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");

@@ -15,31 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.util.subscription;
 
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * InboxCloseMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
  */
-@Transferable(value = SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE)
-public interface InboxCloseMessage extends NetworkMessage, Serializable {
+public class AccumulateException extends IgniteInternalCheckedException {
     /**
-     * Get query ID.
+     * Constructor.
+     *
+     * @param cause Cause exception.
      */
-    UUID queryId();
-
-    /**
-     * Get fragment ID.
-     */
-    long fragmentId();
-
-    /**
-     * Get exchange ID.
-     */
-    long exchangeId();
+    public AccumulateException(Throwable cause) {
+        super(cause);
+    }
 }

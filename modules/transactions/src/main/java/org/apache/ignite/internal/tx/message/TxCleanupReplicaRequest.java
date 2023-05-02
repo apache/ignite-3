@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction cleanup replica request that will trigger following actions processing.
@@ -39,7 +42,6 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      *
      * @return Transaction id.
      */
-    @Marshallable
     UUID txId();
 
     /**
@@ -54,8 +56,16 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      *
      * @return Commit timestamp.
      */
-    @Marshallable
-    HybridTimestamp commitTimestamp();
+    long commitTimestampLong();
+
+    /**
+     * Returns a transaction commit timestamp.
+     *
+     * @return Commit timestamp.
+     */
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return nullableHybridTimestamp(commitTimestampLong());
+    }
 
     /**
      * Gets a raft term.

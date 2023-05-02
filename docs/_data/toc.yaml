@@ -51,9 +51,9 @@
       url: rest/rest-api
     - title: Reference
       url: rest/reference
-- title: Clients
+- title: Clients & Drivers
   items:
-    - title: Clients Overview
+    - title: Ignite Clients
       url: thin-clients/index
     - title: .NET LINQ Queries
       url: thin-clients/linq

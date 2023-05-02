@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
@@ -32,27 +31,21 @@ public interface ReplicaMessageGroup {
     /** Message type for {@link ReplicaResponse}. */
     short REPLICA_RESPONSE = 2;
 
-    /** Message type for {@link TimestampAware}. */
-    short TIMESTAMP_AWARE = 3;
-
     /** Message type for {@link ErrorTimestampAwareReplicaResponse}. */
-    short ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE = 4;
+    short ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE = 3;
 
     /** Message type for {@link TimestampAwareReplicaResponse}. */
-    short TIMESTAMP_AWARE_REPLICA_RESPONSE = 5;
+    short TIMESTAMP_AWARE_REPLICA_RESPONSE = 4;
 
     /** Message type for {@link ReplicaSafeTimeSyncRequest}. */
-    short SAFE_TIME_SYNC_REQUEST = 6;
+    short SAFE_TIME_SYNC_REQUEST = 5;
 
     /** Message type for {@link AwaitReplicaRequest}. */
-    short AWAIT_REPLICA_REQUEST = 7;
+    short AWAIT_REPLICA_REQUEST = 6;
 
     /** Message type for {@link AwaitReplicaResponse}. */
-    short AWAIT_REPLICA_RESPONSE = 8;
+    short AWAIT_REPLICA_RESPONSE = 7;
 
     /** Message type for {@link SafeTimeSyncCommand}. */
     short SAFE_TIME_SYNC_COMMAND = 40;
-
-    /** Message type for {@link HybridTimestampMessage}. */
-    short HYBRID_TIMESTAMP = 60;
 }

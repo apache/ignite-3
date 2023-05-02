@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+package org.apache.ignite.internal.network.recovery;
 
 /**
- * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
+ * Represents a set of IDs that became stale.
+ *
+ * @see StaleIdDetector
  */
-public class AccumulateException extends IgniteInternalCheckedException {
+public interface StaleIds extends StaleIdDetector {
     /**
-     * Constructor.
+     * Marks a node ID as stale.
      *
-     * @param cause Cause exception.
+     * @param nodeId ID to mark as stale.
      */
-    public AccumulateException(Throwable cause) {
-        super(cause);
-    }
+    void markAsStale(String nodeId);
 }

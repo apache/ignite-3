@@ -55,7 +55,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     /** Name of a synthetic configuration property that's used to store "key" of the named list element in the storage. */
     public static final String NAME = "<name>";
 
-    /** Name of a synthetic configuration property that's used to store mapping fron names to internal identifiers in the storage. */
+    /** Name of a synthetic configuration property that's used to store mapping from names to internal identifiers in the storage. */
     public static final String IDS = "<ids>";
 
     /** Configuration name for the synthetic key. */

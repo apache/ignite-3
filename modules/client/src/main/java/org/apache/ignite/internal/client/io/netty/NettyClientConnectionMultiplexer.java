@@ -29,11 +29,9 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -124,38 +122,31 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     private static KeyManagerFactory loadKeyManagerFactory(SslConfiguration ssl)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
-        KeyStore ks = KeyStore.getInstance(ssl.keyStoreType());
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 
-        char[] ksPassword = ssl.keyStorePassword() == null ? null : ssl.keyStorePassword().toCharArray();
         if (ssl.keyStorePath() != null) {
-            try (InputStream is = Files.newInputStream(Path.of(ssl.keyStorePath()))) {
-                ks.load(is, ksPassword);
-            }
+            char[] ksPassword = ssl.keyStorePassword() == null ? null : ssl.keyStorePassword().toCharArray();
+            KeyStore ks = KeyStore.getInstance(new File(ssl.keyStorePath()), ksPassword);
+            keyManagerFactory.init(ks, ksPassword);
         } else {
-            ks.load(null, ksPassword);
+            keyManagerFactory.init(null, null);
         }
 
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        keyManagerFactory.init(ks, ksPassword);
         return keyManagerFactory;
     }
 
     private static TrustManagerFactory loadTrustManagerFactory(SslConfiguration ssl)
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
-        KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());
-        char[] tsPassword = ssl.trustStorePassword() == null ? null : ssl.trustStorePassword().toCharArray();
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+
         if (ssl.trustStorePath() != null) {
-            try (InputStream is = Files.newInputStream(Path.of(ssl.trustStorePath()))) {
-                ts.load(is, tsPassword);
-            }
+            char[] tsPassword = ssl.trustStorePassword() == null ? null : ssl.trustStorePassword().toCharArray();
+            KeyStore ts = KeyStore.getInstance(new File(ssl.trustStorePath()), tsPassword);
+            trustManagerFactory.init(ts);
         } else {
-            ts.load(null, tsPassword);
+            trustManagerFactory.init((KeyStore) null);
         }
 
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                TrustManagerFactory.getDefaultAlgorithm()
-        );
-        trustManagerFactory.init(ts);
         return trustManagerFactory;
     }
 

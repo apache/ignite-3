@@ -17,21 +17,30 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message with a timestamp to adjust a hybrid logical clock.
  */
-@Transferable(ReplicaMessageGroup.TIMESTAMP_AWARE)
 public interface TimestampAware extends NetworkMessage {
     /**
      * Gets a hybrid timestamp.
      *
      * @return Gets a hybrid timestamp.
      */
-    @Marshallable
-    HybridTimestamp timestamp();
+    long timestampLong();
+
+    /**
+     * Gets a hybrid timestamp.
+     *
+     * @return Gets a hybrid timestamp.
+     */
+    //TODO IGNITE-19381 Remove @Nullable annotation and replace "nullableHybridTimestamp(...)" call with "hybridTimestamp(...)"
+    default @Nullable HybridTimestamp timestamp() {
+        return nullableHybridTimestamp(timestampLong());
+    }
 }

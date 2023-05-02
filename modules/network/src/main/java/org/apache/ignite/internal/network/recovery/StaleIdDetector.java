@@ -15,11 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.network.recovery;
 
-/** Stubs. */
-public class Stubs {
-    public static int intFoo(Object... args) {
-        return args == null ? 0 : args.length;
-    }
+/**
+ * Allows to detect whether an ID identifying a node on the networking level is stale or not.
+ * An ID becomes stale when a node having this ID disappears from the Physical Topology.
+ */
+@FunctionalInterface
+public interface StaleIdDetector {
+    /**
+     * Returns {@code true} iff the given ID is stale.
+     *
+     * @param nodeId ID to check.
+     * @return {@code true} iff the given ID is stale.
+     */
+    boolean isIdStale(String nodeId);
 }
