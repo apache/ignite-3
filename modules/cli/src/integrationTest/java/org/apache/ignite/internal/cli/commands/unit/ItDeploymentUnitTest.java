@@ -57,16 +57,30 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     }
 
     @Test
-    @DisplayName("Should deploy a unit without version")
-    void deployWithoutVersion() {
+    @DisplayName("Should display error when deploy a unit without version")
+    void deployVersionIsMandatory() {
         // When deploy without version
         execute("unit", "deploy", "test.unit.id.2", "--path", testFile);
 
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Done")
+                () -> assertExitCodeIs(2),
+                () -> assertErrOutputContains("Missing required option: '--version=<version>'"),
+                this::assertOutputIsEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should display error when undeploy a unit without version")
+    void undeployVersionIsMandatory() {
+        // When deploy without version
+        execute("unit", "undeploy", "test.unit.id.2");
+
+        // Then
+        assertAll(
+                () -> assertExitCodeIs(2),
+                () -> assertErrOutputContains("Missing required option: '--version=<version>'"),
+                this::assertOutputIsEmpty
         );
     }
 
@@ -130,7 +144,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should deploy a unit from directory")
     void deployDirectory() {
         // When deploy with version
-        execute("unit", "deploy", "test.unit.id.5", "--path", testDirectory.toString());
+        execute("unit", "deploy", "test.unit.id.6", "--version", "1.0.0", "--path", testDirectory.toString());
 
         // Then
         assertAll(
