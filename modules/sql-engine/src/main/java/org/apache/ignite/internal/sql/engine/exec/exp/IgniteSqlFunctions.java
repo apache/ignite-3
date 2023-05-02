@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.time.DateTimeException;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
@@ -53,6 +58,17 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
+    private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
+
+    static {
+        ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .append(ISO_LOCAL_DATE)
+                .appendLiteral(' ')
+                .append(ISO_LOCAL_TIME)
+                .toFormatter();
+    }
+
     /**
      * Default constructor.
      */
@@ -82,17 +98,13 @@ public class IgniteSqlFunctions {
     }
 
     private static long timestampStringToNumeric0(String dtStr) {
+        dtStr = dtStr.trim();
         //"YYYY-MM-dd HH:mm:ss.ninenanos"
         if (dtStr.length() > 29) {
             dtStr = dtStr.substring(0, 29);
         }
 
-        int space = dtStr.indexOf(' ');
-        if (space != -1) {
-            String datePart = dtStr.substring(0, space);
-            // for strict date parsing otherwise DateFormatter need to be used.
-            LocalDate.parse(datePart);
-        }
+        LocalDateTime.parse(dtStr, ISO_LOCAL_DATE_TIME_EX.withResolverStyle(ResolverStyle.STRICT));
 
         return DateTimeUtils.timestampStringToUnixDate(dtStr);
     }
