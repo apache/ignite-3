@@ -289,8 +289,11 @@ namespace Apache.Ignite.Internal
                             completionSource.TrySetException(task.Exception);
                         }
 
-                        Metrics.RequestsFailed.Add(1);
-                        Metrics.RequestsActiveDecrement();
+                        if (_requests.TryRemove(requestId, out _))
+                        {
+                            Metrics.RequestsFailed.Add(1);
+                            Metrics.RequestsActiveDecrement();
+                        }
                     },
                     taskCompletionSource,
                     CancellationToken.None,

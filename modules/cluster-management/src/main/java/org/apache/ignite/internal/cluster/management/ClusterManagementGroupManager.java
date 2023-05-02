@@ -138,20 +138,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Node's attributes configuration. */
     private final NodeAttributesConfiguration nodeAttributes;
 
-    /**
-     * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
-     *
-     * <p>Such join completion always happens during a start, and it is always the last step during the startup process,
-     * to make sure a node joins the cluster when it's fully ready.
-     *
-     * <p>We need this flag to make sure we handle automatic rejoins correctly. If a short network hiccup happens, CMG leader
-     * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When the network
-     * connectivity is restored, the node will appear in the physical topology, after which it will try to rejoin the cluster. If such
-     * 'rejoin' was carried out unconditionally, it could happen before the first join during startup, so a not-yet-ready node could join
-     * the cluster.
-     */
-    private volatile boolean attemptedCompleteJoinOnStart = false;
-
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -522,7 +508,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
                                 LOG.info("ClusterStateMessage received, but the CMG service is already started");
 
-                                return joinCluster(service, state.clusterTag());
+                                return completedFuture(service);
                             }
 
                             if (service == null) {
@@ -550,18 +536,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                             return initCmgRaftService(state);
                         })
-                        .thenCompose(Function.identity())
-                        .thenCompose(this::completeJoinIfTryingToRejoin);
+                        .thenCompose(Function.identity());
             }
-        }
-    }
-
-    private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
-        if (attemptedCompleteJoinOnStart) {
-            return cmgRaftService.completeJoinCluster(mapNodeAttributes())
-                    .thenApply(unused -> cmgRaftService);
-        } else {
-            return completedFuture(cmgRaftService);
         }
     }
 
@@ -859,8 +835,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
-
-        attemptedCompleteJoinOnStart = true;
 
         try {
             return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(mapNodeAttributes()));

@@ -89,10 +89,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty trustStorePassword = new StringProperty("trustStorePassword",
             "Trust store password", null, null, false, null);
 
-    /** Type of the truststore. */
-    private final StringProperty trustStoreType = new StringProperty("trustStoreType",
-            "Type of the trust store", "PKCS12", null, false, null);
-
     /** Path to the keystore. */
     private final StringProperty keyStorePath = new StringProperty("keyStorePath",
             "Path to key store", null, null, false, null);
@@ -100,10 +96,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** Keystore password. */
     private final StringProperty keyStorePassword = new StringProperty("keyStorePassword",
             "Key store password", null, null, false, null);
-
-    /** Type of the keystore. */
-    private final StringProperty keyStoreType = new StringProperty("keyStoreType",
-            "Type of the key store", "PKCS12", null, false, null);
 
     /** SSL client authentication. */
     private final StringProperty clientAuth = new StringProperty("clientAuth",
@@ -136,8 +128,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
-            qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType,
-            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword, keyStoreType,
+            qryTimeout, connTimeout, trustStorePath, trustStorePassword,
+            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
             basicAuthenticationUsername, basicAuthenticationPassword
     };
 
@@ -277,18 +269,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public String getTrustStoreType() {
-        return trustStoreType.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setKeyStoreType(String type) {
-        keyStoreType.setValue(type);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void setKeyStorePath(String keyStorePath) {
         this.keyStorePath.setValue(keyStorePath);
     }
@@ -309,18 +289,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public String getKeyStorePassword() {
         return keyStorePassword.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String getKeyStoreType() {
-        return keyStoreType.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setTrustStoreType(String type) {
-        trustStoreType.setValue(type);
     }
 
     /** {@inheritDoc} */
