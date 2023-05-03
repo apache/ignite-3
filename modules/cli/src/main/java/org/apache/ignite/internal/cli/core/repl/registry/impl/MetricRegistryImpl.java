@@ -55,7 +55,6 @@ public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventList
         metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionInfo));
     }
 
-    @NotNull
     private Set<String> fetchMetricSources(SessionInfo sessionInfo) {
         return metricSourceListCall.execute(new UrlCallInput(sessionInfo.nodeUrl()))
                 .body().stream()
