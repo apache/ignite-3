@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.copyResourceToTempFile;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
@@ -32,10 +33,13 @@ import static org.mockserver.model.JsonBody.json;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -284,11 +288,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         + "--auth-enabled --basic-auth-username admin --basic-auth-password password")
         void initWithAuthenticationSuccess() throws IOException {
 
-            byte[] bytes = IgniteCliInterfaceTest.class.getClassLoader()
-                    .getResourceAsStream("cluster-configuration-with-enabled-auth.conf")
-                    .readAllBytes();
-
-            String clusterConfiguration = new String(bytes);
+            Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
+            String clusterConfiguration = new String(Files.readAllBytes(clusterConfigurationFile));
 
             var expectedSentContent = "{\n"
                     + "  \"metaStorageNodes\": [\n"
@@ -320,7 +321,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
                     "--cluster-name", "cluster",
-                    "--cluster-config", clusterConfiguration
+                    "--cluster-config-file", clusterConfigurationFile.toString()
             );
 
             assertThatExitCodeMeansSuccess(exitCode);
