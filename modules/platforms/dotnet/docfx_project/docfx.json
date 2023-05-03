@@ -4,7 +4,7 @@
             "src": [
                 {
                     "files": [
-                        "**/bin/Debug/**.dll"
+                        "Apache.Ignite/bin/Debug/net6.0/Apache.Ignite.dll"
                     ],
                     "src": "../"
                 }
