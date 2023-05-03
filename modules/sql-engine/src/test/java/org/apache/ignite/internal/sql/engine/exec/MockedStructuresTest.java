@@ -91,6 +91,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -414,14 +415,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.zoneIdAsyncInternal(nonExistZone)).thenReturn(completedFuture(null));
 
-        Exception exception = assertThrows(
-                IgniteException.class,
+        Throwable exception = assertThrows(
+                Throwable.class,
                 () -> readFirst(queryProc.querySingleAsync(sessionId, context,
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                                 + "with primary_zone='%s'", tableName, nonExistZone)))
         );
 
-        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
+        assertTrue(IgniteTestUtils.hasCause(exception.getCause(), DistributionZoneNotFoundException.class, null));
 
         log.info("Creating a table with a ClusterManagementGroupManager throwing an exception.");
 

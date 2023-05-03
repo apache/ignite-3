@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.lang.reflect.Constructor;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,49 +95,15 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.closeAsync();
     }
 
-    private static RuntimeException wrapIfNecessary(@NotNull Throwable t) {
-        Throwable cause = unwrapRemoteCause(t);
+    private static RuntimeException wrapIfNecessary(Throwable t) {
+        Throwable err = ExceptionUtils.unwrapCause(t);
 
-        // If the cause is IgniteException then create
-        // an exception of the same type with the same properties
-        // and set its cause to the original exception.
-        if (cause instanceof IgniteException) {
-            return preserveExceptionType((IgniteException) cause, t);
-        } else {
-            // If the cause is not a subclass of IgniteException, wrap it in IgniteException.
-            return IgniteException.wrap(t);
-        }
-    }
+        if (err instanceof IgniteInternalException) {
+            IgniteInternalException iex = (IgniteInternalException) err;
 
-    private static Throwable unwrapRemoteCause(@NotNull Throwable t) {
-        Throwable err = t;
-
-        while (err != null) {
-            err = ExceptionUtils.unwrapCause(err);
-            // Unwrap RemoteExceptions because they are just wrappers.
-            if (err instanceof RemoteException) {
-                err = err.getCause();
-                continue;
-            }
-
-            return err;
+            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
         }
 
-        return t;
-    }
-
-    private static IgniteException preserveExceptionType(IgniteException e, Throwable t) {
-        // Return IgniteException as is
-        if (e.getClass() == IgniteException.class) {
-            return e;
-        }
-
-        try {
-            Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
-
-            return (IgniteException) ctor.newInstance(e.traceId(), e.code(), e.getMessage(), t);
-        } catch (Exception ex) {
-            throw new RuntimeException("IgniteException-derived class does not have required constructor: " + e.getClass().getName(), ex);
-        }
+        return IgniteException.wrap(t);
     }
 }
