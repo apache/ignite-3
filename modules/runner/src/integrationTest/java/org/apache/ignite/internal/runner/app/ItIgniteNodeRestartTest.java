@@ -1033,6 +1033,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19408 Need to use ItIgniteNodeRestartTest.startPartialNode(int, String)
         startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2);
