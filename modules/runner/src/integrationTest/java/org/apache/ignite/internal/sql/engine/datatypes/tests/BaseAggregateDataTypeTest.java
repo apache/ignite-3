@@ -75,9 +75,9 @@ public abstract class BaseAggregateDataTypeTest<T extends Comparable<T>> extends
         insertValues();
 
         checkQuery("SELECT test_key FROM t GROUP BY test_key ORDER BY test_key")
-                .returns(1L, min)
-                .returns(1L, mid)
-                .returns(1L, max)
+                .returns(min)
+                .returns(mid)
+                .returns(max)
                 .check();
     }
 
@@ -93,7 +93,7 @@ public abstract class BaseAggregateDataTypeTest<T extends Comparable<T>> extends
         String query = format("SELECT test_key FROM t GROUP BY test_key HAVING COUNT(test_key) = 2");
 
         checkQuery(query)
-                .returns(1, orderedValues.first())
+                .returns(orderedValues.first())
                 .check();
     }
 
