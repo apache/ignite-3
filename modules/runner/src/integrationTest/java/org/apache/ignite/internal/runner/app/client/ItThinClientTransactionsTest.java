@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -197,7 +198,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(tx2, -100, "1");
 
         var ex = assertThrows(IgniteException.class, () -> kvView.get(tx1, -100));
-        assertThat(ex.getMessage(), containsString("Replication is timed out"));
+        assertThat(
+                ex.getMessage(),
+                either(containsString("Replication is timed out"))
+                        .or(containsString("Failed to acquire a lock due to a conflict")));
 
         tx2.rollback();
     }
