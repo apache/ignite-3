@@ -47,7 +47,7 @@ public class InitParameters {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration cluster configuration.
+     * @param clusterConfiguration Cluster configuration.
      */
     InitParameters(
             String destinationNodeName,

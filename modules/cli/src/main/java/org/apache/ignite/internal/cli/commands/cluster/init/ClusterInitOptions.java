@@ -38,8 +38,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
@@ -119,8 +117,8 @@ public class ClusterInitOptions {
         } else if (clusterConfigOptions.config != null) {
             return clusterConfigOptions.config;
         } else if (clusterConfigOptions.file != null) {
-            try (Stream<String> lines = Files.lines(clusterConfigOptions.file.toPath())) {
-                return lines.collect(Collectors.joining(System.lineSeparator()));
+            try {
+                return new String(Files.readAllBytes(clusterConfigOptions.file.toPath()));
             } catch (IOException e) {
                 throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.file, e);
             }

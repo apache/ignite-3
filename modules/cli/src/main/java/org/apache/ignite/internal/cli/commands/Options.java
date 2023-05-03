@@ -248,7 +248,7 @@ public enum Options {
 
         public static final String CLUSTER_CONFIG_FILE_OPTION = "--cluster-config-file";
 
-        public static final String CLUSTER_CONFIG_FILE_OPTION_SHORT = "-cfg-f";
+        public static final String CLUSTER_CONFIG_FILE_OPTION_SHORT = "-cfgf";
 
         public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration file";
     }

@@ -183,9 +183,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     private final List<String> clusterNodesNames = new ArrayList<>();

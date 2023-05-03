@@ -100,9 +100,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     private static class Node {

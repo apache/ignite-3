@@ -75,9 +75,6 @@ public class ItDistributedConfigurationStorageTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     /**

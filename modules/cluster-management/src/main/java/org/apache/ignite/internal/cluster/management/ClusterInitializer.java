@@ -81,7 +81,7 @@ public class ClusterInitializer {
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
      * metaStorageNodeNames} will be used instead.
      * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration cluster configuration.
+     * @param clusterConfiguration Cluster configuration.
      * @return Future that represents the state of the operation.
      */
     public CompletableFuture<Void> initCluster(

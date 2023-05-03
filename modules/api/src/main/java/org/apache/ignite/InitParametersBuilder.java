@@ -107,19 +107,6 @@ public class InitParametersBuilder {
         return this;
     }
 
-    /**
-     * Sets cluster configuration, that will be applied after initialization.
-     *
-     * @param clusterConfiguration Cluster configuration.
-     * @return {@code this} for chaining.
-     */
-    public InitParametersBuilder clusterConfiguration(File clusterConfiguration) throws IOException {
-        try (Stream<String> lines = Files.lines(clusterConfiguration.toPath())) {
-            this.clusterConfiguration = lines.collect(Collectors.joining(System.lineSeparator()));
-            return this;
-        }
-    }
-
     /** Builds {@link InitParameters}. */
     public InitParameters build() {
         cmgNodeNames = cmgNodeNames == null ? metaStorageNodeNames : cmgNodeNames;

@@ -33,6 +33,7 @@ import static org.mockserver.model.JsonBody.json;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -283,11 +284,11 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         + "--auth-enabled --basic-auth-username admin --basic-auth-password password")
         void initWithAuthenticationSuccess() throws IOException {
 
-            String clusterConfigurationFile = IgniteCliInterfaceTest.class.getClassLoader()
-                    .getResource("cluster-configuration-with-enabled-auth.json")
-                    .getPath();
+            byte[] bytes = IgniteCliInterfaceTest.class.getClassLoader()
+                    .getResourceAsStream("cluster-configuration-with-enabled-auth.conf")
+                    .readAllBytes();
 
-            String clusterConfiguration = readFile(new File(clusterConfigurationFile)).replaceAll("\"", "\\\\\"");
+            String clusterConfiguration = new String(bytes);
 
             var expectedSentContent = "{\n"
                     + "  \"metaStorageNodes\": [\n"
@@ -319,7 +320,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
                     "--cluster-name", "cluster",
-                    "--cluster-config-file", clusterConfigurationFile
+                    "--cluster-config", clusterConfiguration
             );
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -524,11 +525,5 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
     private void assertErrOutputEqual(String exp) {
         assertEqualsIgnoreLineSeparators(exp, err.toString(UTF_8));
-    }
-
-    private String readFile(File file) throws IOException {
-        try (Stream<String> lines = Files.lines(file.toPath())) {
-            return lines.collect(Collectors.joining(System.lineSeparator()));
-        }
     }
 }

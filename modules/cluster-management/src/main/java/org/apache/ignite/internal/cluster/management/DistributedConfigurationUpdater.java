@@ -34,14 +34,13 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationUpdater.class);
 
     private final CompletableFuture<ConfigurationPresentation<String>> clusterCfgPresentation = new CompletableFuture<>();
-    private final CompletableFuture<SecurityConfiguration> securityConfigurationFuture = new CompletableFuture<>();
 
     public void setDistributedConfigurationPresentation(ConfigurationPresentation<String> presentation) {
         clusterCfgPresentation.complete(presentation);
     }
 
     /**
-     * Applies changes to the {@link AuthenticationConfiguration} when {@link DistributedConfigurationUpdater#securityConfigurationFuture}
+     * Applies changes to the cluster configuration when {@link DistributedConfigurationUpdater#clusterCfgPresentation}
      * is complete.
      *
      * @param configurationToApply Cluster configuration that should be applied.
@@ -65,6 +64,6 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     @Override
     public void stop() throws Exception {
-        securityConfigurationFuture.completeExceptionally(new NodeStoppingException("Component is stopped."));
+        clusterCfgPresentation.completeExceptionally(new NodeStoppingException("Component is stopped."));
     }
 }

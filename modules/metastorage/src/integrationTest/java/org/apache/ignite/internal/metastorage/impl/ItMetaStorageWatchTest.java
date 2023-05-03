@@ -81,9 +81,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     private static class Node {

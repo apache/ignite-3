@@ -53,9 +53,6 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     protected static List<MockNode> createNodes(int numNodes, TestInfo testInfo, Path workDir) {
@@ -69,7 +66,6 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                         workDir.resolve("node" + i),
                         raftConfiguration,
                         cmgConfiguration,
-                        securityConfiguration,
                         nodeAttributes
 
                 ))
@@ -84,7 +80,6 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                 workDir.resolve("node" + cluster.size()),
                 raftConfiguration,
                 cmgConfiguration,
-                securityConfiguration,
                 nodeAttributes
         );
 

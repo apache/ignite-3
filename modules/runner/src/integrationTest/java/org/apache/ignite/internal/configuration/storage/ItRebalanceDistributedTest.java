@@ -191,9 +191,6 @@ public class ItRebalanceDistributedTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     @Target(ElementType.METHOD)

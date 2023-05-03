@@ -403,21 +403,21 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().thenCompose(this::pushAuthenticationConfigToCluster);
+        raftServiceAfterJoin().thenCompose(this::pushClusterConfigToCluster);
     }
 
-    private CompletableFuture<Void> pushAuthenticationConfigToCluster(CmgRaftService service) {
+    private CompletableFuture<Void> pushClusterConfigToCluster(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
                     if (state == null) {
-                        LOG.info("No CMG state found in the Raft storage");
+                        LOG.info("No CMG state found in the Raft service");
                         return completedFuture(null);
                     } else if (state.clusterConfigurationToApply() == null) {
-                        // config was applied or wasn't provided
-                        LOG.info("No cluster configuration found in the Raft storage");
+                        // Config was applied or wasn't provided
+                        LOG.info("No cluster configuration found in the Raft service");
                         return completedFuture(null);
                     } else {
-                        LOG.info("Cluster configuration found in the Raft storage, going to apply it");
+                        LOG.info("Cluster configuration is found in the Raft service, going to apply it");
                         return distributedConfigurationUpdater.updateConfiguration(state.clusterConfigurationToApply())
                                 .thenCompose(unused -> removeAuthConfigFromClusterState(service));
                     }
