@@ -63,18 +63,16 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Excluded native types.
-     * ToDo: https://issues.apache.org/jira/browse/IGNITE-15623 - support timestamp
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
             NativeTypeSpec.BITMASK,
-            NativeTypeSpec.TIMESTAMP,
             NativeTypeSpec.NUMBER)
             .collect(Collectors.toSet());
 
     /**
      * Clear tables after each test.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
@@ -302,7 +300,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             case DATETIME:
                 return "timestamp";
             case TIMESTAMP:
-                return "timestamp_tz";
+                return "timestamp with local time zone";
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
