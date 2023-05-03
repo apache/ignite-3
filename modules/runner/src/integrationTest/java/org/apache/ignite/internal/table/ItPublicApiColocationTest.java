@@ -66,7 +66,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
             NativeTypeSpec.BITMASK,
-            NativeTypeSpec.NUMBER)
+            NativeTypeSpec.NUMBER,
+            // TODO: Remove after IGNITE-19274
+            NativeTypeSpec.TIMESTAMP)
             .collect(Collectors.toSet());
 
     /**
