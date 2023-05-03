@@ -326,7 +326,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHAR:
                     case VARCHAR:
                         convert =
-                                Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand);
+                                // TODO: revert after https://issues.apache.org/jira/browse/CALCITE-5678 was accepted
+                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
                     case DATE:
                         convert = Expressions.multiply(

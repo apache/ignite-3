@@ -21,6 +21,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
@@ -28,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.isZoneExist;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -58,6 +60,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -75,6 +78,7 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
 import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
+import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -121,8 +125,10 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -160,6 +166,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
+
+    /**
+     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be skipped,
+     * and the local property will be returned.
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through Meta storage,
+     * TODO: will be removed after fix of the issue.
+     */
+    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
@@ -238,6 +252,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
+     * @param nodeName Node name.
      */
     public DistributionZoneManager(
             DistributionZonesConfiguration zonesConfiguration,
@@ -1143,6 +1158,8 @@ public class DistributionZoneManager implements IgniteComponent {
             VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
 
             if (topologyEntry != null && topologyEntry.value() != null) {
+                assert  appliedRevision > 0 : "The meta storage last applied revision is 0 but the logical topology is not null.";
+
                 logicalTopology = fromBytes(topologyEntry.value());
 
                 // init keys and data nodes for default zone
@@ -1622,6 +1639,124 @@ public class DistributionZoneManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Gets direct id of the distribution zone with {@code zoneName}.
+     *
+     * @param zoneName Name of the distribution zone.
+     * @return Direct id of the distribution zone, or {@code null} if the zone with the {@code zoneName} has not been found.
+     */
+    public CompletableFuture<Integer> zoneIdAsyncInternal(String zoneName) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            if (DEFAULT_ZONE_NAME.equals(zoneName)) {
+                return completedFuture(DEFAULT_ZONE_ID);
+            }
+
+            // TODO: IGNITE-16288 directZoneId should use async configuration API
+            return supplyAsync(() -> directZoneIdInternal(zoneName), executor)
+                    .thenCompose(zoneId -> {
+                        if (zoneId == null) {
+                            return completedFuture(null);
+                        } else {
+                            return waitZoneIdLocally(zoneId).thenCompose(ignored -> completedFuture(zoneId));
+                        }
+                    });
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @Nullable
+    private Integer directZoneIdInternal(String zoneName) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            DistributionZoneConfiguration zoneCfg = directProxy(zonesConfiguration.distributionZones()).get(zoneName);
+
+            if (zoneCfg == null) {
+                return null;
+            } else {
+                return zoneCfg.zoneId().value();
+            }
+        } catch (NoSuchElementException e) {
+            return null;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Internal method for waiting that the zone is created locally.
+     *
+     * @param id Zone id.
+     * @return Future representing pending completion of the operation.
+     */
+    private CompletableFuture<Void> waitZoneIdLocally(int id) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            if (isZoneExist(zonesConfiguration, id)) {
+                return completedFuture(null);
+            }
+
+            CompletableFuture<Void> zoneExistFut = new CompletableFuture<>();
+
+            ConfigurationNamedListListener<DistributionZoneView> awaitZoneListener = new ConfigurationNamedListListener<>() {
+                @Override
+                public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
+                    if (!busyLock.enterBusy()) {
+                        throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+                    }
+
+                    try {
+                        if (ctx.newValue().zoneId() == id) {
+                            zoneExistFut.complete(null);
+
+                            zonesConfiguration.distributionZones().stopListenElements(this);
+                        }
+
+                        return completedFuture(null);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                }
+            };
+
+            zonesConfiguration.distributionZones().listenElements(awaitZoneListener);
+
+            // This check is needed for the case when we have registered awaitZoneListener, but the zone has already been created.
+            if (isZoneExist(zonesConfiguration, id)) {
+                zonesConfiguration.distributionZones().stopListenElements(awaitZoneListener);
+
+                return completedFuture(null);
+            }
+
+            return zoneExistFut;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Gets a direct accessor for the configuration distributed property. If the metadata access only locally configured the method will
+     * return local property accessor.
+     *
+     * @param property Distributed configuration property to receive direct access.
+     * @param <T> Type of the property accessor.
+     * @return An accessor for distributive property.
+     * @see #getMetadataLocallyOnly
+     */
+    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
+        return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 
     /**

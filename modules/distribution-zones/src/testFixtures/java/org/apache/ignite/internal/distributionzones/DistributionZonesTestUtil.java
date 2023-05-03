@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
@@ -45,7 +47,9 @@ public class DistributionZonesTestUtil {
             Consumer<DataStorageChange> dataStorageChangeConsumer) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
-                .partitions(partitions);
+                .partitions(partitions)
+                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
         if (dataStorageChangeConsumer != null) {
             distributionZoneCfgBuilder
@@ -80,7 +84,9 @@ public class DistributionZonesTestUtil {
      */
     public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas);
+                .replicas(replicas)
+                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
         return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
     }

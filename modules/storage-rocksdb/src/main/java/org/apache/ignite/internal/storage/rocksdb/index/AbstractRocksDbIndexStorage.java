@@ -27,8 +27,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -43,7 +43,7 @@ import org.rocksdb.WriteBatchWithIndex;
 abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     private final UUID indexId;
 
-    final RocksDbMvPartitionStorage partitionStorage;
+    final PartitionDataHelper helper;
 
     private final RocksDbMetaStorage indexMetaStorage;
 
@@ -56,12 +56,12 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
     private volatile @Nullable RowId nextRowIdToBuilt;
 
-    AbstractRocksDbIndexStorage(UUID indexId, RocksDbMvPartitionStorage partitionStorage, RocksDbMetaStorage indexMetaStorage) {
+    AbstractRocksDbIndexStorage(UUID indexId, PartitionDataHelper helper, RocksDbMetaStorage indexMetaStorage) {
         this.indexId = indexId;
-        this.partitionStorage = partitionStorage;
+        this.helper = helper;
         this.indexMetaStorage = indexMetaStorage;
 
-        int partitionId = partitionStorage.partitionId();
+        int partitionId = helper.partitionId();
 
         nextRowIdToBuilt = indexMetaStorage.getNextRowIdToBuilt(indexId, partitionId, RowId.lowestRowId(partitionId));
     }
@@ -80,9 +80,9 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+            WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
-            indexMetaStorage.putNextRowIdToBuilt(writeBatch, indexId, partitionStorage.partitionId(), rowId);
+            indexMetaStorage.putNextRowIdToBuilt(writeBatch, indexId, helper.partitionId(), rowId);
 
             nextRowIdToBuilt = rowId;
 
@@ -193,7 +193,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     }
 
     String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionStorage.partitionId());
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, helper.partitionId());
     }
 
     /**

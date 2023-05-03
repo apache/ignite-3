@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -131,9 +132,10 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         vaultMgr.start();
         clusterCfgMgr.start();
         metaStorageManager.start();
-        distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
+
+        distributionZoneManager.start();
 
         CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
                 Conditions.exists(zonesLogicalTopologyKey()),

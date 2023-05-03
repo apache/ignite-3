@@ -258,7 +258,9 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 mock(OutgoingSnapshotsManager.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                vaultManager
+                vaultManager,
+                null,
+                null
         );
     }
 

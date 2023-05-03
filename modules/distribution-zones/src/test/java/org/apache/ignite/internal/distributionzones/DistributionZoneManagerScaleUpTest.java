@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -30,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -105,7 +107,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .build()
         ).get();
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
@@ -121,11 +126,14 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         startDistributionZoneManager();
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .build()
         ).get();
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
         int zoneId = distributionZoneManager.getZoneId(ZONE_NAME);
@@ -156,7 +164,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
         assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
@@ -186,7 +194,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .build()
         ).get();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
@@ -217,7 +228,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                        .build()
         ).get();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
@@ -242,7 +256,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
         assertDataNodesForZone(1, clusterNodesNames2, keyValueStorage);
@@ -275,7 +289,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
         assertDataNodesForZone(1, clusterNodesNames2, keyValueStorage);
@@ -813,7 +827,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(Set.of(), keyValueStorage);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
         topology.putNode(NODE_1);
@@ -866,7 +880,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
         assertDataNodesForZone(1, Set.of(NODE_1.name(), NODE_2.name()), keyValueStorage);
@@ -1370,8 +1384,8 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         distributionZoneManager.createZone(
                 new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(0)
-                        .dataNodesAutoAdjustScaleDown(0)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                         .build()
         ).get();
 
@@ -1406,10 +1420,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         ));
     }
 
-    private void startDistributionZoneManager() throws NodeStoppingException {
-        distributionZoneManager.start();
+    private void startDistributionZoneManager() throws Exception {
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
 
-        metaStorageManager.deployWatches();
+        distributionZoneManager.start();
     }
 
     private void setLogicalTopologyInMetaStorage(Set<String> nodes) {

@@ -35,4 +35,6 @@ public interface PlacementDriverMessageGroup {
     short LEASE_GRANTED_MESSAGE = 0;
 
     short LEASE_GRANTED_MESSAGE_RESPONSE = 1;
+
+    short STOP_LEASE_PROLONGATION = 2;
 }

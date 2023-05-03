@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,8 +31,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
@@ -267,17 +270,19 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT TYPEOF('a'::varchar(1))").returns("VARCHAR(1)").check();
         assertQuery("SELECT TYPEOF(NULL)").returns("NULL").check();
         assertQuery("SELECT TYPEOF(NULL::VARCHAR(100))").returns("VARCHAR(100)").check();
-        try {
-            sql("SELECT TYPEOF()");
-        } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
-        }
+        // A compound expression
+        assertQuery("SELECT TYPEOF('abcd' || COALESCE('efg', ?))").withParams("2").returns("VARCHAR").check();
 
-        try {
-            sql("SELECT TYPEOF(1, 2)");
-        } catch (Throwable e) {
-            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
-        }
+        // An expression that produces an error
+        IgniteException failed = assertThrows(IgniteException.class, () -> assertQuery("SELECT typeof(CAST('NONE' as INTEGER))").check());
+        assertSame(NumberFormatException.class, failed.getCause().getClass(), "cause");
+        assertThat(failed.getCause().getMessage(), containsString("For input string: \"NONE\""));
+
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF()"), SqlValidatorException.class, "Invalid number of arguments");
+
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(1, 2)"), SqlValidatorException.class, "Invalid number of arguments");
+
+        assertThrowsWithCause(() -> sql("SELECT TYPEOF(SELECT 1, 2)"), CalciteContextException.class);
     }
 
     /**
