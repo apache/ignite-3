@@ -47,7 +47,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
