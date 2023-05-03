@@ -49,7 +49,6 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -110,7 +109,6 @@ public class PreparedStatementParamsTest {
      * Set {@code boolean} parameter via {@link PreparedStatement#setBoolean(int, boolean)}.
      */
     @Test
-    @Disabled("")
     public void testSetBoolean() throws SQLException {
         boolean value = value(Boolean.class, JDBCType.BOOLEAN);
         checkParameter(PreparedStatement::setBoolean, value);
