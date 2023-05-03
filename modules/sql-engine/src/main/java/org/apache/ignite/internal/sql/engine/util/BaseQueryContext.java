@@ -70,10 +70,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private static final BaseQueryContext EMPTY_CONTEXT;
 
-    private static final VolcanoPlanner DUMMY_PLANNER;
-
-    private static final RexBuilder DFLT_REX_BUILDER;
-
     static {
         Properties props = new Properties();
 
@@ -86,9 +82,15 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         CALCITE_CONNECTION_CONFIG = new CalciteConnectionConfigImpl(props);
 
+        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
+
+        TYPE_FACTORY = createTypeFactory(typeSys);
+
+        RexBuilder defaultRexBuilder = createRexBuilder(TYPE_FACTORY);
+
         EMPTY_CONTEXT = builder().build();
 
-        DUMMY_PLANNER = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
+        VolcanoPlanner planner = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
             @Override
             public void registerSchema(RelOptSchema schema) {
                 // This method in VolcanoPlanner stores schema in hash map. It can be invoked during relational
@@ -99,15 +101,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         // Dummy planner must contain all trait definitions to create singleton cluster with all default traits.
         for (RelTraitDef<?> def : EMPTY_CONTEXT.config().getTraitDefs()) {
-            DUMMY_PLANNER.addRelTraitDef(def);
+            planner.addRelTraitDef(def);
         }
 
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
-        TYPE_FACTORY = createTypeFactory(typeSys);
-
-        DFLT_REX_BUILDER = createRexBuilder(TYPE_FACTORY);
-
-        RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
+        RelOptCluster cluster = RelOptCluster.create(planner, defaultRexBuilder);
 
         // Forbid using the empty cluster in any planning or mapping procedures to prevent memory leaks.
         String cantBeUsedMsg = "Empty cluster can't be used for planning or mapping";
@@ -181,9 +178,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.parameters = parameters;
         this.plannerTimeout = plannerTimeout;
 
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
+        typeFactory = TYPE_FACTORY;
 
-        typeFactory = createTypeFactory(typeSys);
+        assert TYPE_FACTORY.getTypeSystem() == cfg.getTypeSystem();
 
         rexBuilder = createRexBuilder(typeFactory);
     }
