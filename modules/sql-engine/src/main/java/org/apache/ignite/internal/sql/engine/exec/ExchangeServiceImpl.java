@@ -113,7 +113,11 @@ public class ExchangeServiceImpl implements ExchangeService {
     public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
         IgniteException errorWithCode = wrapIfNecessary(error);
 
-        LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        if (!(error instanceof ExecutionCancelledException)) {
+            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        } else if (LOG.isDebugEnabled()) {
+            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        }
 
         return messageService.send(
                 nodeName,
@@ -131,12 +135,12 @@ public class ExchangeServiceImpl implements ExchangeService {
         Throwable cause = ExceptionUtils.unwrapCause(t);
 
         if (cause instanceof IgniteException) {
-            return IgniteException.wrap(t);
-        } else  if (cause instanceof IgniteInternalException) {
+            return cause == t ? (IgniteException) cause : IgniteException.wrap(t);
+        } else if (cause instanceof IgniteInternalException) {
             IgniteInternalException iex = (IgniteInternalException) cause;
 
             return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        } else  if (cause instanceof IgniteInternalCheckedException) {
+        } else if (cause instanceof IgniteInternalCheckedException) {
             IgniteInternalCheckedException iex = (IgniteInternalCheckedException) cause;
 
             return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
