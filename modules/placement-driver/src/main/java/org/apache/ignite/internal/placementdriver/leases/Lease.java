@@ -92,7 +92,7 @@ public class Lease implements Serializable {
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';
 
-        assert prolongable : "The lease should available to prolong ["
+        assert prolongable : "The lease should be available to prolong ["
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';

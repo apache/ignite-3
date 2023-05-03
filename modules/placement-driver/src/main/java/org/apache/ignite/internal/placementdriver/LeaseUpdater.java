@@ -446,9 +446,9 @@ public class LeaseUpdater {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder().name())) {
                     denyLease(grpId, lease).whenComplete((res, th) -> {
                         if (th != null) {
-                            LOG.warn("Prolongation was not denied due to exception [groupId={}]", th, grpId);
+                            LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
-                            LOG.info("Lease deny prolonging message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
+                            LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
                         }
                     });
                 }
