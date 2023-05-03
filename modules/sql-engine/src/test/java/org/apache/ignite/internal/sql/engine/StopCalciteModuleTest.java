@@ -244,8 +244,7 @@ public class StopCalciteModuleTest {
                 Map::of,
                 mock(ReplicaService.class),
                 clock,
-                catalogManager,
-                null
+                catalogManager
         );
 
         when(tableManager.tableAsync(anyLong(), eq(tblId)))

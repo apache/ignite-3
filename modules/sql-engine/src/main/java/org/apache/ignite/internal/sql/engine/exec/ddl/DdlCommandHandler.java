@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,8 +57,6 @@ import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
@@ -111,9 +108,6 @@ public class DdlCommandHandler {
 
     private final DataStorageManager dataStorageManager;
 
-    /** Tables configuration. */
-    private final TablesConfiguration tablesConfiguration;
-
     /**
      * Constructor.
      */
@@ -121,14 +115,12 @@ public class DdlCommandHandler {
             DistributionZoneManager distributionZoneManager,
             TableManager tableManager,
             IndexManager indexManager,
-            DataStorageManager dataStorageManager,
-            TablesConfiguration tablesConfiguration
+            DataStorageManager dataStorageManager
     ) {
         this.distributionZoneManager = distributionZoneManager;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
-        this.tablesConfiguration = tablesConfiguration;
     }
 
     /** Handles ddl commands. */
@@ -477,8 +469,6 @@ public class DdlCommandHandler {
     private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames, boolean ignoreColumnExistence) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
-        reportIndexedColumns(tableName, colNames);
-
         return tableManager.alterTableAsync(
                 tableName,
                 chng -> {
@@ -492,6 +482,8 @@ public class DdlCommandHandler {
                         Set<String> colNames0 = new HashSet<>();
 
                         Set<String> primaryCols = Set.of(priKey.columns());
+
+                        reportIndexedColumns(tableName, colNames, primaryCols);
 
                         for (String colName : colNames) {
                             if (!colNamesToOrders.contains(colName)) {
@@ -517,37 +509,21 @@ public class DdlCommandHandler {
                 }).thenApply(v -> ret.get());
     }
 
-    private void reportIndexedColumns(String tableName, Set<String> colNames) throws SqlException {
-        NamedListView<TableIndexView> indexesConfig = tablesConfiguration.indexes().value();
+    private void reportIndexedColumns(String tableName, Set<String> colNames, Set<String> pkColNames) throws SqlException {
+        List<TableIndexView> idxCfg = indexManager.tableIndexes(tableName);
+
         Map<String, List<String>> idxDeps = new HashMap<>();
-        UUID targetTableId = null;
-        Set<String> pkColumns = null;
 
-        for (int i = 0; i < indexesConfig.size(); i++) {
-            TableIndexView tabIdxView = indexesConfig.get(i);
-
-            if (targetTableId == null) {
-                TableConfiguration tbl = tablesConfiguration.tables().get(tabIdxView.tableId());
-
-                if (tbl == null || !tableName.equals(tbl.name().value())) {
-                    continue;
-                }
-
-                targetTableId = tabIdxView.tableId();
-                pkColumns = Set.of(tbl.primaryKey().columns().value());
-            } else if (!targetTableId.equals(tabIdxView.tableId())) {
-                continue;
-            }
-
+        for (TableIndexView tabIdxView : idxCfg) {
             if (tabIdxView instanceof SortedIndexView) {
                 for (IndexColumnView colView : ((SortedIndexView) tabIdxView).columns()) {
-                    if (colNames.contains(colView.name()) && !pkColumns.contains(colView.name())) {
+                    if (colNames.contains(colView.name()) && !pkColNames.contains(colView.name())) {
                         idxDeps.computeIfAbsent(colView.name(), v -> new ArrayList<>()).add(tabIdxView.name());
                     }
                 }
             } else if (tabIdxView instanceof HashIndexView) {
                 for (String colName : ((HashIndexView) tabIdxView).columnNames()) {
-                    if (colNames.contains(colName) && !pkColumns.contains(colName)) {
+                    if (colNames.contains(colName) && !pkColNames.contains(colName)) {
                         idxDeps.computeIfAbsent(colName, v -> new ArrayList<>()).add(tabIdxView.name());
                     }
                 }

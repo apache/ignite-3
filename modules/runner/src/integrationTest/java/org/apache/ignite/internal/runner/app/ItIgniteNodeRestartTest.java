@@ -426,8 +426,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 hybridClock,
-                catalogManager,
-                tablesConfiguration
+                catalogManager
         );
 
         // Preparing the result map.

@@ -113,7 +113,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 "node"
         );
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager, null);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
     }
 
     @AfterEach
