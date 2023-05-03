@@ -29,7 +29,7 @@ import org.apache.ignite.network.ClusterNode;
  */
 public class Lease implements Serializable {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
-    public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE, false);
+    public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE);
 
     /** A node that holds a lease until {@code stopLeas}. */
     private final ClusterNode leaseholder;
@@ -43,6 +43,9 @@ public class Lease implements Serializable {
     /** Timestamp to expiration the lease. */
     private final HybridTimestamp expirationTime;
 
+    /** The lease is available to prolong in the same leaseholder. */
+    private final boolean prolongable;
+
     /**
      * Creates a new lease.
      *
@@ -51,7 +54,7 @@ public class Lease implements Serializable {
      * @param leaseExpirationTime Lease expiration timestamp.
      */
     public Lease(ClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime) {
-        this(leaseholder, startTime, leaseExpirationTime, false);
+        this(leaseholder, startTime, leaseExpirationTime, false, false);
     }
 
     /**
@@ -60,12 +63,20 @@ public class Lease implements Serializable {
      * @param leaseholder Lease holder.
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
+     * @param prolong Lease is available to prolong.
      * @param accepted The flag is true when the holder accepted the lease, the false otherwise.
      */
-    private Lease(ClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime, boolean accepted) {
+    private Lease(
+            ClusterNode leaseholder,
+            HybridTimestamp startTime,
+            HybridTimestamp leaseExpirationTime,
+            boolean prolong,
+            boolean accepted
+    ) {
         this.leaseholder = leaseholder;
-        this.expirationTime = leaseExpirationTime;
         this.startTime = startTime;
+        this.expirationTime = leaseExpirationTime;
+        this.prolongable = prolong;
         this.accepted = accepted;
     }
 
@@ -81,7 +92,12 @@ public class Lease implements Serializable {
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';
 
-        return new Lease(leaseholder, startTime, to, true);
+        assert prolongable : "The lease should be available to prolong ["
+                + "leaseholder=" + leaseholder
+                + ", expirationTime=" + expirationTime
+                + ", prolongTo=" + to + ']';
+
+        return new Lease(leaseholder, startTime, to, true, true);
     }
 
     /**
@@ -95,7 +111,20 @@ public class Lease implements Serializable {
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime + ']';
 
-        return new Lease(leaseholder, startTime, to, true);
+        return new Lease(leaseholder, startTime, to, true, true);
+    }
+
+    /**
+     * Denies the lease.
+     *
+     * @return Denied lease.
+     */
+    public Lease denyLease() {
+        assert accepted : "The lease is not accepted ["
+                + "leaseholder=" + leaseholder
+                + ", expirationTime=" + expirationTime + ']';
+
+        return new Lease(leaseholder, startTime, expirationTime, false, true);
     }
 
     /**
@@ -126,6 +155,15 @@ public class Lease implements Serializable {
     }
 
     /**
+     * Gets a prolongation flag.
+     *
+     * @return True if the lease might be prolonged, false otherwise.
+     */
+    public boolean isProlongable() {
+        return prolongable;
+    }
+
+    /**
      * Gets accepted flag.
      *
      * @return True if the lease accepted, false otherwise.
@@ -141,6 +179,7 @@ public class Lease implements Serializable {
                 + ", accepted=" + accepted
                 + ", startTime=" + startTime
                 + ", expirationTime=" + expirationTime
+                + ", prolongable=" + prolongable
                 + '}';
     }
 }
