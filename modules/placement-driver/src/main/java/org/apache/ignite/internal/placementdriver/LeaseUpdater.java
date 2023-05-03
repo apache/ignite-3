@@ -292,7 +292,7 @@ public class LeaseUpdater {
                     if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
                         ClusterNode candidate = nextLeaseHolder(
                                 entry.getValue(),
-                                lease.isProlong() ? lease.getLeaseholder().name() : null
+                                lease.isProlongable() ? lease.getLeaseholder().name() : null
                         );
 
                         if (candidate == null) {
@@ -305,7 +305,7 @@ public class LeaseUpdater {
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
                             writeNewLeaseInMetaStorage(grpId, lease, candidate);
-                        } else if (lease.isProlong() && candidate.equals(lease.getLeaseholder())) {
+                        } else if (lease.isProlongable() && candidate.equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
                             prolongLeaseInMetaStorage(grpId, lease);
                         }
@@ -443,7 +443,7 @@ public class LeaseUpdater {
             Lease lease = leaseTracker.getLease(grpId);
 
             if (msg instanceof StopLeaseProlongationMessage) {
-                if (lease.isProlong() && sender.equals(lease.getLeaseholder().name())) {
+                if (lease.isProlongable() && sender.equals(lease.getLeaseholder().name())) {
                     denyLease(grpId, lease).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation was not denied due to exception [groupId={}]", th, grpId);

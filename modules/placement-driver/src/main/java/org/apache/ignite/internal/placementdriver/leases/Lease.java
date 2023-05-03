@@ -44,7 +44,7 @@ public class Lease implements Serializable {
     private final HybridTimestamp expirationTime;
 
     /** The lease is available to prolong in the same leaseholder. */
-    private final boolean prolong;
+    private final boolean prolongable;
 
     /**
      * Creates a new lease.
@@ -76,7 +76,7 @@ public class Lease implements Serializable {
         this.leaseholder = leaseholder;
         this.startTime = startTime;
         this.expirationTime = leaseExpirationTime;
-        this.prolong = prolong;
+        this.prolongable = prolong;
         this.accepted = accepted;
     }
 
@@ -92,7 +92,7 @@ public class Lease implements Serializable {
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';
 
-        assert prolong : "The lease should available to prolong ["
+        assert prolongable : "The lease should available to prolong ["
                 + "leaseholder=" + leaseholder
                 + ", expirationTime=" + expirationTime
                 + ", prolongTo=" + to + ']';
@@ -159,8 +159,8 @@ public class Lease implements Serializable {
      *
      * @return True if the lease might be prolonged, false otherwise.
      */
-    public boolean isProlong() {
-        return prolong;
+    public boolean isProlongable() {
+        return prolongable;
     }
 
     /**
@@ -179,7 +179,7 @@ public class Lease implements Serializable {
                 + ", accepted=" + accepted
                 + ", startTime=" + startTime
                 + ", expirationTime=" + expirationTime
-                + ", prolong=" + prolong
+                + ", prolongable=" + prolongable
                 + '}';
     }
 }
