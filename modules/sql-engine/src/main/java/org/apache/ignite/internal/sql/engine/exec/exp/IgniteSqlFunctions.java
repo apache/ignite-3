@@ -227,6 +227,11 @@ public class IgniteSqlFunctions {
         return UUID.randomUUID().toString();
     }
 
+    /** Returns the second argument and ignores the first. */
+    public static Object consumeFirstArgument(Object args0, Object args1) {
+        return args1;
+    }
+
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
         if (arg0 == null || arg1 == null) {
             return null;
