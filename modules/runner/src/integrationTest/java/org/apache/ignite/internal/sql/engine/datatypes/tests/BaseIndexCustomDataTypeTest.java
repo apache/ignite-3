@@ -23,7 +23,6 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -33,7 +32,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @param <T> A storage type for a custom data type.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19128")
 public abstract class BaseIndexCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
 
     @BeforeAll
