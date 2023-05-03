@@ -30,8 +30,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Convenience class representing mutable tuple of three values.
  *
- * <p>
- * This class does not provide any synchronization for multi-threaded access and it is responsibility of the user of this class to provide
+ * <p>This class does not provide any synchronization for multi-threaded access
+ * and it is responsibility of the user of this class to provide
  * outside synchronization, if needed.
  */
 public class IgniteTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable, Cloneable {
