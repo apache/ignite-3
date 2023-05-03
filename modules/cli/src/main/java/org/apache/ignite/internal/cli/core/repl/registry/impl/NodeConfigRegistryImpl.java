@@ -53,7 +53,7 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
 
     @Override
     public void onDisconnect() {
-
+        configRef = null;
     }
 
     /** {@inheritDoc} */

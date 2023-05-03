@@ -27,7 +27,6 @@ import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import org.apache.ignite.rest.client.model.MetricSource;
-import org.jetbrains.annotations.NotNull;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton

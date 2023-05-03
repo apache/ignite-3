@@ -53,16 +53,12 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSe
 
     @Override
     public void onDisconnect() {
-
+        configRef = null;
     }
 
     /** {@inheritDoc} */
     @Override
     public Config config() {
-        if (configRef == null) {
-            return null;
-        }
-
-        return configRef.get();
+        return configRef == null ? null : configRef.get();
     }
 }
