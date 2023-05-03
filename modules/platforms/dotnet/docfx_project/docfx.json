@@ -59,7 +59,7 @@
                 "repo": "https://github.com/apache/ignite-3",
                 "branch": "main"
             },
-            "_appLogoPath": "logo_ignite_32_32.png"
+            "_appLogoPath": "images/logo_ignite_32_32.png"
         }
     }
 }
