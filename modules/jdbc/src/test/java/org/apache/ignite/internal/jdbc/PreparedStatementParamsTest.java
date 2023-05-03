@@ -60,8 +60,8 @@ import org.mockito.Mockito;
  */
 public class PreparedStatementParamsTest {
 
-    /** values for supported JDBC types. */
-    private static final Map<JDBCType, Object> VALUES = Map.ofEntries(
+    /** Values for supported JDBC types. */
+    private static final Map<JDBCType, Object> SUPPORTED_TYPES = Map.ofEntries(
             Map.entry(JDBCType.BOOLEAN, true),
             Map.entry(JDBCType.TINYINT, (byte) 1),
             Map.entry(JDBCType.SMALLINT, (short) 1),
@@ -352,7 +352,7 @@ public class PreparedStatementParamsTest {
     }
 
     private static Stream<Arguments> jdbcTypeValueTypeNames() {
-        return VALUES.entrySet().stream()
+        return SUPPORTED_TYPES.entrySet().stream()
                 .sorted(Comparator.comparing(a -> a.getKey().getName()))
                 .map(e -> {
                     JDBCType jdbcType = e.getKey();
@@ -365,7 +365,7 @@ public class PreparedStatementParamsTest {
 
     private static Stream<Arguments> igniteTypeTypeNames() {
         return Arrays.stream(JDBCType.values())
-                .filter(VALUES::containsKey)
+                .filter(SUPPORTED_TYPES::containsKey)
                 .map(t -> Arguments.of(t, t.getName()));
     }
 
@@ -387,9 +387,9 @@ public class PreparedStatementParamsTest {
                 JDBCType.STRUCT
         ));
 
-        // Types that are not allowed by JDBC driver implementation
+        // Types that are not supported by JDBC driver implementation
         for (JDBCType jdbcType : JDBCType.values()) {
-            if (!VALUES.containsKey(jdbcType)) {
+            if (!SUPPORTED_TYPES.containsKey(jdbcType)) {
                 result.add(jdbcType);
             }
         }
@@ -400,7 +400,7 @@ public class PreparedStatementParamsTest {
     }
 
     private static <T> T value(Class<T> javaType, JDBCType jdbcType) {
-        Object value = VALUES.get(jdbcType);
+        Object value = SUPPORTED_TYPES.get(jdbcType);
         Objects.requireNonNull(value, "No value for " + javaType);
 
         return javaType.cast(value);
