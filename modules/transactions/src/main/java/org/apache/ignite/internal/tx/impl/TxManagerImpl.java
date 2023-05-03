@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -64,6 +64,9 @@ public class TxManagerImpl implements TxManager {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /** Generates transaction IDs. */
+    private final TransactionIdGenerator transactionIdGenerator;
+
     // TODO: IGNITE-17638 Consider using Txn state map instead of states.
     /** The storage for tx states. */
     @TestOnly
@@ -89,11 +92,18 @@ public class TxManagerImpl implements TxManager {
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
+     * @param transactionIdGenerator Used to generate transaction IDs.
      */
-    public TxManagerImpl(ReplicaService replicaService, LockManager lockManager, HybridClock clock) {
+    public TxManagerImpl(
+            ReplicaService replicaService,
+            LockManager lockManager,
+            HybridClock clock,
+            TransactionIdGenerator transactionIdGenerator
+    ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
+        this.transactionIdGenerator = transactionIdGenerator;
     }
 
     @Override
@@ -103,13 +113,14 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin(boolean readOnly) {
-        UUID txId = Timestamp.nextVersion().toUuid();
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, txId);
         }
 
-        HybridTimestamp readTimestamp = clock.now();
+        HybridTimestamp readTimestamp = beginTimestamp;
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -170,7 +181,7 @@ public class TxManagerImpl implements TxManager {
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
-                .commitTimestamp(commitTimestamp)
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .term(term)
                 .build();
 
@@ -197,7 +208,7 @@ public class TxManagerImpl implements TxManager {
                             .groupId(replicationGroupIds.get(i).get1())
                             .txId(txId)
                             .commit(commit)
-                            .commitTimestamp(commitTimestamp)
+                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                             .term(replicationGroupIds.get(i).get2())
                             .build()
             );

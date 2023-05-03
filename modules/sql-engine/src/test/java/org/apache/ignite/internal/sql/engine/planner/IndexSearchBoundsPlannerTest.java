@@ -43,7 +43,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -67,7 +67,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     @BeforeEach
     public void beforeEach() {
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
 
         tbl = new TestTable(
                 new RelDataTypeFactory.Builder(typeFactory)

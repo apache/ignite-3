@@ -15,11 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.util.subscription;
 
-/** Stubs. */
-public class Stubs {
-    public static int intFoo(Object... args) {
-        return args == null ? 0 : args.length;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+
+/**
+ * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
+ */
+public class AccumulateException extends IgniteInternalCheckedException {
+    /**
+     * Constructor.
+     *
+     * @param cause Cause exception.
+     */
+    public AccumulateException(Throwable cause) {
+        super(cause);
     }
 }

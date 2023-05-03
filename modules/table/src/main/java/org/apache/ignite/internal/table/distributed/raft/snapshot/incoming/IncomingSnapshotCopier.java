@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CancellationException;
@@ -27,7 +28,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -393,15 +393,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private void writeVersion(ResponseEntry entry, int i) {
         RowId rowId = new RowId(partId(), entry.rowId());
 
-        HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
-
         ByteBuffer rowVersion = entry.rowVersions().get(i);
 
         BinaryRow binaryRow = rowVersion == null ? null : new ByteBufferRow(rowVersion.rewind());
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 
-        if (timestamp == null) {
+        if (i == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
             assert entry.commitTableId() != null;
@@ -410,7 +408,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, binaryRow, timestamp);
+            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]));
         }
     }
 }

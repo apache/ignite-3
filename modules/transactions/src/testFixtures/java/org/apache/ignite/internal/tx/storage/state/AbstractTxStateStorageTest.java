@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
@@ -121,15 +122,13 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
-        long physical = Math.abs(uuid.getMostSignificantBits());
+        long time = Math.abs(uuid.getMostSignificantBits());
 
-        if (physical == 0) {
-            physical++;
+        if (time <= 0) {
+            time = 1;
         }
 
-        int logical = Math.abs(Long.valueOf(uuid.getLeastSignificantBits()).intValue());
-
-        return new HybridTimestamp(physical, logical);
+        return hybridTimestamp(time);
     }
 
     @Test

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -136,19 +137,32 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
-            checkpointTimeoutLock.checkpointReadLock();
+        if (locker != null) {
+            return closure.execute(locker);
+        } else {
+            return busy(() -> {
+                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            try {
-                return closure.execute();
-            } finally {
-                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+                LocalLocker locker0 = new LocalLocker(lockByRowId);
 
-                checkpointTimeoutLock.checkpointReadUnlock();
-            }
-        });
+                checkpointTimeoutLock.checkpointReadLock();
+
+                THREAD_LOCAL_LOCKER.set(locker0);
+
+                try {
+                    return closure.execute(locker0);
+                } finally {
+                    THREAD_LOCAL_LOCKER.set(null);
+
+                    // Can't throw any exception, it's safe to do it without try/finally.
+                    locker0.unlockAll();
+
+                    checkpointTimeoutLock.checkpointReadUnlock();
+                }
+            });
+        }
     }
 
     @Override
@@ -284,12 +298,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return runConsistently(() -> super.getOrCreateHashIndex(indexId));
+        return runConsistently(locker -> super.getOrCreateHashIndex(indexId));
     }
 
     @Override
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return runConsistently(() -> super.getOrCreateSortedIndex(indexId));
+        return runConsistently(locker -> super.getOrCreateSortedIndex(indexId));
     }
 
     @Override

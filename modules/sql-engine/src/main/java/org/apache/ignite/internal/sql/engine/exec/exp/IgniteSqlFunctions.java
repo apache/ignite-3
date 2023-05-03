@@ -17,13 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.DateTimeException;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.linq4j.AbstractEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
@@ -41,12 +51,24 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
+    private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
+
+    static {
+        ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .append(ISO_LOCAL_DATE)
+                .appendLiteral(' ')
+                .append(ISO_LOCAL_TIME)
+                .toFormatter();
+    }
+
     /**
      * Default constructor.
      */
@@ -62,6 +84,29 @@ public class IgniteSqlFunctions {
     /** SQL SYSTEM_RANGE(start, end, increment) table function. */
     public static ScannableTable systemRange(Object rangeStart, Object rangeEnd, Object increment) {
         return new RangeTable(rangeStart, rangeEnd, increment);
+    }
+
+    /** Just a stub. Validates Date\Time literal, still use calcite implementation for numeric representation.
+     * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
+     */
+    public static long timestampStringToNumeric(String dtStr) {
+        try {
+            return timestampStringToNumeric0(dtStr);
+        } catch (DateTimeException e) {
+            throw new IgniteInternalException(QUERY_INVALID_ERR, e.getMessage());
+        }
+    }
+
+    private static long timestampStringToNumeric0(String dtStr) {
+        dtStr = dtStr.trim();
+        //"YYYY-MM-dd HH:mm:ss.ninenanos"
+        if (dtStr.length() > 29) {
+            dtStr = dtStr.substring(0, 29);
+        }
+
+        LocalDateTime.parse(dtStr, ISO_LOCAL_DATE_TIME_EX.withResolverStyle(ResolverStyle.STRICT));
+
+        return DateTimeUtils.timestampStringToUnixDate(dtStr);
     }
 
     /** CAST(DECIMAL AS VARCHAR). */

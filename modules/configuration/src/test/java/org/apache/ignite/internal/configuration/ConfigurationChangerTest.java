@@ -58,7 +58,6 @@ import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
@@ -113,13 +112,13 @@ public class ConfigurationChangerTest {
         public String strCfg;
     }
 
-    private static ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
+    private static ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(KEY, DefaultsConfiguration.KEY);
 
     private final TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
     @AfterAll
     public static void afterAll() {
-        cgen = null;
+        generator.close();
     }
 
     /**
@@ -218,12 +217,10 @@ public class ConfigurationChangerTest {
         };
 
         ConfigurationChanger changer2 = new TestConfigurationChanger(
-                cgen,
                 List.of(KEY),
                 Set.of(validator),
                 storage,
-                List.of(),
-                List.of()
+                generator
         );
 
         changer2.start();
@@ -592,7 +589,8 @@ public class ConfigurationChangerTest {
     }
 
     private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
-        return new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(), storage, List.of(), List.of());
+
+        return new TestConfigurationChanger(List.of(rootKey), Set.of(), storage, generator);
     }
 
     private static KeyPathNode node(String key) {

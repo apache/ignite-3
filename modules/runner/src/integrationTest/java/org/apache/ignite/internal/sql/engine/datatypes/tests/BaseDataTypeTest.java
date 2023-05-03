@@ -31,8 +31,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
@@ -91,7 +90,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
         testTypeSpec = getTypeSpec();
         storageType = testTypeSpec.storageType();
 
-        dataSamples = testTypeSpec.createSamples(new IgniteTypeFactory(IgniteTypeSystem.INSTANCE));
+        dataSamples = testTypeSpec.createSamples(Commons.typeFactory());
         orderedValues = dataSamples.ordered();
         values = dataSamples.values();
 

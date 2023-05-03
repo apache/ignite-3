@@ -52,17 +52,6 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
 
     /**
-     * Undeploy latest version of unit with corresponding identifier.
-     *
-     * @param id Unit identifier. Not empty and not null.
-     * @return Future completed when unit will be undeployed.
-     *      In case when specified unit not exist future will be failed.
-     */
-    default CompletableFuture<Void> undeployAsync(String id) {
-        return undeployAsync(id, Version.LATEST);
-    }
-
-    /**
      * Undeploy unit with corresponding identifier and version.
      * Note that unit files will be deleted asynchronously.
      *

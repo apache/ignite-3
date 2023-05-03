@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import java.util.Collection;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.annotations.Marshallable;
@@ -175,8 +175,11 @@ public final class RpcRequests {
         @Marshallable
         ByteString data();
 
-        @Marshallable
-        HybridTimestamp timestamp();
+        long timestampLong();
+
+        default HybridTimestamp timestamp() {
+            return hybridTimestamp(timestampLong());
+        }
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
@@ -187,8 +190,11 @@ public final class RpcRequests {
 
         long lastLogIndex();
 
-        @Marshallable
-        HybridTimestamp timestamp();
+        long timestampLong();
+
+        default @Nullable HybridTimestamp timestamp() {
+            return nullableHybridTimestamp(timestampLong());
+        }
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_REQUEST)

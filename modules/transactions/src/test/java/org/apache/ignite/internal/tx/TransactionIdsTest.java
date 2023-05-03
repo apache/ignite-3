@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-/**
- * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
- */
-public class AccumulateException extends IgniteInternalCheckedException {
-    /**
-     * Constructor.
-     *
-     * @param cause Cause exception.
-     */
-    public AccumulateException(Throwable cause) {
-        super(cause);
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.Test;
+
+class TransactionIdsTest {
+    @Test
+    void transactionIdIsBuiltCorrectly() {
+        HybridTimestamp beginTs = new HybridTimestamp(123L, 456);
+
+        UUID txId = TransactionIds.transactionId(beginTs, 0xdeadbeef);
+
+        HybridTimestamp extractedTs = TransactionIds.beginTimestamp(txId);
+
+        assertThat(extractedTs, is(beginTs));
+        assertThat((int) txId.getLeastSignificantBits(), is(0xdeadbeef));
     }
 }

@@ -15,24 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.command;
+package org.apache.ignite.internal.tx.impl;
 
-import java.io.Serializable;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.tx.TransactionIds;
 
 /**
- * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
+ * Generates transaction IDs.
  */
-@Transferable(ReplicaMessageGroup.HYBRID_TIMESTAMP)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
-    long physical();
+public class TransactionIdGenerator {
+    /** Supplies nodeId for transactionId generation. */
+    private final NodeIdSupplier nodeIdSupplier;
 
-    int logical();
+    public TransactionIdGenerator(NodeIdSupplier nodeIdSupplier) {
+        this.nodeIdSupplier = nodeIdSupplier;
+    }
 
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
+    public TransactionIdGenerator(int nodeId) {
+        this(() -> nodeId);
+    }
+
+    /**
+     * Creates a transaction ID with the given begin timestamp.
+     *
+     * @param beginTimestamp Transaction begin timestamp.
+     * @return Transaction ID.
+     */
+    public UUID transactionIdFor(HybridTimestamp beginTimestamp) {
+        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId());
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -70,6 +69,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -86,6 +86,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
@@ -181,12 +182,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
 
         for (int i = 0; i < nodes(); i++) {
-            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
+            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i));
             txManagers.put(i, txManager);
             closeables.add(txManager::stop);
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
+        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1));
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
@@ -235,7 +236,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
-                        .safeTime(hybridTimestamp(hybridClock.now()))
+                        .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 return service.run(cmd);
@@ -245,9 +246,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 FinishTxCommand cmd = msgFactory.finishTxCommand()
                         .txId(req0.txId())
                         .commit(req0.commit())
-                        .commitTimestamp(hybridTimestamp(req0.commitTimestamp()))
+                        .commitTimestampLong(req0.commitTimestampLong())
                         .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0))))
-                        .safeTime(hybridTimestamp(hybridClock.now()))
+                        .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 return service.run(cmd)
@@ -255,8 +256,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             TxCleanupCommand cleanupCmd = msgFactory.txCleanupCommand()
                                     .txId(req0.txId())
                                     .commit(req0.commit())
-                                    .commitTimestamp(hybridTimestamp(req0.commitTimestamp()))
-                                    .safeTime(hybridTimestamp(hybridClock.now()))
+                                    .commitTimestampLong(req0.commitTimestampLong())
+                                    .safeTimeLong(hybridClock.nowLong())
                                     .build();
 
                             return service.run(cleanupCmd);
@@ -376,18 +377,24 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(
+                            new HybridTimestamp(1, 0)
+                    );
+
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
                             DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                            zoneCfg.dataStorage()
+                            zoneCfg.dataStorage(),
+                            safeTime,
+                            mock(LowWatermark.class)
                     );
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
-                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                            safeTime,
                             new PendingComparableValuesTracker<>(0L)
                     );
 

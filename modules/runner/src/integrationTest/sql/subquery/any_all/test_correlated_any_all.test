@@ -1,7 +1,8 @@
 # name: test/sql/subquery/any_all/test_correlated_any_all.test
 # description: Test correlated ANY/ALL subqueries
 # group: [any_all]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-15580
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19402
 
 statement ok
 PRAGMA enable_verification
@@ -16,26 +17,28 @@ INSERT INTO integers VALUES (1), (2), (3), (NULL)
 query T
 SELECT i=ANY(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;
 ----
-0
-1
-1
-1
+true
+true
+true
+false
 
 query T
 SELECT i>ALL(SELECT (i+i1.i-1)/2 FROM integers WHERE i IS NOT NULL) FROM integers i1 ORDER BY i;
 ----
+false
+false
+true
 NULL
-0
-0
-1
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;
 ----
-1
-0
-0
-0
+false
+false
+false
+true
 
 # correlated ANY/ALL
 query I
@@ -45,6 +48,8 @@ SELECT i FROM integers i1 WHERE i=ANY(SELECT i FROM integers WHERE i=i1.i) ORDER
 2
 3
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+skipif ignite3
 query I
 SELECT i FROM integers i1 WHERE i<>ANY(SELECT i FROM integers WHERE i=i1.i) ORDER BY i;
 ----
@@ -64,88 +69,96 @@ SELECT i FROM integers i1 WHERE i>ALL(SELECT (i+i1.i-1)/2 FROM integers WHERE i 
 ----
 3
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+skipif ignite3
 # if there is i=ANY() where the subquery returns an EMPTY result set and i=NULL, the result becomes FALSE instead
 # of NULL
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;
 ----
-1
-1
-1
-1
+true
+true
+true
+true
 
 query T
 SELECT i=ANY(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;
 ----
-0
-1
-1
-1
+true
+true
+true
+false
 
 query T
 SELECT i<>ALL(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;
 ----
-1
-0
-0
-0
+false
+false
+false
+true
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+skipif ignite3
 query T
 SELECT i<>ANY(SELECT i FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY i;
 ----
-0
-0
-0
-0
+false
+false
+false
+false
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;
 ----
-1
-0
-0
-0
+false
+false
+false
+true
 
 query T
 SELECT i=ANY(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;
 ----
-0
-0
-0
-0
+false
+false
+false
+false
 
 query T
 SELECT i>ANY(SELECT i FROM integers WHERE i<>i1.i) FROM integers i1 ORDER BY i;
 ----
-0
-0
-1
-1
+false
+true
+true
+false
 
 query T
 SELECT i>ALL(SELECT (i+i1.i-1)/2 FROM integers) FROM integers i1 ORDER BY i;
 ----
+false
+false
 NULL
-0
-0
 NULL
 
 query T
 SELECT i>ALL(SELECT (i+i1.i-1)/2 FROM integers WHERE i IS NOT NULL) FROM integers i1 ORDER BY i;
 ----
+false
+false
+true
 NULL
-0
-0
-1
 
 query T
 SELECT i=ANY(SELECT i FROM integers WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;
 ----
+true
+true
+true
 NULL
-1
-1
-1
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19401
+skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;
 ----
@@ -154,29 +167,34 @@ NULL
 NULL
 NULL
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19402
+skipif ignite3
 # correlated ANY/ALL with aggregations
 query T
 SELECT MIN(i)>ANY(SELECT i FROM integers WHERE i>MIN(i1.i)) FROM integers i1;
 ----
-0
+false
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19402
+skipif ignite3
 query T
 SELECT SUM(i)>ANY(SELECT i FROM integers WHERE i>MIN(i1.i)) FROM integers i1;
 ----
-1
+true
 
+# Ignore https://issues.apache.org/jira/browse/IGNITE-19402
+skipif ignite3
 # correlated subquery with correlated any
 query T
 SELECT (SELECT SUM(i)+SUM(i1.i) FROM integers)>ANY(SELECT i FROM integers WHERE i>MIN(i1.i)) FROM integers i1;
 ----
-1
+true
 
 # zero results for all
 query T
 SELECT i=ANY(SELECT i FROM integers WHERE i=i1.i AND i>10) FROM integers i1 ORDER BY i;
 ----
-0
-0
-0
-0
-
+false
+false
+false
+false

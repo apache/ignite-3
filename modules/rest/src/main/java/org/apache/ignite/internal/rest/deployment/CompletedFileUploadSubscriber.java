@@ -15,32 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.rest.deployment;
 
+import io.micronaut.http.multipart.CompletedFileUpload;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
-import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.deployunit.DeploymentUnit;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
 /**
- * Implementation of {@link Subscriber} based on {@link Entry}.
- *
- * @param <R> Result value type.
+ * Implementation of {@link Subscriber} based on {@link CompletedFileUpload} which will collect uploaded files to the
+ * {@link DeploymentUnit}.
  */
-public class EntrySubscriber<R> implements Subscriber<Entry> {
-    private final CompletableFuture<R> result;
+class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
+    private final CompletableFuture<DeploymentUnit> result;
 
-    private final Accumulator<R> accumulator;
+    private final Map<String, InputStream> content = new HashMap<>();
+
+    private IOException ex;
 
     /**
      * Constructor.
      *
      * @param result Result future.
-     * @param accumulator Values accumulator.
      */
-    public EntrySubscriber(CompletableFuture<R> result, Accumulator<R> accumulator) {
+    CompletedFileUploadSubscriber(CompletableFuture<DeploymentUnit> result) {
         this.result = result;
-        this.accumulator = accumulator;
     }
 
     @Override
@@ -49,8 +53,16 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
     }
 
     @Override
-    public void onNext(Entry item) {
-        accumulator.accumulate(item);
+    public void onNext(CompletedFileUpload item) {
+        try {
+            content.put(item.getFilename(), item.getInputStream());
+        } catch (IOException e) {
+            if (ex != null) {
+                ex.addSuppressed(e);
+            } else {
+                ex = e;
+            }
+        }
     }
 
     @Override
@@ -60,10 +72,10 @@ public class EntrySubscriber<R> implements Subscriber<Entry> {
 
     @Override
     public void onComplete() {
-        try {
-            result.complete(accumulator.get());
-        } catch (AccumulateException e) {
-            result.completeExceptionally(e.getCause());
+        if (ex != null) {
+            result.completeExceptionally(ex);
+        } else {
+            result.complete(() -> content);
         }
     }
 }

@@ -62,13 +62,11 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -171,16 +169,13 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
-        HybridTimestampMessage mockTsMessage = mock(HybridTimestampMessage.class);
-        when(mockTsMessage.asHybridTimestamp()).thenReturn(new HybridTimestamp(10, 10));
-
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
                     if (cmd instanceof MetaStorageWriteCommand) {
-                        ((MetaStorageWriteCommand) cmd).safeTime(mockTsMessage);
+                        ((MetaStorageWriteCommand) cmd).safeTimeLong(10);
                     }
 
                     long commandIndex = raftIndex.incrementAndGet();

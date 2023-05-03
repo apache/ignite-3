@@ -40,7 +40,9 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -79,7 +81,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        txManager = new TxManagerImpl(replicaService, new HeapLockManager(), clock);
+        txManager = new TxManagerImpl(replicaService, new HeapLockManager(), clock, new TransactionIdGenerator(0xdeadbeef));
     }
 
     @Test
@@ -112,13 +114,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testId() throws Exception {
-        UUID txId1 = Timestamp.nextVersion().toUuid();
-        UUID txId2 = Timestamp.nextVersion().toUuid();
-        UUID txId3 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
+        UUID txId3 = TestTransactionIds.newTransactionId();
 
         Thread.sleep(1);
 
-        UUID txId4 = Timestamp.nextVersion().toUuid();
+        UUID txId4 = TestTransactionIds.newTransactionId();
 
         assertTrue(txId2.compareTo(txId1) > 0);
         assertTrue(txId3.compareTo(txId2) > 0);

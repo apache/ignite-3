@@ -187,9 +187,6 @@ public class ErrorGroups {
         /** Node left the cluster. */
         public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(27);
 
-        /** Message send error. */
-        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(28);
-
         /** Operation aborted/interrupted error. */
         public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(29);
 
@@ -204,6 +201,9 @@ public class ErrorGroups {
 
         /** Execution cancelled. */
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
+
+        /** Error code describing any unexpected situation. */
+        public static final int INTERNAL_ERR = SQL_ERR_GROUP.registerErrorCode(34);
     }
 
     /** Meta storage error group. */

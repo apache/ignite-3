@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -97,6 +99,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -122,7 +125,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Distributed transaction test using a single partition table.
@@ -316,7 +318,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock);
+            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i));
 
             txMgr.start();
 
@@ -341,7 +343,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         String localNodeName = accRaftClients.get(0).clusterService().topologyService().localMember().name();
 
         if (startClient()) {
-            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock);
+            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1));
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
@@ -358,8 +360,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 1,
                 consistentIdToNode,
                 clientTxManager,
-                Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxStateTableStorage.class),
+                mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
@@ -371,8 +373,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 1,
                 consistentIdToNode,
                 clientTxManager,
-                Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxStateTableStorage.class),
+                mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
@@ -446,7 +448,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partId,
                         partitionDataStorage,
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
-                        dsCfg
+                        dsCfg,
+                        safeTime,
+                        mock(LowWatermark.class)
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

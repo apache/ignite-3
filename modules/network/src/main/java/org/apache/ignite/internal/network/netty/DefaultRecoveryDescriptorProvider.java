@@ -95,7 +95,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
         public int hashCode() {
             int result = consistentId.hashCode();
             result = 31 * result + launchId.hashCode();
-            result = 31 * result + (int) connectionId;
+            result = 31 * result + connectionId;
             result = 31 * result + (inbound ? 1 : 0);
             return result;
         }

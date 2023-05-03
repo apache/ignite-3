@@ -361,7 +361,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
-                    .timestamp(clock.now())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
@@ -408,7 +408,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
-                    .timestamp(clock.now())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
@@ -473,7 +473,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)
-                    .timestamp(clock.now())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);

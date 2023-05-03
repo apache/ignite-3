@@ -15,27 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.tx.impl;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
-
-/** Message with a {@link HybridTimestamp}. */
-@Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+/**
+ * Knows how to obtain a 32-bit nodeId needed for transactionId generation. Must return the same value for all invocations
+ * run in the same Ignite instance.
+ */
+@FunctionalInterface
+public interface NodeIdSupplier {
     /**
-     * Returns physical time.
+     * Returns the node ID.
+     *
+     * @return Node ID.
      */
-    long physical();
-
-    /**
-     * Returns logical time.
-     */
-    int logical();
-
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
-    }
+    int nodeId();
 }

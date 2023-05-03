@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
-
-import org.apache.ignite.internal.metastorage.Entry;
+package org.apache.ignite.internal.network.recovery;
 
 /**
- * Values accumulator. Implementation should NOT be thead-safe.
+ * Represents a set of IDs that became stale.
  *
- * @param <R> Result value type.
+ * @see StaleIdDetector
  */
-public interface Accumulator<R> {
+public interface StaleIds extends StaleIdDetector {
     /**
-     * Accumulate provided value.
+     * Marks a node ID as stale.
      *
-     * @param item Item from metastore.
+     * @param nodeId ID to mark as stale.
      */
-    void accumulate(Entry item);
-
-    /**
-     * Returns all accumulated values transformed to required type.
-     *
-     * @return All accumulated values transformed to required type.
-     * @throws AccumulateException in case when accumulation or transformation failed.
-     */
-    R get() throws AccumulateException;
+    void markAsStale(String nodeId);
 }

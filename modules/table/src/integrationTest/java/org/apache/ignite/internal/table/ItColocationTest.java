@@ -83,11 +83,12 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
@@ -135,7 +136,12 @@ public class ItColocationTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        TxManager txManager = new TxManagerImpl(replicaService,  new HeapLockManager(), new HybridClockImpl()) {
+        TxManager txManager = new TxManagerImpl(
+                replicaService,
+                new HeapLockManager(),
+                new HybridClockImpl(),
+                new TransactionIdGenerator(0xdeadbeef)
+        ) {
             @Override
             public CompletableFuture<Void> finish(
                     ReplicationGroupId commitPartition,
@@ -192,7 +198,7 @@ public class ItColocationTest {
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
                 Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRows()
                         .stream()
-                        .collect(toMap(row -> Timestamp.nextVersion().toUuid(), BinaryRow::byteBuffer));
+                        .collect(toMap(row -> TestTransactionIds.newTransactionId(), BinaryRow::byteBuffer));
 
                 return r.run(MSG_FACTORY.updateAllCommand()
                                 .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
@@ -213,9 +219,9 @@ public class ItColocationTest {
                                         .partitionId(commitPartId.partitionId())
                                         .build()
                         )
-                        .rowUuid(Timestamp.nextVersion().toUuid())
+                        .rowUuid(UUID.randomUUID())
                         .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
-                        .txId(UUID.randomUUID())
+                        .txId(TestTransactionIds.newTransactionId())
                         .build());
             }
         });

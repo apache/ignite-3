@@ -19,15 +19,12 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import java.io.Serializable;
 import java.util.Collection;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
-import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
@@ -60,7 +57,6 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
 class MetaStorageWriteHandler {
-    private static final MetaStorageCommandsFactory META_STORAGE_COMMANDS_FACTORY = new MetaStorageCommandsFactory();
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
@@ -132,7 +128,7 @@ class MetaStorageWriteHandler {
 
             clo.result(storage.invoke(toIf(cmd.iif())));
         } else if (command instanceof SyncTimeCommand) {
-            clusterTime.updateSafeTime(((SyncTimeCommand) command).safeTime().asHybridTimestamp());
+            clusterTime.updateSafeTime(((SyncTimeCommand) command).safeTime());
 
             clo.result(null);
         } else {
@@ -141,7 +137,7 @@ class MetaStorageWriteHandler {
 
         if (command instanceof MetaStorageWriteCommand) {
             // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
-            clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime().asHybridTimestamp());
+            clusterTime.updateSafeTime(((MetaStorageWriteCommand) command).safeTime());
         }
     }
 
@@ -257,13 +253,9 @@ class MetaStorageWriteHandler {
             // Alter command by setting safe time based on the adjusted clock.
             MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
 
-            clusterTime.adjust(writeCommand.initiatorTime().asHybridTimestamp());
+            clusterTime.adjust(writeCommand.initiatorTime());
 
-            writeCommand.safeTime(hybridTimestamp(clusterTime.now()));
+            writeCommand.safeTimeLong(clusterTime.nowLong());
         }
-    }
-
-    private static HybridTimestampMessage hybridTimestamp(HybridTimestamp ts) {
-        return META_STORAGE_COMMANDS_FACTORY.hybridTimestampMessage().physical(ts.getPhysical()).logical(ts.getLogical()).build();
     }
 }

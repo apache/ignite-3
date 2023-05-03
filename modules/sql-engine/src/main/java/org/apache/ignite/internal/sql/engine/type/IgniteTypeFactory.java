@@ -32,11 +32,13 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.TimeUnit;
@@ -72,12 +74,24 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /** A registry that contains custom data types. **/
     private final CustomDataTypes customDataTypes;
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public IgniteTypeFactory() {
-        this(IgniteTypeSystem.INSTANCE);
+    /** Contains java types internally mapped into appropriate rel types. */
+    private static final Map<Class<?>, Supplier<RelDataType>> implementedJavaTypes = new IdentityHashMap<>();
+
+    {
+        {
+            implementedJavaTypes.put(LocalDate.class, () ->
+                    createTypeWithNullability(createSqlType(SqlTypeName.DATE), true));
+            implementedJavaTypes.put(LocalTime.class, () ->
+                    createTypeWithNullability(createSqlType(SqlTypeName.TIME), true));
+            implementedJavaTypes.put(LocalDateTime.class, () ->
+                    createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP), true));
+            implementedJavaTypes.put(Instant.class, () ->
+                    createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE), true));
+            implementedJavaTypes.put(Duration.class, () ->
+                    createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME), true));
+            implementedJavaTypes.put(Period.class, () ->
+                    createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_YEAR_MONTH), true));
+        }
     }
 
     /**
@@ -440,15 +454,26 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         if (type instanceof JavaType) {
             Class<?> clazz = ((JavaType) type).getJavaClass();
 
-            // why do we make types nullable here?
-            if (clazz == Duration.class) {
-                return createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME), true);
-            } else if (clazz == Period.class) {
-                return createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_YEAR_MONTH), true);
+            Supplier<RelDataType> javaType = implementedJavaTypes.get(clazz);
+
+            if (javaType != null) {
+                return javaType.get();
             }
         }
 
         return super.toSql(type);
+    }
+
+    /** {@inheritDoc} */
+    @Override public RelDataType createType(Type type) {
+        //noinspection SuspiciousMethodCalls
+        if (implementedJavaTypes.containsKey(type)) {
+            return createJavaType((Class<?>) type);
+        } else if (customDataTypes.javaTypes.contains(type)) {
+            throw new IllegalArgumentException("Custom data type should not be created via createType call: " + type);
+        } else {
+            return super.createType(type);
+        }
     }
 
     /** {@inheritDoc} **/
@@ -458,18 +483,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return canonize(((IgniteCustomType) type).createWithNullability(nullable));
         } else {
             return super.createTypeWithNullability(type, nullable);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public RelDataType createType(Type type) {
-        if (type == Duration.class || type == Period.class || type == LocalDate.class || type == LocalDateTime.class
-                || type == LocalTime.class) {
-            return createJavaType((Class<?>) type);
-        } else if (customDataTypes.javaTypes.contains(type)) {
-            throw new IllegalArgumentException("Custom data type should not be created via createType call: " + type);
-        } else {
-            return super.createType(type);
         }
     }
 

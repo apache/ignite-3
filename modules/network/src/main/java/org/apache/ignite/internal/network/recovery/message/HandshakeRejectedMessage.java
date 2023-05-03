@@ -15,31 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.network.recovery.message;
 
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_REJECTED;
+
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * InboxCloseMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Handshake rejected message, contains the reason for a rejection.
+ * This message is sent from a server to a client or wise versa.
+ * After this message is received it makes no sense to retry connections with same node identity (launch ID must be changed
+ * to make a retry).
  */
-@Transferable(value = SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE)
-public interface InboxCloseMessage extends NetworkMessage, Serializable {
+@Transferable(HANDSHAKE_REJECTED)
+public interface HandshakeRejectedMessage extends InternalMessage {
     /**
-     * Get query ID.
+     * Returns rejection reason.
+     *
+     * @return Reason of the rejection.
      */
-    UUID queryId();
-
-    /**
-     * Get fragment ID.
-     */
-    long fragmentId();
-
-    /**
-     * Get exchange ID.
-     */
-    long exchangeId();
+    String reason();
 }
