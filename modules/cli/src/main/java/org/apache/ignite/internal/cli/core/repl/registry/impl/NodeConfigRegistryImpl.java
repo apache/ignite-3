@@ -20,8 +20,6 @@ package org.apache.ignite.internal.cli.core.repl.registry.impl;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
@@ -34,7 +32,7 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
 
     private final NodeConfigShowCall nodeConfigShowCall;
 
-    private final AtomicReference<Config> config = new AtomicReference<>(null);
+    private LazyObjectRef<Config> configRef;
 
     public NodeConfigRegistryImpl(NodeConfigShowCall nodeConfigShowCall) {
         this.nodeConfigShowCall = nodeConfigShowCall;
@@ -42,18 +40,15 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
 
     @Override
     public void onConnect(SessionInfo sessionInfo) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                config.set(ConfigFactory.parseString(
-                        nodeConfigShowCall.execute(
-                                // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                                NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
-                        ).body().getValue())
-                );
-            } catch (Exception ignored) {
-                // no-op
-            }
-        });
+        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
+    }
+
+    private Config fetchConfig(SessionInfo sessionInfo) {
+        return ConfigFactory.parseString(
+                nodeConfigShowCall.execute(
+                        // todo https://issues.apache.org/jira/browse/IGNITE-17416
+                        NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
+                ).body().getValue());
     }
 
     @Override
@@ -64,6 +59,6 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
     /** {@inheritDoc} */
     @Override
     public Config config() {
-        return this.config.get();
+        return configRef == null ? null : configRef.get();
     }
 }

@@ -40,12 +40,14 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSe
 
     @Override
     public void onConnect(SessionInfo sessionInfo) {
-        configRef = new LazyObjectRef<>(
-                () -> ConfigFactory.parseString(
-                        clusterConfigShowCall.execute(
-                                ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build()
-                        ).body().getValue()
-                )
+        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
+    }
+
+    private Config fetchConfig(SessionInfo sessionInfo) {
+        return ConfigFactory.parseString(
+                clusterConfigShowCall.execute(
+                        ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build()
+                ).body().getValue()
         );
     }
 

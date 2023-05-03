@@ -33,7 +33,7 @@ public final class LazyObjectRef<R> {
 
     private final AtomicReference<R> ref = new AtomicReference<>(null);
 
-    private final AtomicReference<Boolean> execItProgress = new AtomicReference<>(false);
+    private final AtomicReference<Boolean> execInProgress = new AtomicReference<>(false);
 
     public LazyObjectRef(Supplier<R> source) {
         this.source = source;
@@ -41,28 +41,29 @@ public final class LazyObjectRef<R> {
     }
 
     private void fetchFrom(Supplier<R> source) {
-        execItProgress.set(true);
+        execInProgress.set(true);
 
         CompletableFuture.supplyAsync(source)
                 .thenAccept(ref::set)
                 .whenComplete((v, t) -> {
                     if (t != null) {
-                      LOG.warn("Got exception when fetch from source", t);
+                        LOG.warn("Got exception when fetch from source", t);
                     }
-                    execItProgress.set(false);
+                    execInProgress.set(false);
                 });
     }
 
+    /** Returns null if the fetching in progress or the value from the source. */
     @Nullable
     public R get() {
-      if (ref.get() == null && execItProgress.get()) {
-          return null;
-      }
+        if (ref.get() == null && execInProgress.get()) {
+            return null;
+        }
 
-      if (ref.get() == null && !execItProgress.get()) {
-          fetchFrom(source);
-      }
+        if (ref.get() == null && !execInProgress.get()) {
+            fetchFrom(source);
+        }
 
-      return ref.get();
+        return ref.get();
     }
 }

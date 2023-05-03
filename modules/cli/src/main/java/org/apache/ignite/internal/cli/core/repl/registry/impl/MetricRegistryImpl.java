@@ -20,13 +20,14 @@ package org.apache.ignite.internal.cli.core.repl.registry.impl;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
+import org.apache.ignite.rest.client.model.MetricSource;
+import org.jetbrains.annotations.NotNull;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton
@@ -35,11 +36,13 @@ public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventList
     @Inject
     private NodeMetricSourceListCall metricSourceListCall;
 
-    private final Set<String> metricSources = ConcurrentHashMap.newKeySet();
+    private LazyObjectRef<Set<String>> metricSourcesRef;
 
     @Override
     public Set<String> metricSources() {
-        return metricSources;
+        return (metricSourcesRef == null || metricSourcesRef.get() == null)
+                ? Set.of()
+                : metricSourcesRef.get();
     }
 
     /**
@@ -49,23 +52,19 @@ public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventList
      */
     @Override
     public void onConnect(SessionInfo sessionInfo) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                //TODO https://issues.apache.org/jira/browse/IGNITE-17416
-                metricSourceListCall.execute(new UrlCallInput(sessionInfo.nodeUrl()))
-                        .body()
-                        .forEach(source -> metricSources.add(source.getName()));
-            } catch (Exception ignored) {
-                // no-op
-            }
-        });
+        metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionInfo));
     }
 
-    /**
-     * Clears metric sources list.
-     */
+    @NotNull
+    private Set<String> fetchMetricSources(SessionInfo sessionInfo) {
+        return metricSourceListCall.execute(new UrlCallInput(sessionInfo.nodeUrl()))
+                .body().stream()
+                .map(MetricSource::getName)
+                .collect(Collectors.toSet());
+    }
+
     @Override
     public void onDisconnect() {
-        metricSources.clear();
+        metricSourcesRef = null;
     }
 }
