@@ -91,7 +91,7 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
     }
 
     @Override
-    public void onConnect(SessionInfo sessionInfo) {
+    public synchronized void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("JdbcUrlRegistry", log));
             executor.scheduleWithFixedDelay(this::fetchJdbcUrls, 0, 5, TimeUnit.SECONDS);
@@ -99,7 +99,7 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
     }
 
     @Override
-    public void onDisconnect() {
+    public synchronized void onDisconnect() {
         if (executor != null) {
             shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
             executor = null;

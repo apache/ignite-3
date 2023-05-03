@@ -20,8 +20,6 @@ package org.apache.ignite.internal.cli.core.repl.registry.impl;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
@@ -34,7 +32,7 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSe
 
     private final ClusterConfigShowCall clusterConfigShowCall;
 
-    private final AtomicReference<Config> config = new AtomicReference<>(null);
+    private LazyObjectRef<Config> configRef;
 
     public ClusterConfigRegistryImpl(ClusterConfigShowCall clusterConfigShowCall) {
         this.clusterConfigShowCall = clusterConfigShowCall;
@@ -42,27 +40,25 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, AsyncSe
 
     @Override
     public void onConnect(SessionInfo sessionInfo) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                config.set(ConfigFactory.parseString(
-                        clusterConfigShowCall.execute(
-                                ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build()
-                        ).body().getValue()
-                ));
-            } catch (Exception ignored) {
-                // no-op
-            }
-        });
+        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
+    }
+
+    private Config fetchConfig(SessionInfo sessionInfo) {
+        return ConfigFactory.parseString(
+                clusterConfigShowCall.execute(
+                        ClusterConfigShowCallInput.builder().clusterUrl(sessionInfo.nodeUrl()).build()
+                ).body().getValue()
+        );
     }
 
     @Override
     public void onDisconnect() {
-
+        configRef = null;
     }
 
     /** {@inheritDoc} */
     @Override
     public Config config() {
-        return config.get();
+        return configRef == null ? null : configRef.get();
     }
 }
