@@ -5,8 +5,9 @@ Refer to [Markdown](http://daringfireball.net/projects/markdown/) for how to wri
 
 # TODO
 1. Ignite icon
-2. Homepage text - get from README.md up the stack? How do we reuse it? Include somehow?
-3. Update DEVNOTES - explain how to build the docs
-4. Integrate with Gradle
+2. Update DEVNOTES - explain how to build the docs
+3. Integrate with Gradle
     * Run the docfx build as part of the build process when platforms are included
     * Copy resulting docs somewhere?
+
+[!INCLUDE [getting-started](../README.md)]
