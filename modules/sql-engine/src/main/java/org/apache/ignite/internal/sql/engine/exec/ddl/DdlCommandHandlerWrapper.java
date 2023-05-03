@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -42,9 +43,10 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             TableManager tableManager,
             IndexManager indexManager,
             DataStorageManager dataStorageManager,
+            TablesConfiguration tablesConfiguration,
             CatalogManager catalogManager
     ) {
-        super(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        super(distributionZoneManager, tableManager, indexManager, dataStorageManager, tablesConfiguration);
 
         this.catalogManager = Objects.requireNonNull(catalogManager, "Catalog service");
     }

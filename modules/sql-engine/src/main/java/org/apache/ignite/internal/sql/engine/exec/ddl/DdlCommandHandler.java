@@ -22,13 +22,18 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,13 +58,19 @@ import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
+import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -84,6 +95,7 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -99,6 +111,9 @@ public class DdlCommandHandler {
 
     private final DataStorageManager dataStorageManager;
 
+    /** Tables configuration. */
+    private final TablesConfiguration tablesConfiguration;
+
     /**
      * Constructor.
      */
@@ -106,12 +121,14 @@ public class DdlCommandHandler {
             DistributionZoneManager distributionZoneManager,
             TableManager tableManager,
             IndexManager indexManager,
-            DataStorageManager dataStorageManager
+            DataStorageManager dataStorageManager,
+            TablesConfiguration tablesConfiguration
     ) {
         this.distributionZoneManager = distributionZoneManager;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
+        this.tablesConfiguration = tablesConfiguration;
     }
 
     /** Handles ddl commands. */
@@ -460,6 +477,8 @@ public class DdlCommandHandler {
     private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames, boolean ignoreColumnExistence) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
+        reportIndexedColumns(tableName, colNames);
+
         return tableManager.alterTableAsync(
                 tableName,
                 chng -> {
@@ -486,7 +505,7 @@ public class DdlCommandHandler {
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(DEL_PK_COMUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, IgniteStringFormatter
                                         .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
@@ -496,6 +515,56 @@ public class DdlCommandHandler {
 
                     return ret.get();
                 }).thenApply(v -> ret.get());
+    }
+
+    private void reportIndexedColumns(String tableName, Set<String> colNames) throws SqlException {
+        NamedListView<TableIndexView> indexesConfig = tablesConfiguration.indexes().value();
+        Map<String, List<String>> idxDeps = new HashMap<>();
+        UUID targetTableId = null;
+        Set<String> pkColumns = null;
+
+        for (int i = 0; i < indexesConfig.size(); i++) {
+            TableIndexView tabIdxView = indexesConfig.get(i);
+
+            if (targetTableId == null) {
+                TableConfiguration tbl = tablesConfiguration.tables().get(tabIdxView.tableId());
+
+                if (tbl == null || !tableName.equals(tbl.name().value())) {
+                    continue;
+                }
+
+                targetTableId = tabIdxView.tableId();
+                pkColumns = Set.of(tbl.primaryKey().columns().value());
+            } else if (!targetTableId.equals(tabIdxView.tableId())) {
+                continue;
+            }
+
+            if (tabIdxView instanceof SortedIndexView) {
+                for (IndexColumnView colView : ((SortedIndexView) tabIdxView).columns()) {
+                    if (colNames.contains(colView.name()) && !pkColumns.contains(colView.name())) {
+                        idxDeps.computeIfAbsent(colView.name(), v -> new ArrayList<>()).add(tabIdxView.name());
+                    }
+                }
+            } else if (tabIdxView instanceof HashIndexView) {
+                for (String colName : ((HashIndexView) tabIdxView).columnNames()) {
+                    if (colNames.contains(colName) && !pkColumns.contains(colName)) {
+                        idxDeps.computeIfAbsent(colName, v -> new ArrayList<>()).add(tabIdxView.name());
+                    }
+                }
+            }
+        }
+
+        if (idxDeps.isEmpty()) {
+            return;
+        }
+
+        IgniteStringBuilder buf = new IgniteStringBuilder("Can`t delete column(s). ");
+
+        for (Entry<String, List<String>> e : idxDeps.entrySet()) {
+            buf.app(IgniteStringFormatter.format("Column {} is used by indexes {}. ", e.getKey(), e.getValue()));
+        }
+
+        throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, buf.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {

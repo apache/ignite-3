@@ -58,6 +58,7 @@ import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -156,6 +157,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ReplicaService replicaService;
 
+    private final TablesConfiguration tablesConfiguration;
+
     private volatile SessionManager sessionManager;
 
     private volatile QueryTaskExecutor taskExecutor;
@@ -191,7 +194,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            TablesConfiguration tablesConfiguration
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -205,6 +209,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
+        this.tablesConfiguration = tablesConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -250,8 +255,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = CatalogService.useCatalogService()
-                ? new DdlCommandHandlerWrapper(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager)
-                : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+                ? new DdlCommandHandlerWrapper(
+                        distributionZoneManager, tableManager, indexManager, dataStorageManager, tablesConfiguration, catalogManager)
+                : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager, tablesConfiguration);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),

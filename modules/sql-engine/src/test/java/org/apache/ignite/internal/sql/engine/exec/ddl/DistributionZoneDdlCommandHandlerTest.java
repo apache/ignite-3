@@ -79,7 +79,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
                     return CompletableFuture.completedFuture(null);
                 });
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager, null);
     }
 
 
