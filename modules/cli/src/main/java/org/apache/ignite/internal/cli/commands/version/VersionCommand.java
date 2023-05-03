@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.commands.version;
 
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.VersionProvider;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
@@ -27,7 +26,6 @@ import picocli.CommandLine.Command;
  * Command that prints CLI version.
  */
 @Command(name = "version", description = "Prints CLI version")
-@Singleton
 public class VersionCommand extends BaseCommand implements Runnable {
     @Inject
     private VersionProvider versionProvider;
