@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManage
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecretConfig;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.io.IOException;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,23 +31,12 @@ class ItSqlConnectBasicTest extends CliSqlConnectCommandTestBase {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration(
-                "{\n"
-                + "  security: {\n"
-                + "    authentication: {\n"
-                + "      enabled: true,\n"
-                + "      providers: [\n"
-                + "        {\n"
-                + "          name: basic,\n"
-                + "          type: basic,\n"
-                + "          username: usr,\n"
-                + "          password: pwd\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
-                + "  }\n"
-                + "}\n"
-        );
+        try {
+            String clusterConfig = TestConfigManagerHelper.readResourceToString("cluster-configuration-with-enabled-auth.conf");
+            builder.clusterConfiguration(clusterConfig);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test

@@ -97,6 +97,14 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
+    public static String readResourceToString(String resource) throws IOException {
+        byte[] bytes = TestConfigManagerHelper.class
+                .getClassLoader()
+                .getResourceAsStream(resource)
+                .readAllBytes();
+        return new String(bytes);
+    }
+
     /**
      * Helper method to copy file from the classpath to the temporary file which will be deleted on exit.
      *
