@@ -52,6 +52,14 @@
         ],
         "postProcessors": [],
         "keepFileLink": false,
-        "disableGitFeatures": false
+        "disableGitFeatures": false,
+        "globalMetadata": {
+            "_appTitle": "Apache Ignite.NET API Documentation",
+            "_gitContribute": {
+                "repo": "https://github.com/apache/ignite-3",
+                "branch": "main"
+            },
+            "_appLogoPath": "logo_ignite_32_32.png"
+        }
     }
 }
