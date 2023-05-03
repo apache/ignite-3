@@ -70,6 +70,8 @@ public enum IgniteMethod {
 
     SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
 
+    STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
+
     /** See {@link FragmentMappingMetadata#fragmentMapping(MappingQueryContext)}. */
     FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class),
 

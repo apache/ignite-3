@@ -148,7 +148,7 @@ public class LowWatermark implements ManuallyCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }

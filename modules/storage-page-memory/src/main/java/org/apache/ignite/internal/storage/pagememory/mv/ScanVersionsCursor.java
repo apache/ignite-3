@@ -19,15 +19,15 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
-import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.rowVersionToResultNotFillingLastCommittedTs;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.NoSuchElementException;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cursor reading all versions for {@link RowId}.
@@ -39,7 +39,11 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
 
     private final VersionChain versionChain;
 
-    private final Iterator<RowVersion> rowVersionIterator;
+    private @Nullable Boolean hasNext;
+
+    private RowVersion currentRowVersion;
+
+    private long nextLink;
 
     /**
      * Constructor.
@@ -51,7 +55,7 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
     ScanVersionsCursor(VersionChain versionChain, AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
         this.versionChain = versionChain;
-        this.rowVersionIterator = collectRowVersions();
+        this.nextLink = versionChain.headLink();
     }
 
     @Override
@@ -61,39 +65,58 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
 
     @Override
     public boolean hasNext() {
-        return storage.busy(() -> {
-            storage.throwExceptionIfStorageNotInRunnableState();
+        if (hasNext != null) {
+            return hasNext;
+        }
 
-            return rowVersionIterator.hasNext();
-        });
+        assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
+
+        hasNext = (nextLink != NULL_LINK);
+
+        if (hasNext) {
+            currentRowVersion = storage.readRowVersion(nextLink, ALWAYS_LOAD_VALUE);
+
+            nextLink = currentRowVersion.nextLink();
+        }
+
+        return hasNext;
     }
 
     @Override
     public ReadResult next() {
-        return storage.busy(() -> {
-            storage.throwExceptionIfStorageNotInRunnableState();
+        assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
 
-            return rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersionIterator.next());
-        });
-    }
-
-    private Iterator<RowVersion> collectRowVersions() {
-        long link = versionChain.headLink();
-
-        List<RowVersion> rowVersions = new ArrayList<>();
-
-        while (link != NULL_LINK) {
-            RowVersion rowVersion = storage.readRowVersion(link, ALWAYS_LOAD_VALUE);
-
-            if (rowVersion == null) {
-                link = NULL_LINK;
-            } else {
-                rowVersions.add(rowVersion);
-
-                link = rowVersion.nextLink();
-            }
+        if (!hasNext()) {
+            throw new NoSuchElementException();
         }
 
-        return rowVersions.iterator();
+        hasNext = null;
+
+        return rowVersionToReadResult(currentRowVersion);
+    }
+
+    private ReadResult rowVersionToReadResult(RowVersion rowVersion) {
+        RowId rowId = versionChain.rowId();
+
+        if (rowVersion.isCommitted()) {
+            if (rowVersion.isTombstone()) {
+                return ReadResult.empty(rowId);
+            } else {
+                BinaryRow row = new ByteBufferRow(rowVersion.value());
+
+                return ReadResult.createFromCommitted(rowId, row, rowVersion.timestamp());
+            }
+        } else {
+            BinaryRow row = rowVersion.isTombstone() ? null : new ByteBufferRow(rowVersion.value());
+
+            return ReadResult.createFromWriteIntent(
+                    rowId,
+                    row,
+                    versionChain.transactionId(),
+                    versionChain.commitTableId(),
+                    versionChain.commitPartitionId(),
+                    null
+            );
+        }
     }
 }

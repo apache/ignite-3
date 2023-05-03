@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.List;
-import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command to finish a transaction on a commit or a rollback.
@@ -35,7 +38,14 @@ public interface FinishTxCommand extends PartitionCommand {
     /**
      * Returns a transaction commit timestamp.
      */
-    HybridTimestampMessage commitTimestamp();
+    long commitTimestampLong();
+
+    /**
+     * Returns a transaction commit timestamp.
+     */
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return nullableHybridTimestamp(commitTimestampLong());
+    }
 
     /**
      * Returns an ordered replication groups ids.

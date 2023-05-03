@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
@@ -32,14 +33,19 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
+import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
+import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.WriteBatchWithIndex;
 
 /** Helper for the partition data. */
-class PartitionDataHelper implements ManuallyCloseable {
+public class PartitionDataHelper implements ManuallyCloseable {
     /** Position of row id inside the key. */
     static final int ROW_ID_OFFSET = Short.BYTES;
 
@@ -75,6 +81,9 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
+    /** Thread-local write batch for {@link MvPartitionStorage#runConsistently(WriteClosure)}. */
+    static final ThreadLocal<ThreadLocalState> THREAD_LOCAL_STATE = new ThreadLocal<>();
+
     /** Partition id. */
     private final int partitionId;
 
@@ -90,7 +99,7 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Read options for total order scans. */
     final ReadOptions scanReadOpts;
 
-    final ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
+    final LockByRowId lockByRowId = new LockByRowId();
 
     PartitionDataHelper(int partitionId, ColumnFamilyHandle partCf) {
         this.partitionId = partitionId;
@@ -101,17 +110,21 @@ class PartitionDataHelper implements ManuallyCloseable {
         this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
     }
 
+    public int partitionId() {
+        return partitionId;
+    }
+
     /**
      * Creates a prefix of all keys in the given partition.
      */
-    byte[] partitionStartPrefix() {
+    public byte[] partitionStartPrefix() {
         return unsignedShortAsBytes(partitionId);
     }
 
     /**
      * Creates a prefix of all keys in the next partition, used as an exclusive bound.
      */
-    byte[] partitionEndPrefix() {
+    public byte[] partitionEndPrefix() {
         return unsignedShortAsBytes(partitionId + 1);
     }
 
@@ -147,6 +160,28 @@ class PartitionDataHelper implements ManuallyCloseable {
         return new RowId(partitionId, getRowIdUuid(keyBuffer, offset));
     }
 
+
+    /**
+     * Returns a WriteBatch that can be used by the affiliated storage implementation (like indices) to maintain consistency when run
+     * inside the {@link MvPartitionStorage#runConsistently} method.
+     */
+    static @Nullable WriteBatchWithIndex currentWriteBatch() {
+        ThreadLocalState state = THREAD_LOCAL_STATE.get();
+
+        return state == null ? null : state.batch;
+    }
+
+    /**
+     * Same as {@link #currentWriteBatch()}, with the exception that the resulting write batch is not expected to be null.
+     */
+    public static WriteBatchWithIndex requireWriteBatch() {
+        ThreadLocalState state = THREAD_LOCAL_STATE.get();
+
+        assert state != null : "Attempting to write data outside of data access closure.";
+
+        return state.batch;
+    }
+
     /**
      * Stores unsigned short (represented by int) in the byte array.
      *
@@ -164,17 +199,15 @@ class PartitionDataHelper implements ManuallyCloseable {
         assert buf.order() == KEY_BYTE_ORDER;
 
         // "bitwise negation" turns ascending order into a descending one.
-        buf.putLong(~ts.getPhysical());
-        buf.putInt(~ts.getLogical());
+        buf.putLong(~ts.longValue());
     }
 
     static HybridTimestamp readTimestampDesc(ByteBuffer keyBuf) {
         assert keyBuf.order() == KEY_BYTE_ORDER;
 
-        long physical = ~keyBuf.getLong(ROW_PREFIX_SIZE);
-        int logical = ~keyBuf.getInt(ROW_PREFIX_SIZE + Long.BYTES);
+        long time = ~keyBuf.getLong(ROW_PREFIX_SIZE);
 
-        return new HybridTimestamp(physical, logical);
+        return hybridTimestamp(time);
     }
 
     /**
@@ -183,17 +216,25 @@ class PartitionDataHelper implements ManuallyCloseable {
     static void putTimestampNatural(ByteBuffer buf, HybridTimestamp ts) {
         assert buf.order() == KEY_BYTE_ORDER;
 
-        buf.putLong(ts.getPhysical());
-        buf.putInt(ts.getLogical());
+        buf.putLong(ts.longValue());
     }
 
     static HybridTimestamp readTimestampNatural(ByteBuffer keyBuf, int offset) {
         assert keyBuf.order() == KEY_BYTE_ORDER;
 
-        long physical = keyBuf.getLong(offset);
-        int logical = keyBuf.getInt(offset + Long.BYTES);
+        long time = keyBuf.getLong(offset);
 
-        return new HybridTimestamp(physical, logical);
+        return hybridTimestamp(time);
+    }
+
+    RocksIterator wrapIterator(RocksIterator it, ColumnFamilyHandle cf) {
+        WriteBatchWithIndex writeBatch = currentWriteBatch();
+
+        if (writeBatch != null && writeBatch.count() > 0) {
+            return writeBatch.newIteratorWithBase(cf, it);
+        }
+
+        return it;
     }
 
     @Override

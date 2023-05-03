@@ -53,7 +53,7 @@ class HashIndex {
     HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
         return storages.computeIfAbsent(
                 partitionStorage.partitionId(),
-                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage, indexMetaStorage)
+                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
         );
     }
 
