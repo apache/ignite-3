@@ -74,21 +74,23 @@ public abstract class BaseAggregateDataTypeTest<T extends Comparable<T>> extends
 
         insertValues();
 
-        checkQuery("SELECT ANY_VALUE(id) as o, test_key FROM t GROUP BY test_key ORDER BY o")
-                .returns(1, min)
-                .returns(2, mid)
-                .returns(3, max)
+        checkQuery("SELECT test_key FROM t GROUP BY test_key ORDER BY test_key")
+                .returns(1L, min)
+                .returns(1L, mid)
+                .returns(1L, max)
                 .check();
     }
 
-    /** {@code GROUP BY} {@code HAVING}. */
+    /** {@code GROUP BY} and {@code HAVING}. */
     @ParameterizedTest
     @MethodSource("having")
     public void testGroupByHaving(TestTypeArguments<T> arguments) {
-        insertValues();
+        runSql("INSERT INTO t VALUES(1, $0)");
+        runSql("INSERT INTO t VALUES(4, $0)");
+        runSql("INSERT INTO t VALUES(2, $1)");
+        runSql("INSERT INTO t VALUES(3, $2)");
 
-        String query = format("SELECT ANY_VALUE(id), test_key FROM t GROUP BY test_key HAVING test_key = {}",
-                arguments.valueExpr(0));
+        String query = format("SELECT test_key FROM t GROUP BY test_key HAVING COUNT(test_key) = 2");
 
         checkQuery(query)
                 .returns(1, orderedValues.first())
