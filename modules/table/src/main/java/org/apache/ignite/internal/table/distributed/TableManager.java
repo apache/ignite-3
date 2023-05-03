@@ -1377,23 +1377,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
         tableAsyncInternal(name)
-                .thenAccept(tbl -> {
+                .handle((tbl, tblEx) -> {
                     if (tbl != null) {
                         tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
+                    } else if (tblEx != null) {
+                        tblFut.completeExceptionally(tblEx);
                     } else {
                         if (!busyLock.enterBusy()) {
-                            throw new IgniteException(new NodeStoppingException());
+                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
+
+                            tblFut.completeExceptionally(nodeStoppingException);
+
+                            throw new IgniteException(nodeStoppingException);
                         }
 
                         try {
-                            distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, ex) -> {
+                            distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, zoneIdEx) -> {
                                 if (zoneId == null) {
                                     tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
-                                } else if (ex != null) {
-                                    tblFut.completeExceptionally(ex);
+                                } else if (zoneIdEx != null) {
+                                    tblFut.completeExceptionally(zoneIdEx);
                                 } else {
                                     if (!busyLock.enterBusy()) {
-                                        throw new IgniteException(new NodeStoppingException());
+                                        NodeStoppingException nodeStoppingException = new NodeStoppingException();
+
+                                        tblFut.completeExceptionally(nodeStoppingException);
+
+                                        throw new IgniteException(nodeStoppingException);
                                     }
 
                                     try {
@@ -1401,7 +1411,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 .handle((cmgTopology, e) -> {
                                                     if (e == null) {
                                                         if (!busyLock.enterBusy()) {
-                                                            throw new IgniteException(new NodeStoppingException());
+                                                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
+
+                                                            tblFut.completeExceptionally(nodeStoppingException);
+
+                                                            throw new IgniteException(nodeStoppingException);
                                                         }
 
                                                         try {
@@ -1442,6 +1456,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             busyLock.leaveBusy();
                         }
                     }
+
+                    return null;
                 });
 
         return tblFut;
