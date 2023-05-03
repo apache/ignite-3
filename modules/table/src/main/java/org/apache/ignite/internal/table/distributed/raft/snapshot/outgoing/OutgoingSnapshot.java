@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static java.util.stream.Collectors.toList;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -28,7 +26,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -314,30 +311,36 @@ public class OutgoingSnapshot {
 
     @Nullable
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
-        List<ReadResult> rowVersionsN2O = readRowVersionsN2O(rowId);
+        List<ReadResult> rowVersionsN2O = partition.getAllRowVersions(rowId);
 
         if (rowVersionsN2O.isEmpty()) {
             return null;
         }
 
-        List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
-        List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
+        int count = rowVersionsN2O.size();
+        List<ByteBuffer> buffers = new ArrayList<>(count);
+
+        int commitTimestampsCount = rowVersionsN2O.get(0).isWriteIntent() ? count - 1 : count;
+        long[] commitTimestamps = new long[commitTimestampsCount];
+
         UUID transactionId = null;
         UUID commitTableId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-        for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
+        for (int i = count - 1, j = 0; i >= 0; i--) {
             ReadResult version = rowVersionsN2O.get(i);
             BinaryRow row = version.binaryRow();
 
             buffers.add(row == null ? null : row.byteBuffer());
 
             if (version.isWriteIntent()) {
+                assert i == 0 : rowVersionsN2O;
+
                 transactionId = version.transactionId();
                 commitTableId = version.commitTableId();
                 commitPartitionId = version.commitPartitionId();
             } else {
-                commitTimestamps.add(version.commitTimestamp());
+                commitTimestamps[j++] = version.commitTimestamp().longValue();
             }
         }
 
@@ -349,12 +352,6 @@ public class OutgoingSnapshot {
                 .commitTableId(commitTableId)
                 .commitPartitionId(commitPartitionId)
                 .build();
-    }
-
-    private List<ReadResult> readRowVersionsN2O(RowId rowId) {
-        try (Cursor<ReadResult> versions = partition.getAllRowVersions(rowId)) {
-            return versions.stream().collect(toList());
-        }
     }
 
     /**

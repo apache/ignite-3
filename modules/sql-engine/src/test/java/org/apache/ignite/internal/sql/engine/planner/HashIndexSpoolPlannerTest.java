@@ -34,7 +34,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +51,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
     @Test
     public void testSingleKey() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         createTable(publicSchema, "T0", new RelDataTypeFactory.Builder(f)
                 .add("ID", f.createJavaType(Integer.class))
@@ -94,7 +94,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
     @Test
     public void testMultipleKeys() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         publicSchema.addTable(
                 new TestTable(
@@ -158,7 +158,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
     @Test
     public void testSourceWithoutCollation() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         publicSchema.addTable(
                 new TestTable(

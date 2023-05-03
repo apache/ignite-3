@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.network.recovery;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
-/** Message with a {@link HybridTimestamp}. */
-@Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
-    /**
-     * Returns physical time.
-     */
-    long physical();
+/**
+ * Implementation of {@link StaleIds} that holds its state in memory.
+ */
+public class InMemoryStaleIds implements StaleIds {
+    private final Set<String> ids = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    /**
-     * Returns logical time.
-     */
-    int logical();
+    @Override
+    public boolean isIdStale(String nodeId) {
+        return ids.contains(nodeId);
+    }
 
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
+    @Override
+    public void markAsStale(String nodeId) {
+        ids.add(nodeId);
     }
 }

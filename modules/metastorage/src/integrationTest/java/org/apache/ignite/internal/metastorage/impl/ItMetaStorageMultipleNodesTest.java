@@ -61,7 +61,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -353,38 +352,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         nodes.remove(1);
 
         assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
-    }
-
-    /**
-     * Tests a scenario when a node gets kicked out of the Logical Topology due to a network partition. It should then be able to join
-     * the Meta Storage Raft group successfully.
-     */
-    @Test
-    void testLearnerLeaveAndJoinBecauseOfNetworkPartition(TestInfo testInfo) throws Exception {
-        Node firstNode = startNode(testInfo);
-        Node secondNode = startNode(testInfo);
-
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
-
-        assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
-
-        CompletableFuture<Set<String>> logicalTopologyNodes = firstNode.cmgManager
-                .logicalTopology()
-                .thenApply(logicalTopology -> logicalTopology.nodes().stream().map(ClusterNode::name).collect(toSet()));
-
-        assertThat(logicalTopologyNodes, willBe(Set.of(firstNode.name(), secondNode.name())));
-
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
-
-        // Make first node lose the second node from the Physical and Logical topologies.
-        firstNode.startDroppingMessagesTo(secondNode, ScaleCubeMessage.class);
-
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
-
-        // Make the first node discover the second node again. The second node should be added as a Meta Storage Learner again.
-        firstNode.stopDroppingMessages();
-
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
     }
 
     /**

@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.command;
+package org.apache.ignite.internal.placementdriver.message;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Interface to represent {@link HybridTimestamp} as a {@link NetworkMessage}.
+ * A base message for placement driver network messages.
  */
-@Transferable(ReplicaMessageGroup.HYBRID_TIMESTAMP)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
-    long physical();
-
-    int logical();
-
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
-    }
+public interface PlacementDriverMessage extends NetworkMessage {
+    /**
+     * Gets a replication group id.
+     *
+     * @return Replication group id.
+     */
+    @Marshallable
+    ReplicationGroupId groupId();
 }

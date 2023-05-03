@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.util.subscription;
 
-import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Values accumulator. Implementation should NOT be thead-safe.
- *
- * @param <R> Result value type.
+ * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
  */
-public interface Accumulator<R> {
+public class AccumulateException extends IgniteInternalCheckedException {
     /**
-     * Accumulate provided value.
+     * Constructor.
      *
-     * @param item Item from metastore.
+     * @param cause Cause exception.
      */
-    void accumulate(Entry item);
-
-    /**
-     * Returns all accumulated values transformed to required type.
-     *
-     * @return All accumulated values transformed to required type.
-     * @throws AccumulateException in case when accumulation or transformation failed.
-     */
-    R get() throws AccumulateException;
+    public AccumulateException(Throwable cause) {
+        super(cause);
+    }
 }

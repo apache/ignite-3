@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.network.recovery;
 
-/** Stubs. */
-public class Stubs {
-    public static int intFoo(Object... args) {
-        return args == null ? 0 : args.length;
+/**
+ * {@link StaleIdDetector} that reports all IDs as stale.
+ */
+public class AllIdsAreStale implements StaleIdDetector {
+    @Override
+    public boolean isIdStale(String nodeId) {
+        return true;
     }
 }

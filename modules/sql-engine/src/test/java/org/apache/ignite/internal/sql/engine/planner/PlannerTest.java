@@ -63,8 +63,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -102,7 +102,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterColocatedPartitionedPartitioned() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -194,7 +194,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterColocatedReplicatedReplicated() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -272,7 +272,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -353,7 +353,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterPartiallyColocated1() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -436,7 +436,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterPartiallyColocated2() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -516,7 +516,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testSplitterNonColocated() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable developer = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -595,7 +595,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testMergeFilters() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable testTbl = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -651,7 +651,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testJoinPushExpressionRule() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable emp = new TestTable(
                 new RelDataTypeFactory.Builder(f)
@@ -753,7 +753,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testMergeJoinIsNotAppliedForNonEquiJoin() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable emp = new TestTable("EMP",
                 new RelDataTypeFactory.Builder(f)
@@ -806,7 +806,7 @@ public class PlannerTest extends AbstractPlannerTest {
     @Test
     public void testNotStandardFunctions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         publicSchema.addTable(
                 new TestTable(
@@ -839,7 +839,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void correctPlanningWithOrToUnion() throws Exception {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         TestTable tab0 = new TestTable(
                 new RelDataTypeFactory.Builder(f)

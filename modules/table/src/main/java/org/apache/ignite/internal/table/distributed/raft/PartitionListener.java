@@ -23,11 +23,15 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STAT
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -70,6 +74,9 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
+    /** Empty sorted set. */
+    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
+
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
@@ -79,8 +86,8 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
-    /** Rows that were inserted, updated or removed. */
-    private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
+    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
+    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
 
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
@@ -114,7 +121,7 @@ public class PartitionListener implements RaftGroupListener {
                 ReadResult readResult = cursor.next();
 
                 if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new HashSet<>()).add(readResult.rowId());
+                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
                 }
             }
         }
@@ -196,7 +203,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime().asHybridTimestamp());
+                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
@@ -218,7 +225,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
                 rowId -> {
-                    txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new HashSet<>()).add(rowId);
+                    txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
 
                     storage.lastApplied(commandIndex, commandTerm);
                 }
@@ -240,7 +247,7 @@ public class PartitionListener implements RaftGroupListener {
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
             for (RowId rowId : rowIds) {
-                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new HashSet<>()).add(rowId);
+                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
             }
 
             storage.lastApplied(commandIndex, commandTerm);
@@ -271,7 +278,7 @@ public class PartitionListener implements RaftGroupListener {
                         .stream()
                         .map(TablePartitionIdMessage::asTablePartitionId)
                         .collect(Collectors.toList()),
-                cmd.commitTimestamp() != null ? cmd.commitTimestamp().asHybridTimestamp() : null
+                cmd.commitTimestamp()
         );
 
         TxMeta txMetaBeforeCas = txStateStorage.get(txId);
@@ -321,11 +328,13 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
 
         if (cmd.commit()) {
-            storage.runConsistently(() -> {
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
+            storage.runConsistently(locker -> {
+                pendingRowIds.forEach(locker::lock);
+
+                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
 
                 txsPendingRowIds.remove(txId);
 
@@ -358,7 +367,7 @@ public class PartitionListener implements RaftGroupListener {
 
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
 
             return null;
@@ -378,7 +387,7 @@ public class PartitionListener implements RaftGroupListener {
         storage.acquirePartitionSnapshotsReadLock();
 
         try {
-            storage.runConsistently(() -> {
+            storage.runConsistently(locker -> {
                 storage.committedGroupConfiguration(
                         new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
                 );
@@ -408,7 +417,7 @@ public class PartitionListener implements RaftGroupListener {
         long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
         long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStateStorage.lastAppliedTerm());
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
 
             return null;
@@ -451,8 +460,15 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storage.runConsistently(() -> {
-            storageUpdateHandler.buildIndex(cmd.indexId(), cmd.rowIds(), cmd.finish());
+        storage.runConsistently(locker -> {
+            List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
+
+            // Natural UUID order matches RowId order within the same partition.
+            Collections.sort(rowUuids);
+
+            rowUuids.stream().map(uuid -> new RowId(storageUpdateHandler.partitionId(), uuid)).forEach(locker::lock);
+
+            storageUpdateHandler.buildIndex(cmd.indexId(), rowUuids, cmd.finish());
 
             storage.lastApplied(commandIndex, commandTerm);
 

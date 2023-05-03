@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +35,7 @@ public class TestTypeArgumentsTest {
 
     private final TestType type = new TestType();
 
-    private final TestDataSamples<String> samples = type.createSamples(new IgniteTypeFactory(IgniteTypeSystem.INSTANCE));
+    private final TestDataSamples<String> samples = type.createSamples(Commons.typeFactory());
 
     /**
      * Tests for {@link TestTypeArguments#unary(CustomDataTypeTestSpec, TestDataSamples, Comparable)}.

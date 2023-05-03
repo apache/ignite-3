@@ -41,11 +41,9 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -89,6 +87,30 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
 
+    private static class SupportedParamClassesHolder {
+        static final Set<Class<?>> supportedParamClasses;
+
+        static {
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses.add(boolean.class);
+            supportedParamClasses.add(byte.class);
+            supportedParamClasses.add(short.class);
+            supportedParamClasses.add(int.class);
+            supportedParamClasses.add(long.class);
+            supportedParamClasses.add(float.class);
+            supportedParamClasses.add(double.class);
+        }
+    }
+
+    private static Set<Class<?>> supportedParamClasses() {
+        return SupportedParamClassesHolder.supportedParamClasses;
+    }
+
+    /** Return {@code true} if supplied object is suitable as dynamic parameter. */
+    public static boolean supportParamInstance(Object param) {
+        return param == null || supportedParamClasses().contains(param.getClass());
+    }
+
     /**
      * CombinedRowType.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -113,48 +135,6 @@ public class TypeUtils {
         }
 
         return builder.build();
-    }
-
-    /**
-     * NeedCast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
-        // This prevents that we cast a JavaType to normal RelDataType.
-        if (fromType instanceof RelDataTypeFactoryImpl.JavaType
-                && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
-            return false;
-        }
-
-        // Do not make a cast when we don't know specific type (ANY) of the origin node.
-        if (toType.getSqlTypeName() == SqlTypeName.ANY
-                || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            return false;
-        }
-
-        // No need to cast between char and varchar.
-        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
-            return false;
-        }
-
-        // No need to cast if the source type precedence list
-        // contains target type. i.e. do not cast from
-        // tinyint to int or int to bigint.
-        if (fromType.getPrecedenceList().containsType(toType)
-                && SqlTypeUtil.isIntType(fromType)
-                && SqlTypeUtil.isIntType(toType)) {
-            return false;
-        }
-
-        // Implicit type coercion does not handle nullability.
-        if (SqlTypeUtil.equalSansNullability(factory, fromType, toType)) {
-            return false;
-        }
-
-        // Should keep sync with rules in SqlTypeCoercionRule.
-        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-
-        return true;
     }
 
     /**

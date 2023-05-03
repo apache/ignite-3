@@ -26,6 +26,8 @@ import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -62,24 +64,25 @@ public class FileDeployerService {
      *
      * @param id Deploy unit identifier.
      * @param version Deploy unit version.
-     * @param unitName Deploy unit file name.
-     * @param unitContent Deploy unit content.
+     * @param unitFileContent Map of deploy unit file names to file content.
      * @return Future with deploy result.
      */
-    public CompletableFuture<Boolean> deploy(String id, String version, String unitName, byte[] unitContent) {
+    public CompletableFuture<Boolean> deploy(String id, String version, Map<String, byte[]> unitFileContent) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path unitPath = unitsFolder
+                Path unitFolder = unitsFolder
                         .resolve(id)
-                        .resolve(version)
-                        .resolve(unitName);
+                        .resolve(version);
 
-                Path unitPathTmp = unitPath.resolveSibling(unitPath.getFileName() + TMP_SUFFIX);
+                Files.createDirectories(unitFolder);
 
-                Files.createDirectories(unitPathTmp.getParent());
-
-                Files.write(unitPathTmp, unitContent, CREATE, SYNC, TRUNCATE_EXISTING);
-                Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
+                for (Entry<String, byte[]> entry : unitFileContent.entrySet()) {
+                    String fileName = entry.getKey();
+                    Path unitPath = unitFolder.resolve(fileName);
+                    Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
+                    Files.write(unitPathTmp, entry.getValue(), CREATE, SYNC, TRUNCATE_EXISTING);
+                    Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
+                }
                 return true;
             } catch (IOException e) {
                 LOG.error("Failed to deploy unit " + id + ":" + version, e);

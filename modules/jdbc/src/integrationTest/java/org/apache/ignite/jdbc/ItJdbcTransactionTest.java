@@ -216,6 +216,33 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
         });
     }
 
+
+    /**
+     * Ensures that explicit commits in auto-commit mode are not allowed.
+     */
+    @Test
+    public void testCommitInAutoCommitMode() throws SQLException  {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(true);
+
+            SQLException t = assertThrows(SQLException.class, conn::commit);
+            assertEquals("Transaction cannot be committed explicitly in auto-commit mode.", t.getMessage());
+        }
+    }
+
+    /**
+     * Ensures that explicit rollbacks in auto-commit mode are not allowed.
+     */
+    @Test
+    public void testRollbackInAutoCommitMode() throws SQLException  {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(true);
+
+            SQLException t = assertThrows(SQLException.class, conn::rollback);
+            assertEquals("Transaction cannot be rolled back explicitly in auto-commit mode.", t.getMessage());
+        }
+    }
+
     /**
      * Ensures that data updates made in an explicit transaction can be rolled back and are
      * not visible outside of an active transaction until they are committed.

@@ -39,7 +39,5 @@ public final class SqlQueryMessageGroup {
     /** See {@link QueryBatchRequestMessage} for details. */
     public static final short QUERY_BATCH_REQUEST = 4;
 
-    public static final short INBOX_CLOSE_MESSAGE = 5;
-
-    public static final short QUERY_CLOSE_MESSAGE = 6;
+    public static final short QUERY_CLOSE_MESSAGE = 5;
 }

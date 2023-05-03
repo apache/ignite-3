@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.network.recovery.message;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_REJECTED;
+
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.
+ * Handshake rejected message, contains the reason for a rejection.
+ * This message is sent from a server to a client or wise versa.
+ * After this message is received it makes no sense to retry connections with same node identity (launch ID must be changed
+ * to make a retry).
  */
-public class AccumulateException extends IgniteInternalCheckedException {
+@Transferable(HANDSHAKE_REJECTED)
+public interface HandshakeRejectedMessage extends InternalMessage {
     /**
-     * Constructor.
+     * Returns rejection reason.
      *
-     * @param cause Cause exception.
+     * @return Reason of the rejection.
      */
-    public AccumulateException(Throwable cause) {
-        super(cause);
-    }
+    String reason();
 }

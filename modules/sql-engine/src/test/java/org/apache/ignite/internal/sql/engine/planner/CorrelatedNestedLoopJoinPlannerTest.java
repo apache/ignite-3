@@ -34,7 +34,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,7 +48,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testValidIndexExpressions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         publicSchema.addTable(
                 new TestTable(
@@ -113,7 +113,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInvalidIndexExpressions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         publicSchema.addTable(
                 new TestTable(
