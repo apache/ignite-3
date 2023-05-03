@@ -48,9 +48,6 @@ public final class TestDataSamples<T extends Comparable<T>> {
         this.orderedValues = new TreeSet<>(values);
         this.valueReprs = valueReprs;
 
-        if (orderedValues.size() < 3) {
-            throw new IllegalArgumentException("There should be at least 3 distinct values but got " + values);
-        }
     }
 
     /**

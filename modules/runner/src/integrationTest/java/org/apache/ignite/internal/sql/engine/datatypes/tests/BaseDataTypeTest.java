@@ -95,6 +95,10 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
         orderedValues = dataSamples.ordered();
         values = dataSamples.values();
 
+        if (orderedValues.size() != 3) {
+            throw new IllegalArgumentException("Test data should have 3 distinct values but got " + values);
+        }
+
         runSql("CREATE TABLE t(id INTEGER PRIMARY KEY, test_key <type>)");
     }
 
