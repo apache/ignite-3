@@ -40,7 +40,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
         resetOutput();
 
         String clusterConfigurationFile = ItClusterInitTest.class.getClassLoader()
-                .getResource("cluster-configuration-with-enabled-auth.json")
+                .getResource("cluster-configuration-with-enabled-auth.conf")
                 .getPath();
 
         execute(
