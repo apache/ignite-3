@@ -53,7 +53,7 @@ public final class LazyObjectRef<R> {
                 });
     }
 
-    /** Returns null if the fetching in progress or the value from the source. */
+    /** Returns {@code null} if the fetching is in progress or the value returned from the source is {@code null}. */
     @Nullable
     public R get() {
         if (ref.get() == null && execInProgress.get()) {
