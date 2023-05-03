@@ -1,5 +1,5 @@
-- name: Articles
-  href: articles/
-- name: Api Documentation
+- name: Docs
+  href: /
+- name: API
   href: api/
-  homepage: api/index.md
+  homepage: api/Apache.Ignite.yml
