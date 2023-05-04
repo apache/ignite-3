@@ -41,7 +41,6 @@ public interface PeekCursor<T> extends Cursor<T> {
      *         value was {@code null}.
      *     </li>
      * </ul>
-     *
      * These properties, in conjunction with basic iterator invariants, give strict constraints on {@link #hasNext()} usage:
      * <ul>
      *     <li>After the cursor is created, {@code #peek()} will return the actual (up-to-date) next element;</li>
@@ -51,7 +50,6 @@ public interface PeekCursor<T> extends Cursor<T> {
      *     <li>After {@link #next()} is called, but before {@link #hasNext()} is called, {@code peek()} will always return the actual
      *     (up-to-date) next element without advancing the cursor.</li>
      * </ul>
-     *
      * In other words, {@link #hasNext()} call forces the cursor to return cached value from {@code peek()}, instead of looking for
      * up-to-date value in the storage.
      */
