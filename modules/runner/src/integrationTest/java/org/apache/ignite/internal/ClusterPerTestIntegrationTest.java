@@ -19,8 +19,6 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.Ignite;
@@ -38,7 +36,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.platform.commons.support.ReflectionSupport;
 
 /**
  * Abstract integration test that starts and stops a cluster per test method.
@@ -76,8 +73,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  },"
-            + "  cluster.failoverTimeout: 100\n"
+            + "  }\n"
             + "}";
 
     protected Cluster cluster;
@@ -95,6 +91,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     @BeforeEach
     public void setup(TestInfo testInfo) throws Exception {
         setupBase(testInfo, workDir);
+
+        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
+
+        cluster.startAndInit(initialNodes());
     }
 
     /**
@@ -104,30 +104,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      * @throws Exception If failed.
      */
     @AfterEach
+    @Timeout(60)
     public void tearDown(TestInfo testInfo) throws Exception {
         tearDownBase(testInfo);
-    }
 
-    @BeforeEach
-    void startAndInitCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
-
-        cluster.startAndInit(initialNodes());
-    }
-
-    private String invokeArglessMethod(Class<?> testClass, String methodName) {
-        Method method = ReflectionSupport.findMethod(testClass, methodName).orElseThrow();
-
-        if (!Modifier.isStatic(method.getModifiers())) {
-            throw new IllegalStateException(methodName + " is expected to be static");
-        }
-
-        return (String) ReflectionSupport.invokeMethod(method, null);
-    }
-
-    @AfterEach
-    @Timeout(60)
-    void shutdownCluster() {
         cluster.shutdown();
     }
 

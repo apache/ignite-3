@@ -95,7 +95,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.failoverTimeout=0")
+    @InjectConfiguration
     private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
