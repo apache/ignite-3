@@ -116,11 +116,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         return createIndexStorage(indexDefinition);
     }
 
-    @Override
-    protected SortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
-        return index.indexDescriptor();
-    }
-
     /**
      * Creates a Sorted Index using the given index definition.
      */
@@ -137,6 +132,11 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
 
         return tableStorage.getOrCreateSortedIndex(TEST_PARTITION, indexConfig.id());
+    }
+
+    @Override
+    protected SortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
+        return index.indexDescriptor();
     }
 
     /**
