@@ -42,6 +42,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.FilterValidator;
+import org.apache.ignite.internal.distributionzones.configuration.RebalanceValidator;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -75,7 +76,10 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void setUp() {
         registry = new ConfigurationRegistry(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(FilterValidator.INSTANCE),
+                Set.of(
+                        FilterValidator.INSTANCE,
+                        RebalanceValidator.INSTANCE
+                ),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)

@@ -34,7 +34,10 @@ public class DistributionZonesConfigurationModule implements ConfigurationModule
     /** {@inheritDoc} */
     @Override
     public Set<Validator<?, ?>> validators() {
-        return Set.of(FilterValidator.INSTANCE);
+        return Set.of(
+                FilterValidator.INSTANCE,
+                RebalanceValidator.INSTANCE
+        );
     }
 
     /** {@inheritDoc} */
