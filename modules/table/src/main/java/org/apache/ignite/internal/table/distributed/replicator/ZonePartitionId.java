@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
