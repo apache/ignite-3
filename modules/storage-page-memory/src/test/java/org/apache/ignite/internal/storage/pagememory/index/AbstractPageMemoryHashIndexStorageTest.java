@@ -81,10 +81,11 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
-        String longString = randomString(random, baseEngineConfig.pageSize().value() * 2);
+        String longString0 = randomString(random, baseEngineConfig.pageSize().value() * 2);
+        String longString1 = randomString(random, baseEngineConfig.pageSize().value() * 2);
 
-        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString);
-        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString);
+        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString0);
+        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString1);
 
         put(index, indexRow0);
         put(index, indexRow1);
