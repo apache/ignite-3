@@ -244,12 +244,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Options indexOptions = new Options().setCreateIfMissing(true);
         ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(indexOptions);
 
-        Options tsToRevOptions = new Options().setCreateIfMissing(true)
-                .useFixedLengthPrefixExtractor(Integer.BYTES + Long.BYTES);
+        Options tsToRevOptions = new Options().setCreateIfMissing(true);
         ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(tsToRevOptions);
 
-        Options revToTsOptions = new Options().setCreateIfMissing(true)
-                .useFixedLengthPrefixExtractor(Long.BYTES);
+        Options revToTsOptions = new Options().setCreateIfMissing(true);
         ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(revToTsOptions);
 
         return List.of(
