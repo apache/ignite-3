@@ -225,6 +225,61 @@ public class ConfigurationUtilTest {
         assertSame(parentChange.elements().get("name").child().str(), elementsNameChildStr.value());
     }
 
+    @Test
+    public void findSuccessfullyPolymorphicConfig() {
+        InnerNode parentNode = newNodeInstance(PolymorphicRootConfigurationSchema.class);
+
+        PolymorphicRootChange parentChange = (PolymorphicRootChange) parentNode;
+
+        parentChange.changePolymorphicSubCfg(sub -> {
+            sub.convert(FirstPolymorphicInstanceChange.class)
+                    .changeStrVal("str")
+                    .changeLongVal(0);
+        });
+
+        parentChange.changePolymorphicNamedCfg(named -> {
+            named.createOrUpdate("name0", sub -> {
+                sub.convert(FirstPolymorphicInstanceChange.class)
+                        .changeStrVal("str0")
+                        .changeLongVal(0);
+            });
+
+            named.createOrUpdate("name1", sub -> {
+                sub.convert(SecondPolymorphicInstanceChange.class)
+                        .changeIntVal(1)
+                        .changeLongVal(1);
+            });
+        });
+
+        NodeValue<Object> name0strVal = find(List.of("polymorphicNamedCfg", "name0", "strVal"), parentNode, true);
+        assertSame(String.class, name0strVal.field().getGenericType());
+        assertSame(
+                ((FirstPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name0")).strVal(),
+                name0strVal.value()
+        );
+
+        NodeValue<Object> name0longVal = find(List.of("polymorphicNamedCfg", "name0", "longVal"), parentNode, true);
+        assertSame(long.class, name0longVal.field().getGenericType());
+        assertSame(
+                parentChange.changePolymorphicNamedCfg().get("name0").longVal(),
+                name0longVal.value()
+        );
+
+        NodeValue<Object> name1intVal = find(List.of("polymorphicNamedCfg", "name1", "intVal"), parentNode, true);
+        assertSame(int.class, name1intVal.field().getGenericType());
+        assertSame(
+                ((SecondPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name1")).intVal(),
+                name1intVal.value()
+        );
+
+        NodeValue<Object> name1longVal = find(List.of("polymorphicNamedCfg", "name1", "longVal"), parentNode, true);
+        assertSame(long.class, name1longVal.field().getGenericType());
+        assertSame(
+                parentChange.changePolymorphicNamedCfg().get("name1").longVal(),
+                name1longVal.value()
+        );
+    }
+
     /**
      * Tests that {@link ConfigurationUtil#find(List, TraversableTreeNode, boolean)} returns null when path points to nonexistent named list
      * element.

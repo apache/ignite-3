@@ -538,7 +538,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 schemaField,
                 innerNodeClassDef.declareField(
                         EnumSet.of(PUBLIC, STATIC, FINAL),
-                        fieldName.toUpperCase(Locale.ROOT) + "SCHEMA_FIELD",
+                        fieldName.toUpperCase(Locale.ROOT) + "_SCHEMA_FIELD",
                         Field.class
                 )
         );
