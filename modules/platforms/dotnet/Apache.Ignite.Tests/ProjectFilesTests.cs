@@ -50,6 +50,7 @@ namespace Apache.Ignite.Tests
                 foreach (var type in Types)
                 {
                     StringAssert.DoesNotContain("public " + type, text, file);
+                    StringAssert.DoesNotContain("public static " + type, text, file);
                 }
             }
         }
