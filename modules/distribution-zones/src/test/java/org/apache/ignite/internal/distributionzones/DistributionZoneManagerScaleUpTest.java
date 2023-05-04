@@ -1352,7 +1352,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     }
 
     @Test
-    void testFilterOnScaleUpWithNodeWithNewAttributes() throws Exception {
+    void testFilterOnScaleUpWithNodeWithNewAttributesAfterRestart() throws Exception {
         NodeWithAttributes a1  = new NodeWithAttributes("A1", Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"));
         NodeWithAttributes a2  = new NodeWithAttributes("A2", Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"));
         NodeWithAttributes a3  = new NodeWithAttributes("A3", Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"));
