@@ -51,6 +51,7 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.fun.SqlCase;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.FamilyOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
@@ -569,6 +570,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         }
 
+        if (node instanceof SqlCase) {
+            super.inferUnknownTypes(inferredType, scope, node);
+        }
+
         if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
@@ -609,7 +614,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 SqlNode operand = operands.get(i);
 
                 if (operand != null) {
-                    super.inferUnknownTypes(operandTypes[i], scope, operand);
+                    inferUnknownTypes(operandTypes[i], scope, operand);
                 }
             }
         } else {
