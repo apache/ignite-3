@@ -786,9 +786,15 @@ public final class IgniteTestUtils {
 
         Stream.of(threads).forEach(Thread::start);
 
+        long endTs = System.currentTimeMillis() + timeoutMillis;
+
         try {
             for (Thread thread : threads) {
-                thread.join(timeoutMillis);
+                thread.join(Math.max(1, endTs - System.currentTimeMillis()));
+
+                if (thread.isAlive()) {
+                    throw new InterruptedException(); // Interrupt all actions and fail the race.
+                }
             }
         } catch (InterruptedException e) {
             for (Thread thread : threads) {

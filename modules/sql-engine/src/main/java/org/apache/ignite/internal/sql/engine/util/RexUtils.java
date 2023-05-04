@@ -84,6 +84,7 @@ import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -103,14 +104,6 @@ public class RexUtils {
 
     /** Hash index permitted search operations. */
     private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
-
-    /**
-     * MakeCast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RexNode makeCast(RexBuilder builder, RexNode node, RelDataType type) {
-        return TypeUtils.needCast(builder.getTypeFactory(), node.getType(), type) ? builder.makeCast(type, node) : node;
-    }
 
     /**
      * Builder.
@@ -415,8 +408,8 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                bounds.set(fldIdx, new ExactBounds(pred,
-                        makeCast(builder(cluster), removeCast(pred.operands.get(1)), types.get(fldIdx))));
+                RexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
+                bounds.set(fldIdx, new ExactBounds(pred, casted));
             }
         }
 
@@ -447,11 +440,7 @@ public class RexUtils {
             RexNode ref = pred.getOperands().get(0);
 
             if (isBinaryComparison(pred)) {
-                val = removeCast(pred.operands.get(1));
-
-                assert idxOpSupports(val) : val;
-
-                val = makeCast(builder, val, fldType);
+                val = addCast(cluster, pred.operands.get(1), fldType);
             }
 
             SqlOperator op = pred.getOperator();
@@ -651,7 +640,7 @@ public class RexUtils {
             RexSlot ref;
 
             if (isBinaryComparison(rexNode)) {
-                ref = (RexSlot) extractRefFromBinary(predCall, cluster);
+                ref = extractRefFromBinary(predCall, cluster);
 
                 if (ref == null) {
                     continue;
@@ -662,7 +651,7 @@ public class RexUtils {
                     predCall = (RexCall) invert(builder(cluster), predCall);
                 }
             } else {
-                ref = (RexSlot) extractRefFromOperand(predCall, cluster, 0);
+                ref = extractRefFromOperand(predCall, cluster, 0);
 
                 if (ref == null) {
                     continue;
@@ -686,17 +675,17 @@ public class RexUtils {
         }
     }
 
-    private static RexNode extractRefFromBinary(RexCall call, RelOptCluster cluster) {
-        assert isBinaryComparison(call);
+    private static @Nullable RexSlot extractRefFromBinary(RexCall call, RelOptCluster cluster) {
+        assert isBinaryComparison(call) : "Unsupported RexNode is binary comparison: " + call;
 
-        RexNode leftRef = extractRefFromOperand(call, cluster, 0);
+        RexSlot leftRef = extractRefFromOperand(call, cluster, 0);
         RexNode rightOp = call.getOperands().get(1);
 
         if (leftRef != null) {
             return idxOpSupports(removeCast(rightOp)) ? leftRef : null;
         }
 
-        RexNode rightRef = extractRefFromOperand(call, cluster, 1);
+        RexSlot rightRef = extractRefFromOperand(call, cluster, 1);
         RexNode leftOp = call.getOperands().get(0);
 
         if (rightRef != null) {
@@ -706,17 +695,22 @@ public class RexUtils {
         return null;
     }
 
-    private static RexNode extractRefFromOperand(RexCall call, RelOptCluster cluster, int operandNum) {
-        assert isSupportedTreeComparison(call);
+    private static @Nullable RexSlot extractRefFromOperand(RexCall call, RelOptCluster cluster, int operandNum) {
+        assert isSupportedTreeComparison(call) : "Unsupported RexNode is tree comparison: " + call;
 
         RexNode op = call.getOperands().get(operandNum);
 
         op = removeCast(op);
 
         // Can proceed without ref cast only if cast was redundant in terms of values comparison.
-        if ((op instanceof RexSlot)
-                && !TypeUtils.needCast(cluster.getTypeFactory(), op.getType(), call.getOperands().get(operandNum).getType())) {
-            return op;
+        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
+        assert typeCoercion != null : "type coercion";
+
+        if (op instanceof RexSlot) {
+            RelDataType operandType = call.getOperands().get(operandNum).getType();
+            if (!typeCoercion.needToCast(op.getType(), operandType)) {
+                return (RexSlot) op;
+            }
         }
 
         return null;
@@ -725,7 +719,7 @@ public class RexUtils {
     private static boolean refOnTheRight(RexCall predCall) {
         RexNode rightOp = predCall.getOperands().get(1);
 
-        rightOp = RexUtil.removeCast(rightOp);
+        rightOp = removeCast(rightOp);
 
         return rightOp.isA(SqlKind.LOCAL_REF) || rightOp.isA(SqlKind.INPUT_REF);
     }
@@ -758,40 +752,6 @@ public class RexUtils {
         }
 
         return !(op instanceof RexLiteral) || !((RexLiteral) op).isNull();
-    }
-
-    /**
-     * AsBound.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Deprecated(forRemoval = true)
-    public static List<RexNode> asBound(RelOptCluster cluster, Iterable<RexNode> idxCond, RelDataType rowType,
-            @Nullable Mappings.TargetMapping mapping) {
-        if (nullOrEmpty(idxCond)) {
-            return null;
-        }
-
-        RexBuilder builder = builder(cluster);
-        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-        List<RexNode> res = Arrays.asList(new RexNode[types.size()]);
-
-        for (RexNode pred : idxCond) {
-            assert pred instanceof RexCall;
-
-            RexCall call = (RexCall) pred;
-            RexSlot ref = (RexSlot) RexUtil.removeCast(call.operands.get(0));
-            RexNode cond = RexUtil.removeCast(call.operands.get(1));
-
-            assert idxOpSupports(cond) : cond;
-
-            int index = mapping == null ? ref.getIndex() : mapping.getSourceOpt(ref.getIndex());
-
-            assert index != -1;
-
-            res.set(index, makeCast(builder, cond, types.get(index)));
-        }
-
-        return res;
     }
 
     /**
@@ -964,6 +924,22 @@ public class RexUtils {
             return false;
         } catch (Util.FoundOne e) {
             return true;
+        }
+    }
+
+    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
+        RexNode node = removeCast(condition);
+
+        assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
+
+        IgniteTypeCoercion typeCoercion = cluster.getPlanner().getContext().unwrap(IgniteTypeCoercion.class);
+        assert typeCoercion != null : "type coercion";
+
+        if (typeCoercion.needToCast(node.getType(), type)) {
+            RexBuilder builder = cluster.getRexBuilder();
+            return builder.makeCast(type, node);
+        } else {
+            return node;
         }
     }
 

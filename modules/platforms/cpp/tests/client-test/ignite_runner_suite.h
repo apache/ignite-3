@@ -42,6 +42,7 @@ public:
 
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
     static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"sv;
 
     inline static const std::string PLATFORM_TEST_NODE_RUNNER =
         "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";

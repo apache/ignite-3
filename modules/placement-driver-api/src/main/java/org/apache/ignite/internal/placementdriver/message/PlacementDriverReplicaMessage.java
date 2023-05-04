@@ -17,19 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-
 /**
- * Placement driver replica messages.
+ * This is a marker interface. It marks a massage type that is sent from placement driver actor to a replica.
  */
-public interface PlacementDriverReplicaMessage extends NetworkMessage {
-    /**
-     * Gets a replication group id.
-     *
-     * @return Replication group id.
-     */
-    @Marshallable
-    ReplicationGroupId groupId();
+public interface PlacementDriverReplicaMessage extends PlacementDriverMessage {
 }

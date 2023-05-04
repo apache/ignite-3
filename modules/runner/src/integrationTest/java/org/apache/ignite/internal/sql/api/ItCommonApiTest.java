@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -134,7 +135,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
                 SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
+        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), DEFAULT_ZONE_NAME, tblCh ->
                 SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
         ));
 

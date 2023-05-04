@@ -24,6 +24,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -63,6 +65,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
+
+            if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
+                SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
+                BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
+
+                if (tupleSchema != null
+                        && tupleReader != null
+                        && tupleSchema.version() == schema.version()
+                        && !binaryTupleRebuildRequired(schema)) {
+                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                }
+            }
 
             InternalTuple keyTuple0 = toInternalTuple(schema, tuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, tuple, false);
@@ -317,8 +331,19 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param tup    Internal tuple.
      * @throws SchemaMismatchException If a tuple column value doesn't match the current column type.
      */
-    private void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
+    private static void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
         RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
+    }
+
+    /**
+     * Determines whether binary tuple rebuild is required.
+     *
+     * @param schema Schema.
+     * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
+     */
+    private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
+        // Temporal columns require normalization according to the specified precision.
+        return schema.hasTemporalColumns();
     }
 
     /**

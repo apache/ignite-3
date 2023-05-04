@@ -31,7 +31,6 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -41,14 +40,14 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExis
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
-import org.apache.ignite.internal.deployunit.metastore.EntrySubscriber;
-import org.apache.ignite.internal.deployunit.metastore.SortedListAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.UnitsAccumulator;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.util.subscription.SortedListAccumulator;
 import org.apache.ignite.network.ClusterService;
 
 /**
@@ -137,7 +136,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         Map<String, byte[]> unitContent;
                         try {
                             unitContent = deploymentUnit.content().entrySet().stream()
-                                    .collect(Collectors.toMap(Entry::getKey, entry -> readContent(entry.getValue())));
+                                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> readContent(entry.getValue())));
                         } catch (DeploymentUnitReadException e) {
                             return failedFuture(e);
                         }
@@ -208,7 +207,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     public CompletableFuture<List<UnitStatus>> unitsAsync() {
         CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
         metastore.getAll()
-                .subscribe(new EntrySubscriber<>(result, new UnitsAccumulator()));
+                .subscribe(new UnitsAccumulator().toSubscriber(result));
         return result;
     }
 
@@ -218,11 +217,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         CompletableFuture<List<Version>> result = new CompletableFuture<>();
         metastore.getAllWithId(id)
                 .subscribe(
-                        new EntrySubscriber<>(
-                                result,
-                                new SortedListAccumulator<>(e -> UnitMetaSerializer.deserialize(e.value()).version())
-                        )
-                );
+                        new SortedListAccumulator<Entry, Version>(e -> UnitMetaSerializer.deserialize(e.value()).version())
+                                .toSubscriber(result));
         return result;
     }
 
@@ -231,7 +227,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         checkId(id);
         CompletableFuture<UnitStatus> result = new CompletableFuture<>();
         metastore.getAllWithId(id)
-                .subscribe(new EntrySubscriber<>(result, new UnitStatusAccumulator(id)));
+                .subscribe(new UnitStatusAccumulator(id).toSubscriber(result));
         return result;
     }
 
@@ -242,10 +238,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
         metastore.getAll()
                 .subscribe(
-                        new EntrySubscriber<>(
-                                result,
-                                new UnitsAccumulator(meta -> meta.consistentIdLocation().contains(consistentId))
-                        )
+                        new UnitsAccumulator(meta -> meta.consistentIdLocation().contains(consistentId)).toSubscriber(result)
                 );
         return result;
     }

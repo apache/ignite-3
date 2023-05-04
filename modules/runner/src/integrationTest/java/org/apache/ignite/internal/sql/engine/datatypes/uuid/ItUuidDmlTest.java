@@ -18,19 +18,19 @@
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseDmlCustomDataTypeTest;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseDmlDataTypeTest;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
- * Tests for DML operators for {@link UuidType UUID data type}.
+ * Tests for DML statements for {@link UuidType UUID data type}.
  */
-public class ItUuidDmlTest extends BaseDmlCustomDataTypeTest<UUID> {
+public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
 
     /** {@inheritDoc} **/
     @Override
-    protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
-        return CustomDataTypeTestSpecs.UUID_TYPE;
+    protected DataTypeTestSpec<UUID> getTypeSpec() {
+        return DataTypeTestSpecs.UUID_TYPE;
     }
 }

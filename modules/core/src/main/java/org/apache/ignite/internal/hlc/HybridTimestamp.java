@@ -19,22 +19,35 @@ package org.apache.ignite.internal.hlc;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
  */
 public final class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
     /** Serial version UID. */
-    private static final long serialVersionUID = 2459861612869605904L;
+    private static final long serialVersionUID = -4285668148196042529L;
+
+    /** Time value to store for {@code null} hybrid timestamp values. */
+    public static final long NULL_HYBRID_TIMESTAMP = 0L;
+
+    /** Number of bits in "logical time" part. */
+    public static final int LOGICAL_TIME_BITS_SIZE = 2 * Byte.SIZE;
+
+    /** Mask to extract logical time. */
+    public static final long LOGICAL_TIME_MASK = (1L << LOGICAL_TIME_BITS_SIZE) - 1;
+
+    /** Number of bits in "physical time" part. */
+    public static final int PHYSICAL_TIME_BITS_SIZE = 6 * Byte.SIZE;
 
     /** Timestamp size in bytes. */
-    public static final int HYBRID_TIMESTAMP_SIZE = Long.BYTES + Integer.BYTES;
+    public static final int HYBRID_TIMESTAMP_SIZE = Long.BYTES;
 
     /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
-    public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE, Integer.MAX_VALUE);
+    public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE);
 
     /** The constant holds the minimum value which {@code HybridTimestamp} might formally have. */
-    public static final HybridTimestamp MIN_VALUE = new HybridTimestamp(1L, -1);
+    public static final HybridTimestamp MIN_VALUE = new HybridTimestamp(0L, 1);
 
     /**
      * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
@@ -42,11 +55,8 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     private static final long CLOCK_SKEW = 7L;
 
-    /** Physical clock. */
-    private final long physical;
-
-    /** Logical clock. */
-    private final int logical;
+    /** Long time value, that consists of physical time in higher 6 bytes and logical time in lower 2 bytes. */
+    private final long time;
 
     /**
      * The constructor.
@@ -55,13 +65,58 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * @param logical The logical time.
      */
     public HybridTimestamp(long physical, int logical) {
-        assert physical > 0 : physical;
-        // Value -1 is used in "org.apache.ignite.internal.hlc.HybridClock.update" to produce "0" after the increment.
-        // Real usable value cannot be negative.
-        assert logical >= -1 : logical;
+        if (physical < 0 || physical >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + physical);
+        }
 
-        this.physical = physical;
-        this.logical = logical;
+        if (logical < 0 || logical >= (1L << LOGICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Logical time is out of bounds: " + logical);
+        }
+
+        time = (physical << LOGICAL_TIME_BITS_SIZE) | logical;
+
+        // Negative time breaks comparison, we don't allow overflow of the physical time.
+        // "0" is a reserved value for "NULL_HYBRID_TIMESTAMP".
+        if (time <= 0) {
+            throw new IllegalArgumentException("Time is out of bounds: " + time);
+        }
+    }
+
+    private HybridTimestamp(long time) {
+        this.time = time;
+
+        // Negative time breaks comparison, we don't allow overflow of the physical time.
+        // "0" is a reserved value for "NULL_HYBRID_TIMESTAMP".
+        if (time <= 0) {
+            throw new IllegalArgumentException("Time is out of bounds: " + time);
+        }
+    }
+
+    /**
+     * Converts primitive {@code long} representation into a hybrid timestamp instance.
+     * {@link #NULL_HYBRID_TIMESTAMP} is interpreted as {@code null}.
+     *
+     * @throws IllegalArgumentException If timestamp is negative.
+     */
+    public static @Nullable HybridTimestamp nullableHybridTimestamp(long time) {
+        return time == NULL_HYBRID_TIMESTAMP ? null : new HybridTimestamp(time);
+    }
+
+    /**
+     * Converts primitive {@code long} representation into a hybrid timestamp instance.
+     *
+     * @throws IllegalArgumentException If timestamp is not positive.
+     */
+    public static HybridTimestamp hybridTimestamp(long time) {
+        return new HybridTimestamp(time);
+    }
+
+    /**
+     * Converts hybrid timestamp instance to a primitive {@code long} representation.
+     * {@code null} is represented as {@link #NULL_HYBRID_TIMESTAMP}.
+     */
+    public static long hybridTimestampToLong(@Nullable HybridTimestamp timestamp) {
+        return timestamp == null ? NULL_HYBRID_TIMESTAMP : timestamp.time;
     }
 
     /**
@@ -91,7 +146,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * @return The physical component.
      */
     public long getPhysical() {
-        return physical;
+        return time >>> LOGICAL_TIME_BITS_SIZE;
     }
 
     /**
@@ -100,16 +155,14 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * @return The logical component.
      */
     public int getLogical() {
-        assert logical >= 0;
-
-        return logical;
+        return (int) (time & LOGICAL_TIME_MASK);
     }
 
     /**
-     * Returns a new hybrid timestamp with incremented logical component.
+     * Returns a compressed representation as a primitive {@code long} value.
      */
-    public HybridTimestamp addTicks(int ticks) {
-        return new HybridTimestamp(physical, this.logical + ticks);
+    public long longValue() {
+        return time;
     }
 
     @Override
@@ -121,19 +174,12 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
             return false;
         }
 
-        HybridTimestamp that = (HybridTimestamp) o;
-
-        if (physical != that.physical) {
-            return false;
-        }
-        return logical == that.logical;
+        return time == ((HybridTimestamp) o).time;
     }
 
     @Override
     public int hashCode() {
-        int result = (int) (physical ^ (physical >>> 32));
-        result = 31 * result + logical;
-        return result;
+        return Long.hashCode(time);
     }
 
     /**
@@ -174,11 +220,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     @Override
     public int compareTo(HybridTimestamp other) {
-        if (this.physical == other.physical) {
-            return Integer.compare(this.logical, other.logical);
-        }
-
-        return Long.compare(this.physical, other.physical);
+        return Long.compare(this.time, other.time);
     }
 
     @Override
@@ -190,6 +232,10 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Returns a new hybrid timestamp with incremented physical component.
      */
     public HybridTimestamp addPhysicalTime(long mills) {
-        return new HybridTimestamp(physical + mills, logical);
+        if (mills >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + mills);
+        }
+
+        return new HybridTimestamp(time + (mills << LOGICAL_TIME_BITS_SIZE));
     }
 }

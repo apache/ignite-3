@@ -37,6 +37,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -49,7 +50,7 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.internal.tls.OkHostnameVerifier;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.jetbrains.annotations.Nullable;
@@ -60,6 +61,8 @@ import org.jetbrains.annotations.Nullable;
  */
 @Singleton
 public class ApiClientFactory {
+
+    private static final Pattern INCORRECT_PASSWORD_PATTERN = Pattern.compile(".*keystore password was incorrect.*");
 
     private final Map<ApiClientSettings, ApiClient> clientMap = new ConcurrentHashMap<>();
 
@@ -120,7 +123,7 @@ public class ApiClientFactory {
                     .setBasePath(settings.basePath());
 
         } catch (Exception e) {
-            throw new IgniteCliException("Couldn't build REST client", e);
+            throw new IgniteCliApiException(e, settings.basePath());
         }
     }
 
@@ -145,32 +148,48 @@ public class ApiClientFactory {
 
     private static KeyManagerFactory keyManagerFactory(ApiClientSettings settings)
             throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, CertificateException, IOException {
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        try {
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 
-        if (nullOrBlank(settings.keyStorePath())) {
-            keyManagerFactory.init(null, null);
-        } else {
-            char[] password = settings.keyStorePassword() == null ? null : settings.keyStorePassword().toCharArray();
-            KeyStore keyStore = KeyStore.getInstance(new File(settings.keyStorePath()), password);
-            keyManagerFactory.init(keyStore, settings.keyStorePassword().toCharArray());
+            if (nullOrBlank(settings.keyStorePath())) {
+                keyManagerFactory.init(null, null);
+            } else {
+                char[] password = settings.keyStorePassword() == null ? null : settings.keyStorePassword().toCharArray();
+                KeyStore keyStore = KeyStore.getInstance(new File(settings.keyStorePath()), password);
+                keyManagerFactory.init(keyStore, password);
+            }
+
+            return keyManagerFactory;
+        } catch (IOException e) {
+            if (INCORRECT_PASSWORD_PATTERN.matcher(e.getMessage()).matches()) {
+                throw new IOException("Key-store password was incorrect", e.getCause());
+            } else {
+                throw e;
+            }
         }
-
-        return keyManagerFactory;
     }
 
     private static TrustManagerFactory trustManagerFactory(ApiClientSettings settings)
             throws NoSuchAlgorithmException, KeyStoreException, CertificateException, IOException {
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        try {
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 
-        if (nullOrBlank(settings.trustStorePath())) {
-            trustManagerFactory.init((KeyStore) null);
-        } else {
-            char[] password = settings.trustStorePassword() == null ? null : settings.trustStorePassword().toCharArray();
-            KeyStore trustStore = KeyStore.getInstance(new File(settings.trustStorePath()), password);
-            trustManagerFactory.init(trustStore);
+            if (nullOrBlank(settings.trustStorePath())) {
+                trustManagerFactory.init((KeyStore) null);
+            } else {
+                char[] password = settings.trustStorePassword() == null ? null : settings.trustStorePassword().toCharArray();
+                KeyStore trustStore = KeyStore.getInstance(new File(settings.trustStorePath()), password);
+                trustManagerFactory.init(trustStore);
+            }
+
+            return trustManagerFactory;
+        } catch (IOException e) {
+            if (INCORRECT_PASSWORD_PATTERN.matcher(e.getMessage()).matches()) {
+                throw new IOException("Trust-store password was incorrect", e.getCause());
+            } else {
+                throw e;
+            }
         }
-
-        return trustManagerFactory;
     }
 
     @Nullable

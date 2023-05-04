@@ -52,6 +52,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -76,6 +78,8 @@ import org.jetbrains.annotations.Nullable;
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(JdbcQueryEventHandlerImpl.class);
 
     /** {@link SqlQueryType}s allowed in JDBC select statements. **/
     private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
@@ -167,6 +171,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req))
                 .thenApply(jdbcResult -> new JdbcQueryExecuteResult(List.of(jdbcResult)))
                 .exceptionally(t -> {
+                    LOG.info("Exception while executing query [query=" + req.sqlQuery() + "]", ExceptionUtils.unwrapCause(t));
+
                     StringWriter sw = getWriterWithStackTrace(t);
 
                     return new JdbcQueryExecuteResult(Response.STATUS_FAILED,
@@ -476,7 +482,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                 this.sessionId = null;
 
-                cleaner.clean(sessionId);
+                if (sessionId != null) {
+                    cleaner.clean(sessionId);
+                }
             }
         }
 

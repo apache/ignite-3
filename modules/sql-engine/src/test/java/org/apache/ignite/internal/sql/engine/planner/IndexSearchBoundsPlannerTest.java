@@ -43,7 +43,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -67,7 +67,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     @BeforeEach
     public void beforeEach() {
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
 
         tbl = new TestTable(
                 new RelDataTypeFactory.Builder(typeFactory)
@@ -336,13 +336,19 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > 1",
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > '1'",
+                exact(1),
+                range('1', "$NULL_BOUND()", false, false)
+        );
+
+        // Casted to INTEGER type C2 column cannot be used as index bound.
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2, 3)",
                 exact(1),
                 empty()
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2, 3)",
+        assertBounds("SELECT * FROM TEST WHERE CAST(CAST(C1 AS VARCHAR) AS INTEGER) = 1 AND C2 IN (2, 3)",
                 exact(1),
                 empty()
         );
