@@ -33,8 +33,6 @@ import java.lang.annotation.Target;
  * <li>Change - changes config tree</li>
  * <li>View - immutable object to view config tree</li>
  * </ul>
- *
- * <h2 class="header">Example</h2>
  * Here is how to create a configuration schema part:
  * <pre><code>
  * {@literal @}Config
