@@ -41,6 +41,7 @@ public class TableConfigurationSchema {
     public int tableId = 1;
 
     /** Distribution zone id. */
+    @Immutable
     @Value(hasDefault = true)
     public int zoneId = 0;
 

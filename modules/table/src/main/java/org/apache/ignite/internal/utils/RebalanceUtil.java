@@ -44,9 +44,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
+import org.apache.ignite.internal.table.distributed.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
@@ -103,7 +101,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, ZoneReplicaGroupId partId, Collection<String> dataNodes,
+            String tableName, ZonePartitionId partId, Collection<String> dataNodes,
             int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum, Set<Assignment> tableCfgPartAssignments) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -235,7 +233,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partChangeTriggerKey(ZoneReplicaGroupId partId) {
+    public static ByteArray partChangeTriggerKey(ZonePartitionId partId) {
         return new ByteArray(partId + ".change.trigger");
     }
 
@@ -246,7 +244,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray pendingPartAssignmentsKey(ZoneReplicaGroupId partId) {
+    public static ByteArray pendingPartAssignmentsKey(ZonePartitionId partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -257,7 +255,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray plannedPartAssignmentsKey(ZoneReplicaGroupId partId) {
+    public static ByteArray plannedPartAssignmentsKey(ZonePartitionId partId) {
         return new ByteArray("assignments.planned." + partId);
     }
 
@@ -268,7 +266,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray stablePartAssignmentsKey(ZoneReplicaGroupId partId) {
+    public static ByteArray stablePartAssignmentsKey(ZonePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -279,7 +277,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray switchReduceKey(ZoneReplicaGroupId partId) {
+    public static ByteArray switchReduceKey(ZonePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
     }
 
@@ -290,43 +288,32 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray switchAppendKey(ZoneReplicaGroupId partId) {
+    public static ByteArray switchAppendKey(ZonePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
     }
 
-    public static int extractRebalanceZoneId(byte[] key) {
-        return extractRebalanceZoneId(key, "");
+    /**
+     * Extract zone id from a metastorage key of partition.
+     *
+     * @param key Key.
+     * @return Table id.
+     */
+    public static int extractZoneId(byte[] key) {
+        return extractZoneId(key, "");
     }
 
-    public static int extractRebalanceZoneId(byte[] key, String prefix) {
+    /**
+     * Extract zone id from a metastorage key of partition.
+     *
+     * @param key Key.
+     * @param prefix Key prefix.
+     * @return Zone id.
+     */
+    public static int extractZoneId(byte[] key, String prefix) {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
-
-//    /**
-//     * Extract table id from a metastorage key of partition.
-//     *
-//     * @param key Key.
-//     * @return Table id.
-//     */
-//    public static UUID extractTableId(byte[] key) {
-//
-//        return extractTableId(key, "");
-//    }
-
-//    /**
-//     * Extract table id from a metastorage key of partition.
-//     *
-//     * @param key Key.
-//     * @param prefix Key prefix.
-//     * @return Table id.
-//     */
-//    public static UUID extractTableId(byte[] key, String prefix) {
-//        String strKey = new String(key, StandardCharsets.UTF_8);
-//
-//        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
-//    }
 
     /**
      * Extract partition number from the rebalance key of partition.
@@ -361,7 +348,7 @@ public class RebalanceUtil {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> startPeerRemoval(
-            ZoneReplicaGroupId partId,
+            ZonePartitionId partId,
             Assignment peerAssignment,
             MetaStorageManager metaStorageMgr
     ) {
@@ -414,7 +401,7 @@ public class RebalanceUtil {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, int partNum, ZoneReplicaGroupId partId, WatchEvent event) {
+            int replicas, int partNum, ZonePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 

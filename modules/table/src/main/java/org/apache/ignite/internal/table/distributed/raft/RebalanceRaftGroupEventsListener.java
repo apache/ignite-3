@@ -60,7 +60,7 @@ import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
-import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
+import org.apache.ignite.internal.table.distributed.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
@@ -109,7 +109,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Table configuration instance. */
     private final TableConfiguration tblConfiguration;
 
-    private final ZoneReplicaGroupId zoneReplicaGroupId;
+    /** Complex partition id (zoneId, partId). */
+    private final ZonePartitionId partId;
 
     /** Partition number. */
     private final int partNum;
@@ -150,8 +151,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
-        // TODO: KKK we need to receive the right zone key here. Eventual alter zone can ruin the whole idea.
-        this.zoneReplicaGroupId = new ZoneReplicaGroupId(tblConfiguration.zoneId().value(), partNum);
+        this.partId = new ZonePartitionId(tblConfiguration.zoneId().value(), partNum);
         this.partNum = partNum;
         this.busyLock = busyLock;
         this.partitionMover = partitionMover;
@@ -175,7 +175,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     rebalanceAttempts.set(0);
 
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(zoneReplicaGroupId)).get().value();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsBytes);
@@ -193,7 +193,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
                         LOG.info("New leader elected. Going to apply new configuration "
                                         + "[group={}, partition={}, table={}, peers={}, learners={}]",
-                                zoneReplicaGroupId, partNum, tblConfiguration.name().value(), peers, learners);
+                                partId, partNum, tblConfiguration.name().value(), peers, learners);
 
                         PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
@@ -248,7 +248,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             if (status.equals(Status.LEADER_STEPPED_DOWN)) {
                 // Leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
-                LOG.info("Leader stepped down during rebalance [partId={}]", zoneReplicaGroupId);
+                LOG.info("Leader stepped down during rebalance [partId={}]", partId);
 
                 return;
             }
@@ -258,12 +258,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             assert raftError == RaftError.ECATCHUP : "According to the JRaft protocol, " + RaftError.ECATCHUP
                     + " is expected, got " + raftError;
 
-            LOG.debug("Error occurred during rebalance [partId={}]", zoneReplicaGroupId);
+            LOG.debug("Error occurred during rebalance [partId={}]", partId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
                 scheduleChangePeers(configuration, term);
             } else {
-                LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", zoneReplicaGroupId,
+                LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", partId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
@@ -287,7 +287,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             }
 
-            LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zoneReplicaGroupId);
+            LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), partId);
 
             try {
                 partitionMover.movePartition(peersAndLearners, term).join();
@@ -302,11 +302,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      */
     private void doOnNewPeersConfigurationApplied(PeersAndLearners configuration) {
         try {
-            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(zoneReplicaGroupId);
-            ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(zoneReplicaGroupId);
-            ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(zoneReplicaGroupId);
-            ByteArray switchReduceKey = switchReduceKey(zoneReplicaGroupId);
-            ByteArray switchAppendKey = switchAppendKey(zoneReplicaGroupId);
+            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsKey(partId);
+            ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(partId);
+            ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(partId);
+            ByteArray switchReduceKey = switchReduceKey(partId);
+            ByteArray switchAppendKey = switchAppendKey(partId);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             Map<ByteArray, Entry> values = metaStorageMgr.getAll(

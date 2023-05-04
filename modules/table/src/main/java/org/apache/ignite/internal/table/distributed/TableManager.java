@@ -25,7 +25,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
@@ -35,7 +34,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
-import static org.apache.ignite.internal.utils.RebalanceUtil.extractRebalanceZoneId;
+import static org.apache.ignite.internal.utils.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
@@ -146,7 +145,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Snaps
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.replicator.ZoneReplicaGroupId;
+import org.apache.ignite.internal.table.distributed.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -606,8 +605,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
 
-                // TODO: KKK the ticket number is needed.
-                assert tblsCfg.size() < 2 : "Rebalance is not working for the zone with > 1 tables";
+                assert tblsCfg.size() < 2 : "Change for the number of zone replicas is not available, if zone has more than 1 table";
 
                 CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
 
@@ -627,9 +625,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
 
                     for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
-
-                        futs[furCur++] = updatePendingAssignmentsKeys(tblCfg.name().value(), new ZoneReplicaGroupId(tblCfg.zoneId().value(), i),
+                        futs[furCur++] = updatePendingAssignmentsKeys(
+                                tblCfg.name().value(), new ZonePartitionId(tblCfg.zoneId().value(), i),
                                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
                                 replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
                     }
@@ -725,10 +722,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PeersAndLearners newConfiguration = configurationFromAssignments(newPartAssignment);
 
-                ZoneReplicaGroupId replicaGrpId = new ZoneReplicaGroupId(tblCfg.zoneId(), partId);
+                ZonePartitionId zonePartId = new ZonePartitionId(tblCfg.zoneId(), partId);
                 TablePartitionId tblPartId = new TablePartitionId(tblId, partId);
 
-                placementDriver.updateAssignment(tblPartId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
+                placementDriver.updateAssignment(zonePartId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
                 var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
@@ -777,7 +774,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
 
                                 if (majorityAvailable) {
-                                    RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
+                                    RebalanceUtil.startPeerRemoval(zonePartId, localMemberAssignment, metaStorageMgr);
 
                                     return false;
                                 } else {
@@ -1905,10 +1902,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
-
-                                // TODO: KKK Alter table can ruin the whole strategy.
-                                ZoneReplicaGroupId replicaGrpId = new ZoneReplicaGroupId(tableCfg.zoneId().value(), part);
+                                ZonePartitionId replicaGrpId = new ZonePartitionId(tableCfg.zoneId().value(), part);
 
                                 int replicas = distributionZoneConfiguration.replicas().value();
 
@@ -1979,10 +1973,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         int partId = extractPartitionNumber(pendingAssignmentsWatchEntry.key());
-        // TODO: KKK extract of table id is not available here
-        int zoneId = extractRebalanceZoneId(pendingAssignmentsWatchEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
+        int zoneId = extractZoneId(pendingAssignmentsWatchEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
 
-        ZoneReplicaGroupId replicaGrpId = new ZoneReplicaGroupId(zoneId, partId);
+        ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partId);
 
         CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), evt.revision());
 
@@ -2007,7 +2000,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
-            ZoneReplicaGroupId replicaGrpId,
+            ZonePartitionId zonePartitionId,
             TableImpl tbl,
             Entry pendingAssignmentsEntry,
             Entry stableAssignmentsEntry
@@ -2015,15 +2008,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // Assignments of the pending rebalance that we received through the Meta storage watch mechanism.
         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tbl.tableId(), replicaGrpId.partId);
+        TablePartitionId tablePartitionId = new TablePartitionId(tbl.tableId(), zonePartitionId.partitionId());
 
         PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
 
         ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
-        DistributionZoneConfiguration dstZoneCfg = getZoneById(distributionZonesConfiguration, replicaGrpId.zoneId);
+        DistributionZoneConfiguration dstZoneCfg = getZoneById(distributionZonesConfiguration, zonePartitionId.zoneId());
 
-        int partId = replicaGrpId.partId;
+        int partId = zonePartitionId.partitionId();
 
         byte[] stableAssignmentsBytes = stableAssignmentsEntry.value();
 
@@ -2035,7 +2028,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
 
         placementDriver.updateAssignment(
-                tablePartitionId,
+                zonePartitionId,
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
 
@@ -2151,7 +2144,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return localServicesStartFuture
-                .thenCompose(v -> metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId)))
+                .thenCompose(v -> metaStorageMgr.get(pendingPartAssignmentsKey(zonePartitionId)))
                 .thenCompose(latestPendingAssignmentsEntry -> {
                     // Do not change peers of the raft group if this is a stale event.
                     // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
@@ -2231,9 +2224,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     byte[] key = evt.entryEvent().newEntry().key();
 
                     int partitionNumber = extractPartitionNumber(key);
-                    int zoneId = extractRebalanceZoneId(key);
+                    int zoneId = RebalanceUtil.extractZoneId(key);
 
-                    ZoneReplicaGroupId replicaGrpId = new ZoneReplicaGroupId(zoneId, partitionNumber);
+                    ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionNumber);
 
                     return tablesByIdVv.get(evt.revision())
                             .thenCompose(tables -> {
@@ -2343,17 +2336,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-        int zoneId = extractRebalanceZoneId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+        int zoneId = extractZoneId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
         UUID tableId = tableIdByZoneId(zoneId);
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
-        ZoneReplicaGroupId zoneReplicaGroupId = new ZoneReplicaGroupId(zoneId, partitionId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionId);
 
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
-        return metaStorageMgr.get(pendingPartAssignmentsKey(zoneReplicaGroupId), stableAssignmentsWatchEvent.revision())
+        return metaStorageMgr.get(pendingPartAssignmentsKey(zonePartitionId), stableAssignmentsWatchEvent.revision())
                 .thenComposeAsync(pendingAssignmentsEntry -> {
                     byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 

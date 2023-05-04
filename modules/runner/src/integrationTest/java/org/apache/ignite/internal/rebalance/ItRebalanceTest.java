@@ -78,6 +78,22 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         cluster.shutdown();
     }
 
+    @Test
+    void test() throws InterruptedException {
+
+        cluster.startAndInit(2);
+
+        //Creates table with 1 partition and 3 replicas.
+        createTestTable();
+
+        String sql1 = "alter zone test_zone with "
+                + "replicas=4";
+
+        cluster.doInSession(0, session -> {
+            executeUpdate(sql1, session);
+        });
+    }
+
     /**
      * The test checks that data is rebalanced after node with replica is left and joined to the cluster.
      *
