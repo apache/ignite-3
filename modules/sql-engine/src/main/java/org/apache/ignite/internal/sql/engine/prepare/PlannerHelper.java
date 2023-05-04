@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
-import static org.apache.ignite.internal.sql.engine.util.Hints.DISABLE_RULE;
-import static org.apache.ignite.internal.sql.engine.util.Hints.ENFORCE_JOIN_ORDER;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -38,6 +38,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -83,8 +84,11 @@ public final class PlannerHelper {
 
             RelNode rel = root.rel;
 
-            if (DISABLE_RULE.presentWithParams(root.hints)) {
-                planner.setDisabledRules(DISABLE_RULE.params(root.hints));
+            Hints hints = Hints.parse(root.hints);
+
+            List<String> disableRuleParams = hints.params(DISABLE_RULE);
+            if (!disableRuleParams.isEmpty()) {
+                planner.setDisabledRules(Set.copyOf(disableRuleParams));
             }
 
             // Transformation chain
@@ -95,9 +99,9 @@ public final class PlannerHelper {
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
             boolean amountOfJoinsAreBig = hasTooMuchJoins(rel);
-            boolean enforceJoinOrder = ENFORCE_JOIN_ORDER.present(root.hints);
+            boolean enforceJoinOrder = hints.present(ENFORCE_JOIN_ORDER);
             if (amountOfJoinsAreBig || enforceJoinOrder) {
-                Set<String> disabledRules = new HashSet<>(DISABLE_RULE.params(root.hints));
+                Set<String> disabledRules = new HashSet<>(disableRuleParams);
 
                 disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE));
                 disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE_OUTER));

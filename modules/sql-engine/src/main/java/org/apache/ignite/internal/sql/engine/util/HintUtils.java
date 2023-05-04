@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.sql.engine.util.Hints.EXPAND_DISTINCT_AGG;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.EXPAND_DISTINCT_AGG;
 
+import java.util.Arrays;
+import java.util.StringJoiner;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 
 /**
  * Hint util methods.
@@ -37,8 +40,23 @@ public class HintUtils {
      */
     public static boolean isExpandDistinctAggregate(LogicalAggregate rel) {
         return rel.getHints().stream()
-                .anyMatch(EXPAND_DISTINCT_AGG::is)
+                .anyMatch(r -> r.hintName.equals(EXPAND_DISTINCT_AGG.name()))
                 && rel.getAggCallList().stream().anyMatch(AggregateCall::isDistinct);
     }
 
+    /**
+     * Generate string representation of the hint together with a list of parameters. Can be used as is in query.
+     *
+     * @return String representation of a hint together with a list of parameters..
+     */
+    public static String toHint(IgniteHint hint, String... params) {
+        StringJoiner joiner = new StringJoiner(",", "/*+ " + hint.name() + "(", ") */");
+
+        if (params != null) {
+            assert hint.paramSupport();
+            Arrays.stream(params).forEach(p -> joiner.add("'" + p + "'"));
+        }
+
+        return joiner.toString();
+    }
 }

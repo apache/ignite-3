@@ -86,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
@@ -142,9 +143,9 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy(Hints.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
-                                    .hintStrategy(Hints.DISABLE_RULE.name(), (hint, rel) -> true)
-                                    .hintStrategy(Hints.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
+                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
+                                    .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
+                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
                                     .build()
                     )
             )

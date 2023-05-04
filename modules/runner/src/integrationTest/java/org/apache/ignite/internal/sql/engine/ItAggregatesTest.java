@@ -24,7 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.util.Hints;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
@@ -38,7 +39,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Group of tests to verify aggregation functions.
  */
 public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
-    private static String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+    private static final String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
 
     private static final int ROWS = 103;
@@ -333,7 +334,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testEverySomeAggregate() throws Exception {
+    public void testEverySomeAggregate() {
         sql("CREATE TABLE t(c0 INT PRIMARY KEY, c1 INT, c2 INT)");
         sql("INSERT INTO t VALUES (1, null, 0)");
         sql("INSERT INTO t VALUES (2, 0, null)");
@@ -515,7 +516,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         assert pos >= 0;
 
         String newSql = sql.substring(0, pos + "select".length() + 1);
-        newSql += Hints.DISABLE_RULE.toHint(rules);
+        newSql += HintUtils.toHint(IgniteHint.DISABLE_RULE, rules);
         newSql += sql.substring(pos + "select".length() + 1);
         return newSql;
     }

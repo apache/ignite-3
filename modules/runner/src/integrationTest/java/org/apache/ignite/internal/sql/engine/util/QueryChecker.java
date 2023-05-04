@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -695,7 +696,7 @@ public abstract class QueryChecker {
                 assert SELECT_QRY_CHECK.matcher(qry).matches() : "SELECT query was expected: " + originalQuery + ". Updated: " + qry;
 
                 return SELECT_REGEXP.matcher(qry).replaceAll("select "
-                        + Hints.DISABLE_RULE.toHint(disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
+                        + HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
             } else {
                 return qry;
             }
