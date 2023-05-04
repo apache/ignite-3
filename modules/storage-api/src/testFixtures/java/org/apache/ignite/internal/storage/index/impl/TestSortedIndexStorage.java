@@ -144,6 +144,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
                         true
                 );
             } catch (IllegalArgumentException e) {
+                // Upper bound is below the lower bound.
                 navigableSet = emptyNavigableSet();
             }
         }
