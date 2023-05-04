@@ -146,7 +146,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
         }
 
         try {
-            VIEWT newVal = ConfigurationUtil.find(keys.subList(1, keys.size()), newRootNode, true);
+            VIEWT newVal = ConfigurationUtil.<VIEWT>find(keys.subList(1, keys.size()), newRootNode, true).value();
 
             synchronized (this) {
                 if (cachedRootNode == oldRootNode) {

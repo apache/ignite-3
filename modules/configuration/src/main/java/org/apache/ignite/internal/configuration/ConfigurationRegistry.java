@@ -58,6 +58,7 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
+import org.apache.ignite.internal.configuration.util.NodeValue;
 import org.apache.ignite.internal.configuration.validation.ExceptKeysValidator;
 import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
 import org.apache.ignite.internal.configuration.validation.OneOfValidator;
@@ -238,20 +239,21 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
         SuperRoot superRoot = changer.superRoot();
 
-        Object node;
+        NodeValue<?> node;
         try {
             node = ConfigurationUtil.find(path, superRoot, false);
         } catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
 
-        if (node instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) node).accept(null, null, visitor);
+        Object value = node.value();
+        if (value instanceof TraversableTreeNode) {
+            return ((TraversableTreeNode) value).accept(null, null, visitor);
         }
 
-        assert node == null || node instanceof Serializable;
+        assert value == null || value instanceof Serializable;
 
-        return visitor.visitLeafNode(null, null, (Serializable) node);
+        return visitor.visitLeafNode(node.field(), null, (Serializable) value);
     }
 
     /**

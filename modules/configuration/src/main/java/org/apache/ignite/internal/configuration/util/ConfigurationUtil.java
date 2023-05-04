@@ -139,39 +139,39 @@ public class ConfigurationUtil {
     /**
      * Search for the configuration node by the list of keys.
      *
-     * @param keys            Random access list with keys.
-     * @param node            Node where method will search for subnode.
+     * @param keys Random access list with keys.
+     * @param node Node where method will search for subnode.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @return Either {@link TraversableTreeNode} or {@link Serializable} depending on the keys and schema.
-     * @throws KeyNotFoundException            If node is not found.
+     * @throws KeyNotFoundException If node is not found.
      * @throws WrongPolymorphicTypeIdException If the type of the polymorphic configuration instance is not correct (unknown).
      */
-    public static <T> T find(
+    public static <T> NodeValue<T> find(
             List<String> keys,
             TraversableTreeNode node,
             boolean includeInternal
     ) throws KeyNotFoundException, WrongPolymorphicTypeIdException {
         assert keys instanceof RandomAccess : keys.getClass();
 
-        var visitor = new ConfigurationVisitor<T>() {
+        var visitor = new ConfigurationVisitor<NodeValue<T>>() {
             /** Current index of the key in the {@code keys}. */
             private int idx;
 
             /** {@inheritDoc} */
             @Override
-            public T visitLeafNode(Field field, String key, Serializable val) {
+            public NodeValue<T> visitLeafNode(Field field, String key, Serializable val) {
                 if (idx != keys.size()) {
                     throw new KeyNotFoundException("Configuration value '" + join(keys.subList(0, idx)) + "' is a leaf");
                 } else {
-                    return (T) val;
+                    return new NodeValue(field, val);
                 }
             }
 
             /** {@inheritDoc} */
             @Override
-            public T visitInnerNode(Field field, String key, InnerNode node) {
+            public NodeValue<T> visitInnerNode(Field field, String key, InnerNode node) {
                 if (idx == keys.size()) {
-                    return (T) node;
+                    return new NodeValue<>(field, (T) node);
                 } else if (node == null) {
                     throw new KeyNotFoundException("Configuration node '" + join(keys.subList(0, idx)) + "' is null");
                 } else {
@@ -192,9 +192,9 @@ public class ConfigurationUtil {
 
             /** {@inheritDoc} */
             @Override
-            public T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
+            public NodeValue<T> visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 if (idx == keys.size()) {
-                    return (T) node;
+                    return new NodeValue<>(field, (T) node);
                 } else {
                     String name = keys.get(idx++);
 

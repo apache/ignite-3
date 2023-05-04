@@ -204,30 +204,25 @@ public class ConfigurationUtilTest {
                 )
         );
 
-        assertSame(
-                parentNode,
-                ConfigurationUtil.find(List.of(), parentNode, true)
-        );
+        NodeValue<Object> root = find(List.of(), parentNode, true);
+        assertNull(root.field());
+        assertSame(parentNode, root.value());
 
-        assertSame(
-                parentChange.elements(),
-                ConfigurationUtil.find(List.of("elements"), parentNode, true)
-        );
+        NodeValue<Object> elements = find(List.of("elements"), parentNode, true);
+        assertNotNull(elements.field());
+        assertSame(parentChange.elements(), elements.value());
 
-        assertSame(
-                parentChange.elements().get("name"),
-                ConfigurationUtil.find(List.of("elements", "name"), parentNode, true)
-        );
+        NodeValue<Object> elementsName = find(List.of("elements", "name"), parentNode, true);
+        assertNotNull(elementsName.field());
+        assertSame(parentChange.elements().get("name"), elementsName.value());
 
-        assertSame(
-                parentChange.elements().get("name").child(),
-                ConfigurationUtil.find(List.of("elements", "name", "child"), parentNode, true)
-        );
+        NodeValue<Object> elementsNameChild = find(List.of("elements", "name", "child"), parentNode, true);
+        assertNotNull(elementsNameChild.field());
+        assertSame(parentChange.elements().get("name").child(), elementsNameChild.value());
 
-        assertSame(
-                parentChange.elements().get("name").child().str(),
-                ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parentNode, true)
-        );
+        NodeValue<Object> elementsNameChildStr = find(List.of("elements", "name", "child", "str"), parentNode, true);
+        assertNotNull(elementsNameChildStr.field());
+        assertSame(parentChange.elements().get("name").child().str(), elementsNameChildStr.value());
     }
 
     /**
@@ -240,12 +235,12 @@ public class ConfigurationUtilTest {
 
         ParentChange parentChange = (ParentChange) parentNode;
 
-        assertNull(ConfigurationUtil.find(List.of("elements", "name"), parentNode, true));
+        assertNull(find(List.of("elements", "name"), parentNode, true).value());
 
         parentChange.changeElements(elements -> elements.createOrUpdate("name", element -> {
         }));
 
-        assertNull(ConfigurationUtil.find(List.of("elements", "name", "child", "str"), parentNode, true));
+        assertNull(find(List.of("elements", "name", "child", "str"), parentNode, true).value());
     }
 
     /**
@@ -260,7 +255,7 @@ public class ConfigurationUtilTest {
 
         assertThrows(
                 KeyNotFoundException.class,
-                () -> ConfigurationUtil.find(List.of("elements", "name", "child"), parentNode, true)
+                () -> find(List.of("elements", "name", "child"), parentNode, true)
         );
 
         parentChange.changeElements(elements -> elements.createOrUpdate("name", element -> {
@@ -268,14 +263,14 @@ public class ConfigurationUtilTest {
 
         assertThrows(
                 KeyNotFoundException.class,
-                () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str0"), parentNode, true)
+                () -> find(List.of("elements", "name", "child", "str0"), parentNode, true)
         );
 
         ((NamedElementChange) parentChange.elements().get("name")).changeChild(child -> child.changeStr("value"));
 
         assertThrows(
                 KeyNotFoundException.class,
-                () -> ConfigurationUtil.find(List.of("elements", "name", "child", "str", "foo"), parentNode, true)
+                () -> find(List.of("elements", "name", "child", "str", "foo"), parentNode, true)
         );
     }
 
@@ -558,12 +553,12 @@ public class ConfigurationUtilTest {
 
         // Check that internal configuration will be found.
 
-        assertNull(find(List.of("str2"), innerNode, true));
-        assertEquals("foo", find(List.of("str3"), innerNode, true));
-        assertNotNull(find(List.of("subCfg1"), innerNode, true));
+        assertNull(find(List.of("str2"), innerNode, true).value());
+        assertEquals("foo", find(List.of("str3"), innerNode, true).value());
+        assertNotNull(find(List.of("subCfg1"), innerNode, true).value());
 
-        assertEquals("foo", find(List.of("subCfg", "str01"), innerNode, true));
-        assertEquals("foo", find(List.of("subCfg", "str02"), innerNode, true));
+        assertEquals("foo", find(List.of("subCfg", "str01"), innerNode, true).value());
+        assertEquals("foo", find(List.of("subCfg", "str02"), innerNode, true).value());
     }
 
     @Test

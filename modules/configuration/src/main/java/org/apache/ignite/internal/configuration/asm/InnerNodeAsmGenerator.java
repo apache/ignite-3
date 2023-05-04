@@ -85,6 +85,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -175,8 +176,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
     private static final String CONSTRUCT_MTD_NAME = "construct";
 
-    /** {@link Field} to {@link FieldDefinition} map. */
-    private final Map<Field, FieldDefinition> dieldToDieldDefinitionMap = new HashMap<>();
+    /** Mapping for each configuration schema node to it's {@link FieldDefinition}. */
+    private final Map<Field, FieldDefinition> fieldToFieldDefinitionMap = new HashMap<>();
 
     static {
         try {
@@ -318,11 +319,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         }
 
         MethodDefinition classInitializer = innerNodeClassDef.getClassInitializer();
-        dieldToDieldDefinitionMap.forEach((k, v) -> {
-            // get declared field
-            BytecodeExpression invoke = constantClass(k.getDeclaringClass())
+        fieldToFieldDefinitionMap.forEach((k, v) -> {
+            // Get declared field
+            BytecodeExpression getDeclaredFieldExp = constantClass(k.getDeclaringClass())
                     .invoke(GET_DECLARED_FIELD_MTD, constantString(k.getName()));
-            classInitializer.getBody().append(BytecodeExpressions.setStatic(v, invoke));
+            classInitializer.getBody().append(BytecodeExpressions.setStatic(v, getDeclaredFieldExp));
         });
 
         // org.apache.ignite.internal.configuration.tree.InnerNode#schemaType
@@ -533,9 +534,13 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             throw new IllegalArgumentException("Unsupported field: " + schemaField);
         }
 
-        dieldToDieldDefinitionMap.put(
+        fieldToFieldDefinitionMap.put(
                 schemaField,
-                innerNodeClassDef.declareField(EnumSet.of(PUBLIC, STATIC, FINAL), fieldName + "FieldDefinition", Field.class)
+                innerNodeClassDef.declareField(
+                        EnumSet.of(PUBLIC, STATIC, FINAL),
+                        fieldName.toUpperCase(Locale.ROOT) + "SCHEMA_FIELD",
+                        Field.class
+                )
         );
 
         return innerNodeClassDef.declareField(EnumSet.of(PUBLIC), fieldName, nodeFieldType);
@@ -1103,7 +1108,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             visitMethod = VISIT_NAMED;
         }
 
-        FieldDefinition definition = dieldToDieldDefinitionMap.get(schemaField);
+        FieldDefinition definition = fieldToFieldDefinitionMap.get(schemaField);
 
         return new BytecodeBlock().append(mtd.getScope().getVariable("visitor").invoke(
                 visitMethod,
