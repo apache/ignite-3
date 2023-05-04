@@ -249,6 +249,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *     watermark can be removed.
      */
     // TODO: IGNITE-16444 Correct compaction for Meta storage.
+    // TODO: IGNITE-19417 Provide low-watermark for compaction.
     void compact(HybridTimestamp compactionWatermark);
 
     /**
