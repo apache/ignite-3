@@ -609,7 +609,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 SqlNode operand = operands.get(i);
 
                 if (operand != null) {
-                    inferUnknownTypes(operandTypes[i], scope, operand);
+                    super.inferUnknownTypes(operandTypes[i], scope, operand);
                 }
             }
         } else {
