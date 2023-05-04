@@ -45,6 +45,8 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 
 ### Build Docs
 1. `dotnet tool restore`
-2. `docfx docfx_project/docfx.json`
+2. `dotnet docfx docfx_project/docfx.json`
 
 Resulting docs are in `docfx_project/_site`.
+
+To view them locally, run `dotnet docfx docfx_project/docfx.json --serve`.
