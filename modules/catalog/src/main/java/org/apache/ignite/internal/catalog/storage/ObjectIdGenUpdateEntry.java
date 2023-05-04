@@ -15,10 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog.storage;
+
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Marker interface for DDL command parameters.
+ * Describes update of the object id generator.
  */
-public interface DdlCommandParams {
+public class ObjectIdGenUpdateEntry implements UpdateEntry {
+    private static final long serialVersionUID = -6550888305785861504L;
+
+    private final int delta;
+
+    /**
+     * Constructs the object.
+     *
+     * @param delta A delta by which to correct the id generator.
+     */
+    public ObjectIdGenUpdateEntry(int delta) {
+        this.delta = delta;
+    }
+
+    /** Returns delta by which to correct the id generator. */
+    public int delta() {
+        return delta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 }

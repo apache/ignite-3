@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,19 +27,36 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateLog;
+import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 /**
@@ -46,11 +65,38 @@ import org.mockito.Mockito;
 public class CatalogServiceSelfTest {
     private static final String TABLE_NAME = "myTable";
 
-    @Test
-    public void testEmptyCatalog() {
-        CatalogServiceImpl service = new CatalogServiceImpl(Mockito.mock(MetaStorageManager.class));
+    private MetaStorageManager metastore;
+
+    private VaultManager vault;
+
+    private CatalogServiceImpl service;
+
+    @BeforeEach
+    void setUp() throws NodeStoppingException {
+        vault = new VaultManager(new InMemoryVaultService());
+
+        metastore = StandaloneMetaStorageManager.create(
+                vault, new SimpleInMemoryKeyValueStorage("test")
+        );
+
+        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, vault));
+
+        vault.start();
+        metastore.start();
         service.start();
 
+        metastore.deployWatches();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        service.stop();
+        metastore.stop();
+        vault.stop();
+    }
+
+    @Test
+    public void testEmptyCatalog() {
         assertNotNull(service.activeSchema(System.currentTimeMillis()));
         assertNotNull(service.schema(0));
 
@@ -70,15 +116,10 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateTable() {
-        CatalogServiceImpl service = new CatalogServiceImpl(Mockito.mock(MetaStorageManager.class));
-        service.start();
-
         CreateTableParams params = CreateTableParams.builder()
                 .schemaName("PUBLIC")
                 .tableName(TABLE_NAME)
                 .ifTableExists(true)
-                .partitions(100)
-                .replicas(10)
                 .zone("ZONE")
                 .columns(List.of(
                         new ColumnParams("key1", ColumnType.INT32, DefaultValue.constant(null), false),
@@ -87,13 +128,11 @@ public class CatalogServiceSelfTest {
                 ))
                 .primaryKeyColumns(List.of("key1", "key2"))
                 .colocationColumns(List.of("key2"))
-                .dataStorage("STORAGE")
-                .dataStorageOptions(Map.of("optKey", "optVal"))
                 .build();
 
-        CompletableFuture<?> fut = service.createTable(params);
+        CompletableFuture<Void> fut = service.createTable(params);
 
-        assertThat(fut, willBe(true));
+        assertThat(fut, willBe((Object) null));
 
         // Validate catalog version from the past.
         SchemaDescriptor schema = service.schema(0);
@@ -130,9 +169,6 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateTableIfExistsFlag() {
-        CatalogServiceImpl service = new CatalogServiceImpl(Mockito.mock(MetaStorageManager.class));
-        service.start();
-
         CreateTableParams params = CreateTableParams.builder()
                 .tableName("table1")
                 .columns(List.of(
@@ -143,8 +179,8 @@ public class CatalogServiceSelfTest {
                 .ifTableExists(true)
                 .build();
 
-        assertThat(service.createTable(params), willBe(true));
-        assertThat(service.createTable(params), willBe(false));
+        assertThat(service.createTable(params), willBe((Object) null));
+        assertThat(service.createTable(params), willThrowFast(TableAlreadyExistsException.class));
 
         CompletableFuture<?> fut = service.createTable(
                 CreateTableParams.builder()
@@ -158,5 +194,53 @@ public class CatalogServiceSelfTest {
                         .build());
 
         assertThat(fut, willThrowFast(TableAlreadyExistsException.class));
+    }
+
+    @Test
+    public void operationWillBeRetriedFiniteAmountOfTimes() {
+        UpdateLog updateLogMock = Mockito.mock(UpdateLog.class);
+
+        ArgumentCaptor<OnUpdateHandler> updateHandlerCapture = ArgumentCaptor.forClass(OnUpdateHandler.class);
+
+        doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
+
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock);
+        service.start();
+
+        when(updateLogMock.append(any())).thenAnswer(invocation -> {
+            // here we emulate concurrent updates. First of all, we return a future completed with "false"
+            // as if someone has concurrently appended an update. Besides, in order to unblock service and allow to
+            // make another attempt, we must notify service with the same version as in current attempt.
+            VersionedUpdate updateFromInvocation = invocation.getArgument(0, VersionedUpdate.class);
+
+            VersionedUpdate update = new VersionedUpdate(
+                    updateFromInvocation.version(),
+                    List.of(new ObjectIdGenUpdateEntry(1))
+            );
+
+            updateHandlerCapture.getValue().handle(update);
+
+            return completedFuture(false);
+        });
+
+        CompletableFuture<Void> createTableFut = service.createTable(simpleTable("T"));
+
+        assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
+
+        // retry limit is hardcoded at org.apache.ignite.internal.catalog.CatalogServiceImpl.MAX_RETRY_COUNT
+        Mockito.verify(updateLogMock, times(10)).append(any());
+    }
+
+    private static CreateTableParams simpleTable(String name) {
+        return CreateTableParams.builder()
+                .schemaName("PUBLIC")
+                .tableName(name)
+                .zone("ZONE")
+                .columns(List.of(
+                        new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true)
+                ))
+                .primaryKeyColumns(List.of("ID"))
+                .build();
     }
 }

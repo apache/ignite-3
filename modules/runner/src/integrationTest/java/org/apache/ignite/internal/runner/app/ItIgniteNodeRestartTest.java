@@ -61,6 +61,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -414,7 +415,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
 
-        CatalogManager catalogManager = new CatalogServiceImpl(metaStorageMgr);
+        CatalogManager catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr, vault)
+        );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
