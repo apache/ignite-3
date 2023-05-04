@@ -118,7 +118,7 @@ public class ClusterInitOptions {
             return clusterConfigOptions.config;
         } else if (clusterConfigOptions.file != null) {
             try {
-                return new String(Files.readAllBytes(clusterConfigOptions.file.toPath()));
+                return Files.readString(clusterConfigOptions.file.toPath());
             } catch (IOException e) {
                 throw new IgniteCliException("Couldn't read cluster configuration file: " + clusterConfigOptions.file, e);
             }
