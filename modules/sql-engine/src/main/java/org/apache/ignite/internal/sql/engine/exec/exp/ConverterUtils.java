@@ -21,18 +21,15 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
-import org.apache.calcite.linq4j.tree.ConstantExpression;
 import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
 import org.apache.calcite.linq4j.tree.Expression;
-import org.apache.calcite.linq4j.tree.ExpressionType;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.linq4j.tree.Types;
-import org.apache.calcite.linq4j.tree.UnaryExpression;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
@@ -221,9 +218,28 @@ public class ConverterUtils {
         if (toType == BigDecimal.class) {
             throw new AssertionError("For conversion to decimal, ConverterUtils#convertToDecimal method should be used instead.");
         }
+
+        // todo fix, move upper
+        if (toType == String.class) {
+            if (fromType == BigDecimal.class) {
+                // E.g. from "BigDecimal" to "String"
+                // Generate "SqlFunctions.toString(x)"
+                return Expressions.condition(
+                        Expressions.equal(operand, RexImpTable.NULL_EXPR),
+                        RexImpTable.NULL_EXPR,
+                        Expressions.call(
+                                IgniteSqlFunctions.class,
+                                "toString",
+                                operand));
+            }
+        }
+
+        var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
+        return toCustomType != null ? toCustomType : EnumUtils.convert(operand, toType);
+
         // E.g. from "Short" to "int".
         // Generate "x.intValue()".
-        final Primitive toPrimitive = Primitive.of(toType);
+        /*final Primitive toPrimitive = Primitive.of(toType);
         final Primitive toBox = Primitive.ofBox(toType);
         final Primitive fromBox = Primitive.ofBox(fromType);
         final Primitive fromPrimitive = Primitive.of(fromType);
@@ -402,7 +418,7 @@ public class ConverterUtils {
             return toCustomType;
         } else {
             return Expressions.convert_(operand, toType);
-        }
+        }*/
     }
 
     private static boolean isA(Type fromType, Primitive primitive) {
