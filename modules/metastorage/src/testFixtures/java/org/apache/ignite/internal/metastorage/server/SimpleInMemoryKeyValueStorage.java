@@ -481,15 +481,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(HybridTimestamp compactionWatermark) {
+    public void compact(HybridTimestamp lowWatermark) {
         synchronized (mux) {
             NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
 
             NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
 
-            long maxCompactionRevision = tsToRevMap.floorEntry(compactionWatermark.longValue()).getValue();
+            long maxRevision = tsToRevMap.floorEntry(lowWatermark.longValue()).getValue();
 
-            keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxCompactionRevision));
+            keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxRevision));
 
             keysIdx = compactedKeysIdx;
 
@@ -529,7 +529,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             List<Long> revs,
             Map<byte[], List<Long>> compactedKeysIdx,
             Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx,
-            long revisionWatermark
+            long maxRevision
     ) {
         List<Long> revsToKeep = new ArrayList<>();
 
@@ -538,7 +538,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         for (int i = 0; i < revs.size(); i++) {
             long rev = revs.get(i);
 
-            if (rev > revisionWatermark || (i == revs.size() - 1)) {
+            if (rev > maxRevision || (i == revs.size() - 1)) {
+                // If this revision is higher than max revision or is the last revision, we may need to keep it.
                 NavigableMap<byte[], Value> kv = revsIdx.get(rev);
 
                 Value value = kv.get(key);
@@ -547,6 +548,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     firstToKeep = false;
 
                     if (value.tombstone()) {
+                        // If this is a first revision we are keeping and it is a tombstone, then don't keep it.
                         continue;
                     }
                 }
@@ -556,6 +558,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         k -> new TreeMap<>(CMP)
                 );
 
+                // Keep the entry and the revision.
                 compactedKv.put(key, value);
 
                 revsToKeep.add(rev);

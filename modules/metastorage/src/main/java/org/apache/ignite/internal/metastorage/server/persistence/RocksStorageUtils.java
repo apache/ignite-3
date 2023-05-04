@@ -41,11 +41,6 @@ class RocksStorageUtils {
             ByteOrder.BIG_ENDIAN
     );
 
-    private static final VarHandle INT_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(
-            int[].class,
-            ByteOrder.BIG_ENDIAN
-    );
-
     /**
      * Converts a long value to a byte array.
      *
@@ -60,12 +55,17 @@ class RocksStorageUtils {
         return buffer;
     }
 
-    static void putLongToBytes(long value, byte[] buffer, int position) {
-        LONG_ARRAY_HANDLE.set(buffer, position, value);
-    }
+    /**
+     * Puts a {@code long} value to the byte array at specified position.
+     *
+     * @param value Value.
+     * @param array Byte array.
+     * @param position Position to put long at.
+     */
+    static void putLongToBytes(long value, byte[] array, int position) {
+        assert position + Long.BYTES <= array.length;
 
-    static void putIntToBytes(int value, byte[] buffer, int position) {
-        INT_ARRAY_HANDLE.set(buffer, position, value);
+        LONG_ARRAY_HANDLE.set(array, position, value);
     }
 
     /**
@@ -80,18 +80,15 @@ class RocksStorageUtils {
         return bytesToLong(array, 0);
     }
 
-    static long bytesToLong(byte[] array, int offset) {
-        return (long) LONG_ARRAY_HANDLE.get(array, offset);
-    }
-
     /**
-     * Converts a byte array to a long value.
+     * Gets a {@code long} value from a byte array starting from the specified position.
      *
      * @param array Byte array.
-     * @return Long value.
+     * @param offset Offset to read a value from.
+     * @return {@code long} value.
      */
-    static int bytesToInt(byte[] array, int offset) {
-        return (int) INT_ARRAY_HANDLE.get(array, offset);
+    static long bytesToLong(byte[] array, int offset) {
+        return (long) LONG_ARRAY_HANDLE.get(array, offset);
     }
 
     /**
@@ -215,6 +212,13 @@ class RocksStorageUtils {
         return result;
     }
 
+    /**
+     * Converts an array of {@code long} values to an array of bytes.
+     *
+     * @param values Array of values.
+     * @param valuesOffset Offset in the array of values to start from.
+     * @return Array of bytes.
+     */
     static byte @NotNull [] longsToBytes(long @NotNull [] values, int valuesOffset) {
         assert valuesOffset < values.length;
 

@@ -25,13 +25,11 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.keyToRocksKey;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.longToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.longsToBytes;
-import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.putLongToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.revisionFromRocksKey;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
-import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
@@ -158,9 +156,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Timestamp to revision mapping column family. */
     private volatile ColumnFamily tsToRevision;
 
-    /** Revision to timestamp mapping column family. */
-    private volatile ColumnFamily revisionToTs;
-
     /** Snapshot manager. */
     private volatile RocksSnapshotManager snapshotManager;
 
@@ -247,14 +242,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Options tsToRevOptions = new Options().setCreateIfMissing(true);
         ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(tsToRevOptions);
 
-        Options revToTsOptions = new Options().setCreateIfMissing(true);
-        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(revToTsOptions);
-
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
                 new ColumnFamilyDescriptor(INDEX.nameAsBytes(), indexFamilyOptions),
-                new ColumnFamilyDescriptor(TS_TO_REVISION.nameAsBytes(), tsToRevFamilyOptions),
-                new ColumnFamilyDescriptor(REVISION_TO_TS.nameAsBytes(), revToTsFamilyOptions)
+                new ColumnFamilyDescriptor(TS_TO_REVISION.nameAsBytes(), tsToRevFamilyOptions)
         );
     }
 
@@ -263,7 +254,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
-        assert descriptors.size() == 4;
+        assert descriptors.size() == 3;
 
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
@@ -279,10 +270,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         tsToRevision = ColumnFamily.wrap(db, handles.get(2));
 
-        revisionToTs = ColumnFamily.wrap(db, handles.get(3));
-
         snapshotManager = new RocksSnapshotManager(db,
-                List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs)),
+                List.of(fullRange(data), fullRange(index), fullRange(tsToRevision)),
                 snapshotExecutor
         );
     }
@@ -424,9 +413,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             data.put(batch, REVISION_KEY, revisionBytes);
 
             if (ts != null) {
-                byte[] tsBytes = hybridTsToArray(ts);
-                tsToRevision.put(batch, tsBytes, revisionBytes);
-                revisionToTs.put(batch, revisionBytes, tsBytes);
+                tsToRevision.put(batch, hybridTsToArray(ts), revisionBytes);
             }
 
             db.write(opts, batch);
@@ -438,12 +425,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         queueWatchEvent();
     }
 
-    private byte[] hybridTsToArray(HybridTimestamp ts) {
-        byte[] array = new byte[Long.BYTES];
-
-        putLongToBytes(ts.longValue(), array, 0);
-
-        return array;
+    private static byte[] hybridTsToArray(HybridTimestamp ts) {
+        return longToBytes(ts.longValue());
     }
 
     private static Entry entry(byte[] key, long revision, Value value) {
@@ -971,10 +954,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(HybridTimestamp compactionWatermark) {
+    public void compact(HybridTimestamp lowWatermark) {
         rwLock.writeLock().lock();
 
-        byte[] tsBytes = hybridTsToArray(compactionWatermark);
+        byte[] tsBytes = hybridTsToArray(lowWatermark);
 
         try (WriteBatch batch = new WriteBatch()) {
             long maxRevision;
@@ -988,12 +971,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 maxRevision = bytesToLong(rocksIterator.value());
             }
 
-            long maxCompactionRevision = maxRevision;
-
             try (RocksIterator iterator = index.newIterator()) {
                 iterator.seekToFirst();
 
-                RocksUtils.forEach(iterator, (key, value) -> compactForKey(batch, key, getAsLongs(value), maxCompactionRevision));
+                RocksUtils.forEach(iterator, (key, value) -> compactForKey(batch, key, getAsLongs(value), maxRevision));
             }
 
             fillAndWriteBatch(batch, rev, updCntr, null);
@@ -1033,23 +1014,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     /**
      * Compacts all entries by the given key, removing all previous revisions lesser or equal to the revision watermark and
-     * deleting the last entry if it is a tombstone.
+     * deleting the first entry if it is a tombstone.
      *
      * @param batch Write batch.
      * @param key   Target key.
      * @param revs  Revisions.
-     * @param revisionWatermark Maximum revision that can be removed.
+     * @param maxRevision Maximum revision that can be removed.
      * @throws RocksDBException If failed.
      */
-    private void compactForKey(WriteBatch batch, byte[] key, long[] revs, long revisionWatermark) throws RocksDBException {
+    private void compactForKey(WriteBatch batch, byte[] key, long[] revs, long maxRevision) throws RocksDBException {
         long lastRev = lastRevision(revs);
 
+        // Index of the first revision we will be keeping in the array of revisions.
         int idxToKeepFrom = 0;
 
+        // Traverse revisions, removing all entries that are older than maxRevision.
         for (int i = 0; i < revs.length - 1; i++) {
             long rev = revs[i];
 
-            if (rev > revisionWatermark) {
+            if (rev > maxRevision) {
                 break;
             }
 
@@ -1062,7 +1045,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         // Whether we only have last revision (even if it's lesser or equal to watermark).
         boolean onlyLastRevisionLeft = idxToKeepFrom == (revs.length - 1);
 
-        // Get the revision that will be kept (if not tombstone).
+        // Get the number of the first revision that will be kept.
         long rev = onlyLastRevisionLeft ? lastRev : revs[idxToKeepFrom];
 
         byte[] rocksKey = keyToRocksKey(rev, key);
@@ -1070,17 +1053,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Value value = bytesToValue(data.get(rocksKey));
 
         if (value.tombstone()) {
-            // If tombstone, delete the entry.
+            // The first revision we are going to keep is a tombstone, we may delete it.
             data.delete(batch, rocksKey);
 
             if (!onlyLastRevisionLeft) {
-                // This was a tombstone, keep only next revisions.
+                // First revision was a tombstone, but there are other revisions, that need to be kept,
+                // so advance index of the first revision we need to keep.
                 idxToKeepFrom++;
             }
         }
 
         if (onlyLastRevisionLeft && value.tombstone()) {
-            // We don't have any previous revisions for this entry and the last is a tombstone.
+            // We don't have any previous revisions for this entry and the single existing is a tombstone,
+            // so we can remove it from index.
             index.delete(batch, key);
         } else {
             // Keeps revisions starting with idxToKeepFrom.
