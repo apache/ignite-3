@@ -2029,7 +2029,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
 
         placementDriver.updateAssignment(
-                zonePartitionId,
+                tablePartitionId,
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
 
