@@ -30,6 +30,8 @@ import org.jetbrains.annotations.Nullable;
  * Test-only abstract index storage class.
  */
 abstract class AbstractTestIndexStorage implements IndexStorage {
+    protected final int partitionId;
+
     private volatile boolean closed;
 
     private volatile boolean rebalance;
@@ -38,6 +40,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     AbstractTestIndexStorage(int partitionId) {
         nextRowIdToBuild = RowId.lowestRowId(partitionId);
+        this.partitionId = partitionId;
     }
 
     @Override

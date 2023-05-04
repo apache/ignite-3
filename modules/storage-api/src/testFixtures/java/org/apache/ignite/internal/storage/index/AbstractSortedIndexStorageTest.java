@@ -1236,7 +1236,6 @@ public abstract class AbstractSortedIndexStorageTest {
         assertThrows(NoSuchElementException.class, scan::next);
     }
 
-
     @Test
     void testScanPeekForFinishedCursor() {
         SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
@@ -1506,6 +1505,49 @@ public abstract class AbstractSortedIndexStorageTest {
         assertNull(scan.peek());
     }
 
+    @Test
+    void testScanPeekRemoveNext() {
+        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_IDX")
+                .addIndexColumn(ColumnType.INT32.typeSpec().name()).asc().done()
+                .build();
+
+        SortedIndexStorage indexStorage = createIndexStorage(indexDefinition);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        PeekCursor<IndexRow> scan = indexStorage.scan(null, null, 0);
+
+        RowId rowId = new RowId(TEST_PARTITION);
+
+        // index  =  [0]
+        // cursor = ^ with no cached row
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
+
+        // index  =  [0] [1]
+        // cursor = ^ with no cached row
+        assertEquals(SimpleRow.of(0, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
+
+        // index  =
+        // cursor = ^ with no cached row (but it remembers the last peek call)
+        remove(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
+
+        // "hasNext" and "next" must return the result of last "peek" operation. This is crucial for RW scans.
+        assertTrue(scan.hasNext());
+        assertEquals(SimpleRow.of(0, rowId), SimpleRow.of(scan.next(), firstColumn(serializer)));
+
+        // index  =
+        // cursor = ^ with no cached row
+        assertNull(scan.peek());
+
+        // index  =  [1]
+        // cursor = ^ with no cached row (points before [1] because last returned value was [0])
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, rowId));
+
+        // But, "hasNext" must return "false" to be consistent with the result of last "peek" operation. This is crucial for RW scans.
+        assertFalse(scan.hasNext());
+        assertThrows(NoSuchElementException.class, scan::next);
+    }
+
     private List<ColumnDefinition> shuffledRandomDefinitions() {
         return shuffledDefinitions(d -> random.nextBoolean());
     }
@@ -1635,16 +1677,6 @@ public abstract class AbstractSortedIndexStorageTest {
 
             return null;
         });
-    }
-
-    private static <T> List<T> getRemaining(Cursor<IndexRow> scanCursor, Function<IndexRow, T> mapper) {
-        List<T> result = new ArrayList<>();
-
-        while (scanCursor.hasNext()) {
-            result.add(mapper.apply(scanCursor.next()));
-        }
-
-        return result;
     }
 
     private static <T> Function<IndexRow, T> firstColumn(BinaryTupleRowSerializer serializer) {
