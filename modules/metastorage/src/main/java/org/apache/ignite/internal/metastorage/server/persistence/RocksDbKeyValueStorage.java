@@ -973,13 +973,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(HybridTimestamp compactionWaterMark) {
+    public void compact(HybridTimestamp compactionWatermark) {
         rwLock.writeLock().lock();
 
-        byte[] tsBytes = hybridTsToArray(compactionWaterMark);
+        byte[] tsBytes = hybridTsToArray(compactionWatermark);
 
         try (WriteBatch batch = new WriteBatch()) {
-            long maxRevision = -1;
+            long maxRevision;
+
+            // Find a revision with timestamp lesser or equal to the watermark.
             try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
                 rocksIterator.seekForPrev(tsBytes);
 
@@ -987,8 +989,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 maxRevision = bytesToLong(rocksIterator.value());
             }
-
-            assert maxRevision != -1;
 
             long maxCompactionRevision = maxRevision;
 
@@ -1034,11 +1034,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Compacts all entries by the given key, removing all previous revisions and deleting the last entry if it is a tombstone.
+     * Compacts all entries by the given key, removing all previous revisions lesser or equal to the revision watermark and
+     * deleting the last entry if it is a tombstone.
      *
      * @param batch Write batch.
      * @param key   Target key.
      * @param revs  Revisions.
+     * @param revisionWatermark Maximum revision that can be removed.
      * @throws RocksDBException If failed.
      */
     private void compactForKey(WriteBatch batch, byte[] key, long[] revs, long revisionWatermark) throws RocksDBException {
@@ -1053,13 +1055,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 break;
             }
 
+            // This revision is not needed anymore, remove data.
             data.delete(batch, keyToRocksKey(rev, key));
 
             idxToKeepFrom++;
         }
 
+        // Whether we only have last revision (even if it's lesser or equal to watermark).
         boolean onlyLastRevisionLeft = idxToKeepFrom == (revs.length - 1);
 
+        // Get the revision that will be kept (if not tombstone).
         long rev = onlyLastRevisionLeft ? lastRev : revs[idxToKeepFrom];
 
         byte[] rocksKey = keyToRocksKey(rev, key);
@@ -1067,16 +1072,20 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Value value = bytesToValue(data.get(rocksKey));
 
         if (value.tombstone()) {
+            // If tombstone, delete the entry.
             data.delete(batch, rocksKey);
 
             if (!onlyLastRevisionLeft) {
+                // This was a tombstone, keep only next revisions.
                 idxToKeepFrom++;
             }
         }
 
         if (onlyLastRevisionLeft && value.tombstone()) {
+            // We don't have any previous revisions for this entry and the last is a tombstone.
             index.delete(batch, key);
         } else {
+            // Keeps revisions starting with idxToKeepFrom.
             index.put(batch, key, longsToBytes(revs, idxToKeepFrom));
         }
     }

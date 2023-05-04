@@ -92,6 +92,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param key The key.
      * @param value The value.
+     * @param opTs Operation's timestamp.
      */
     void put(byte[] key, byte[] value, HybridTimestamp opTs);
 
@@ -100,6 +101,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param key The key.
      * @param value The value.
+     * @param opTs Operation's timestamp.
      * @return Previous entry corresponding to the given key.
      */
     Entry getAndPut(byte[] key, byte[] value, HybridTimestamp opTs);
@@ -109,6 +111,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param keys The key list.
      * @param values The values list.
+     * @param opTs Operation's timestamp.
      */
     void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
 
@@ -117,6 +120,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param keys The key list.
      * @param values The values list.
+     * @param opTs Operation's timestamp.
      * @return Collection of previous entries corresponding to given keys.
      */
     Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
@@ -125,6 +129,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Removes an entry with the given key.
      *
      * @param key The key.
+     * @param opTs Operation's timestamp.
      */
     void remove(byte[] key, HybridTimestamp opTs);
 
@@ -132,6 +137,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Removes an entry with the given key and returns previous entry.
      *
      * @param key The key.
+     * @param opTs Operation's timestamp.
      * @return Previous entry.
      */
     Entry getAndRemove(byte[] key, HybridTimestamp opTs);
@@ -140,6 +146,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Remove all entries corresponding to given keys.
      *
      * @param keys The keys list.
+     * @param opTs Operation's timestamp.
      */
     void removeAll(List<byte[]> keys, HybridTimestamp opTs);
 
@@ -147,6 +154,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Remove all entries corresponding to given keys and returns previous entries.
      *
      * @param keys The keys list.
+     * @param opTs Operation's timestamp.
      * @return Previous entries.
      */
     Collection<Entry> getAndRemoveAll(List<byte[]> keys, HybridTimestamp opTs);
@@ -157,6 +165,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param condition Condition.
      * @param success Success operations.
      * @param failure Failure operations.
+     * @param opTs Operation's timestamp.
      * @return Result of test condition.
      */
     boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs);
@@ -165,6 +174,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Invoke, which supports nested conditional statements with left and right branches of execution.
      *
      * @param iif {@link If} statement to invoke
+     * @param opTs Operation's timestamp.
      * @return execution result
      * @see If
      * @see StatementResult
@@ -234,9 +244,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /**
      * Compacts storage (removes tombstones).
+     * @param compactionWatermark A time threshold for the entry. Only entries that have revisions with timestamp higher or equal to the
+     *          watermark can be removed.
      * TODO: IGNITE-16444 Correct compaction for Meta storage.
      */
-    void compact(HybridTimestamp compactionWaterMark);
+    void compact(HybridTimestamp compactionWatermark);
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.

@@ -481,13 +481,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public void compact(HybridTimestamp compactionWaterMark) {
+    public void compact(HybridTimestamp compactionWatermark) {
         synchronized (mux) {
             NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
 
             NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
 
-            long maxCompactionRevision = tsToRevMap.floorEntry(compactionWaterMark.longValue()).getValue();
+            long maxCompactionRevision = tsToRevMap.floorEntry(compactionWatermark.longValue()).getValue();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxCompactionRevision));
 
