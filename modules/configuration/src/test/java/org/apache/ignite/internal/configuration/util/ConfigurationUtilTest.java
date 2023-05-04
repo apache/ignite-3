@@ -228,6 +228,7 @@ public class ConfigurationUtilTest {
     @Test
     public void findSuccessfullyPolymorphicConfig() {
         InnerNode parentNode = newNodeInstance(PolymorphicRootConfigurationSchema.class);
+        addDefaults(parentNode);
 
         PolymorphicRootChange parentChange = (PolymorphicRootChange) parentNode;
 
@@ -240,8 +241,8 @@ public class ConfigurationUtilTest {
         parentChange.changePolymorphicNamedCfg(named -> {
             named.createOrUpdate("name0", sub -> {
                 sub.convert(FirstPolymorphicInstanceChange.class)
-                        .changeStrVal("str0")
-                        .changeLongVal(0);
+                        .changeStrVal("substr0")
+                        .changeLongVal(-1);
             });
 
             named.createOrUpdate("name1", sub -> {
@@ -250,6 +251,20 @@ public class ConfigurationUtilTest {
                         .changeLongVal(1);
             });
         });
+
+        NodeValue<Object> subCfgStrVal = find(List.of("polymorphicSubCfg", "strVal"), parentNode, true);
+        assertSame(String.class, subCfgStrVal.field().getGenericType());
+        assertSame(
+                ((FirstPolymorphicInstanceView) parentChange.changePolymorphicSubCfg()).strVal(),
+                subCfgStrVal.value()
+        );
+
+        NodeValue<Object> subCfgLongVal = find(List.of("polymorphicSubCfg", "longVal"), parentNode, true);
+        assertSame(long.class, subCfgLongVal.field().getGenericType());
+        assertSame(
+                parentChange.changePolymorphicSubCfg().longVal(),
+                subCfgLongVal.value()
+        );
 
         NodeValue<Object> name0strVal = find(List.of("polymorphicNamedCfg", "name0", "strVal"), parentNode, true);
         assertSame(String.class, name0strVal.field().getGenericType());
