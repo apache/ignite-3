@@ -31,15 +31,9 @@ import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
 import static org.mockserver.model.JsonBody.json;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

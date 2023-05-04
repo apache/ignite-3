@@ -97,6 +97,9 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
+    /**
+     * Helper method to read resource to string.
+     */
     public static String readResourceToString(String resource) throws IOException {
         byte[] bytes = TestConfigManagerHelper.class
                 .getClassLoader()

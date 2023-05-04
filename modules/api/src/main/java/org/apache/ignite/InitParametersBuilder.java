@@ -17,13 +17,8 @@
 
 package org.apache.ignite;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.util.StringUtils;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
