@@ -61,7 +61,8 @@
                 "branch": "main"
             },
             "_appLogoPath": "images/logo.svg",
-            "_appFaviconPath": "images/favicon.ico"
+            "_appFaviconPath": "images/favicon.ico",
+            "_enableSearch": true
         }
     }
 }
