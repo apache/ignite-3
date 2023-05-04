@@ -54,6 +54,7 @@ public class DistributionZoneConfigurationSchema {
     /** Count of zone partition replicas. */
     @Range(min = 1)
     @Value(hasDefault = true)
+    @IsReplicasChangeAvailable
     public int replicas = DEFAULT_REPLICA_COUNT;
 
     /** Data storage configuration. */
