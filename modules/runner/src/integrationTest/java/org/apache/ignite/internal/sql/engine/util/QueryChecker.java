@@ -329,16 +329,25 @@ public abstract class QueryChecker {
      *
      * @return This.
      */
-    @SuppressWarnings("rawtypes")
     public QueryChecker withParams(Object... params) {
         // let's interpret null array as simple single null.
         if (params == null) {
             params = NULL_AS_VARARG;
         }
 
-        this.params = params;
+        this.params = Arrays.stream(params).map(NativeTypeWrapper::unwrap).toArray();
 
         return this;
+    }
+
+    /**
+     * Set a single param.
+     * Useful for specifying array parameters w/o triggering IDE-inspection warnings about confusing varargs/array params.
+     *
+     * @return This.
+     */
+    public QueryChecker withParam(Object param) {
+        return this.withParams(param);
     }
 
     /**
@@ -561,8 +570,8 @@ public abstract class QueryChecker {
         int idx = 0;
 
         while (it1.hasNext()) {
-            Object expItem = it1.next();
-            Object actualItem = it2.next();
+            Object expItem = NativeTypeWrapper.unwrap(it1.next());
+            Object actualItem = NativeTypeWrapper.unwrap(it2.next());
 
             if (expItem instanceof Collection && actualItem instanceof Collection) {
                 assertEqualsCollections((Collection<?>) expItem, (Collection<?>) actualItem);

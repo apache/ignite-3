@@ -30,10 +30,12 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
+import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
@@ -41,7 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
- * Base class for test cases for {@link IgniteCustomType custom data type}.
+ * Base class for test cases for data types including {@link IgniteCustomTypeSpec custom data types}.
  *
  * <p>Usage:
  * <ul>
@@ -52,17 +54,28 @@ import org.junit.jupiter.params.provider.Arguments;
  *
  * <p>Query string support the following template variables:
  * <ul>
- *     <li>{@code <type>} - an SQL name of custom data type.</li>
+ *     <li>{@code <type>} - an SQL name of a data type.</li>
  *     <li>{@code $N} - the {@code N-th} value from sample values (0-based), converted to an SQL expression by
- *     {@link CustomDataTypeTestSpec#toValueExpr(Comparable)} call (0-based)</li>
+ *     {@link DataTypeTestSpec#toValueExpr(Comparable)} call (0-based)</li>
  *     <li>{@code $N_lit} - the {@code N-th} value from sample values (0-based) in form of an SQL literal.</li>
  * </ul>
  *
- * @param <T> A storage type for a custom data type.
+ * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
+ * that their {@link ColumnType column type} is equal to {@code columnType} defined by {@link DataTypeTestSpec}.
+ *
+ * <p><b>Testing types that not implement {@link Comparable}.</b>
+ *
+ * <p>In order to test non-comparable types (e.g. java arrays) values of those types must be passed as {@link NativeTypeWrapper}.
+ * In that case {@code T} must be an implementation of a {@link NativeTypeWrapper} for that type.
+ *
+ * <p>Helper methods such as {@link #runSql(String, Object...)} and {@link #checkQuery(String)} support those values and unwrap them
+ * when it is necessary. See {@link TestQueryProcessor}.
+ *
+ * @param <T> A storage type of a data type.
  */
-public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends ClusterPerClassIntegrationTest {
+public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterPerClassIntegrationTest {
 
-    protected CustomDataTypeTestSpec<T> testTypeSpec;
+    protected DataTypeTestSpec<T> testTypeSpec;
 
     protected List<T> values;
 
@@ -81,6 +94,10 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
         orderedValues = dataSamples.ordered();
         values = dataSamples.values();
 
+        if (orderedValues.size() != 3) {
+            throw new IllegalArgumentException("Test data should have 3 distinct values but got " + values);
+        }
+
         runSql("CREATE TABLE t(id INTEGER PRIMARY KEY, test_key <type>)");
     }
 
@@ -90,7 +107,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
     }
 
     /** Creates a test type spec. **/
-    protected abstract CustomDataTypeTestSpec<T> getTypeSpec();
+    protected abstract DataTypeTestSpec<T> getTypeSpec();
 
     /**
      * Use this method instead of {@link #assertQuery(String)} because it replaces template variables.
@@ -127,7 +144,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
     }
 
     /**
-     * Use this method instead of {@link #sql(String, Object...)} because it replaces every {@code <type>} with the name of a custom data
+     * Use this method instead of {@link #sql(String, Object...)} because it replaces every {@code <type>} with the name of a data
      * type under test, and {@code $N} with corresponding values, where {@code N} is 1-indexed.
      *
      * @param query A query.
@@ -144,7 +161,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
     /**
      * Creates a query template.
      * <ul>
-     *     <li>{@code <type>} are replaced with a value of type name of {@link CustomDataTypeTestSpec}.</li>
+     *     <li>{@code <type>} are replaced with a value of type name of {@link DataTypeTestSpec}.</li>
      *     <li>{@code $N_lit} are replaced with corresponding literals, where {@code N} is 1-indexed</li>
      *     <li>{@code $N} are replaced with corresponding values, where {@code N} is 1-indexed</li>
      * </ul>
@@ -171,13 +188,13 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
 
     private static class ParameterReplacingTemplate<T extends Comparable<T>> implements QueryTemplate {
 
-        private final CustomDataTypeTestSpec<T> testTypeSpec;
+        private final DataTypeTestSpec<T> testTypeSpec;
 
         private final String query;
 
         private final List<T> values;
 
-        ParameterReplacingTemplate(CustomDataTypeTestSpec<T> spec, String query, List<T> values) {
+        ParameterReplacingTemplate(DataTypeTestSpec<T> spec, String query, List<T> values) {
             this.testTypeSpec = spec;
             this.query = query;
             this.values = values;
@@ -208,6 +225,7 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
         }
     }
 
+    /** Returns {@link TestTypeArguments} that include types this data type can be converted from. **/
     protected final Stream<TestTypeArguments<T>> convertedFrom() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min())
                 .filter(args -> !Objects.equals(args.typeName(0), testTypeSpec.typeName()));
@@ -218,5 +236,11 @@ public abstract class BaseCustomDataTypeTest<T extends Comparable<T>> extends Cl
         return SqlKind.BINARY_COMPARISON.stream()
                 // to support IS DISTINCT FROM/IS NOT DISTINCT FROM
                 .map(o -> Arguments.of(o.sql.replace("_", " "), o.sql));
+    }
+
+    protected final void insertValues() {
+        runSql("INSERT INTO t VALUES(1, $0)");
+        runSql("INSERT INTO t VALUES(2, $1)");
+        runSql("INSERT INTO t VALUES(3, $2)");
     }
 }

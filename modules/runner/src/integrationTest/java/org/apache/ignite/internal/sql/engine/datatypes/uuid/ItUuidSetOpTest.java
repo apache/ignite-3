@@ -18,19 +18,19 @@
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseSetOpCustomDataTypeTest;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseSetOpDataTypeTest;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
  * Tests for set operators for {@link UuidType UUID data type}.
  */
-public class ItUuidSetOpTest extends BaseSetOpCustomDataTypeTest<UUID> {
+public class ItUuidSetOpTest extends BaseSetOpDataTypeTest<UUID> {
 
     /** {@inheritDoc} */
     @Override
-    protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
-        return CustomDataTypeTestSpecs.UUID_TYPE;
+    protected DataTypeTestSpec<UUID> getTypeSpec() {
+        return DataTypeTestSpecs.UUID_TYPE;
     }
 }
