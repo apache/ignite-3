@@ -165,9 +165,9 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         index.clear();
     }
 
-    private class ScanCursor implements PeekCursor<IndexRow> {
-        private final IndexRow NO_PEEKED_ROW = new IndexRowImpl(null, null);
+    private static final IndexRow NO_PEEKED_ROW = new IndexRowImpl(null, null);
 
+    private class ScanCursor implements PeekCursor<IndexRow> {
         private final NavigableSet<IndexRow> indexSet;
 
         @Nullable
