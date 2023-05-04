@@ -55,6 +55,7 @@
         "disableGitFeatures": false,
         "globalMetadata": {
             "_appTitle": "Apache Ignite.NET API Documentation",
+            "_appFooter": "Copyright 2022 The Apache Software Foundation",
             "_gitContribute": {
                 "repo": "https://github.com/apache/ignite-3",
                 "branch": "main"
