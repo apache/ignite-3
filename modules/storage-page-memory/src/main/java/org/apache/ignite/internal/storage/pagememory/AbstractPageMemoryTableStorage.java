@@ -234,7 +234,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             return clearStorageAndUpdateDataStructures(mvPartitionStorage)
                     .thenAccept(unused ->
-                            mvPartitionStorage.runConsistently(() -> {
+                            mvPartitionStorage.runConsistently(locker -> {
                                 mvPartitionStorage.lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
                                 return null;
@@ -248,7 +248,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage ->
                 clearStorageAndUpdateDataStructures(mvPartitionStorage)
                         .thenAccept(unused -> {
-                            mvPartitionStorage.runConsistently(() -> {
+                            mvPartitionStorage.runConsistently(locker -> {
                                 mvPartitionStorage.lastAppliedOnRebalance(0, 0);
 
                                 return null;
@@ -267,7 +267,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             byte[] groupConfig
     ) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.runConsistently(locker -> {
                 mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
 
                 mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);

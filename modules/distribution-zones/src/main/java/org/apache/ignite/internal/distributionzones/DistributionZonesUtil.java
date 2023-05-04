@@ -406,6 +406,23 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * Checks if the zone with specified id exists.
+     *
+     * @param dstZnsCfg Distribution zones config.
+     * @param zoneId Id of zone.
+     * @return {@code true} if the zone exists. {@code false} if the zone doesn't exist.
+     */
+    static boolean isZoneExist(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
+        try {
+            getZoneById(dstZnsCfg, zoneId);
+
+            return true;
+        } catch (DistributionZoneNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
      * Check if a passed filter is a valid {@link JsonPath} query.
      *
      * @param filter Filter.

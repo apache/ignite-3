@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,7 +97,9 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                distributionZoneConfig.dataStorage()
+                distributionZoneConfig.dataStorage(),
+                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
+                mock(LowWatermark.class)
         );
     }
 
@@ -138,7 +142,9 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     private static void addWriteCommitted(PartitionDataStorage storage, RowId rowId, @Nullable BinaryRow row, HybridTimestamp timestamp) {
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             storage.addWrite(rowId, row, UUID.randomUUID(), UUID.randomUUID(), PARTITION_ID);
 
             storage.commitWrite(rowId, timestamp);

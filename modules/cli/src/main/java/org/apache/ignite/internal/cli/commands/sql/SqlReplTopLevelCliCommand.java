@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
-import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.commands.ExitCommand;
 import org.apache.ignite.internal.cli.commands.sql.help.SqlHelpCommand;
 import picocli.CommandLine.Command;
@@ -34,6 +33,5 @@ import picocli.shell.jline3.PicocliCommands.ClearScreen;
                 SqlHelpCommand.class
         }
 )
-@Singleton
 public class SqlReplTopLevelCliCommand {
 }

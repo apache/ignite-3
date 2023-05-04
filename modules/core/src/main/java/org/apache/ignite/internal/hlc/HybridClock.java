@@ -26,6 +26,13 @@ public interface HybridClock {
      *
      * @return The hybrid timestamp.
      */
+    long nowLong();
+
+    /**
+     * Creates a timestamp for new event.
+     *
+     * @return The hybrid timestamp.
+     */
     HybridTimestamp now();
 
     /**

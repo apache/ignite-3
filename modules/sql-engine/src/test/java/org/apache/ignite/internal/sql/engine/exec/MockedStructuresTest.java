@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -44,6 +48,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -85,6 +91,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -115,6 +122,15 @@ import org.mockito.quality.Strictness;
 public class MockedStructuresTest extends IgniteAbstractTest {
     /** Node name. */
     private static final String NODE_NAME = "node1";
+
+    /** Zone name. */
+    private static final String ZONE_NAME = "zone1";
+
+    /** Zone id. */
+    private static final int ZONE_ID = 1;
+
+    /** Empty logical topology snapshot. */
+    private static final LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
 
     /** Schema manager. */
     @Mock
@@ -162,12 +178,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration("mock.distributionZones.zone123{dataStorage.name = " + ENGINE_NAME + ", zoneId = 1}")
+    @InjectConfiguration("mock.distributionZones." + ZONE_NAME + "{dataStorage.name = " + ENGINE_NAME + ", zoneId = " + ZONE_ID + "}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     TableManager tblManager;
 
     IndexManager idxManager;
+
+    ClusterManagementGroupManager cmgMgr;
 
     SqlQueryProcessor queryProc;
 
@@ -184,7 +202,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
-    @Mock
     private DistributionZoneManager distributionZoneManager;
 
     DataStorageManager dataStorageManager;
@@ -250,6 +267,20 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         schemaManager.start();
 
+        cmgMgr = mock(ClusterManagementGroupManager.class);
+
+        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
+        distributionZoneManager = mock(DistributionZoneManager.class);
+
+        when(distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME)).thenReturn(0);
+        when(distributionZoneManager.zoneIdAsyncInternal(DEFAULT_ZONE_NAME)).thenReturn(completedFuture(0));
+
+        when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
+        when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
+
+        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
+
         tblManager = mockManagers();
 
         idxManager = new IndexManager(NODE_NAME, tblsCfg, schemaManager, tblManager, cs);
@@ -310,7 +341,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with primary_zone='zone123'", curMethodName);
+                + "with primary_zone='%s'", curMethodName, ZONE_NAME);
 
         readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
 
@@ -323,19 +354,22 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with primary_zone='zone123'", curMethodName);
+                + "with primary_zone='%s'", curMethodName, ZONE_NAME);
 
         assertThrows(TableAlreadyExistsException.class,
                 () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql2)));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,primary_zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,primary_zone='"
+                        + ZONE_NAME + "'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas__wrong=1,primary_zone='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas__wrong=1,primary_zone='"
+                        + ZONE_NAME + "'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone__wrong='zone123'")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone__wrong='"
+                        + ZONE_NAME + "'")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -355,8 +389,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
         QueryContext context = QueryContext.create(SqlQueryType.ALL);
 
-        String zoneName = "zone123";
-
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
                  tableName);
 
@@ -366,12 +398,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
-        int zoneId = dstZnsCfg.distributionZones().get(zoneName).zoneId().value();
-
-        when(distributionZoneManager.getZoneId(zoneName)).thenReturn(zoneId);
+        int zoneId = dstZnsCfg.distributionZones().get(ZONE_NAME).zoneId().value();
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with primary_zone='%s'", tableName, zoneName);
+                + "with primary_zone='%s'", tableName, ZONE_NAME);
 
         readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
 
@@ -379,17 +409,63 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
+        log.info("Creating a table with a non-existent distribution zone.");
 
-        when(distributionZoneManager.getZoneId(zoneName)).thenThrow(DistributionZoneNotFoundException.class);
+        String nonExistZone = "non-exist-zone";
 
-        Exception exception = assertThrows(
+        when(distributionZoneManager.zoneIdAsyncInternal(nonExistZone)).thenReturn(completedFuture(null));
+
+        Throwable exception = assertThrows(
+                Throwable.class,
+                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                                + "with primary_zone='%s'", tableName, nonExistZone)))
+        );
+
+        assertTrue(IgniteTestUtils.hasCause(exception.getCause(), DistributionZoneNotFoundException.class, null));
+
+        log.info("Creating a table with a ClusterManagementGroupManager throwing an exception.");
+
+        String expectedMessage0 = "Expected exception 0";
+
+        when(cmgMgr.logicalTopology()).thenReturn(failedFuture(new Exception(expectedMessage0)));
+
+        exception = assertThrows(
                 IgniteException.class,
                 () -> readFirst(queryProc.querySingleAsync(sessionId, context,
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with primary_zone='%s'", tableName, zoneName)))
+                                + "with primary_zone='%s'", tableName, DEFAULT_ZONE_NAME)))
         );
 
-        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause());
+        assertInstanceOf(Exception.class, exception.getCause().getCause());
+
+        String actualMessage0 = exception.getCause().getCause().getMessage();
+
+        assertTrue(actualMessage0.contains(expectedMessage0),
+                "Expected message: " + expectedMessage0 + ". Actual message: " + actualMessage0);
+
+        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
+
+        log.info("Creating a table with a DistributionZoneManager throwing an exception.");
+
+        String expectedMessage1 = "Expected exception 1";
+
+        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong()))
+                .thenReturn(failedFuture(new Exception(expectedMessage1)));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                                + "with primary_zone='%s'", tableName, DEFAULT_ZONE_NAME)))
+        );
+
+        assertInstanceOf(Exception.class, exception.getCause().getCause());
+
+        String actualMessage1 = exception.getCause().getCause().getMessage();
+
+        assertTrue(actualMessage1.contains(expectedMessage1),
+                "Expected message: " + expectedMessage1 + ". Actual message: " + actualMessage1);
     }
 
     /**
@@ -438,8 +514,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 sessionId,
                 context,
                 String.format(
-                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='zone123'",
-                        method + 4
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='%s'",
+                        method + 4,
+                        ZONE_NAME
                 )
         )));
 
@@ -536,7 +613,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 clock,
                 mock(OutgoingSnapshotsManager.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                vaultManager
+                vaultManager,
+                cmgMgr,
+                distributionZoneManager
         );
 
         tableManager.start();

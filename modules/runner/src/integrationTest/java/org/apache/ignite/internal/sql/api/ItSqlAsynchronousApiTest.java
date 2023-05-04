@@ -76,7 +76,6 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
@@ -316,7 +315,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         // Outdated tx.
         Transaction outerTx0 = outerTx;
 
-        assertThrows(TransactionException.class,
+        assertThrows(SqlException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
 
         assertThrows(SqlException.class,

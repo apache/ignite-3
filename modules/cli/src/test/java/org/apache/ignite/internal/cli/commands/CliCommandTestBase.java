@@ -26,8 +26,6 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -39,8 +37,6 @@ import picocli.CommandLine;
  */
 @MicronautTest
 public abstract class CliCommandTestBase {
-    private static final Map<Class<?>, CommandLine> cache = new HashMap<>();
-
     @Inject
     private ApplicationContext context;
 
@@ -57,18 +53,12 @@ public abstract class CliCommandTestBase {
 
     @BeforeEach
     public void setUp() {
-        //Caching need to prevent bug in Picocli related to default values initialization.
-        //Please refer to org.apache.ignite.cli.commands.PicocliBugTest
-        cmd = cache.computeIfAbsent(getCommandClass(), clazz -> commandLine(clazz, context));
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
-    }
-
-    private CommandLine commandLine(Class<?> clazz, ApplicationContext context) {
-        return new CommandLine(clazz, new MicronautFactory(context))
-                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
     }
 
     protected abstract Class<?> getCommandClass();

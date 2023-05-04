@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.storage.gc;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.storage.RowId;
 
-/** Message with a {@link HybridTimestamp}. */
-@Transferable(MetastorageCommandsMessageGroup.HYBRID_TS)
-public interface HybridTimestampMessage extends NetworkMessage, Serializable {
+/**
+ * Row version in the version chain that should be garbage collected.
+ */
+public interface GcEntry {
     /**
-     * Returns physical time.
+     * Returns row ID.
      */
-    long physical();
+    RowId getRowId();
 
     /**
-     * Returns logical time.
+     * Returns row timestamp.
      */
-    int logical();
-
-    default HybridTimestamp asHybridTimestamp() {
-        return new HybridTimestamp(physical(), logical());
-    }
+    HybridTimestamp getTimestamp();
 }

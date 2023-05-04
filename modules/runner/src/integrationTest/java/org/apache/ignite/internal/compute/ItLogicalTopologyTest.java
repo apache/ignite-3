@@ -337,6 +337,26 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         }
     }
 
+    @Test
+    void nodeLeavesLogicalTopologyOnStop() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        stopNode(1);
+
+        Event leaveEvent = events.poll(10, TimeUnit.SECONDS);
+
+        assertThat(events, is(empty()));
+
+        assertThat(leaveEvent, is(notNullValue()));
+
+        assertThat(leaveEvent.eventType, is(EventType.LEFT));
+        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
+    }
+
     private static void setInfiniteClusterFailoverTimeout(IgniteImpl node) throws Exception {
         node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
                 .failoverTimeout()

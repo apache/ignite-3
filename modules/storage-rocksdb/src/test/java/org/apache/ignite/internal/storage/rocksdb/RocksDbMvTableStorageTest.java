@@ -76,13 +76,21 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         RowId rowId0 = new RowId(PARTITION_ID_0);
 
-        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0));
+        partitionStorage0.runConsistently(locker -> {
+            locker.lock(rowId0);
+
+            return partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0);
+        });
 
         MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID_1);
 
         RowId rowId1 = new RowId(PARTITION_ID_1);
 
-        partitionStorage1.runConsistently(() -> partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0));
+        partitionStorage1.runConsistently(locker -> {
+            locker.lock(rowId1);
+
+            return partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0);
+        });
 
         tableStorage.destroyPartition(PARTITION_ID_0).get(1, TimeUnit.SECONDS);
 
@@ -109,7 +117,11 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         RowId rowId0 = new RowId(PARTITION_ID);
 
-        partitionStorage0.runConsistently(() -> partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0));
+        partitionStorage0.runConsistently(locker -> {
+            locker.lock(rowId0);
+
+            return partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0);
+        });
 
         tableStorage.stop();
 
