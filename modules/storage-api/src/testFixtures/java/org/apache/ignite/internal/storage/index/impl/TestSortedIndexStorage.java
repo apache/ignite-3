@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -78,20 +79,9 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         BinaryTuplePrefix lowerBound = BinaryTuplePrefix.fromBinaryTuple(key);
         BinaryTuplePrefix higherBound = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        //noinspection resource
         PeekCursor<IndexRow> peekCursor = scan(lowerBound, higherBound, GREATER_OR_EQUAL | LESS_OR_EQUAL);
 
-        return new Iterator<>() {
-            @Override
-            public boolean hasNext() {
-                return peekCursor.hasNext();
-            }
-
-            @Override
-            public RowId next() {
-                return peekCursor.next().rowId();
-            }
-        };
+        return new TransformingIterator<>(peekCursor, IndexRow::rowId);
     }
 
     @Override
