@@ -30,11 +30,11 @@ public interface PeekCursor<T> extends Cursor<T> {
      * <p>The behavior of this method is tightly coupled with the behaviour of {@link #next()} and {@link #hasNext()}:
      * <ul>
      *     <li>
-     *         {@code peek()} returns exactly the same value as the {@link #next()} would, if it was called instead.
+     *         {@code peek()} returns exactly the same value as the {@link #next()} would, if called instead or right after.
      *     </li>
      *     <li>
      *         This property can be applied to the end of the cursor. {@code peek()} returns {@code null} if {@link #next()} would
-     *         throw an {@link java.util.NoSuchElementException}, if it was called instead.
+     *         throw an {@link java.util.NoSuchElementException}, if it was called instead or right after.
      *     </li>
      *     <li>
      *         {@link #next()}, called immediately after {@code peek()}, must thus return the same value, or throw an exception if the

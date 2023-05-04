@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index.impl;
 
 import static java.util.Collections.emptyNavigableSet;
+import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.storage.RowId.highestRowId;
 import static org.apache.ignite.internal.storage.RowId.lowestRowId;
 
@@ -44,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
+    private final int partitionId;
+
     private final NavigableSet<IndexRow> index;
 
     private final SortedIndexDescriptor descriptor;
@@ -56,19 +59,12 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
         BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor);
 
+        this.partitionId = partitionId;
         this.descriptor = descriptor;
-        this.index = new ConcurrentSkipListSet<>((indexRow0, indexRow1) -> {
-            int cmp = binaryTupleComparator.compare(
-                    indexRow0.indexColumns().byteBuffer(),
-                    indexRow1.indexColumns().byteBuffer()
-            );
-
-            if (cmp == 0) {
-                cmp = indexRow0.rowId().compareTo(indexRow1.rowId());
-            }
-
-            return cmp;
-        });
+        this.index = new ConcurrentSkipListSet<>(
+                comparing((IndexRow indexRow) -> indexRow.indexColumns().byteBuffer(), binaryTupleComparator)
+                        .thenComparing(IndexRow::rowId)
+        );
     }
 
     @Override
@@ -83,10 +79,19 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         BinaryTuplePrefix higherBound = BinaryTuplePrefix.fromBinaryTuple(key);
 
         //noinspection resource
-        return scan(lowerBound, higherBound, GREATER_OR_EQUAL | LESS_OR_EQUAL)
-                .stream()
-                .map(IndexRow::rowId)
-                .iterator();
+        PeekCursor<IndexRow> peekCursor = scan(lowerBound, higherBound, GREATER_OR_EQUAL | LESS_OR_EQUAL);
+
+        return new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return peekCursor.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                return peekCursor.next().rowId();
+            }
+        };
     }
 
     @Override

@@ -1523,7 +1523,7 @@ public abstract class AbstractSortedIndexStorageTest {
         // cursor = ^ with no cached row
         put(indexStorage, serializer.serializeRow(new Object[]{0}, rowId));
 
-        // index  =  [0] [1]
+        // index  =  [0]
         // cursor = ^ with no cached row
         assertEquals(SimpleRow.of(0, rowId), SimpleRow.of(scan.peek(), firstColumn(serializer)));
 
