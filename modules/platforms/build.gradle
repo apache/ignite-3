@@ -23,6 +23,27 @@ plugins {
 
 import org.gradle.crypto.checksum.Checksum
 
+task restoreTool(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "tool", "restore"
+}
+
+task docfx(type: Exec) {
+    dependsOn restoreTool
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "docfx", "docs/docfx.json"
+}
+
+task aggregateDotnetDocs(type: Copy) {
+    dependsOn docfx
+
+    from("$rootDir/modules/platforms/dotnet/docs/_site")
+    into("$rootDir/build/docs/dotnet")
+}
+
+
 task copyNativeLibs(type: Copy) {
     include "**/*.so"
     from("$rootDir/modules/platforms/cpp")

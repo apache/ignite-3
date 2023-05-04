@@ -25,8 +25,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.List;
@@ -292,7 +291,6 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build())
                 .get(3, SECONDS);
 
-        System.out.println("setLogicalTopologyInMetaStorage_2");
         setLogicalTopologyInMetaStorage(nodes1, 2);
 
         assertEquals(nodes1, dataNodesFut1.get(3, SECONDS));
@@ -441,23 +439,7 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
     }
 
     private void startZoneManager() throws Exception {
-        // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
-        // distributionZoneManager's recovery.
-        metaStorageManager.deployWatches();
-
-        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
-        // Meta Storage revision is equal to 0.
-        var fakeKey = new ByteArray("foobar");
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
-                Conditions.notExists(fakeKey),
-                Operations.put(fakeKey, fakeKey.bytes()),
-                Operations.noop()
-        );
-
-        assertThat(invokeFuture, willBe(true));
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000));
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
 
         distributionZoneManager.start();
 

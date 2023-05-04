@@ -1618,7 +1618,9 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     protected void put(SortedIndexStorage indexStorage, IndexRow row) {
-        partitionStorage.runConsistently(() -> {
+        partitionStorage.runConsistently(locker -> {
+            locker.lock(row.rowId());
+
             indexStorage.put(row);
 
             return null;
@@ -1626,7 +1628,9 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     private void remove(SortedIndexStorage indexStorage, IndexRow row) {
-        partitionStorage.runConsistently(() -> {
+        partitionStorage.runConsistently(locker -> {
+            locker.lock(row.rowId());
+
             indexStorage.remove(row);
 
             return null;

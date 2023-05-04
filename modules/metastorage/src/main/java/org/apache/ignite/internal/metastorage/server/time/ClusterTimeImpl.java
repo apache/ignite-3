@@ -100,6 +100,11 @@ public class ClusterTimeImpl implements ClusterTime {
     }
 
     @Override
+    public long nowLong() {
+        return clock.nowLong();
+    }
+
+    @Override
     public CompletableFuture<Void> waitFor(HybridTimestamp time) {
         return safeTime.waitFor(time);
     }

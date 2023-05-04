@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.message;
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -40,8 +39,17 @@ public interface ErrorMessage extends NetworkMessage, Serializable {
     long fragmentId();
 
     /**
-     * Get error.
+     * Get error traceId.
      */
-    @Marshallable
-    Throwable error();
+    UUID traceId();
+
+    /**
+     * Gets error code.
+     */
+    int code();
+
+    /**
+     * Gets original error message.
+     */
+    String message();
 }

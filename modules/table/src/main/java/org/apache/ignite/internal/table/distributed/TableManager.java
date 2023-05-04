@@ -84,9 +84,12 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -292,6 +295,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
+    private final ClusterManagementGroupManager cmgMgr;
+
+    private final DistributionZoneManager distributionZoneManager;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -362,7 +369,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            VaultManager vaultManager
+            VaultManager vaultManager,
+            ClusterManagementGroupManager cmgMgr,
+            DistributionZoneManager distributionZoneManager
     ) {
         this.tablesCfg = tablesCfg;
         this.distributionZonesConfiguration = distributionZonesConfiguration;
@@ -381,6 +390,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
+        this.cmgMgr = cmgMgr;
+        this.distributionZoneManager = distributionZoneManager;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -745,7 +756,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     storage,
                                     table.indexStorageAdapters(partId),
-                                    dsCfg
+                                    dsCfg,
+                                    safeTimeTracker,
+                                    lowWatermark
                             );
 
                             mvGc.addStorage(tblPartId, storageUpdateHandler);
@@ -1241,7 +1254,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Completes appropriate future to return result from API {@link TableManager#createTableAsync(String, Consumer)}.
+     * Completes appropriate future to return result from API {@link TableManager#createTableAsync(String, String, Consumer)}.
      *
      * @param table Table.
      */
@@ -1337,6 +1350,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * completed with {@link TableAlreadyExistsException}.
      *
      * @param name Table name.
+     * @param zoneName Distribution zone name.
      * @param tableInitChange Table changer.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
@@ -1345,72 +1359,174 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableAlreadyExistsException
      */
-    public CompletableFuture<Table> createTableAsync(String name, Consumer<TableChange> tableInitChange) {
+    public CompletableFuture<Table> createTableAsync(String name, String zoneName, Consumer<TableChange> tableInitChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return createTableAsyncInternal(name, tableInitChange);
+            return createTableAsyncInternal(name, zoneName, tableInitChange);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /** See {@link #createTableAsync(String, Consumer)} for details. */
-    private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
+    /** See {@link #createTableAsync(String, String, Consumer)} for details. */
+    private CompletableFuture<Table> createTableAsyncInternal(
+            String name,
+            String zoneName,
+            Consumer<TableChange> tableInitChange
+    ) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        tableAsyncInternal(name).thenAccept(tbl -> {
-            if (tbl != null) {
-                tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
-            } else {
-                tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
-                    if (tablesListChange.get(name) != null) {
-                        throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
-                    }
-
-                    tablesListChange.create(name, (tableChange) -> {
-                        tableInitChange.accept(tableChange);
-
-                        var extConfCh = ((ExtendedTableChange) tableChange);
-
-                        int intTableId = tablesChange.globalIdCounter() + 1;
-                        tablesChange.changeGlobalIdCounter(intTableId);
-
-                        extConfCh.changeTableId(intTableId);
-
-                        extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
-
-                        tableCreateFuts.put(extConfCh.id(), tblFut);
-
-                        DistributionZoneConfiguration distributionZoneConfiguration =
-                                getZoneById(distributionZonesConfiguration, tableChange.zoneId());
-
-                        // Affinity assignments calculation.
-                        extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                                distributionZoneConfiguration.partitions().value(),
-                                distributionZoneConfiguration.replicas().value())));
-                    });
-                })).exceptionally(t -> {
-                    Throwable ex = getRootCause(t);
-
-                    if (ex instanceof TableAlreadyExistsException) {
-                        tblFut.completeExceptionally(ex);
+        tableAsyncInternal(name)
+                .handle((tbl, tblEx) -> {
+                    if (tbl != null) {
+                        tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
+                    } else if (tblEx != null) {
+                        tblFut.completeExceptionally(tblEx);
                     } else {
-                        LOG.debug("Unable to create table [name={}]", ex, name);
+                        if (!busyLock.enterBusy()) {
+                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
 
-                        tblFut.completeExceptionally(ex);
+                            tblFut.completeExceptionally(nodeStoppingException);
 
-                        tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+                            throw new IgniteException(nodeStoppingException);
+                        }
+
+                        try {
+                            distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, zoneIdEx) -> {
+                                if (zoneId == null) {
+                                    tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
+                                } else if (zoneIdEx != null) {
+                                    tblFut.completeExceptionally(zoneIdEx);
+                                } else {
+                                    if (!busyLock.enterBusy()) {
+                                        NodeStoppingException nodeStoppingException = new NodeStoppingException();
+
+                                        tblFut.completeExceptionally(nodeStoppingException);
+
+                                        throw new IgniteException(nodeStoppingException);
+                                    }
+
+                                    try {
+                                        cmgMgr.logicalTopology()
+                                                .handle((cmgTopology, e) -> {
+                                                    if (e == null) {
+                                                        if (!busyLock.enterBusy()) {
+                                                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
+
+                                                            tblFut.completeExceptionally(nodeStoppingException);
+
+                                                            throw new IgniteException(nodeStoppingException);
+                                                        }
+
+                                                        try {
+                                                            distributionZoneManager.topologyVersionedDataNodes(zoneId,
+                                                                            cmgTopology.version())
+                                                                    .handle((dataNodes, e0) -> {
+                                                                        if (e0 == null) {
+                                                                            changeTablesConfiguration(
+                                                                                    name,
+                                                                                    zoneId,
+                                                                                    dataNodes,
+                                                                                    tableInitChange,
+                                                                                    tblFut
+                                                                            );
+                                                                        } else {
+                                                                            tblFut.completeExceptionally(e0);
+                                                                        }
+
+                                                                        return null;
+                                                                    });
+                                                        } finally {
+                                                            busyLock.leaveBusy();
+                                                        }
+                                                    } else {
+                                                        tblFut.completeExceptionally(e);
+                                                    }
+
+                                                    return null;
+                                                });
+                                    } finally {
+                                        busyLock.leaveBusy();
+                                    }
+                                }
+
+                                return null;
+                            });
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     }
 
                     return null;
                 });
-            }
-        });
 
         return tblFut;
+    }
+
+    /**
+     * Creates a new table in {@link TablesConfiguration}.
+     *
+     * @param name Table name.
+     * @param zoneId Distribution zone id.
+     * @param dataNodes Data nodes.
+     * @param tableInitChange Table changer.
+     * @param tblFut Future representing pending completion of the table creation.
+     */
+    private void changeTablesConfiguration(
+            String name,
+            int zoneId,
+            Collection<String> dataNodes,
+            Consumer<TableChange> tableInitChange,
+            CompletableFuture<Table> tblFut
+    ) {
+        tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
+            if (tablesListChange.get(name) != null) {
+                throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
+            }
+
+            tablesListChange.create(name, (tableChange) -> {
+                tableInitChange.accept(tableChange);
+
+                tableChange.changeZoneId(zoneId);
+
+                var extConfCh = ((ExtendedTableChange) tableChange);
+
+                int intTableId = tablesChange.globalIdCounter() + 1;
+                tablesChange.changeGlobalIdCounter(intTableId);
+
+                extConfCh.changeTableId(intTableId);
+
+                extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
+
+                tableCreateFuts.put(extConfCh.id(), tblFut);
+
+                DistributionZoneConfiguration distributionZoneConfiguration =
+                        getZoneById(distributionZonesConfiguration, zoneId);
+
+                // Affinity assignments calculation.
+                extConfCh.changeAssignments(
+                        ByteUtils.toBytes(AffinityUtils.calculateAssignments(
+                                dataNodes,
+                                distributionZoneConfiguration.partitions().value(),
+                                distributionZoneConfiguration.replicas().value())));
+            });
+        })).exceptionally(t -> {
+            Throwable ex = getRootCause(t);
+
+            if (ex instanceof TableAlreadyExistsException) {
+                tblFut.completeExceptionally(ex);
+            } else {
+                LOG.debug("Unable to create table [name={}]", ex, name);
+
+                tblFut.completeExceptionally(ex);
+
+                tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+            }
+
+            return null;
+        });
     }
 
     /**
@@ -1504,7 +1620,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ex = t;
         }
 
-        return ex instanceof IgniteException ? (IgniteException) ex : new IgniteException(ex);
+        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteException.wrap(ex);
     }
 
     /**
@@ -1740,6 +1856,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
         try {
             // TODO: IGNITE-16288 directTableId should use async configuration API
             return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
@@ -2064,7 +2181,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 partId,
                                 partitionDataStorage,
                                 tbl.indexStorageAdapters(partId),
-                                dstZoneCfg.dataStorage()
+                                dstZoneCfg.dataStorage(),
+                                safeTimeTracker,
+                                lowWatermark
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(

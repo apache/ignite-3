@@ -56,6 +56,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -108,6 +109,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     /** The manager is used to read a data from Meta storage in the tests. */
     MetaStorageManagerImpl metaStorageManager;
 
+    /** Cluster service by node name. */
+    Map<String, ClusterService> clusterServices;
+
     private TestInfo testInfo;
 
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
@@ -123,6 +127,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         this.testInfo = testInfo;
 
         Map<String, ClusterService> services = startNodes();
+
+        this.clusterServices = services;
 
         List<LogicalTopologyServiceTestImpl> logicalTopManagers = new ArrayList<>();
 
@@ -156,7 +162,9 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      */
     private NetworkMessageHandler leaseGrantMessageHandler(ClusterService handlerService) {
         return (msg, sender, correlationId) -> {
-            assert msg instanceof LeaseGrantedMessage : "Message type is unexpected [type=" + msg.getClass().getSimpleName() + ']';
+            if (!(msg instanceof PlacementDriverReplicaMessage)) {
+                return;
+            }
 
             var handlerNode = handlerService.topologyService().localMember();
 
@@ -404,6 +412,85 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertEquals(lease.getLeaseholder().name(), acceptedNodeRef.get());
 
         waitForProlong(grpPart0, lease);
+    }
+
+    @Test
+    public void testDeclineLeaseByLeaseholder() throws Exception {
+        var acceptedNodeRef = new AtomicReference<String>();
+        var activeActorRef = new AtomicReference<String>();
+
+        leaseGrantHandler = (msg, from, to) -> {
+            acceptedNodeRef.set(to);
+            activeActorRef.set(from);
+
+            return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                    .accepted(true)
+                    .build();
+        };
+
+        TablePartitionId grpPart = createTableAssignment();
+
+        Lease lease = checkLeaseCreated(grpPart, true);
+
+        lease = waitForProlong(grpPart, lease);
+
+        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder().name());
+
+        var service = clusterServices.get(acceptedNodeRef.get());
+
+        leaseGrantHandler = (msg, from, to) -> {
+            if (acceptedNodeRef.get().equals(to)) {
+                var redirectNode = nodeNames.stream().filter(nodeName -> !nodeName.equals(to)).findAny().get();
+
+                return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                        .redirectProposal(redirectNode)
+                        .accepted(false)
+                        .build();
+            } else {
+                return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                        .accepted(true)
+                        .build();
+            }
+        };
+
+        service.messagingService().send(
+                clusterServices.get(activeActorRef.get()).topologyService().localMember(),
+                PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage().groupId(grpPart).build()
+        );
+
+        Lease leaseRenew = waitNewLeaseholder(grpPart, lease);
+
+        log.info("Lease move from {} to {}", lease.getLeaseholder().name(), leaseRenew.getLeaseholder().name());
+    }
+
+    /**
+     * Waits for a new leaseholder.
+     *
+     * @param grpPart Replication group id.
+     * @param lease Previous lease.
+     * @return Renewed lease.
+     * @throws InterruptedException If the waiting is interrupted.
+     */
+    private Lease waitNewLeaseholder(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+        var leaseRenewRef = new AtomicReference<Lease>();
+
+        assertTrue(waitForCondition(() -> {
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
+
+            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+
+            if (!lease.getLeaseholder().equals(leaseRenew.getLeaseholder())) {
+                leaseRenewRef.set(leaseRenew);
+
+                return true;
+            }
+
+            return false;
+        }, 10_000));
+
+        assertTrue(lease.getExpirationTime().compareTo(leaseRenewRef.get().getStartTime()) < 0);
+
+        return leaseRenewRef.get();
     }
 
     /**

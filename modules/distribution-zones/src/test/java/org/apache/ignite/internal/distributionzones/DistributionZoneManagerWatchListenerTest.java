@@ -19,11 +19,13 @@ package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -39,7 +41,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -60,6 +61,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
                 DEFAULT_ZONE_NAME,
                 new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                         .dataNodesAutoAdjustScaleUp(0)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .build()
         ).get();
 
@@ -109,7 +111,10 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(0)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .build()
         ).get();
 
         long revision = 100;
@@ -127,7 +132,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     }
 
     @Test
-    void testStaleVaultRevisionOnZoneManagerStart() throws InterruptedException {
+    void testStaleVaultRevisionOnZoneManagerStart() throws Exception {
         long revision = 100;
 
         keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision));
@@ -136,7 +141,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
@@ -144,12 +149,12 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     }
 
     @Test
-    void testDataNodesUpdatedOnZoneManagerStart() throws InterruptedException {
+    void testDataNodesUpdatedOnZoneManagerStart() throws Exception {
         Set<String> nodes = Set.of("node1", "node2");
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
-        distributionZoneManager.start();
+        startDistributionZoneManager();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
@@ -183,9 +188,9 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         assertThat(invokeFuture, willBe(true));
     }
 
-    private void startDistributionZoneManager() throws NodeStoppingException {
-        distributionZoneManager.start();
+    private void startDistributionZoneManager() throws Exception {
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
 
-        metaStorageManager.deployWatches();
+        distributionZoneManager.start();
     }
 }

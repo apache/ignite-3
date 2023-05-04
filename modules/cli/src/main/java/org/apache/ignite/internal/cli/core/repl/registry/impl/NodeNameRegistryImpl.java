@@ -108,7 +108,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
      */
 
     @Override
-    public void onConnect(SessionInfo sessionInfo) {
+    public synchronized void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
             executor.scheduleWithFixedDelay(() ->
@@ -120,7 +120,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
      * Stops pulling updates.
      */
     @Override
-    public void onDisconnect() {
+    public synchronized void onDisconnect() {
         if (executor != null) {
             shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
             executor = null;

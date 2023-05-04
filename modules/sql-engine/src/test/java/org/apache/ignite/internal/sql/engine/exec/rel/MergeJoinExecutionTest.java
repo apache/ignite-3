@@ -23,7 +23,6 @@ import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CALCITE_CONNECTION_CONFIG;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
@@ -39,15 +38,14 @@ import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -482,9 +480,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
         RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), Integer.class, String.class);
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, IgniteTypeSystem.INSTANCE);
-
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory(typeSys);
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
 
         ExecutionContext<Object[]> ectx =
                 new ExecutionContext<>(BaseQueryContext.builder().logger(log).build(), null, null, null,
