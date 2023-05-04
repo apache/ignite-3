@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -332,32 +331,29 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     /**
-     * Gets a list of index configurations for the specified table.
+     * Gets a list of index configuration views for the specified table.
      *
      * @param tableName Table name.
-     * @return List of index configurations.
+     * @return List of index configuration views.
      */
-    public List<TableIndexView> tableIndexes(String tableName) {
-        NamedListView<TableIndexView> indexesConfig = tablesCfg.indexes().value();
+    public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
         UUID targetTableId = null;
 
-        for (int i = 0; i < indexesConfig.size(); i++) {
-            TableIndexView tabIdxView = indexesConfig.get(i);
-
+        for (TableIndexView cfg : tablesCfg.indexes().value()) {
             if (targetTableId == null) {
-                TableConfiguration tbl = tablesCfg.tables().get(tabIdxView.tableId());
+                TableConfiguration tbl = tablesCfg.tables().get(cfg.tableId());
 
                 if (tbl == null || !tableName.equals(tbl.name().value())) {
                     continue;
                 }
 
-                targetTableId = tabIdxView.tableId();
-            } else if (!targetTableId.equals(tabIdxView.tableId())) {
+                targetTableId = cfg.tableId();
+            } else if (!targetTableId.equals(cfg.tableId())) {
                 continue;
             }
 
-            res.add(tabIdxView);
+            res.add(cfg);
         }
 
         return res;

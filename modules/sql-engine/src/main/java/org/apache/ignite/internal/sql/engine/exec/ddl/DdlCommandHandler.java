@@ -510,37 +510,35 @@ public class DdlCommandHandler {
     }
 
     private void reportIndexedColumns(String tableName, Set<String> colNames, Set<String> pkColNames) throws SqlException {
-        List<TableIndexView> idxCfg = indexManager.tableIndexes(tableName);
+        Map<String, List<String>> indexedColumns = new HashMap<>();
 
-        Map<String, List<String>> idxDeps = new HashMap<>();
-
-        for (TableIndexView tabIdxView : idxCfg) {
-            if (tabIdxView instanceof SortedIndexView) {
-                for (IndexColumnView colView : ((SortedIndexView) tabIdxView).columns()) {
+        for (TableIndexView idxCfg : indexManager.indexConfigurations(tableName)) {
+            if (idxCfg instanceof SortedIndexView) {
+                for (IndexColumnView colView : ((SortedIndexView) idxCfg).columns()) {
                     if (colNames.contains(colView.name()) && !pkColNames.contains(colView.name())) {
-                        idxDeps.computeIfAbsent(colView.name(), v -> new ArrayList<>()).add(tabIdxView.name());
+                        indexedColumns.computeIfAbsent(colView.name(), v -> new ArrayList<>()).add(idxCfg.name());
                     }
                 }
-            } else if (tabIdxView instanceof HashIndexView) {
-                for (String colName : ((HashIndexView) tabIdxView).columnNames()) {
+            } else if (idxCfg instanceof HashIndexView) {
+                for (String colName : ((HashIndexView) idxCfg).columnNames()) {
                     if (colNames.contains(colName) && !pkColNames.contains(colName)) {
-                        idxDeps.computeIfAbsent(colName, v -> new ArrayList<>()).add(tabIdxView.name());
+                        indexedColumns.computeIfAbsent(colName, v -> new ArrayList<>()).add(idxCfg.name());
                     }
                 }
             }
         }
 
-        if (idxDeps.isEmpty()) {
+        if (indexedColumns.isEmpty()) {
             return;
         }
 
-        IgniteStringBuilder buf = new IgniteStringBuilder("Can`t delete column(s). ");
+        IgniteStringBuilder sb = new IgniteStringBuilder("Can`t delete column(s). ");
 
-        for (Entry<String, List<String>> e : idxDeps.entrySet()) {
-            buf.app(IgniteStringFormatter.format("Column {} is used by indexes {}. ", e.getKey(), e.getValue()));
+        for (Entry<String, List<String>> e : indexedColumns.entrySet()) {
+            sb.app("Column ").app(e.getKey()).app(" is used by indexes ").app(e.getValue()).app(". ");
         }
 
-        throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, buf.toString());
+        throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, sb.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {
