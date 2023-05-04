@@ -39,6 +39,7 @@ public class RebalanceValidator implements Validator<IsReplicasChangeAvailable, 
         TablesView tablesView = ctx.getNewRoot(TablesConfiguration.KEY);
 
         int zoneId = ((DistributionZoneView) ctx.getNewOwner()).zoneId();
+
         if (ctx.getOldValue() != null
                 && !ctx.getOldValue().equals(ctx.getNewValue())
                 && tablesView.tables().stream().filter(t -> t.zoneId() == zoneId).count() > 1) {

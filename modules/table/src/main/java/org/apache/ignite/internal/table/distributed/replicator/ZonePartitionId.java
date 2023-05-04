@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-
 
 /**
  * The class is used to identify a zone replication group id for a given partition.
@@ -59,6 +59,18 @@ public class ZonePartitionId implements ReplicationGroupId {
      */
     public int partitionId() {
         return partId;
+    }
+
+    /**
+     * Converts a string representation of zone partition id to the object.
+     *
+     * @param str String representation.
+     * @return An zone partition id.
+     */
+    public static ZonePartitionId fromString(String str) {
+        String[] parts = str.split("_part_");
+
+        return new ZonePartitionId(Integer.valueOf(parts[0]), Integer.valueOf(parts[1]));
     }
 
     @Override

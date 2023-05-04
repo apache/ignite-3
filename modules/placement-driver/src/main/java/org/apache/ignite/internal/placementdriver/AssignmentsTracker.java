@@ -25,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -43,7 +42,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -113,7 +112,7 @@ public class AssignmentsTracker {
 
                 key = key.replace(STABLE_ASSIGNMENTS_PREFIX, "");
 
-                TablePartitionId grpId = TablePartitionId.fromString(key);
+                ZonePartitionId grpId = ZonePartitionId.fromString(key);
 
                 Set<Assignment> assignments = ByteUtils.fromBytes(entry.value());
 
@@ -158,10 +157,8 @@ public class AssignmentsTracker {
             DistributionZoneView distributionZoneView =
                     getZoneById(distributionZonesConfiguration, tblCfg.zoneId()).value();
 
-            UUID tblId = tblCfg.id();
-
-            LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
-                    assignmentsCtx.storageRevision(), tblId);
+            LOG.debug("Zone assignments configuration update for placement driver [revision={}, zoneId={}]",
+                    assignmentsCtx.storageRevision(), tblCfg.zoneId());
 
             List<Set<Assignment>> tableAssignments =
                     assignmentsCtx.newValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.newValue());
@@ -169,7 +166,7 @@ public class AssignmentsTracker {
             boolean leaseRenewalRequired = false;
 
             for (int part = 0; part < distributionZoneView.partitions(); part++) {
-                var replicationGrpId = new TablePartitionId(tblId, part);
+                var replicationGrpId = new ZonePartitionId(tblCfg.zoneId(), part);
 
                 if (tableAssignments == null) {
                     groupAssignments.remove(replicationGrpId);
@@ -204,7 +201,7 @@ public class AssignmentsTracker {
             boolean leaseRenewalRequired = false;
 
             for (EntryEvent evt : event.entryEvents()) {
-                var replicationGrpId = TablePartitionId.fromString(
+                var replicationGrpId = ZonePartitionId.fromString(
                         new String(evt.newEntry().key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
 
                 if (evt.newEntry().empty()) {

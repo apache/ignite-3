@@ -605,6 +605,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
 
+                // TODO: Remove under the IGNITE-19424
                 assert tblsCfg.size() < 2 : "Change for the number of zone replicas is not available, if zone has more than 1 table";
 
                 CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
@@ -2173,7 +2174,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private UUID tableIdByZoneId(int zoneId) {
         List<UUID> tblIds = tablesCfg
                 .tables().value().stream().filter(tbl -> tbl.zoneId() == zoneId)
-                .map(tbl -> ((ExtendedTableView) tbl).id()).collect(Collectors.toList());
+                .map(tbl -> ((ExtendedTableView) tbl).id()).collect(toList());
 
         assert tblIds.size() == 1 : "More than one table found for zoneId=" + zoneId;
 
