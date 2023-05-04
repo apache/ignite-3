@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -82,7 +83,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
     @Test
     void test() throws Exception {
-        @Language("JSON") String newNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("JSON") String newNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         IgniteImpl node = startNode(1, createStartConfig(newNodeAttributes));
 
@@ -98,9 +99,23 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         session.execute(null, "CREATE TABLE " + "table1" + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
 
+        IgniteImpl node2 = startNode(2, createStartConfig(newNodeAttributes));
+
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "metaStorageMgr");
 
         Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, TimeUnit.MILLISECONDS);
+
+        assertTrue(waitForCondition(() -> {
+                    Entry e = null;
+                    try {
+                        e = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException | ExecutionException | TimeoutException ex) {
+                        fail();
+                    }
+
+                    return ((Map<String, Integer>) fromBytes(e.value())).size() >= 3;
+            },
+                10_000));
 
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry.revision(), 10_000));
 
