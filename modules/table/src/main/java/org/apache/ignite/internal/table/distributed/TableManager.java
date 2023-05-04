@@ -86,6 +86,7 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -2000,7 +2001,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
 
-                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+                    int zoneId = DistributionZonesUtil.extractZoneId(evt.entryEvent().newEntry().key());
 
                     Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
 
