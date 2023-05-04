@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -92,7 +93,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param key The key.
      * @param value The value.
      */
-    void put(byte[] key, byte[] value);
+    void put(byte[] key, byte[] value, HybridTimestamp opTs);
 
     /**
      * Inserts an entry with the given key and given value and returns previous entry.
@@ -101,7 +102,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param value The value.
      * @return Previous entry corresponding to the given key.
      */
-    Entry getAndPut(byte[] key, byte[] value);
+    Entry getAndPut(byte[] key, byte[] value, HybridTimestamp opTs);
 
     /**
      * Inserts entries with given keys and given values.
@@ -109,7 +110,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param keys The key list.
      * @param values The values list.
      */
-    void putAll(List<byte[]> keys, List<byte[]> values);
+    void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
 
     /**
      * Inserts entries with given keys and given values and returns previous entries.
@@ -118,14 +119,14 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param values The values list.
      * @return Collection of previous entries corresponding to given keys.
      */
-    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
+    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
 
     /**
      * Removes an entry with the given key.
      *
      * @param key The key.
      */
-    void remove(byte[] key);
+    void remove(byte[] key, HybridTimestamp opTs);
 
     /**
      * Removes an entry with the given key and returns previous entry.
@@ -133,14 +134,14 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param key The key.
      * @return Previous entry.
      */
-    Entry getAndRemove(byte[] key);
+    Entry getAndRemove(byte[] key, HybridTimestamp opTs);
 
     /**
      * Remove all entries corresponding to given keys.
      *
      * @param keys The keys list.
      */
-    void removeAll(List<byte[]> keys);
+    void removeAll(List<byte[]> keys, HybridTimestamp opTs);
 
     /**
      * Remove all entries corresponding to given keys and returns previous entries.
@@ -148,7 +149,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param keys The keys list.
      * @return Previous entries.
      */
-    Collection<Entry> getAndRemoveAll(List<byte[]> keys);
+    Collection<Entry> getAndRemoveAll(List<byte[]> keys, HybridTimestamp opTs);
 
     /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
@@ -158,7 +159,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param failure Failure operations.
      * @return Result of test condition.
      */
-    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs);
 
     /**
      * Invoke, which supports nested conditional statements with left and right branches of execution.
@@ -168,7 +169,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see If
      * @see StatementResult
      */
-    StatementResult invoke(If iif);
+    StatementResult invoke(If iif, HybridTimestamp opTs);
 
     /**
      * Returns cursor by entries which correspond to the given keys range.
@@ -235,7 +236,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Compacts storage (removes tombstones).
      * TODO: IGNITE-16444 Correct compaction for Meta storage.
      */
-    void compact();
+    void compact(HybridTimestamp compactionWaterMark);
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.

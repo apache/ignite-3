@@ -17,13 +17,45 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+
 /**
- * Tests for in-memory key-value storage implementation.
+ * Abstract test for {@link KeyValueStorage}.
  */
-class SimpleInMemoryKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
-    /** {@inheritDoc} */
-    @Override
-    KeyValueStorage storage() {
-        return new SimpleInMemoryKeyValueStorage("test");
+public abstract class BaseKeyValueStorageTest {
+    protected KeyValueStorage storage;
+
+    /**
+     * Before each.
+     */
+    @BeforeEach
+    public void setUp() {
+        storage = storage();
+
+        storage.start();
+    }
+
+    /**
+     * After each.
+     */
+    @AfterEach
+    void tearDown() throws Exception {
+        storage.close();
+    }
+
+    /**
+     * Returns key value storage for this test.
+     */
+    abstract KeyValueStorage storage();
+
+    protected static byte[] key(int k) {
+        return ("key" + k).getBytes(UTF_8);
+    }
+
+    protected static byte[] keyValue(int k, int v) {
+        return ("key" + k + '_' + "val" + v).getBytes(UTF_8);
     }
 }

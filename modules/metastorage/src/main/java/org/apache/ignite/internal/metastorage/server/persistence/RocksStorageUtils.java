@@ -41,6 +41,11 @@ class RocksStorageUtils {
             ByteOrder.BIG_ENDIAN
     );
 
+    private static final VarHandle INT_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(
+            int[].class,
+            ByteOrder.BIG_ENDIAN
+    );
+
     /**
      * Converts a long value to a byte array.
      *
@@ -50,9 +55,17 @@ class RocksStorageUtils {
     static byte[] longToBytes(long value) {
         var buffer = new byte[Long.BYTES];
 
-        LONG_ARRAY_HANDLE.set(buffer, 0, value);
+        putLongToBytes(value, buffer, 0);
 
         return buffer;
+    }
+
+    static void putLongToBytes(long value, byte[] buffer, int position) {
+        LONG_ARRAY_HANDLE.set(buffer, position, value);
+    }
+
+    static void putIntToBytes(int value, byte[] buffer, int position) {
+        INT_ARRAY_HANDLE.set(buffer, position, value);
     }
 
     /**
@@ -64,7 +77,21 @@ class RocksStorageUtils {
     static long bytesToLong(byte[] array) {
         assert array.length == Long.BYTES;
 
-        return (long) LONG_ARRAY_HANDLE.get(array, 0);
+        return bytesToLong(array, 0);
+    }
+
+    static long bytesToLong(byte[] array, int offset) {
+        return (long) LONG_ARRAY_HANDLE.get(array, offset);
+    }
+
+    /**
+     * Converts a byte array to a long value.
+     *
+     * @param array Byte array.
+     * @return Long value.
+     */
+    static int bytesToInt(byte[] array, int offset) {
+        return (int) INT_ARRAY_HANDLE.get(array, offset);
     }
 
     /**
@@ -156,8 +183,7 @@ class RocksStorageUtils {
      * @param bytes Byte array of longs.
      * @return Array of longs.
      */
-    @NotNull
-    static long[] getAsLongs(byte[] bytes) {
+    static long @NotNull [] getAsLongs(byte[] bytes) {
         // Value must be divisible by a size of a long, because it's a list of longs
         assert (bytes.length % Long.BYTES) == 0;
 
@@ -178,13 +204,27 @@ class RocksStorageUtils {
             return longToBytes(value);
         }
 
-        // Allocate a one long size bigger array
+        // Allocate a one long bigger array.
         var result = new byte[bytes.length + Long.BYTES];
 
         // Copy the current value
         System.arraycopy(bytes, 0, result, 0, bytes.length);
 
         LONG_ARRAY_HANDLE.set(result, bytes.length, value);
+
+        return result;
+    }
+
+    static byte @NotNull [] longsToBytes(long @NotNull [] values, int valuesOffset) {
+        assert valuesOffset < values.length;
+
+        var result = new byte[(values.length - valuesOffset) * Long.BYTES];
+
+        for (int srcIdx = valuesOffset, dstIdx = 0; srcIdx < values.length; srcIdx++, dstIdx++) {
+            long val = values[srcIdx];
+
+            LONG_ARRAY_HANDLE.set(result, dstIdx * Long.BYTES, val);
+        }
 
         return result;
     }
