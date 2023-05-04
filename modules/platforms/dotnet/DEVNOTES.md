@@ -42,3 +42,9 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 
 ### Pack NuGet
 `dotnet pack Apache.Ignite --configuration Release --include-source --output release/nupkg`
+
+### Build Docs
+1. `dotnet tool restore`
+2. `docfx docfx_project/docfx.json`
+
+Resulting docs are in `docfx_project/_site`.
