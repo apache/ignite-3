@@ -726,7 +726,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ZonePartitionId zonePartId = new ZonePartitionId(tblCfg.zoneId(), partId);
                 TablePartitionId tblPartId = new TablePartitionId(tblId, partId);
 
-                placementDriver.updateAssignment(zonePartId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
+                placementDriver.updateAssignment(tblPartId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
                 var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
