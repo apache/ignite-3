@@ -275,7 +275,6 @@ public class Loza implements RaftManager {
             ReplicationGroupId groupId,
             PeersAndLearners configuration
     ) throws NodeStoppingException {
-        assert !groupId.getClass().getSimpleName().startsWith("Zone");
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -293,7 +292,6 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory
     ) throws NodeStoppingException {
-        assert !groupId.getClass().getSimpleName().startsWith("Zone");
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -334,8 +332,6 @@ public class Loza implements RaftManager {
     private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
             ReplicationGroupId grpId, PeersAndLearners membersConfiguration
     ) {
-        assert !grpId.getClass().getSimpleName().startsWith("Zone");
-
         return RaftGroupServiceImpl.start(
                 grpId,
                 clusterNetSvc,
@@ -356,7 +352,6 @@ public class Loza implements RaftManager {
      * @return Future to last applied revision.
      */
     public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
-        assert !groupId.getClass().getSimpleName().startsWith("Zone");
         return raftServer.raftNodeReadyFuture(groupId);
     }
 
@@ -379,7 +374,6 @@ public class Loza implements RaftManager {
 
     @Override
     public boolean stopRaftNodes(ReplicationGroupId groupId) throws NodeStoppingException {
-        assert !groupId.getClass().getSimpleName().startsWith("Zone");
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
