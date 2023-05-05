@@ -53,6 +53,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc prepared statement implementation.
@@ -652,7 +653,33 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             currentArgs.add(null);
         }
 
-        currentArgs.set(paramIdx - 1, val);
+        currentArgs.set(paramIdx - 1, convertJdbcTypeToInternal(val));
+    }
+
+    /**
+     * Converts value of JDBC type to value of Ignite Client protocol types.
+     *
+     * <ul>
+     *     <li>java.sql.* to Java Time API</li>
+     * </ul>
+     */
+    private @Nullable Object convertJdbcTypeToInternal(@Nullable Object val) {
+        if (val instanceof java.util.Date) {
+            if (val instanceof Timestamp) {
+                Timestamp timeStamp = (Timestamp) val;
+                return timeStamp.toLocalDateTime();
+            } else if (val instanceof Date) {
+                Date date = (Date) val;
+                return date.toLocalDate();
+            } else if (val instanceof Time) {
+                Time time = (Time) val;
+                return time.toLocalTime();
+            }
+
+            return ((java.util.Date) val).toInstant();
+        }
+
+        return val;
     }
 
     /**
