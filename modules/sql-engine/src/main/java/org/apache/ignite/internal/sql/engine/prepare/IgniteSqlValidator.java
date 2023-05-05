@@ -570,10 +570,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         }
 
-        if (node instanceof SqlCase) {
-            super.inferUnknownTypes(inferredType, scope, node);
-        }
-
         if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
@@ -613,9 +609,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             for (int i = 0; i < operands.size(); ++i) {
                 SqlNode operand = operands.get(i);
 
-                if (operand != null) {
-                    inferUnknownTypes(operandTypes[i], scope, operand);
+                if (operand == null) {
+                    continue;
                 }
+
+                // TODO
+                if (node instanceof SqlCase && ((SqlCase) node).getThenOperands() == operand
+                        && SqlUtil.isNullLiteral(((SqlCase) node).getThenOperands().get(0), false)) {
+                    continue;
+                }
+
+                inferUnknownTypes(operandTypes[i], scope, operand);
             }
         } else {
             super.inferUnknownTypes(inferredType, scope, node);
