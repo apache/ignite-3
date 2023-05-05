@@ -144,7 +144,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @Test
     void testRowSerialization() {
-        SortedIndexStorage indexStorage = createIndexStorage("TEST_IDX", ALL_TYPES_COLUMN_DEFINITIONS);
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ALL_TYPES_COLUMN_DEFINITIONS);
 
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
                 .map(SortedIndexColumnDescriptor::type)
@@ -162,7 +162,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
     @Test
     void testEmpty() {
-        SortedIndexStorage index = createIndexStorage("TEST_IDX", shuffledRandomDefinitions());
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, shuffledRandomDefinitions());
 
         assertThat(scan(index, null, null, 0), is(empty()));
     }
@@ -1375,7 +1375,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * be removed.
      */
     private void testPutGetRemove(List<ColumnDefinition> indexSchema) {
-        SortedIndexStorage indexStorage = createIndexStorage("TEST_IDX", indexSchema);
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
         TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
         TestIndexRow entry2;
