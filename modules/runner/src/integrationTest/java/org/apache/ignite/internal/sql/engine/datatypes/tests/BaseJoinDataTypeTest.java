@@ -27,11 +27,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test cases for {@code JOIN} operator for a custom data type.
+ * Test cases for {@code JOIN} operator.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type of a data type.
  */
-public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseJoinDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     /** Creates join tables. */
     @BeforeAll
@@ -55,9 +55,9 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
     }
 
     /** Equijoins. Joins with equality predicate in condition. */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("equiJoin")
-    public void testEquiJoin(TestTypeArguments<T> arguments, String joinType) {
+    public void testEquiJoin(String name, TestTypeArguments<T> arguments, String joinType) {
         String insert = format("INSERT INTO t_join_{} (id, test_key) VALUES(1, {})", arguments.typeName(0), arguments.valueExpr(0));
         runSql(insert);
 
@@ -69,21 +69,21 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
     private Stream<Arguments> equiJoin() {
         Stream<TestTypeArguments<T>> unary = TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min());
 
-        return unary.flatMap(arg -> {
+        return unary.map(arg -> arg.withLabel(testTypeSpec.typeName() + " " + arg.typeName(0))).flatMap(arg -> {
             return Stream.of(
                     // Empty
-                    Arguments.of(arg, " "),
-                    Arguments.of(arg, "INNER"),
-                    Arguments.of(arg, "LEFT"),
-                    Arguments.of(arg, "RIGHT"),
-                    Arguments.of(arg, "FULL"));
+                    Arguments.of("JOIN " + arg, arg, " "),
+                    Arguments.of("INNER JOIN " + arg, arg, "INNER"),
+                    Arguments.of("LEFT JOIN " + arg, arg, "LEFT"),
+                    Arguments.of("RIGHT JOIN " + arg, arg, "RIGHT"),
+                    Arguments.of("FULL JOIN " + arg,  arg, "FULL"));
         });
     }
 
     /** Non equijoins. Joins with non equality predicate in condition. */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("nonEquiJoin")
-    public void testNonEquijoin(TestTypeArguments<T> arguments, String joinExpr) {
+    public void testNonEquijoin(String name, TestTypeArguments<T> arguments, String joinExpr) {
         String insert1 = format("INSERT INTO t (id, test_key) VALUES(1, {})", arguments.valueExpr(0));
         runSql(insert1);
 
@@ -99,9 +99,9 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
     }
 
     /** Antijoin. Join with {@code not equals} in condition. */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("nonEquiJoin")
-    public void testAntiJoin(TestTypeArguments<T> arguments, String joinExpr) {
+    public void testAntiJoin(String name, TestTypeArguments<T> arguments, String joinExpr) {
         String insert1 = format("INSERT INTO t (id, test_key) VALUES(1, {})", arguments.valueExpr(0));
         runSql(insert1);
 
@@ -121,12 +121,12 @@ public abstract class BaseJoinCustomDataTypeTest<T extends Comparable<T>> extend
 
         return args.map(arg -> arg.withLabel(arg.typeName(0) + " " + arg.typeName(1))).flatMap(arg -> {
             return Stream.of(
-                    Arguments.of(arg, "JOIN t_join_{} ON "),
-                    Arguments.of(arg, "INNER JOIN t_join_{} ON "),
-                    Arguments.of(arg, "LEFT JOIN t_join_{} ON "),
-                    Arguments.of(arg, "RIGHT JOIN t_join_{} ON "),
-                    Arguments.of(arg, "FULL JOIN t_join_{} ON "),
-                    Arguments.of(arg, ", t_join_{} WHERE "));
+                    Arguments.of("JOIN " + arg, arg, "JOIN t_join_{} ON "),
+                    Arguments.of("INNER JOIN " + arg, arg, "INNER JOIN t_join_{} ON "),
+                    Arguments.of("LEFT JOIN " + arg, arg, "LEFT JOIN t_join_{} ON "),
+                    Arguments.of("RIGHT JOIN " + arg, arg, "RIGHT JOIN t_join_{} ON "),
+                    Arguments.of("FULL JOIN " + arg, arg, "FULL JOIN t_join_{} ON "),
+                    Arguments.of("CARTESIAN PRODUCT", arg, ", t_join_{} WHERE "));
         });
     }
 }

@@ -186,7 +186,7 @@ NonTerminal('column_list')
 
 Parameters:
 
-- `IF NOT EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
+- `IF EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
 - `qualified_table_name` - the name of the table.
 - `DROP` - removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
 - `column_list` - the name of the list of columns to be removed.

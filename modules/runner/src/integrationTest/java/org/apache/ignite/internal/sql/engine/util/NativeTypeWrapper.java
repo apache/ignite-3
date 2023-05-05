@@ -15,22 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes.uuid;
+package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseAggregateDataTypeTest;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.schema.NativeTypes;
 
 /**
- * Tests for aggregates for {@link UuidType UUID data type}.
+ * A wrapper interface for non-comparable {@link NativeTypes native types} that implements {@link Comparable}.
+ *
+ * @param <T> a native type wrapper.
  */
-public class ItUuidAggregateTest extends BaseAggregateDataTypeTest<UUID> {
+public interface NativeTypeWrapper<T extends NativeTypeWrapper<T>> extends Comparable<T> {
 
-    /** {@inheritDoc} **/
-    @Override
-    protected DataTypeTestSpec<UUID> getTypeSpec() {
-        return DataTypeTestSpecs.UUID_TYPE;
+    /** Returns a value of a native type. */
+    Object get();
+
+    /**
+     * If the given value is an instance of a native type wrapper, this method returns a value of a native type.
+     * Otherwise it returns an input value.
+     */
+    static Object unwrap(Object value) {
+        if (value instanceof NativeTypeWrapper) {
+            return ((NativeTypeWrapper<?>) value).get();
+        } else {
+            return value;
+        }
     }
 }

@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes.uuid;
+package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
-import java.util.UUID;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseAggregateDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.util.VarBinary;
 
 /**
- * Tests for aggregates for {@link UuidType UUID data type}.
+ * Tests for aggregates for {@link SqlTypeName#VARBINARY} type.
  */
-public class ItUuidAggregateTest extends BaseAggregateDataTypeTest<UUID> {
+public class ItVarBinaryAggregateTest extends BaseAggregateDataTypeTest<VarBinary> {
 
-    /** {@inheritDoc} **/
+    /** {@inheritDoc} */
     @Override
-    protected DataTypeTestSpec<UUID> getTypeSpec() {
-        return DataTypeTestSpecs.UUID_TYPE;
+    protected DataTypeTestSpec<VarBinary> getTypeSpec() {
+        return DataTypeTestSpecs.VARBINARY_TYPE;
     }
 }
