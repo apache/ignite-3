@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -483,9 +484,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param tableName Table name.
      * @param indexName Index name.
+     * @return Nodes on which the partition index was built.
      * @throws Exception If failed.
      */
-    public static void waitForIndexBuild(String tableName, String indexName) throws Exception {
+    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
+        Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
+
         // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
             CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
@@ -516,7 +520,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
+
+                partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
             }
         }
+
+        return partitionIdToNodes;
     }
 }

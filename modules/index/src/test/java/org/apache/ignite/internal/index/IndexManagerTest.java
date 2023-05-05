@@ -43,6 +43,7 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -93,7 +94,15 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
+        indexManager = new IndexManager(
+                "test",
+                tablesConfig,
+                schManager,
+                tableManagerMock,
+                mock(ClusterService.class),
+                mock(ReplicaManager.class)
+        );
+
         indexManager.start();
 
         assertThat(

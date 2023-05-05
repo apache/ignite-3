@@ -504,7 +504,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager
         );
 
-        indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
+        indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc, replicaMgr);
 
         catalogManager = new CatalogServiceImpl(metaStorageMgr);
 

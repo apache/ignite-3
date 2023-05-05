@@ -55,7 +55,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Replica manager maintains {@link Replica} instances on an Ignite node.
@@ -456,10 +455,7 @@ public class ReplicaManager implements IgniteComponent {
 
     /**
      * Returns started replication groups.
-     *
-     * @return Set of started replication groups.
      */
-    @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
         return replicas.keySet();
     }

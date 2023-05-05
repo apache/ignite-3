@@ -162,6 +162,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     CatalogManager catalogManager;
 
+    @Mock
+    ReplicaManager replicaManager;
+
     /**
      * Revision listener holder. It uses for the test configurations:
      * <ul>
@@ -283,7 +286,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(NODE_NAME, tblsCfg, schemaManager, tblManager, cs);
+        idxManager = new IndexManager(NODE_NAME, tblsCfg, schemaManager, tblManager, cs, replicaManager);
 
         idxManager.start();
 
@@ -599,7 +602,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 dstZnsCfg,
                 cs,
                 rm,
-                mock(ReplicaManager.class),
+                replicaManager,
                 null,
                 null,
                 bm,

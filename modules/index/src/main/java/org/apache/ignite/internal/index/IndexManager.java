@@ -38,6 +38,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -104,18 +105,20 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      * @param clusterService Cluster service.
+     * @param replicaManager Replica manager.
      */
     public IndexManager(
             String nodeName,
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
             TableManager tableManager,
-            ClusterService clusterService
+            ClusterService clusterService,
+            ReplicaManager replicaManager
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
-        this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);
+        this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService, replicaManager);
     }
 
     /** {@inheritDoc} */

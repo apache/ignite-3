@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-replicator')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
