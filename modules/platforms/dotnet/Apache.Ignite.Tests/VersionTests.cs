@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Tests;
 
+using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 
 public class VersionTests
@@ -26,8 +28,9 @@ public class VersionTests
     public void TestAssemblyInformationalVersionHasGitCommitHash()
     {
         var asm = typeof(IIgnite).Assembly;
-        var informationalVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion!;
         var version = asm.GetName().Version!;
+
+        var informationalVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion!;
         var parts = informationalVersion.Split('+');
 
         StringAssert.StartsWith($"{version.Major}.{version.Minor}.{version.Build}", informationalVersion);
@@ -38,5 +41,16 @@ public class VersionTests
     [Test]
     public void TestAssemblyVersionMatchesJavaServerVersion()
     {
+        var buildGradle = Path.Combine(TestUtils.RepoRootDir, "build.gradle");
+        var buildGradleText = File.ReadAllText(buildGradle);
+        var versionMatch = Regex.Match(buildGradleText, @"version\s*=\s*""(.*?)""");
+
+        Assert.IsTrue(versionMatch.Success);
+
+        var gradleVersion = versionMatch.Groups[1].Value.Replace("-SNAPSHOT", string.Empty);
+        var asm = typeof(IIgnite).Assembly;
+        var asmVersion = asm.GetName().Version!;
+
+        Assert.AreEqual(gradleVersion, $"{asmVersion.Major}.{asmVersion.Minor}.{asmVersion.Build}");
     }
 }
