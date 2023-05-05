@@ -243,7 +243,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupNodeWithSyncWaitForReading(
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,

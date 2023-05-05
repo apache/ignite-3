@@ -75,7 +75,7 @@ public interface RaftManager extends IgniteComponent {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    CompletableFuture<RaftGroupService> startRaftGroupNodeWithSyncWaitForReading(
+    CompletableFuture<RaftGroupService> startRaftGroupNodeAndWaitNodeReadyFuture(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
