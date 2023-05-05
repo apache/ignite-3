@@ -2345,7 +2345,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     byte[] key = evt.entryEvent().newEntry().key();
 
                     int partitionNumber = extractPartitionNumber(key);
-                    int zoneId = RebalanceUtil.extractZoneId(key);
+                    int zoneId = extractZoneId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
 
                     ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionNumber);
 
