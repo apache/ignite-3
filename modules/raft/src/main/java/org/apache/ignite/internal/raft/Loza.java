@@ -243,7 +243,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public CompletableFuture<RaftGroupService> startRaftGroupNode(
+    public CompletableFuture<RaftGroupService> startRaftGroupNodeWithSyncWaitForReading(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
@@ -257,7 +257,7 @@ public class Loza implements RaftManager {
         }
 
         try {
-            return startRaftGroupNodeInternal(
+            CompletableFuture<RaftGroupService> startRaftServiceFuture = startRaftGroupNodeInternal(
                     nodeId,
                     configuration,
                     lsnr,
@@ -265,6 +265,11 @@ public class Loza implements RaftManager {
                     RaftGroupOptions.defaults().ownFsmCallerExecutorDisruptorConfig(ownFsmCallerExecutorDisruptorConfig),
                     null
             );
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19047 Meta storage and cmg raft log re-application in async manner
+            raftServer.raftNodeReadyFuture(nodeId.groupId()).join();
+
+            return startRaftServiceFuture;
         } finally {
             busyLock.leaveBusy();
         }

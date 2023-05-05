@@ -160,7 +160,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 assert localPeer != null;
 
-                raftServiceFuture = raftMgr.startRaftGroupNode(
+                raftServiceFuture = raftMgr.startRaftGroupNodeWithSyncWaitForReading(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageListener(storage, clusterTime),
@@ -180,7 +180,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
                 assert localPeer != null;
 
-                raftServiceFuture = raftMgr.startRaftGroupNode(
+                raftServiceFuture = raftMgr.startRaftGroupNodeWithSyncWaitForReading(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageListener(storage, clusterTime),
