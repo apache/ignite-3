@@ -101,10 +101,10 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
         Entry entry3 = storage.get(key, lastRevision - 1);
         assertArrayEquals(value3, entry3.value());
 
-        // Previous values, must be removed due to compaction.
         Entry entry2 = storage.get(key, lastRevision - 2);
-        assertTrue(entry2.empty());
+        assertArrayEquals(value2, entry2.value());
 
+        // Previous value, must be removed due to compaction.
         Entry entry1 = storage.get(key, lastRevision - 3);
         assertTrue(entry1.empty());
     }
@@ -114,17 +114,14 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
         byte[] key = key(0);
         byte[] value1 = keyValue(0, 0);
         byte[] value2 = keyValue(0, 1);
-        byte[] value3 = keyValue(0, 2);
 
         storage.put(key, value1, clock.now());
 
-        storage.put(key, value2, clock.now());
+        storage.remove(key, clock.now());
 
         HybridTimestamp ts = clock.now();
 
-        storage.remove(key, clock.now());
-
-        storage.put(key, value3, clock.now());
+        storage.put(key, value2, clock.now());
 
         storage.remove(key, clock.now());
 
@@ -132,16 +129,62 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
 
         storage.compact(ts);
 
-        Entry entry3 = storage.get(key, lastRevision - 1);
-        assertArrayEquals(value3, entry3.value());
+        Entry entry2 = storage.get(key, lastRevision - 1);
+        assertArrayEquals(value2, entry2.value());
 
         // Previous value, must be removed due to compaction.
-        Entry entry2 = storage.get(key, lastRevision - 2);
-        assertTrue(entry2.empty());
+        Entry entry1 = storage.get(key, lastRevision - 2);
+        assertTrue(entry1.empty());
     }
 
     @Test
     public void testCompactEmptyStorage() {
         storage.compact(clock.now());
+    }
+
+    @Test
+    public void testCompactionBetweenRevisionsOfOneKey() {
+        byte[] key = key(0);
+        byte[] value1 = keyValue(0, 0);
+        byte[] value2 = keyValue(0, 1);
+
+        storage.put(key, value1, clock.now());
+
+        storage.put(key(1), keyValue(1, 0), clock.now());
+
+        HybridTimestamp ts = clock.now();
+
+        storage.put(key, value2, clock.now());
+
+        storage.compact(ts);
+
+        // Both keys should exist, as low watermark's revision is higher than entry1's, but lesser than entry2's,
+        // this means that entry1 is still needed.
+        Entry entry2 = storage.get(key, storage.revision());
+        assertArrayEquals(value2, entry2.value());
+
+        Entry entry1 = storage.get(key, storage.revision() - 1);
+        assertArrayEquals(value1, entry1.value());
+    }
+
+    @Test
+    public void testInvokeCompactionBeforeAnyEntry() {
+        byte[] key = key(0);
+        byte[] value1 = keyValue(0, 0);
+        byte[] value2 = keyValue(0, 1);
+
+        HybridTimestamp ts = clock.now();
+
+        storage.put(key, value1, clock.now());
+        storage.put(key, value2, clock.now());
+
+        storage.compact(ts);
+
+        // No entry should be compacted.
+        Entry entry2 = storage.get(key, storage.revision());
+        assertArrayEquals(value2, entry2.value());
+
+        Entry entry1 = storage.get(key, storage.revision() - 1);
+        assertArrayEquals(value1, entry1.value());
     }
 }

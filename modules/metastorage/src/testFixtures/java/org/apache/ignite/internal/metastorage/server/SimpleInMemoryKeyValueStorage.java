@@ -529,45 +529,75 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return true;
     }
 
+    /**
+     * Compacts all entries by the given key, removing revision that are no longer needed.
+     * Last entry with a revision lesser or equal to the {@code minRevisionToKeep} and all consecutive entries will be preserved.
+     * If the first entry to keep is a tombstone, it will be removed.
+     *
+     * @param key A key.
+     * @param revs All revisions of a key.
+     * @param compactedKeysIdx Out parameter, revisions that need to be kept must be put here.
+     * @param compactedRevsIdx Out parameter, values that need to be kept must be put here.
+     * @param minRevisionToKeep Minimum revision that should be kept.
+     */
     private void compactForKey(
             byte[] key,
             List<Long> revs,
             Map<byte[], List<Long>> compactedKeysIdx,
             Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx,
-            long maxRevision
+            long minRevisionToKeep
     ) {
         List<Long> revsToKeep = new ArrayList<>();
 
-        boolean firstToKeep = true;
+        // Index of the first revision we will be keeping in the array of revisions.
+        int idxToKeepFrom = 0;
 
-        for (int i = 0; i < revs.size(); i++) {
+        // Whether there is an entry with the minRevisionToKeep.
+        boolean hasMinRevision = false;
+
+        // Traverse revisions, looking for the first revision that needs to be kept.
+        for (long rev : revs) {
+            if (rev >= minRevisionToKeep) {
+                if (rev == minRevisionToKeep) {
+                    hasMinRevision = true;
+                }
+                break;
+            }
+
+            idxToKeepFrom++;
+        }
+
+        if (!hasMinRevision) {
+            // Minimal revision was not encountered, that mean that we are between revisions of a key, so previous revision
+            // must be preserved.
+            idxToKeepFrom--;
+        }
+
+        for (int i = idxToKeepFrom; i < revs.size(); i++) {
             long rev = revs.get(i);
 
-            if (rev > maxRevision || (i == revs.size() - 1)) {
-                // If this revision is higher than max revision or is the last revision, we may need to keep it.
-                NavigableMap<byte[], Value> kv = revsIdx.get(rev);
+            // If this revision is higher than max revision or is the last revision, we may need to keep it.
+            NavigableMap<byte[], Value> kv = revsIdx.get(rev);
 
-                Value value = kv.get(key);
+            Value value = kv.get(key);
 
-                if (firstToKeep) {
-                    firstToKeep = false;
-
-                    if (value.tombstone()) {
-                        // If this is a first revision we are keeping and it is a tombstone, then don't keep it.
-                        continue;
-                    }
+            if (i == idxToKeepFrom) {
+                // Check if a first entry to keep is a tombstone.
+                if (value.tombstone()) {
+                    // If this is a first revision we are keeping and it is a tombstone, then don't keep it.
+                    continue;
                 }
-
-                NavigableMap<byte[], Value> compactedKv = compactedRevsIdx.computeIfAbsent(
-                        rev,
-                        k -> new TreeMap<>(CMP)
-                );
-
-                // Keep the entry and the revision.
-                compactedKv.put(key, value);
-
-                revsToKeep.add(rev);
             }
+
+            NavigableMap<byte[], Value> compactedKv = compactedRevsIdx.computeIfAbsent(
+                    rev,
+                    k -> new TreeMap<>(CMP)
+            );
+
+            // Keep the entry and the revision.
+            compactedKv.put(key, value);
+
+            revsToKeep.add(rev);
         }
 
         if (!revsToKeep.isEmpty()) {

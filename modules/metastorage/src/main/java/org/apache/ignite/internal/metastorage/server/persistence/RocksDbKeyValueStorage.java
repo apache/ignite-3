@@ -1020,40 +1020,81 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Compacts all entries by the given key, removing all previous revisions lesser or equal to the revision watermark and
-     * deleting the first entry if it is a tombstone.
+     * Compacts all entries by the given key, removing revision that are no longer needed.
+     * Last entry with a revision lesser or equal to the {@code minRevisionToKeep} and all consecutive entries will be preserved.
+     * If the first entry to keep is a tombstone, it will be removed.
+     * Example:
+     * <pre>
+     * Example 1:
+     *     put entry1: revision 5
+     *     put entry2: revision 7
+     *
+     *     do compaction: revision 6
+     *
+     *     entry1: exists
+     *     entry2: exists
+     *
+     * Example 2:
+     *     put entry1: revision 5
+     *     put entry2: revision 7
+     *
+     *     do compaction: revision 7
+     *
+     *     entry1: doesn't exist
+     *     entry2: exists
+     * </pre>
      *
      * @param batch Write batch.
      * @param key   Target key.
      * @param revs  Revisions.
-     * @param maxRevision Maximum revision that can be removed.
+     * @param minRevisionToKeep Minimum revision that should be kept.
      * @throws RocksDBException If failed.
      */
-    private void compactForKey(WriteBatch batch, byte[] key, long[] revs, long maxRevision) throws RocksDBException {
-        long lastRev = lastRevision(revs);
+    private void compactForKey(WriteBatch batch, byte[] key, long[] revs, long minRevisionToKeep) throws RocksDBException {
+        if (revs.length < 2) {
+            // If we have less than two revisions, there is no point in compaction.
+            return;
+        }
 
         // Index of the first revision we will be keeping in the array of revisions.
         int idxToKeepFrom = 0;
 
-        // Traverse revisions, removing all entries that are older than maxRevision.
-        for (int i = 0; i < revs.length - 1; i++) {
-            long rev = revs[i];
+        // Whether there is an entry with the minRevisionToKeep.
+        boolean hasMinRevision = false;
 
-            if (rev > maxRevision) {
+        // Traverse revisions, looking for the first revision that needs to be kept.
+        for (long rev : revs) {
+            if (rev >= minRevisionToKeep) {
+                if (rev == minRevisionToKeep) {
+                    hasMinRevision = true;
+                }
                 break;
             }
 
-            // This revision is not needed anymore, remove data.
-            data.delete(batch, keyToRocksKey(rev, key));
-
             idxToKeepFrom++;
+        }
+
+        if (!hasMinRevision) {
+            // Minimal revision was not encountered, that mean that we are between revisions of a key, so previous revision
+            // must be preserved.
+            idxToKeepFrom--;
+        }
+
+        if (idxToKeepFrom <= 0) {
+            // All revisions are still in use.
+            return;
+        }
+
+        for (int i = 0; i < idxToKeepFrom; i++) {
+            // This revision is not needed anymore, remove data.
+            data.delete(batch, keyToRocksKey(revs[i], key));
         }
 
         // Whether we only have last revision (even if it's lesser or equal to watermark).
         boolean onlyLastRevisionLeft = idxToKeepFrom == (revs.length - 1);
 
         // Get the number of the first revision that will be kept.
-        long rev = onlyLastRevisionLeft ? lastRev : revs[idxToKeepFrom];
+        long rev = onlyLastRevisionLeft ? lastRevision(revs) : revs[idxToKeepFrom];
 
         byte[] rocksKey = keyToRocksKey(rev, key);
 
