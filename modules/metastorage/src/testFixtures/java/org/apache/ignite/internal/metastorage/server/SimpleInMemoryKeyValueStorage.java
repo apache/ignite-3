@@ -61,9 +61,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** Keys index. Value is the list of all revisions under which entry corresponding to the key was modified. */
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
 
-    private NavigableMap<Long, Long> tsToRevMap = new TreeMap<>();
-
-    private NavigableMap<Long, Long> revToTsMap = new TreeMap<>();
+    /** Timestamp to revision mapping. */
+    private final NavigableMap<Long, Long> tsToRevMap = new TreeMap<>();
 
     /** Revisions index. Value contains all entries which were modified under particular revision. */
     private NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new TreeMap<>();
@@ -121,7 +120,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         rev = newRevision;
 
         tsToRevMap.put(ts.longValue(), rev);
-        revToTsMap.put(rev, ts.longValue());
 
         notifyWatches();
     }
@@ -487,7 +485,14 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
 
-            long maxRevision = tsToRevMap.floorEntry(lowWatermark.longValue()).getValue();
+            Map.Entry<Long, Long> revisionEntry = tsToRevMap.floorEntry(lowWatermark.longValue());
+
+            if (revisionEntry == null) {
+                // Nothing to compact yet.
+                return;
+            }
+
+            long maxRevision = revisionEntry.getValue();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx, maxRevision));
 

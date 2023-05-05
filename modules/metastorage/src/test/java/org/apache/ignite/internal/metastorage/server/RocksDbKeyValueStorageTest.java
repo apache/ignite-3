@@ -47,7 +47,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
 
     /** {@inheritDoc} */
     @Override
-    KeyValueStorage storage() {
+    KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
     }
 
@@ -64,7 +64,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
 
         storage.close();
 
-        storage = storage();
+        storage = createStorage();
 
         storage.start();
 

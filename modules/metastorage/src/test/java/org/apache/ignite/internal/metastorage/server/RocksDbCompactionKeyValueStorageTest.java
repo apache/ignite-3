@@ -29,9 +29,8 @@ public class RocksDbCompactionKeyValueStorageTest extends CompactionKeyValueStor
     @WorkDirectory
     private Path workDir;
 
-    /** {@inheritDoc} */
     @Override
-    KeyValueStorage storage() {
+    KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
     }
 }

@@ -25,7 +25,6 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.server.Value;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -180,7 +179,7 @@ class RocksStorageUtils {
      * @param bytes Byte array of longs.
      * @return Array of longs.
      */
-    static long @NotNull [] getAsLongs(byte[] bytes) {
+    static long[] getAsLongs(byte[] bytes) {
         // Value must be divisible by a size of a long, because it's a list of longs
         assert (bytes.length % Long.BYTES) == 0;
 
@@ -196,7 +195,7 @@ class RocksStorageUtils {
      * @param value New long value.
      * @return Byte array with a new value.
      */
-    static byte @NotNull [] appendLong(byte @Nullable [] bytes, long value) {
+    static byte[] appendLong(byte @Nullable [] bytes, long value) {
         if (bytes == null) {
             return longToBytes(value);
         }
@@ -219,7 +218,7 @@ class RocksStorageUtils {
      * @param valuesOffset Offset in the array of values to start from.
      * @return Array of bytes.
      */
-    static byte @NotNull [] longsToBytes(long @NotNull [] values, int valuesOffset) {
+    static byte[] longsToBytes(long[] values, int valuesOffset) {
         assert valuesOffset < values.length;
 
         var result = new byte[(values.length - valuesOffset) * Long.BYTES];

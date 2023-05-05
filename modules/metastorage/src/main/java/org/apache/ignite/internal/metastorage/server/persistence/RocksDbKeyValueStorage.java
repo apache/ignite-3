@@ -968,7 +968,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 RocksUtils.checkIterator(rocksIterator);
 
-                maxRevision = bytesToLong(rocksIterator.value());
+                byte[] tsValue = rocksIterator.value();
+
+                if (tsValue.length == 0) {
+                    // Nothing to compact yet.
+                    return;
+                }
+
+                maxRevision = bytesToLong(tsValue);
             }
 
             try (RocksIterator iterator = index.newIterator()) {

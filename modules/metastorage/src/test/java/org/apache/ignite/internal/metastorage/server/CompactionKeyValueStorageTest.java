@@ -29,11 +29,10 @@ import org.junit.jupiter.api.Test;
 
 /** Compaction tests. */
 public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageTest {
-
     private final HybridClock clock = new HybridClockImpl();
 
     @Test
-    public void test1() {
+    public void testCompactionAfterLastRevision() {
         byte[] key = key(0);
         byte[] value1 = keyValue(0, 0);
         byte[] value2 = keyValue(0, 1);
@@ -56,7 +55,7 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
     }
 
     @Test
-    public void test2() {
+    public void testCompactionAfterTombstone() {
         byte[] key = key(0);
         byte[] value1 = keyValue(0, 0);
 
@@ -86,7 +85,9 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
 
         storage.put(key, value1, clock.now());
         storage.put(key, value2, clock.now());
+
         HybridTimestamp ts = clock.now();
+
         storage.put(key, value3, clock.now());
         storage.put(key, value4, clock.now());
 
@@ -94,9 +95,18 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
 
         storage.compact(ts);
 
-        // Previous value, must be removed due to compaction.
         Entry entry4 = storage.get(key, lastRevision);
         assertArrayEquals(value4, entry4.value());
+
+        Entry entry3 = storage.get(key, lastRevision - 1);
+        assertArrayEquals(value3, entry3.value());
+
+        // Previous values, must be removed due to compaction.
+        Entry entry2 = storage.get(key, lastRevision - 2);
+        assertTrue(entry2.empty());
+
+        Entry entry1 = storage.get(key, lastRevision - 3);
+        assertTrue(entry1.empty());
     }
 
     @Test
@@ -106,23 +116,32 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
         byte[] value2 = keyValue(0, 1);
         byte[] value3 = keyValue(0, 2);
 
-        HybridTimestamp now1 = clock.now();
-        storage.put(key, value1, now1);
-        HybridTimestamp now2 = clock.now();
-        storage.put(key, value2, now2);
+        storage.put(key, value1, clock.now());
+
+        storage.put(key, value2, clock.now());
+
         HybridTimestamp ts = clock.now();
-        HybridTimestamp now3 = clock.now();
-        storage.remove(key, now3);
-        HybridTimestamp now4 = clock.now();
-        storage.put(key, value3, now4);
+
+        storage.remove(key, clock.now());
+
+        storage.put(key, value3, clock.now());
+
         storage.remove(key, clock.now());
 
         long lastRevision = storage.revision();
 
         storage.compact(ts);
 
+        Entry entry3 = storage.get(key, lastRevision - 1);
+        assertArrayEquals(value3, entry3.value());
+
         // Previous value, must be removed due to compaction.
-        Entry entry4 = storage.get(key, lastRevision - 1);
-        assertArrayEquals(value3, entry4.value());
+        Entry entry2 = storage.get(key, lastRevision - 2);
+        assertTrue(entry2.empty());
+    }
+
+    @Test
+    public void testCompactEmptyStorage() {
+        storage.compact(clock.now());
     }
 }

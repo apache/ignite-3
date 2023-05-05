@@ -28,19 +28,13 @@ import org.junit.jupiter.api.BeforeEach;
 public abstract class BaseKeyValueStorageTest {
     protected KeyValueStorage storage;
 
-    /**
-     * Before each.
-     */
     @BeforeEach
     public void setUp() {
-        storage = storage();
+        storage = createStorage();
 
         storage.start();
     }
 
-    /**
-     * After each.
-     */
     @AfterEach
     void tearDown() throws Exception {
         storage.close();
@@ -49,7 +43,7 @@ public abstract class BaseKeyValueStorageTest {
     /**
      * Returns key value storage for this test.
      */
-    abstract KeyValueStorage storage();
+    abstract KeyValueStorage createStorage();
 
     protected static byte[] key(int k) {
         return ("key" + k).getBytes(UTF_8);
