@@ -407,7 +407,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
-                vault
+                vault,
+                null,
+                null
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
@@ -1031,11 +1033,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        List<IgniteComponent> components = startPartialNode(1, null);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19408 Need to use ItIgniteNodeRestartTest.startPartialNode(int, String)
+        startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2);
 
-        stopPartialNode(components);
+        stopNode(1);
 
         Table table = ignite.tables().table(TABLE_NAME);
 
@@ -1045,9 +1048,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
-        components = startPartialNode(1, null);
+        IgniteImpl ignite1 = startNode(1);
 
-        TableManager tableManager = findComponent(components, TableManager.class);
+        TableManager tableManager = (TableManager) ignite1.tables();
 
         assertNotNull(tableManager);
 

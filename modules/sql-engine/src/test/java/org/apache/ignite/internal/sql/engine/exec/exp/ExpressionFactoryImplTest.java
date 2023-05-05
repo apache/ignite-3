@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CALCITE_CONNECTION_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.util.Arrays;
 import java.util.Collections;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -46,9 +44,7 @@ public class ExpressionFactoryImplTest {
 
     @BeforeEach
     public void prepare() {
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, IgniteTypeSystem.INSTANCE);
-
-        typeFactory = new IgniteTypeFactory(typeSys);
+        typeFactory = Commons.typeFactory();
 
         expFactory = new ExpressionFactoryImpl<>(null, typeFactory, SqlConformanceEnum.DEFAULT);
     }

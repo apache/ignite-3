@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +35,10 @@ public class TestTypeArgumentsTest {
 
     private final TestType type = new TestType();
 
-    private final TestDataSamples<String> samples = type.createSamples(new IgniteTypeFactory(IgniteTypeSystem.INSTANCE));
+    private final TestDataSamples<String> samples = type.createSamples(Commons.typeFactory());
 
     /**
-     * Tests for {@link TestTypeArguments#unary(CustomDataTypeTestSpec, TestDataSamples, Comparable)}.
+     * Tests for {@link TestTypeArguments#unary(DataTypeTestSpec, TestDataSamples, Comparable)}.
      */
     @Test
     public void testUnary() {
@@ -49,7 +49,7 @@ public class TestTypeArgumentsTest {
     }
 
     /**
-     * Tests for {@link TestTypeArguments#binary(CustomDataTypeTestSpec, TestDataSamples, Comparable, Comparable)}.
+     * Tests for {@link TestTypeArguments#binary(DataTypeTestSpec, TestDataSamples, Comparable, Comparable)}.
      */
     @Test
     public void testBinary() {
@@ -64,7 +64,7 @@ public class TestTypeArgumentsTest {
     }
 
     /**
-     * Tests for {@link TestTypeArguments#nary(CustomDataTypeTestSpec, TestDataSamples, Comparable, Comparable[])}.
+     * Tests for {@link TestTypeArguments#nary(DataTypeTestSpec, TestDataSamples, Comparable, Comparable[])}.
      */
     @Test
     public void testNary() {
@@ -79,12 +79,10 @@ public class TestTypeArgumentsTest {
         assertEquals(expected, args);
     }
 
-    private static final class TestType extends CustomDataTypeTestSpec<String> {
-
-        private static final String[] VALUES = {"1", "2", "3"};
+    private static final class TestType extends DataTypeTestSpec<String> {
 
         TestType() {
-            super(ColumnType.INT8, "TestType", String.class, VALUES);
+            super(ColumnType.INT8, "TestType", String.class);
         }
 
         @Override
@@ -108,10 +106,17 @@ public class TestTypeArgumentsTest {
         }
 
         @Override
+        public String wrapIfNecessary(Object storageValue) {
+            return (String) storageValue;
+        }
+
+        @Override
         public TestDataSamples<String> createSamples(IgniteTypeFactory typeFactory) {
+            List<String> values = List.of("1", "2", "3");
+
             return TestDataSamples.<String>builder()
-                    .add(List.of(VALUES), SqlTypeName.INTEGER, String::valueOf)
-                    .add(List.of(VALUES), SqlTypeName.BIGINT, String::valueOf)
+                    .add(values, SqlTypeName.INTEGER, String::valueOf)
+                    .add(values, SqlTypeName.BIGINT, String::valueOf)
                     .build();
         }
     }

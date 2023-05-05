@@ -88,10 +88,10 @@ class SnapshotAwarePartitionDataStorageTest {
 
         when(partitionStorage.runConsistently(any())).then(invocation -> {
             MvPartitionStorage.WriteClosure<?> closure = invocation.getArgument(0);
-            return closure.execute();
+            return closure.execute(null);
         });
 
-        MvPartitionStorage.WriteClosure<Object> closure = () -> token;
+        MvPartitionStorage.WriteClosure<Object> closure = locker -> token;
 
         assertThat(testedStorage.runConsistently(closure), is(sameInstance(token)));
         verify(partitionStorage).runConsistently(closure);

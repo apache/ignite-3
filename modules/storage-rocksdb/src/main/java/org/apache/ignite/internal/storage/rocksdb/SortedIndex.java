@@ -55,7 +55,7 @@ class SortedIndex implements ManuallyCloseable {
     SortedIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
         return storages.computeIfAbsent(
                 partitionStorage.partitionId(),
-                partId -> new RocksDbSortedIndexStorage(descriptor, indexCf, partitionStorage, indexMetaStorage)
+                partId -> new RocksDbSortedIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
         );
     }
 

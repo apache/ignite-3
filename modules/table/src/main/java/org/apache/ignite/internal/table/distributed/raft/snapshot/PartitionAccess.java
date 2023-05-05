@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -72,10 +73,10 @@ public interface PartitionAccess {
      * versions.
      *
      * @param rowId Row id.
-     * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
+     * @return List of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
      * @throws StorageException If failed to read data.
      */
-    Cursor<ReadResult> getAllRowVersions(RowId rowId) throws StorageException;
+    List<ReadResult> getAllRowVersions(RowId rowId) throws StorageException;
 
     /**
      * Returns committed RAFT group configuration corresponding to the write command with the highest applied index, {@code null} if it was

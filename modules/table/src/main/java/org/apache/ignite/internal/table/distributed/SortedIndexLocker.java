@@ -117,34 +117,33 @@ public class SortedIndexLocker implements IndexLocker {
      * @return A future representing a locked index row or {@code null} if the cursor has no rows more.
      */
     private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
-        if (!peekCursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.
-            return lockManager.acquire(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S)
-                    .thenCompose(ignore -> {
-                        if (peekCursor.hasNext()) {
-                            lockManager.release(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S);
+        IndexRow peekedRow = peekCursor.peek();
 
-                            return acquireLockNextKey(txId, peekCursor);
-                        }
+        LockKey lockKey = new LockKey(indexId, indexKey(peekedRow).byteBuffer());
 
-                        return CompletableFuture.completedFuture(null);
-                    });
-        } else {
-            IndexRow nextRow = peekCursor.peek();
+        return lockManager.acquire(txId, lockKey, LockMode.S)
+                .thenCompose(ignore -> {
+                    IndexRow peekedRowAfterLock = peekCursor.peek();
 
-            return lockManager.acquire(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S)
-                    .thenCompose(ignore -> {
-                        if (!peekCursor.hasNext() || !nextRow.rowId().equals(peekCursor.peek().rowId())) {
-                            lockManager.release(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S);
+                    if (!rowIdMatches(peekedRow, peekedRowAfterLock)) {
+                        lockManager.release(txId, lockKey, LockMode.S);
 
-                            return acquireLockNextKey(txId, peekCursor);
-                        }
+                        return acquireLockNextKey(txId, peekCursor);
+                    }
 
-                        return CompletableFuture.completedFuture(nextRow);
-                    });
-        }
+                    return CompletableFuture.completedFuture(peekedRow);
+                });
     }
 
-    private BinaryTuple indexKey(@Nullable IndexRow indexRow) {
+    private static boolean rowIdMatches(@Nullable IndexRow row0, @Nullable IndexRow row1) {
+        if (row0 == null ^ row1 == null) {
+            return false;
+        }
+
+        return row0 == row1 || row0.rowId().equals(row1.rowId());
+    }
+
+    private static BinaryTuple indexKey(@Nullable IndexRow indexRow) {
         return (indexRow == null) ? POSITIVE_INF : indexRow.indexColumns();
     }
 
@@ -155,13 +154,13 @@ public class SortedIndexLocker implements IndexLocker {
 
         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        // find next key
+        // Find next key.
         Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
 
         BinaryTuple nextKey;
         if (cursor.hasNext()) {
             nextKey = cursor.next().indexColumns();
-        } else { // otherwise INF
+        } else { // Otherwise INF.
             nextKey = POSITIVE_INF;
         }
 

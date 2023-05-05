@@ -32,7 +32,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
@@ -199,7 +199,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
      * Creates PUBLIC schema with one TEST table.
      */
     private IgniteSchema createSchemaWithTable(IgniteDistribution distr, int... indexedColumns) {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+        IgniteTypeFactory f = Commons.typeFactory();
 
         RelDataType type = new RelDataTypeFactory.Builder(f)
                 .add("ID", f.createJavaType(Integer.class))

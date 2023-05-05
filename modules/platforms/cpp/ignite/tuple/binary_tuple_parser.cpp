@@ -46,7 +46,7 @@ ignite_date load_date(bytes_view bytes) {
 ignite_time load_time(bytes_view bytes) {
     std::uint64_t time = load_little<std::uint32_t>(bytes);
 
-    std::int32_t nano;
+    std::int32_t nano = 0;
     switch (bytes.size()) {
         case 4:
             nano = ((std::int32_t) time & ((1 << 10) - 1)) * 1000 * 1000;
@@ -309,20 +309,20 @@ ignite_period binary_tuple_parser::get_period(bytes_view bytes) {
         case 0:
             return {};
         case 3: {
-            auto years = load_little<std::int8_t>(bytes, 8);
-            auto months = load_little<std::int8_t>(bytes, 8);
-            auto days = load_little<std::int8_t>(bytes, 8);
+            auto years = load_little<std::int8_t>(bytes);
+            auto months = load_little<std::int8_t>(bytes, 1);
+            auto days = load_little<std::int8_t>(bytes, 2);
             return {years, months, days};
         }
         case 6: {
-            auto years = load_little<std::int16_t>(bytes, 8);
-            auto months = load_little<std::int16_t>(bytes, 8);
-            auto days = load_little<std::int16_t>(bytes, 8);
+            auto years = load_little<std::int16_t>(bytes);
+            auto months = load_little<std::int16_t>(bytes, 2);
+            auto days = load_little<std::int16_t>(bytes, 4);
             return {years, months, days};
         }
         case 12: {
-            auto years = load_little<std::int32_t>(bytes, 8);
-            auto months = load_little<std::int32_t>(bytes, 8);
+            auto years = load_little<std::int32_t>(bytes);
+            auto months = load_little<std::int32_t>(bytes, 4);
             auto days = load_little<std::int32_t>(bytes, 8);
             return {years, months, days};
         }
@@ -334,15 +334,15 @@ ignite_period binary_tuple_parser::get_period(bytes_view bytes) {
 ignite_duration binary_tuple_parser::get_duration(bytes_view bytes) {
     switch (bytes.size()) {
         case 0:
-            return ignite_duration();
+            return {};
         case 8: {
             auto seconds = load_little<std::int64_t>(bytes);
-            return ignite_duration(seconds, 0);
+            return {seconds, 0};
         }
         case 12: {
             auto seconds = load_little<std::int64_t>(bytes);
             auto nanos = load_little<std::int32_t>(bytes, 8);
-            return ignite_duration(seconds, nanos);
+            return {seconds, nanos};
         }
         default:
             throw std::out_of_range("Bad element size");

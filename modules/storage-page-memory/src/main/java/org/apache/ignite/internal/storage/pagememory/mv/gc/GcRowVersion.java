@@ -19,11 +19,12 @@ package org.apache.ignite.internal.storage.pagememory.mv.gc;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 
 /**
  * Row version in the version chain that should be garbage collected.
  */
-public class GcRowVersion {
+public class GcRowVersion implements GcEntry {
     private final RowId rowId;
 
     private final HybridTimestamp timestamp;
@@ -43,16 +44,12 @@ public class GcRowVersion {
         this.link = link;
     }
 
-    /**
-     * Returns row ID.
-     */
+    @Override
     public RowId getRowId() {
         return rowId;
     }
 
-    /**
-     * Returns row timestamp.
-     */
+    @Override
     public HybridTimestamp getTimestamp() {
         return timestamp;
     }

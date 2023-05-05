@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +30,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction finish replica request that will trigger following actions processing.
@@ -45,7 +48,6 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      *
      * @return Transaction id.
      */
-    @Marshallable
     UUID txId();
 
     /**
@@ -58,8 +60,14 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Transaction commit timestamp.
      */
-    @Marshallable
-    HybridTimestamp commitTimestamp();
+    long commitTimestampLong();
+
+    /**
+     * Transaction commit timestamp.
+     */
+    default @Nullable HybridTimestamp commitTimestamp() {
+        return nullableHybridTimestamp(commitTimestampLong());
+    }
 
     /**
      * Returns enlisted partition groups aggregated by expected primary replica nodes.

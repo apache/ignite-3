@@ -96,14 +96,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public IgniteTypeFactory() {
-        this(IgniteTypeSystem.INSTANCE);
-    }
-
-    /**
-     * Constructor.
      *
      * @param typeSystem Type system.
      */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -180,7 +181,7 @@ public class TxManagerImpl implements TxManager {
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
-                .commitTimestamp(commitTimestamp)
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .term(term)
                 .build();
 
@@ -207,7 +208,7 @@ public class TxManagerImpl implements TxManager {
                             .groupId(replicationGroupIds.get(i).get1())
                             .txId(txId)
                             .commit(commit)
-                            .commitTimestamp(commitTimestamp)
+                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                             .term(replicationGroupIds.get(i).get2())
                             .build()
             );

@@ -79,7 +79,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     void groupConfigIsPersisted() throws Exception {
         byte[] originalConfig = {1, 2, 3};
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.committedGroupConfiguration(originalConfig);
 
             return null;
@@ -96,7 +96,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     void groupConfigWhichDoesNotFitInOnePageIsPersisted() throws Exception {
         byte[] originalConfig = configThatDoesNotFitInOnePage();
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.committedGroupConfiguration(originalConfig);
 
             return null;
@@ -125,7 +125,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         assertThat(originalConfigOfMoreThanOnePage.length, is(greaterThan(5 * pageSize())));
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.committedGroupConfiguration(originalConfigOfMoreThanOnePage);
 
             return null;
@@ -133,7 +133,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         byte[] configWhichFitsInOnePage = {1, 2, 3};
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             storage.committedGroupConfiguration(configWhichFitsInOnePage);
 
             return null;
