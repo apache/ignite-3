@@ -76,7 +76,7 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
     }
 
     @Test
-    public void test3() {
+    public void testCompactionBetweenMultipleWrites() {
         byte[] key = key(0);
         byte[] value1 = keyValue(0, 0);
         byte[] value2 = keyValue(0, 1);
@@ -110,7 +110,7 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
     }
 
     @Test
-    public void test4() {
+    public void testCompactionAfterTombstoneRemovesTombstone() {
         byte[] key = key(0);
         byte[] value1 = keyValue(0, 0);
         byte[] value2 = keyValue(0, 1);
@@ -128,6 +128,10 @@ public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageT
         long lastRevision = storage.revision();
 
         storage.compact(ts);
+
+        // Last operation was remove, so this is a tombstone.
+        Entry entry3 = storage.get(key, lastRevision);
+        assertTrue(entry3.tombstone());
 
         Entry entry2 = storage.get(key, lastRevision - 1);
         assertArrayEquals(value2, entry2.value());
