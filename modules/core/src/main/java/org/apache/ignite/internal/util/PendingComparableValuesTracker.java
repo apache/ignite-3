@@ -187,7 +187,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     protected CompletableFuture<R> addNewWaiter(T valueToWait) {
         CompletableFuture<R> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
 
-        Map.Entry<T,R> currentEntry = current;
+        Map.Entry<T, R> currentEntry = current;
 
         if (currentEntry.getKey().compareTo(valueToWait) >= 0) {
             future.complete(currentEntry.getValue());

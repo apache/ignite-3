@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Test for multiple waiters associated with same value in {@link PendingIndependentComparableValuesTracker}.
- * General scenarios are tests within {@link PendingComparableValuesTrackerTest}.
  */
 public class PendingIndependentComparableValuesTrackerTest {
     @Test
