@@ -65,7 +65,7 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 20000L;
+    private static final long UPDATE_LEASE_MS = 2000L;
 
     /** Lease holding interval. */
     public static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
@@ -210,7 +210,7 @@ public class LeaseUpdater {
     public CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease) {
         var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
 
-        byte[] leaseRaw = ByteUtils.toBytes(lease);
+        byte[] leaseRaw = lease.bytes();
 
         Lease deniedLease = lease.denyLease();
 
@@ -218,7 +218,7 @@ public class LeaseUpdater {
 
         return msManager.invoke(
                 value(leaseKey).eq(leaseRaw),
-                put(leaseKey, ByteUtils.toBytes(deniedLease)),
+                put(leaseKey, deniedLease.bytes()),
                 noop()
         );
     }
@@ -293,7 +293,7 @@ public class LeaseUpdater {
                     if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
                         ClusterNode candidate = nextLeaseHolder(
                                 entry.getValue(),
-                                lease.isProlongable() ? lease.getLeaseholder().name() : null
+                                lease.isProlongable() ? lease.getLeaseholder() : null
                         );
 
                         if (candidate == null) {
@@ -335,13 +335,13 @@ public class LeaseUpdater {
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
-            byte[] leaseRaw = ByteUtils.toBytes(lease);
+            byte[] leaseRaw = lease.bytes();
 
-            Lease renewedLease = new Lease(candidate, startTs, expirationTs);
+            Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs);
 
             msManager.invoke(
                     or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
-                    put(leaseKey, ByteUtils.toBytes(renewedLease)),
+                    put(leaseKey, renewedLease.bytes()),
                     noop()
             ).thenAccept(isCreated -> {
                 if (isCreated) {
@@ -362,13 +362,13 @@ public class LeaseUpdater {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
-            byte[] leaseRaw = ByteUtils.toBytes(lease);
+            byte[] leaseRaw = lease.bytes();
 
             Lease renewedLease = lease.prolongLease(newTs);
 
             msManager.invoke(
                     value(leaseKey).eq(leaseRaw),
-                    put(leaseKey, ByteUtils.toBytes(renewedLease)),
+                    put(leaseKey, renewedLease.bytes()),
                     noop()
             );
         }
@@ -384,13 +384,13 @@ public class LeaseUpdater {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
-            byte[] leaseRaw = ByteUtils.toBytes(lease);
+            byte[] leaseRaw = lease.bytes();
 
             Lease renewedLease = lease.acceptLease(newTs);
 
             msManager.invoke(
                     value(leaseKey).eq(leaseRaw),
-                    put(leaseKey, ByteUtils.toBytes(renewedLease)),
+                    put(leaseKey, renewedLease.bytes()),
                     noop()
             );
         }
@@ -444,7 +444,7 @@ public class LeaseUpdater {
             Lease lease = leaseTracker.getLease(grpId);
 
             if (msg instanceof StopLeaseProlongationMessage) {
-                if (lease.isProlongable() && sender.equals(lease.getLeaseholder().name())) {
+                if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
                     denyLease(grpId, lease).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);

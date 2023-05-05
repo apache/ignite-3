@@ -139,7 +139,7 @@ public class LeaseTracker {
                 if (msEntry.empty()) {
                     leases.remove(grpId);
                 } else {
-                    Lease lease = ByteUtils.fromBytes(msEntry.value());
+                    Lease lease = Lease.fromBytes(msEntry.value());
 
                     leases.put(grpId, lease);
                 }

@@ -73,7 +73,7 @@ public class LeaseNegotiator {
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
         clusterService.messagingService().invoke(
-                        lease.getLeaseholder().name(),
+                        lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
                                 .groupId(groupId)
                                 .leaseStartTime(lease.getStartTime())
