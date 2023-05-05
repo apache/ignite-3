@@ -166,7 +166,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
-        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,

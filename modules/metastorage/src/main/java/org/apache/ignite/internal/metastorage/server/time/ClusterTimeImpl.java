@@ -36,7 +36,7 @@ public class ClusterTimeImpl implements ClusterTime {
 
     private final HybridClock clock;
 
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /**
      * Constructor.

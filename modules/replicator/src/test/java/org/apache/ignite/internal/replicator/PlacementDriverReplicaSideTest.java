@@ -65,7 +65,7 @@ public class PlacementDriverReplicaSideTest {
 
     private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
 
-    private PendingComparableValuesTracker<Long> storageIndexTracker;
+    private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     private AtomicLong indexOnLeader = new AtomicLong(0);
 

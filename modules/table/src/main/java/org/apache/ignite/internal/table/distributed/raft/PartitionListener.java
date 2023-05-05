@@ -90,10 +90,10 @@ public class PartitionListener implements RaftGroupListener {
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
 
     /** Safe time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Storage index tracker. */
-    private final PendingComparableValuesTracker<Long> storageIndexTracker;
+    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /**
      * The constructor.
@@ -106,8 +106,8 @@ public class PartitionListener implements RaftGroupListener {
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime,
-            PendingComparableValuesTracker<Long> storageIndexTracker
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
@@ -484,7 +484,7 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T> tracker,
+            PendingComparableValuesTracker<T, Void> tracker,
             T newValue
     ) {
         try {

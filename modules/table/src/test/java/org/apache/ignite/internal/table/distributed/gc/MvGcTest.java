@@ -347,7 +347,7 @@ public class MvGcTest {
 
         StorageUpdateHandler storageUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lvm);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
                 HybridTimestamp.MIN_VALUE
         ));
 

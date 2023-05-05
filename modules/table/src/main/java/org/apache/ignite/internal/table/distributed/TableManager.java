@@ -736,8 +736,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
-                var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-                var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
+                        new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+                PendingComparableValuesTracker<Long, Void>  storageIndexTracker =
+                        new PendingComparableValuesTracker<>(0L);
 
                 ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
@@ -2156,8 +2158,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-        var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-        var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
         InternalTable internalTable = tbl.internalTable();
 
@@ -2539,7 +2542,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
     }
 
-    private static void closeTracker(@Nullable PendingComparableValuesTracker<?> tracker) {
+    private static void closeTracker(@Nullable PendingComparableValuesTracker<?, Void> tracker) {
         if (tracker != null) {
             tracker.close();
         }

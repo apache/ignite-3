@@ -69,7 +69,7 @@ public class StorageUpdateHandlerTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
     ));
 

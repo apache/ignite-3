@@ -140,10 +140,10 @@ public class InternalTableImpl implements InternalTable {
     private final HybridClock clock;
 
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp>> safeTimeTrackerByPartitionId = emptyMap();
+    private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
 
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
-    private volatile Int2ObjectMap<PendingComparableValuesTracker<Long>> storageIndexTrackerByPartitionId = emptyMap();
+    private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
     /**
      * Constructor.
@@ -1480,12 +1480,12 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public @Nullable PendingComparableValuesTracker<HybridTimestamp> getPartitionSafeTimeTracker(int partitionId) {
+    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
         return safeTimeTrackerByPartitionId.get(partitionId);
     }
 
     @Override
-    public @Nullable PendingComparableValuesTracker<Long> getPartitionStorageIndexTracker(int partitionId) {
+    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return storageIndexTrackerByPartitionId.get(partitionId);
     }
 
@@ -1498,15 +1498,16 @@ public class InternalTableImpl implements InternalTable {
      */
     public void updatePartitionTrackers(
             int partitionId,
-            PendingComparableValuesTracker<HybridTimestamp> newSafeTimeTracker,
-            PendingComparableValuesTracker<Long> newStorageIndexTracker
+            PendingComparableValuesTracker<HybridTimestamp, Void> newSafeTimeTracker,
+            PendingComparableValuesTracker<Long, Void> newStorageIndexTracker
     ) {
-        PendingComparableValuesTracker<HybridTimestamp> previousSafeTimeTracker;
-        PendingComparableValuesTracker<Long> previousStorageIndexTracker;
+        PendingComparableValuesTracker<HybridTimestamp, Void> previousSafeTimeTracker;
+        PendingComparableValuesTracker<Long, Void> previousStorageIndexTracker;
 
         synchronized (updatePartitionMapsMux) {
-            Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp>> newSafeTimeTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
-            Int2ObjectMap<PendingComparableValuesTracker<Long>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
+            Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> newSafeTimeTrackerMap =
+                    new Int2ObjectOpenHashMap<>(partitions);
+            Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> newStorageIndexTrackerMap = new Int2ObjectOpenHashMap<>(partitions);
 
             newSafeTimeTrackerMap.putAll(safeTimeTrackerByPartitionId);
             newStorageIndexTrackerMap.putAll(storageIndexTrackerByPartitionId);

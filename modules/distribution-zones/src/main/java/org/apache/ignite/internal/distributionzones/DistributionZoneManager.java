@@ -206,7 +206,7 @@ public class DistributionZoneManager implements IgniteComponent {
     private final Map<Integer, ZoneState> zonesState;
 
     /** The tracker for the last topology version which was observed by distribution zone manager. */
-    private final PendingComparableValuesTracker<Long> topVerTracker;
+    private final PendingComparableValuesTracker<Long, Void> topVerTracker;
 
     /** The last meta storage revision on which scale up timer was started. */
     private volatile long lastScaleUpRevision;
@@ -1775,10 +1775,10 @@ public class DistributionZoneManager implements IgniteComponent {
         private volatile Set<String> nodes;
 
         /** The tracker for scale up meta storage revision of current data nodes value. */
-        private final PendingComparableValuesTracker<Long> scaleUpRevisionTracker;
+        private final PendingComparableValuesTracker<Long, Void> scaleUpRevisionTracker;
 
         /** The tracker for scale down meta storage revision of current data nodes value. */
-        private final PendingComparableValuesTracker<Long> scaleDownRevisionTracker;
+        private final PendingComparableValuesTracker<Long, Void> scaleDownRevisionTracker;
 
         /**
          * Constructor.
@@ -1970,7 +1970,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @return The tracker.
          */
-        private PendingComparableValuesTracker<Long> scaleUpRevisionTracker() {
+        private PendingComparableValuesTracker<Long, Void> scaleUpRevisionTracker() {
             return scaleUpRevisionTracker;
         }
 
@@ -1979,7 +1979,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @return The tracker.
          */
-        private PendingComparableValuesTracker<Long> scaleDownRevisionTracker() {
+        private PendingComparableValuesTracker<Long, Void> scaleDownRevisionTracker() {
             return scaleDownRevisionTracker;
         }
 

@@ -19,8 +19,10 @@ package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -34,21 +36,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test for {@link PendingComparableValuesTracker}.
  */
+@SuppressWarnings("rawtypes") // Because of test parametrization raw PendingComparableValuesTracker is used.
 public class PendingComparableValuesTrackerTest {
-    @Test
-    public void testSimpleWaitFor() {
+    @ParameterizedTest
+    @MethodSource("hybridTimestampTrackerGenerator")
+    public void testSimpleWaitFor(PendingComparableValuesTracker trackerParam) {
         HybridTimestamp ts = new HybridTimestamp(1, 0);
 
-        PendingComparableValuesTracker<HybridTimestamp> tracker = new PendingComparableValuesTracker<>(ts);
+        @SuppressWarnings("unchecked")
+        PendingComparableValuesTracker<HybridTimestamp, Void> tracker = trackerParam;
 
         HybridTimestamp ts1 = new HybridTimestamp(ts.getPhysical() + 1_000_000, 0);
         HybridTimestamp ts2 = new HybridTimestamp(ts.getPhysical() + 2_000_000, 0);
@@ -75,11 +82,46 @@ public class PendingComparableValuesTrackerTest {
         assertThat(f2, willCompleteSuccessfully());
     }
 
-    @Test
-    public void testMultithreadedWaitFor() throws Exception {
+    @ParameterizedTest
+    @MethodSource("hybridTimestampTrackerGenerator")
+    public void testSimpleWaitForWithValue(PendingComparableValuesTracker trackerParam) {
+        HybridTimestamp ts = new HybridTimestamp(1, 0);
+
+        @SuppressWarnings("unchecked")
+        PendingComparableValuesTracker<HybridTimestamp, HybridTimestamp> tracker = trackerParam;
+
+        HybridTimestamp ts1 = new HybridTimestamp(ts.getPhysical() + 1_000_000, 0);
+        HybridTimestamp ts2 = new HybridTimestamp(ts.getPhysical() + 2_000_000, 0);
+        HybridTimestamp ts3 = new HybridTimestamp(ts.getPhysical() + 3_000_000, 0);
+
+        CompletableFuture<HybridTimestamp> f0 = tracker.waitFor(ts1);
+        CompletableFuture<HybridTimestamp> f1 = tracker.waitFor(ts2);
+        CompletableFuture<HybridTimestamp> f2 = tracker.waitFor(ts3);
+
+        assertFalse(f0.isDone());
+        assertFalse(f1.isDone());
+        assertFalse(f2.isDone());
+
+        tracker.update(ts1, ts1);
+        assertThat(f0, willBe(ts1));
+        assertFalse(f1.isDone());
+        assertFalse(f2.isDone());
+
+        tracker.update(ts2, ts2);
+        assertThat(f1, willBe(ts2));
+        assertFalse(f2.isDone());
+
+        tracker.update(ts3, ts3);
+        assertThat(f2, willBe(ts3));
+    }
+
+    @ParameterizedTest
+    @MethodSource("hybridTimestampTrackerGenerator")
+    public void testMultithreadedWaitFor(PendingComparableValuesTracker trackerParam) throws Exception {
         HybridClock clock = new HybridClockImpl();
 
-        PendingComparableValuesTracker<HybridTimestamp> tracker = new PendingComparableValuesTracker<>(clock.now());
+        @SuppressWarnings("unchecked")
+        PendingComparableValuesTracker<HybridTimestamp, Void> tracker = trackerParam;
 
         int threads = Runtime.getRuntime().availableProcessors();
 
@@ -126,6 +168,58 @@ public class PendingComparableValuesTrackerTest {
         assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
     }
 
+    @ParameterizedTest
+    @MethodSource("hybridTimestampTrackerGenerator")
+    public void testMultithreadedWaitForWithValue(PendingComparableValuesTracker trackerParam) throws Exception {
+        HybridClock clock = new HybridClockImpl();
+
+        @SuppressWarnings("unchecked")
+        PendingComparableValuesTracker<HybridTimestamp, HybridTimestamp> tracker = trackerParam;
+
+        int threads = Runtime.getRuntime().availableProcessors();
+
+        List<CompletableFuture<HybridTimestamp>> allFutures = Collections.synchronizedList(new ArrayList<>());
+
+        int iterations = 1_000;
+
+        runMultiThreaded(() -> {
+            NavigableMap<HybridTimestamp, CompletableFuture<HybridTimestamp>> prevFutures = new TreeMap<>();
+
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+
+            for (int i = 0; i < iterations; i++) {
+                HybridTimestamp now = clock.now();
+
+                tracker.update(now, now);
+
+                HybridTimestamp timestampToWait =
+                        new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
+
+                CompletableFuture<HybridTimestamp> future = tracker.waitFor(timestampToWait);
+
+                prevFutures.put(timestampToWait, future);
+
+                allFutures.add(future);
+
+                if (i % 10 == 0) {
+                    SortedMap<HybridTimestamp, CompletableFuture<HybridTimestamp>> beforeNow = prevFutures.headMap(now, true);
+
+                    beforeNow.forEach((t, f) -> assertThat(
+                            "now=" + now + ", ts=" + t + ", trackerTs=" + tracker.current(),
+                            f, willBe(greaterThanOrEqualTo(t)))
+                    );
+                    beforeNow.clear();
+                }
+            }
+
+            return null;
+        }, threads, "trackableHybridClockTest");
+
+        tracker.update(HybridTimestamp.MAX_VALUE);
+
+        assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
+    }
+
     @RepeatedTest(100)
     void testConcurrentAccess() {
         var tracker = new PendingComparableValuesTracker<>(1);
@@ -154,9 +248,11 @@ public class PendingComparableValuesTrackerTest {
         assertThat(readerFuture, willCompleteSuccessfully());
     }
 
-    @Test
-    void testClose() {
-        var tracker = new PendingComparableValuesTracker<>(1);
+    @ParameterizedTest
+    @MethodSource("intTrackerGenerator")
+    void testClose(PendingComparableValuesTracker trackerParam) {
+        @SuppressWarnings("unchecked")
+        PendingComparableValuesTracker<Integer, Void> tracker = trackerParam;
 
         CompletableFuture<Void> future0 = tracker.waitFor(2);
 
@@ -167,5 +263,23 @@ public class PendingComparableValuesTrackerTest {
 
         assertThat(future0, willThrowFast(TrackerClosedException.class));
         assertThat(tracker.waitFor(2), willThrowFast(TrackerClosedException.class));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"}) // Because of test parametrization raw PendingComparableValuesTracker is used.
+    private static Stream<PendingComparableValuesTracker> hybridTimestampTrackerGenerator() {
+        HybridTimestamp ts = new HybridTimestamp(1, 0);
+
+        return Stream.of(
+                new PendingComparableValuesTracker(ts),
+                new PendingIndependentComparableValuesTracker(ts)
+        );
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"}) // Because of test parametrization raw PendingComparableValuesTracker is used.
+    private static Stream<PendingComparableValuesTracker> intTrackerGenerator() {
+        return Stream.of(
+                new PendingComparableValuesTracker(1),
+                new PendingIndependentComparableValuesTracker(1)
+        );
     }
 }

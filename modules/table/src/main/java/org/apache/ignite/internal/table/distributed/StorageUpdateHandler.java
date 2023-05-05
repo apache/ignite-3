@@ -60,7 +60,7 @@ public class StorageUpdateHandler {
     private final DataStorageConfiguration dsCfg;
 
     /** Partition safe time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
 
     /** Low watermark. */
     private final LowWatermark lowWatermark;
@@ -79,7 +79,7 @@ public class StorageUpdateHandler {
             PartitionDataStorage storage,
             TableIndexStoragesSupplier indexes,
             DataStorageConfiguration dsCfg,
-            PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             LowWatermark lowWatermark
     ) {
         this.partitionId = partitionId;
@@ -422,7 +422,7 @@ public class StorageUpdateHandler {
     /**
      * Returns the partition safe time tracker.
      */
-    public PendingComparableValuesTracker<HybridTimestamp> getSafeTimeTracker() {
+    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
         return safeTimeTracker;
     }
 }

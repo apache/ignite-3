@@ -61,7 +61,7 @@ public class Replica {
     private final CompletableFuture<Void> whenReplicaReady;
 
     /** Storage index tracker. */
-    private final PendingComparableValuesTracker<Long> storageIndexTracker;
+    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /** Topology aware Raft client. */
     private final TopologyAwareRaftGroupService raftClient;
@@ -92,7 +92,7 @@ public class Replica {
             ReplicationGroupId replicaGrpId,
             CompletableFuture<Void> replicaReady,
             ReplicaListener listener,
-            PendingComparableValuesTracker<Long> storageIndexTracker,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode
     ) {
