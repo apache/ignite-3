@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * ability to wait for certain value, see {@link #waitFor(Comparable)}. In addition to {@link PendingComparableValuesTracker}
  * given tracker supports multiple independent waiters for same value.
  */
-public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, R> extends PendingComparableValuesTracker <T, R> {
+public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, R> extends PendingComparableValuesTracker<T, R> {
     /** Map of comparable values to corresponding futures. */
     private final ConcurrentSkipListMap<T, Set<CompletableFuture<R>>> valueFutures = new ConcurrentSkipListMap<>();
 
