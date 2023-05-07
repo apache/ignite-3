@@ -67,7 +67,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for key-value storage implementations.
  */
-public abstract class BasicOperationsKeyValueStorageTest extends BaseKeyValueStorageTest {
+public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValueStorageTest {
     @Test
     public void testPut() {
         byte[] key = key(1);

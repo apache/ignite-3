@@ -28,7 +28,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.junit.jupiter.api.Test;
 
 /** Compaction tests. */
-public abstract class CompactionKeyValueStorageTest extends BaseKeyValueStorageTest {
+public abstract class CompactionKeyValueStorageTest extends AbstractKeyValueStorageTest {
     private final HybridClock clock = new HybridClockImpl();
 
     @Test

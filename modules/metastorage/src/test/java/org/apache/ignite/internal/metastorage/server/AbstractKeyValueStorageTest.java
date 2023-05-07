@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 /**
  * Abstract test for {@link KeyValueStorage}.
  */
-public abstract class BaseKeyValueStorageTest {
+public abstract class AbstractKeyValueStorageTest {
     protected KeyValueStorage storage;
 
     @BeforeEach
