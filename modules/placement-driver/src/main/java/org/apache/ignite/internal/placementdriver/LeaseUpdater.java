@@ -285,6 +285,8 @@ public class LeaseUpdater {
 
                             // New lease is granting.
                             writeNewLeaseInMetaStorage(grpId, lease, candidate);
+
+                            continue;
                         }
                     }
 

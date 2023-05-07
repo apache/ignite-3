@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-/**
- * The message is sent to placement driver when a leaseholder does not want to hold lease anymore.
- */
-@Transferable(PlacementDriverMessageGroup.STOP_LEASE_PROLONGATION)
-public interface StopLeaseProlongationMessage extends PlacementDriverActorMessage {
-    String redirectProposal();
+/** Test replica message group. */
+@MessageGroup(groupType = 31, groupName = "TestReplicaMessages")
+public interface ReplicaMessageTestGroup {
+    /** Message type for {@link PrimaryReplicaTestRequest}. */
+    short PRIMARY_REPLICA_TEST_REQUEST = 41;
 }
