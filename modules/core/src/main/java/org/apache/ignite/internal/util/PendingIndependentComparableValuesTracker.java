@@ -70,18 +70,8 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
         if (currentEntry.getKey().compareTo(valueToWait) >= 0) {
             future.complete(currentEntry.getValue());
 
-            valueFutures.compute(valueToWait, (k, v) -> {
-                if (v != null) {
-                    v.remove(future);
-
-                    if (v.isEmpty()) {
-                        return null;
-                    }
-                }
-
-                return v;
-            });
-
+            // The future isn't removed from the collection in order not to catch a ConcurrentModificationException
+            // It's safe to remove it within smallerFutures.clear() on next completeWaitersOnUpdate iteration.
         }
 
         return future;
