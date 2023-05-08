@@ -155,7 +155,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         if (cmd instanceof TxCleanupCommand) {
             Set<RowId> rows = pendingRows.remove(cmd.txId());
 
-            HybridTimestamp commitTimestamp = Objects.requireNonNull(((TxCleanupCommand) cmd).commitTimestamp());
+            HybridTimestamp commitTimestamp = ((TxCleanupCommand) cmd).commitTimestamp();
+            assertNotNull(commitTimestamp);
 
             if (rows != null) {
                 for (RowId row : rows) {
@@ -1229,9 +1230,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private BinaryRow nextBinaryKey() {
         try {
-            int nextInt = monotonicInt();
-
-            return kvMarshaller.marshal(new TestKey(nextInt, "key " + nextInt));
+            return kvMarshaller.marshal(new TestKey(monotonicInt(), "key " + monotonicInt()));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
@@ -1245,7 +1244,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         try {
             return kvMarshaller.marshal(new TestKey(i, "k" + i), new TestValue(i, "v" + i));
         } catch (MarshallerException e) {
-            throw new RuntimeException(e);
+            throw new AssertionError(e);
         }
     }
 
@@ -1253,7 +1252,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         try {
             return kvMarshaller.marshal(key, value);
         } catch (MarshallerException e) {
-            throw new RuntimeException(e);
+            throw new AssertionError(e);
         }
     }
 
@@ -1261,7 +1260,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
-            throw new RuntimeException(e);
+            throw new AssertionError(e);
         }
     }
 
