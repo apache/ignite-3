@@ -21,7 +21,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -41,10 +41,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final IgniteBiTuple<ClusterNode, Long> tuple;
 
-    private final ReplicationGroupId groupId = new ReplicationGroupId() {
-
-        private static final long serialVersionUID = -6498147568339477517L;
-    };
+    private final TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
 
     /**
      * Constructs the object.
@@ -92,7 +89,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId replicationGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
         return tuple;
     }
 
@@ -102,17 +99,17 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
         return true;
     }
 
     @Override
-    public ReplicationGroupId commitPartition() {
+    public TablePartitionId commitPartition() {
         return groupId;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId,
+    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         return nodeAndTerm;
     }
