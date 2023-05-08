@@ -59,7 +59,7 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
@@ -86,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
@@ -142,8 +143,9 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy("DISABLE_RULE", (hint, rel) -> true)
-                                    .hintStrategy("EXPAND_DISTINCT_AGG", (hint, rel) -> rel instanceof Aggregate)
+                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
+                                    .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
+                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
                                     .build()
                     )
             )
