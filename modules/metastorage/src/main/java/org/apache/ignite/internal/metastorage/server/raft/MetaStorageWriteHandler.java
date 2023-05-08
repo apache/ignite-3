@@ -19,7 +19,10 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
@@ -53,11 +56,15 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
 class MetaStorageWriteHandler {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
+
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
@@ -72,77 +79,104 @@ class MetaStorageWriteHandler {
     void handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
-        HybridTimestamp safeTime;
+        try {
+            HybridTimestamp safeTime;
 
-        if (command instanceof MetaStorageWriteCommand) {
-            safeTime = ((MetaStorageWriteCommand) command).safeTime();
+            if (command instanceof MetaStorageWriteCommand) {
+                MetaStorageWriteCommand cmdWithTime = (MetaStorageWriteCommand) command;
 
-            if (command instanceof PutCommand) {
-                PutCommand putCmd = (PutCommand) command;
+                safeTime = cmdWithTime.safeTime();
 
-                storage.put(putCmd.key(), putCmd.value(), safeTime);
+                handleWriteWithTime(clo, cmdWithTime, safeTime);
 
-                clo.result(null);
-            } else if (command instanceof GetAndPutCommand) {
-                GetAndPutCommand getAndPutCmd = (GetAndPutCommand) command;
-
-                Entry e = storage.getAndPut(getAndPutCmd.key(), getAndPutCmd.value(), safeTime);
-
-                clo.result(e);
-            } else if (command instanceof PutAllCommand) {
-                PutAllCommand putAllCmd = (PutAllCommand) command;
-
-                storage.putAll(putAllCmd.keys(), putAllCmd.values(), safeTime);
+                // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
+                clusterTime.updateSafeTime(safeTime);
+            } else if (command instanceof SyncTimeCommand) {
+                clusterTime.updateSafeTime(((SyncTimeCommand) command).safeTime());
 
                 clo.result(null);
-            } else if (command instanceof GetAndPutAllCommand) {
-                GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand) command;
-
-                Collection<Entry> entries = storage.getAndPutAll(getAndPutAllCmd.keys(), getAndPutAllCmd.values(), safeTime);
-
-                clo.result((Serializable) entries);
-            } else if (command instanceof RemoveCommand) {
-                RemoveCommand rmvCmd = (RemoveCommand) command;
-
-                storage.remove(rmvCmd.key(), safeTime);
-
-                clo.result(null);
-            } else if (command instanceof GetAndRemoveCommand) {
-                GetAndRemoveCommand getAndRmvCmd = (GetAndRemoveCommand) command;
-
-                Entry e = storage.getAndRemove(getAndRmvCmd.key(), safeTime);
-
-                clo.result(e);
-            } else if (command instanceof RemoveAllCommand) {
-                RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
-
-                storage.removeAll(rmvAllCmd.keys(), safeTime);
-
-                clo.result(null);
-            } else if (command instanceof GetAndRemoveAllCommand) {
-                GetAndRemoveAllCommand getAndRmvAllCmd = (GetAndRemoveAllCommand) command;
-
-                Collection<Entry> entries = storage.getAndRemoveAll(getAndRmvAllCmd.keys(), safeTime);
-
-                clo.result((Serializable) entries);
-            } else if (command instanceof InvokeCommand) {
-                InvokeCommand cmd = (InvokeCommand) command;
-
-                clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), safeTime));
-            } else if (command instanceof MultiInvokeCommand) {
-                MultiInvokeCommand cmd = (MultiInvokeCommand) command;
-
-                clo.result(storage.invoke(toIf(cmd.iif()), safeTime));
+            } else {
+                assert false : "Command was not found [cmd=" + command + ']';
             }
+        } catch (IgniteInternalException e) {
+            clo.result(e);
+        } catch (CompletionException e) {
+            clo.result(e.getCause());
+        } catch (Throwable t) {
+            LOG.error(
+                    "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                    t,
+                    clo.index(), clo.index(), command
+            );
 
-            // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
-            clusterTime.updateSafeTime(safeTime);
-        } else if (command instanceof SyncTimeCommand) {
-            clusterTime.updateSafeTime(((SyncTimeCommand) command).safeTime());
+            throw t;
+        }
+    }
+
+    /**
+     * Handles {@link MetaStorageWriteCommand} command.
+     *
+     * @param clo Command closure.
+     * @param command Command.
+     * @param opTime Command's time.
+     */
+    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command, HybridTimestamp opTime) {
+        if (command instanceof PutCommand) {
+            PutCommand putCmd = (PutCommand) command;
+
+            storage.put(putCmd.key(), putCmd.value(), opTime);
 
             clo.result(null);
-        } else {
-            assert false : "Command was not found [cmd=" + command + ']';
+        } else if (command instanceof GetAndPutCommand) {
+            GetAndPutCommand getAndPutCmd = (GetAndPutCommand) command;
+
+            Entry e = storage.getAndPut(getAndPutCmd.key(), getAndPutCmd.value(), opTime);
+
+            clo.result(e);
+        } else if (command instanceof PutAllCommand) {
+            PutAllCommand putAllCmd = (PutAllCommand) command;
+
+            storage.putAll(putAllCmd.keys(), putAllCmd.values(), opTime);
+
+            clo.result(null);
+        } else if (command instanceof GetAndPutAllCommand) {
+            GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand) command;
+
+            Collection<Entry> entries = storage.getAndPutAll(getAndPutAllCmd.keys(), getAndPutAllCmd.values(), opTime);
+
+            clo.result((Serializable) entries);
+        } else if (command instanceof RemoveCommand) {
+            RemoveCommand rmvCmd = (RemoveCommand) command;
+
+            storage.remove(rmvCmd.key(), opTime);
+
+            clo.result(null);
+        } else if (command instanceof GetAndRemoveCommand) {
+            GetAndRemoveCommand getAndRmvCmd = (GetAndRemoveCommand) command;
+
+            Entry e = storage.getAndRemove(getAndRmvCmd.key(), opTime);
+
+            clo.result(e);
+        } else if (command instanceof RemoveAllCommand) {
+            RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
+
+            storage.removeAll(rmvAllCmd.keys(), opTime);
+
+            clo.result(null);
+        } else if (command instanceof GetAndRemoveAllCommand) {
+            GetAndRemoveAllCommand getAndRmvAllCmd = (GetAndRemoveAllCommand) command;
+
+            Collection<Entry> entries = storage.getAndRemoveAll(getAndRmvAllCmd.keys(), opTime);
+
+            clo.result((Serializable) entries);
+        } else if (command instanceof InvokeCommand) {
+            InvokeCommand cmd = (InvokeCommand) command;
+
+            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime));
+        } else if (command instanceof MultiInvokeCommand) {
+            MultiInvokeCommand cmd = (MultiInvokeCommand) command;
+
+            clo.result(storage.invoke(toIf(cmd.iif()), opTime));
         }
     }
 

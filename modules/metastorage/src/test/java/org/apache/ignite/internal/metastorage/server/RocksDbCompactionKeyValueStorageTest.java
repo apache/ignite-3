@@ -25,7 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbCompactionKeyValueStorageTest extends CompactionKeyValueStorageTest {
+public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @WorkDirectory
     private Path workDir;
 

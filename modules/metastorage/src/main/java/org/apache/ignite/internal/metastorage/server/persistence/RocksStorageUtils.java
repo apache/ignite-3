@@ -62,7 +62,7 @@ class RocksStorageUtils {
      * @param position Position to put long at.
      */
     static void putLongToBytes(long value, byte[] array, int position) {
-        assert position + Long.BYTES <= array.length;
+        assert position + Long.BYTES <= array.length : "pos=" + position + ", arr.len=" + array.length;
 
         LONG_ARRAY_HANDLE.set(array, position, value);
     }
@@ -87,6 +87,8 @@ class RocksStorageUtils {
      * @return {@code long} value.
      */
     static long bytesToLong(byte[] array, int offset) {
+        assert offset + Long.BYTES <= array.length : "off=" + offset + ", arr.len=" + array.length;
+
         return (long) LONG_ARRAY_HANDLE.get(array, offset);
     }
 
@@ -219,7 +221,7 @@ class RocksStorageUtils {
      * @return Array of bytes.
      */
     static byte[] longsToBytes(long[] values, int valuesOffset) {
-        assert valuesOffset < values.length;
+        assert valuesOffset < values.length : "off=" + valuesOffset + ", arr.len=" + values.length;
 
         var result = new byte[(values.length - valuesOffset) * Long.BYTES];
 
