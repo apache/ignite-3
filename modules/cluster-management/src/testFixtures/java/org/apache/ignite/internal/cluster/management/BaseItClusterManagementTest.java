@@ -43,10 +43,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Base class for integration tests that use a cluster of {@link MockNode}s.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
+public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
     private static final int PORT_BASE = 10000;
 
-    @InjectConfiguration("mock.failoverTimeout: 100")
+    @InjectConfiguration
     private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
