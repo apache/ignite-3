@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -71,11 +72,14 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests to check a scan internal command.
@@ -89,6 +93,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     /** Ids to insert. */
     private static final List<Integer> ROW_IDS = List.of(1, 2, 5, 6, 7, 10, 53);
+
+    /** The only partition in the table. */
+    private static final int PART_ID = 0;
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
@@ -122,21 +129,18 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertWaitScanComplete() throws Exception {
-        int partId = 0;
         IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
 
         InternalTransaction tx0 = (InternalTransaction) transactions.begin();
-        InternalTransaction tx1 = startTxWithEnlistedPartition(partId);
+        InternalTransaction tx1 = startTxWithEnlistedPartition(PART_ID, false);
 
         UUID sortedIndexId = getSortedIndexId();
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx1.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx1);
 
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
-
-        Publisher<BinaryRow> publisher = internalTable.scan(partId, tx1.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx1.id(), recipient, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -157,7 +161,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size(), scannedRows.size());
 
@@ -193,7 +197,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
     }
@@ -377,7 +381,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.await(scanned);
 
-        log.info("Result: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow)).collect(Collectors.joining(", ")));
+        log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
         assertThat(txOpFut, willCompleteSuccessfully());
 
@@ -398,15 +402,11 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        int partId = 0;
+        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        InternalTransaction tx = startTxWithEnlistedPartition(partId);
+        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
-
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
-
-        Publisher<BinaryRow> publisher = internalTable.scan(partId, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -431,7 +431,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        Publisher<BinaryRow> publisher1 = internalTable.scan(0, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher1 = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
 
@@ -455,14 +455,11 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         UUID soredIndexId = getSortedIndexId();
 
-        int partId = 0;
-
-        InternalTransaction tx = startTxWithEnlistedPartition(partId);
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
+        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = internalTable.scan(
-                partId,
+                PART_ID,
                 tx.id(),
                 recipient,
                 soredIndexId,
@@ -474,7 +471,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         List<BinaryRow> scannedRows = scanAllRows(publisher);
 
-        log.info("Result of scanning in old transaction: " + scannedRows.stream().map(binaryRow -> rowToString(binaryRow))
+        log.info("Result of scanning in old transaction: " + scannedRows.stream().map(ItTableScanTest::rowToString)
                 .collect(Collectors.joining(", ")));
 
         assertEquals(3, scannedRows.size());
@@ -485,7 +482,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")));
 
         Publisher<BinaryRow> publisher1 = internalTable.scan(
-                partId,
+                PART_ID,
                 tx.id(),
                 recipient,
                 soredIndexId,
@@ -506,7 +503,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"));
 
         Publisher<BinaryRow> publisher2 = internalTable.scan(
-                0,
+                PART_ID,
                 null,
                 soredIndexId,
                 lowBound,
@@ -519,7 +516,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(5, scannedRows2.size());
 
-        log.info("Result of scanning after insert rows: " + scannedRows2.stream().map(binaryRow -> rowToString(binaryRow))
+        log.info("Result of scanning after insert rows: " + scannedRows2.stream().map(ItTableScanTest::rowToString)
                 .collect(Collectors.joining(", ")));
     }
 
@@ -533,16 +530,12 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
             UUID sortedIndexId = getSortedIndexId();
 
-            int partId = 0;
-
-            InternalTransaction tx = startTxWithEnlistedPartition(partId);
+            InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
-                PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
-
-                Publisher<BinaryRow> publisher = internalTable.scan(partId, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
                 // Non-thread-safe collection is fine, HB is guaranteed by "Thread#join" inside of "runRace".
                 List<BinaryRow> scannedRows = new ArrayList<>();
@@ -565,7 +558,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         () -> scannedRows.addAll(scanAllRows(publisher))
                 );
 
-                Publisher<BinaryRow> publisher1 = internalTable.scan(0, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                Publisher<BinaryRow> publisher1 = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
                 assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
             } finally {
@@ -578,6 +571,50 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 loadData(table);
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testMvScan(boolean readOnly) throws Exception {
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        kvView.remove(null, Tuple.create().set("key", ROW_IDS.get(0)));
+        kvView.remove(null, Tuple.create().set("key", ROW_IDS.get(1)));
+        kvView.put(null, Tuple.create().set("key", ROW_IDS.get(2)), Tuple.create().set("valInt", 999).set("valStr", "Str_999"));
+
+        UUID sortedIndexId = getSortedIndexId();
+
+        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, readOnly);
+
+        try {
+            Publisher<BinaryRow> publisher;
+
+            if (readOnly) {
+                ClusterNode node0 = CLUSTER_NODES.get(0).clusterNodes().stream().findFirst().orElseThrow(); // Any node will do it.
+
+                //noinspection DataFlowIssue
+                publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
+            } else {
+                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+
+                publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+            }
+
+            List<BinaryRow> scannedRows = scanAllRows(publisher);
+
+            log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
+
+            // Two rows are removed, one changed.
+            assertThat(scannedRows, hasSize(ROW_IDS.size() - 2));
+        } finally {
+            tx.commit();
+        }
+    }
+
+    private PrimaryReplica getLeaderRecipient(int partId, InternalTransaction tx) {
+        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+
+        return new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
     }
 
     /**
@@ -773,12 +810,13 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * Starts an RW transaction and enlists the specified partition in it.
      *
      * @param partId Partition ID.
+     * @param readOnly Read-only flag for transaction.
      * @return Transaction.
      */
-    private InternalTransaction startTxWithEnlistedPartition(int partId) {
+    private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
         Ignite ignite = CLUSTER_NODES.get(0);
 
-        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin();
+        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
         InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
