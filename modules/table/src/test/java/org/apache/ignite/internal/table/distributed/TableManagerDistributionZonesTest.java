@@ -157,7 +157,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             }
 
             return null;
-        }).when(metaStorageManager).registerExactWatch(any(), any());
+        }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
         tablesConfiguration = mock(TablesConfiguration.class);
 
@@ -362,16 +362,18 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
 
-        nodes = emptySet();
+        Set<String> emptyNodes = emptySet();
 
-        watchListenerOnUpdate(1, nodes, 3);
+        watchListenerOnUpdate(1, emptyNodes, 3);
+
+        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
         zoneNodes.clear();
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(1, null);
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
     }
 
     @Test
