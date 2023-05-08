@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssign
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -453,7 +454,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         distributionZonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-        metaStorageMgr.registerExactWatch(zoneDataNodesKey(), distributionZonesDataNodesListener);
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesKey(), distributionZonesDataNodesListener);
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -2023,6 +2024,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     .map(NodeWithAttributes::nodeName)
                                     .collect(Collectors.toSet());
 
+                            if (dataNodes.isEmpty()) {
+                                return completedFuture(null);
+                            }
+
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
@@ -2171,7 +2176,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                pendingAssignmentsEntry.key(), partId, tbl.name(), localMember.address());
+                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
 
         CompletableFuture<Void> localServicesStartFuture;
 

@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
-import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
