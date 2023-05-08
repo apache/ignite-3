@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -252,7 +253,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             batchedArgs = new ArrayList<>();
         }
 
-        batchedArgs.add(currentArgs.toArray());
+        batchedArgs.add(currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray());
 
         currentArgs = null;
     }
@@ -717,7 +718,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             currentArgs.add(null);
         }
 
-        currentArgs.set(paramIdx - 1, convertJdbcTypeToInternal(val));
+        currentArgs.set(paramIdx - 1, val);
     }
 
     /**
@@ -757,7 +758,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      * @throws SQLException If failed.
      */
     private void executeWithArguments(JdbcStatementType statementType) throws SQLException {
-        execute0(statementType, sql, currentArgs);
+        execute0(statementType, sql, currentArgs.stream().map(this::convertJdbcTypeToInternal).collect(Collectors.toList()));
 
         currentArgs = null;
     }
