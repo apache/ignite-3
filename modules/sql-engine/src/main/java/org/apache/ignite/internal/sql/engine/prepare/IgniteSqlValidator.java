@@ -560,17 +560,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
             RelDataType type = inferDynamicParamType(dynamicParam);
 
-            boolean narrowType = inferredType.equals(unknownType) || SqlTypeUtil.canCastFrom(inferredType, type, true)
-                    && SqlTypeUtil.comparePrecision(inferredType.getPrecision(), type.getPrecision()) > 0;
-
-            if (narrowType) {
+            if (inferredType.equals(unknownType) || !SqlTypeUtil.equalSansNullability(type, inferredType)) {
                 setValidatedNodeType(node, type);
-
-                return;
+            } else {
+                setValidatedNodeType(node, inferredType);
             }
-        }
-
-        if (node instanceof SqlCall) {
+        } else if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
             if (newScope != null) {
@@ -586,7 +581,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             Arrays.fill(operandTypes, unknownType);
 
-            if (operandTypeInference != null) {
+            if (operandTypeInference != null && !(node instanceof SqlCase)) {
                 operandTypeInference.inferOperandTypes(callBinding, inferredType, operandTypes);
             } else if (operandTypeChecker instanceof FamilyOperandTypeChecker) {
                 // Infer operand types from checker for dynamic parameters if it's possible.
@@ -609,17 +604,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             for (int i = 0; i < operands.size(); ++i) {
                 SqlNode operand = operands.get(i);
 
-                if (operand == null) {
-                    continue;
+                if (operand != null) {
+                    inferUnknownTypes(operandTypes[i], scope, operand);
                 }
-
-                // TODO
-                if (node instanceof SqlCase && ((SqlCase) node).getThenOperands() == operand
-                        && SqlUtil.isNullLiteral(((SqlCase) node).getThenOperands().get(0), false)) {
-                    continue;
-                }
-
-                inferUnknownTypes(operandTypes[i], scope, operand);
             }
         } else {
             super.inferUnknownTypes(inferredType, scope, node);

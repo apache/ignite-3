@@ -108,12 +108,45 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT LAST_DAY(?)").withParams(date1).returns(date2).check();
     }
 
+    /**
+     * Tests a nested CASE WHEN statement using various combinations of dynamic parameter values,
+     * including the {@code NULL} value for different operands.
+     */
     @Test
-    public void testTrickyCase() {
-        sql("CREATE TABLE TBL1(ID INT PRIMARY KEY, VAL VARCHAR)");
+    public void testNestedCase() {
+        sql("CREATE TABLE TBL1(ID INT PRIMARY KEY, VAL VARCHAR, NUM INT)");
+
         assertTrue(sql(
                 "select case when (_T0.VAL is not distinct from ?) then 0 else (case when (_T0.VAL > ?) then 1 else -1 end) end "
                         + "from PUBLIC.TBL1 as _T0", "abc", "abc").isEmpty());
+
+        sql("INSERT INTO TBL1 VALUES"
+                + " (0, 'abc', 0),"
+                + " (1, 'abc', NULL),"
+                + " (2, NULL, 0)");
+
+        String sql = "select case when (VAL = ?) then 0 else (case when (NUM = ?) then ? else ? end) end from TBL1";
+        assertQuery(sql).withParams("abc", 0, 1, null).returns(0).returns(0).returns(1).check();
+
+        sql = "select case when (VAL = ?) then 0 else (case when (NUM = ?) then ? else ? end) end IS NULL from TBL1";
+        assertQuery(sql).withParams("abc", 0, 1, null).returns(false).returns(false).returns(false).check();
+
+        sql = "select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end from TBL1";
+        // NULL in THEN operand.
+        assertQuery(sql).withParams("diff", null, 1).returns(1).returns((Object) null).returns(1).check();
+        // NULL in ELSE operand.
+        assertQuery(sql).withParams("diff", 1, null).returns((Object) null).returns(1).returns((Object) null).check();
+
+        // Check the same
+        sql = "select case when (VAL = ?) then 0 else (case when (NUM IS NULL) then ? else ? end) end IS NULL from TBL1";
+        assertQuery(sql).withParams("diff", null, 1).returns(false).returns(true).returns(false).check();
+        assertQuery(sql).withParams("diff", 1, null).returns(true).returns(false).returns(true).check();
+
+        sql = "select case when (VAL is NULL) then '0' else (case when (NUM IS NULL) then ? else ? end) end from TBL1";
+        assertQuery(sql).withParams("1", null).returns((Object) null).returns("1").returns("0").check();
+
+        sql = "select case when (VAL is NULL) then '0' else (case when (NUM IS NULL) then ? else ? end) end IS NULL from TBL1";
+        assertQuery(sql).withParams("1", null).returns(true).returns(false).returns(false).check();
     }
 
     /** Need to test the same query with different type of parameters to cover case with check right plans cache work. **/
