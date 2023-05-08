@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,7 +34,12 @@ import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -105,14 +111,42 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
+        IgniteException errorWithCode = wrapIfNecessary(error);
+
+        if (!(error instanceof ExecutionCancelledException)) {
+            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        } else if (LOG.isDebugEnabled()) {
+            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        }
+
         return messageService.send(
                 nodeName,
                 FACTORY.errorMessage()
                         .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .error(error)
+                        .traceId(errorWithCode.traceId())
+                        .code(errorWithCode.code())
+                        .message(errorWithCode.getMessage())
                         .build()
         );
+    }
+
+    private static IgniteException wrapIfNecessary(@NotNull Throwable t) {
+        Throwable cause = ExceptionUtils.unwrapCause(t);
+
+        if (cause instanceof IgniteException) {
+            return cause == t ? (IgniteException) cause : IgniteException.wrap(t);
+        } else if (cause instanceof IgniteInternalException) {
+            IgniteInternalException iex = (IgniteInternalException) cause;
+
+            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+        } else if (cause instanceof IgniteInternalCheckedException) {
+            IgniteInternalCheckedException iex = (IgniteInternalCheckedException) cause;
+
+            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+        } else {
+            return new SqlException(UNEXPECTED_ERR, cause);
+        }
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {

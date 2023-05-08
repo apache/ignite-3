@@ -25,7 +25,7 @@ namespace Apache.Ignite.Internal.Common
     /// <summary>
     /// Arguments check helpers.
     /// </summary>
-    public static class IgniteArgumentCheck
+    internal static class IgniteArgumentCheck
     {
         /// <summary>
         /// Throws an ArgumentNullException if specified arg is null.

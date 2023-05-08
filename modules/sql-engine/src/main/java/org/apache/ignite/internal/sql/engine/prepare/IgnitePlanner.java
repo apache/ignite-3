@@ -36,6 +36,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptCostFactory;
 import org.apache.calcite.plan.RelOptLattice;
+import org.apache.calcite.plan.RelOptListener;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
@@ -311,6 +313,15 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         }
 
         return planner;
+    }
+
+    /**
+     * Adds a rule listener to this planner.
+     *
+     * @param newListener new listener to be notified of events
+     */
+    public void addListener(RelOptListener newListener) {
+        planner().addListener(newListener);
     }
 
     /**

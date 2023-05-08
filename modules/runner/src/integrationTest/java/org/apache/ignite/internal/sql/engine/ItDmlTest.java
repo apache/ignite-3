@@ -39,7 +39,9 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
-/** Different DML tests. */
+/**
+ * Various DML tests.
+ */
 public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Override

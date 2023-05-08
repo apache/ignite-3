@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.UUID;
+import org.apache.ignite.lang.RemoteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * RemoteException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Remote query fragment exception. This exception is used to indicate a remote fragment execution has been failed.
  */
-public class RemoteException extends RuntimeException {
+public class RemoteFragmentExecutionException extends RemoteException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
+
     private final String nodeName;
 
     private final UUID queryId;
@@ -33,13 +39,26 @@ public class RemoteException extends RuntimeException {
     /**
      * Constructor.
      *
-     * @param cause Cause.
      * @param nodeName Node consistent ID.
      * @param queryId Query ID.
      * @param fragmentId Fragment ID.
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Original error message from remote node.
      */
-    public RemoteException(String nodeName, UUID queryId, long fragmentId, Throwable cause) {
-        super("Remote query execution", cause);
+    public RemoteFragmentExecutionException(
+            String nodeName,
+            UUID queryId,
+            long fragmentId,
+            UUID traceId,
+            int code,
+            @Nullable String message
+    ) {
+        super(traceId, code,
+                format("Query remote fragment execution failed: nodeName={}, queryId={}, fragmentId={}, originalMessage={}",
+                        nodeName, queryId, fragmentId, message)
+        );
+
         this.nodeName = nodeName;
         this.queryId = queryId;
         this.fragmentId = fragmentId;

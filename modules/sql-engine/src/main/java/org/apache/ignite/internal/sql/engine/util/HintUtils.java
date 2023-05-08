@@ -17,19 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.EXPAND_DISTINCT_AGG;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.StringJoiner;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 
 /**
- * HintUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Hint util methods.
  */
 public class HintUtils {
     private HintUtils() {
@@ -37,36 +34,29 @@ public class HintUtils {
     }
 
     /**
-     * ContainsDisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static boolean containsDisabledRules(List<RelHint> hints) {
-        return hints.stream()
-                .anyMatch(h -> "DISABLE_RULE".equals(h.hintName) && !h.listOptions.isEmpty());
-    }
-
-    /**
-     * DisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Set<String> disabledRules(List<RelHint> hints) {
-        if (nullOrEmpty(hints)) {
-            return Collections.emptySet();
-        }
-
-        return hints.stream()
-                .filter(h -> "DISABLE_RULE".equals(h.hintName))
-                .flatMap(h -> h.listOptions.stream())
-                .collect(Collectors.toSet());
-    }
-
-    /**
-     * IsExpandDistinctAggregate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Return {@code true} if the EXPAND_DISTINCT_AGG hint presents in provided logical aggregate and aggregate contains distinct clause.
+     *
+     * @param rel Logical aggregate to check on expand distinct aggregate hint.
      */
     public static boolean isExpandDistinctAggregate(LogicalAggregate rel) {
         return rel.getHints().stream()
-                .anyMatch(h -> "EXPAND_DISTINCT_AGG".equals(h.hintName))
+                .anyMatch(r -> r.hintName.equals(EXPAND_DISTINCT_AGG.name()))
                 && rel.getAggCallList().stream().anyMatch(AggregateCall::isDistinct);
+    }
+
+    /**
+     * Generate string representation of the hint together with a list of parameters. Can be used as is in query.
+     *
+     * @return String representation of a hint together with a list of parameters..
+     */
+    public static String toHint(IgniteHint hint, String... params) {
+        StringJoiner joiner = new StringJoiner(",", "/*+ " + hint.name() + "(", ") */");
+
+        if (params != null) {
+            assert hint.paramSupport();
+            Arrays.stream(params).forEach(p -> joiner.add("'" + p + "'"));
+        }
+
+        return joiner.toString();
     }
 }

@@ -29,11 +29,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test cases for aggregate functions for custom data type.
+ * Test cases for aggregate functions.
  *
- * @param <T> A storage type for a custom data type.
+ * @param <T> A storage type for a data type.
  */
-public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> extends BaseCustomDataTypeTest<T> {
+public abstract class BaseAggregateDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     /** {@code COUNT} aggregate function. */
     @Test
@@ -74,24 +74,26 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
 
         insertValues();
 
-        checkQuery("SELECT ANY_VALUE(id) as o, test_key FROM t GROUP BY test_key ORDER BY o")
-                .returns(1, min)
-                .returns(2, mid)
-                .returns(3, max)
+        checkQuery("SELECT test_key FROM t GROUP BY test_key ORDER BY test_key")
+                .returns(min)
+                .returns(mid)
+                .returns(max)
                 .check();
     }
 
-    /** {@code GROUP BY} {@code HAVING}. */
+    /** {@code GROUP BY} and {@code HAVING}. */
     @ParameterizedTest
     @MethodSource("having")
     public void testGroupByHaving(TestTypeArguments<T> arguments) {
-        insertValues();
+        runSql("INSERT INTO t VALUES(1, $0)");
+        runSql("INSERT INTO t VALUES(4, $0)");
+        runSql("INSERT INTO t VALUES(2, $1)");
+        runSql("INSERT INTO t VALUES(3, $2)");
 
-        String query = format("SELECT ANY_VALUE(id), test_key FROM t GROUP BY test_key HAVING test_key = {}",
-                arguments.valueExpr(0));
+        String query = format("SELECT test_key FROM t GROUP BY test_key HAVING COUNT(test_key) = 2");
 
         checkQuery(query)
-                .returns(1, orderedValues.first())
+                .returns(orderedValues.first())
                 .check();
     }
 
@@ -137,12 +139,7 @@ public abstract class BaseAggregateCustomDataTypeTest<T extends Comparable<T>> e
         assertEquals(1, rows.size());
 
         List<Object> row = rows.get(0);
-        assertThat(values, hasItem((T) row.get(0)));
-    }
-
-    private void insertValues() {
-        runSql("INSERT INTO t VALUES(1, $0)");
-        runSql("INSERT INTO t VALUES(2, $1)");
-        runSql("INSERT INTO t VALUES(3, $2)");
+        T firstValue = testTypeSpec.wrapIfNecessary(row.get(0));
+        assertThat(values, hasItem(firstValue));
     }
 }

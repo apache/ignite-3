@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -100,7 +101,7 @@ public abstract class MetaStorageRangeTest {
                 .mapToObj(ByteUtils::intToBytes)
                 .collect(toList());
 
-        storage.putAll(keys, keys);
+        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
 
         List<Entry> expectedEntries = getAll(keys);
 
@@ -147,7 +148,7 @@ public abstract class MetaStorageRangeTest {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .collect(toList());
 
-        storage.putAll(keys, keys);
+        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
 
         assertThat(prefix(ByteArray.fromString("foo")), willBe(getAll(keys)));
 
@@ -162,7 +163,7 @@ public abstract class MetaStorageRangeTest {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .collect(toList());
 
-        storage.putAll(keys, keys);
+        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
 
         assertThat(prefix(ByteArray.fromString("foo")), willBe(getAll(keys)));
 

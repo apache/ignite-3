@@ -43,7 +43,7 @@ import org.junit.jupiter.api.TestInstance;
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @MicronautTest(rebuildContext = true)
-public class CliIntegrationTestBase extends IntegrationTestBase {
+public abstract class CliIntegrationTestBase extends IntegrationTestBase {
     /**
      * Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection.
      */
@@ -62,8 +62,7 @@ public class CliIntegrationTestBase extends IntegrationTestBase {
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  },"
-            + "  cluster.failoverTimeout: 100\n"
+            + "  }\n"
             + "}";
 
 

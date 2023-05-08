@@ -373,7 +373,7 @@ public class ItMetaStorageServiceTest {
 
         byte[] expVal = {2};
 
-        doNothing().when(node.mockStorage).put(expKey.bytes(), expVal);
+        doNothing().when(node.mockStorage).put(eq(expKey.bytes()), eq(expVal), any());
 
         node.metaStorageService.put(expKey, expVal).get();
     }
@@ -389,7 +389,7 @@ public class ItMetaStorageServiceTest {
 
         byte[] expVal = {2};
 
-        when(node.mockStorage.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal)).thenReturn(EXPECTED_RESULT_ENTRY);
+        when(node.mockStorage.getAndPut(eq(EXPECTED_RESULT_ENTRY.key()), eq(expVal), any())).thenReturn(EXPECTED_RESULT_ENTRY);
 
         assertEquals(
                 EXPECTED_RESULT_ENTRY,
@@ -417,7 +417,7 @@ public class ItMetaStorageServiceTest {
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(node.mockStorage).putAll(keysCaptor.capture(), valuesCaptor.capture());
+        verify(node.mockStorage).putAll(keysCaptor.capture(), valuesCaptor.capture(), any());
 
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
@@ -449,7 +449,7 @@ public class ItMetaStorageServiceTest {
     public void testGetAndPutAll() throws Exception {
         Node node = startNodes(1).get(0);
 
-        when(node.mockStorage.getAndPutAll(anyList(), anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        when(node.mockStorage.getAndPutAll(anyList(), anyList(), any())).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         Map<ByteArray, Entry> gotRes = node.metaStorageService.getAndPutAll(
                 EXPECTED_RESULT_MAP.entrySet().stream()
@@ -464,7 +464,7 @@ public class ItMetaStorageServiceTest {
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(node.mockStorage).getAndPutAll(keysCaptor.capture(), valuesCaptor.capture());
+        verify(node.mockStorage).getAndPutAll(keysCaptor.capture(), valuesCaptor.capture(), any());
 
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
@@ -498,7 +498,7 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKey = new ByteArray(new byte[]{1});
 
-        doNothing().when(node.mockStorage).remove(expKey.bytes());
+        doNothing().when(node.mockStorage).remove(eq(expKey.bytes()), any());
 
         node.metaStorageService.remove(expKey).get();
     }
@@ -519,7 +519,7 @@ public class ItMetaStorageServiceTest {
                 2
         );
 
-        when(node.mockStorage.getAndRemove(expRes.key())).thenReturn(expRes);
+        when(node.mockStorage.getAndRemove(eq(expRes.key()), any())).thenReturn(expRes);
 
         assertEquals(expRes, node.metaStorageService.getAndRemove(new ByteArray(expRes.key())).get());
     }
@@ -540,7 +540,7 @@ public class ItMetaStorageServiceTest {
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(node.mockStorage).removeAll(keysCaptor.capture());
+        verify(node.mockStorage).removeAll(keysCaptor.capture(), any());
 
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
@@ -558,7 +558,7 @@ public class ItMetaStorageServiceTest {
     public void testGetAndRemoveAll() throws Exception {
         Node node = startNodes(1).get(0);
 
-        when(node.mockStorage.getAndRemoveAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        when(node.mockStorage.getAndRemoveAll(anyList(), any())).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         Map<ByteArray, Entry> gotRes = node.metaStorageService.getAndRemoveAll(EXPECTED_RESULT_MAP.keySet()).get();
 
@@ -566,7 +566,7 @@ public class ItMetaStorageServiceTest {
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(node.mockStorage).getAndRemoveAll(keysCaptor.capture());
+        verify(node.mockStorage).getAndRemoveAll(keysCaptor.capture(), any());
 
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
@@ -714,11 +714,11 @@ public class ItMetaStorageServiceTest {
 
         var ifCaptor = ArgumentCaptor.forClass(If.class);
 
-        when(node.mockStorage.invoke(any())).thenReturn(ops().yield(true).result());
+        when(node.mockStorage.invoke(any(), any())).thenReturn(ops().yield(true).result());
 
         assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
 
-        verify(node.mockStorage).invoke(ifCaptor.capture());
+        verify(node.mockStorage).invoke(ifCaptor.capture(), any());
 
         var resultIf = ifCaptor.getValue();
 
@@ -763,7 +763,7 @@ public class ItMetaStorageServiceTest {
 
         byte[] expVal = {2};
 
-        when(node.mockStorage.invoke(any(), any(), any())).thenReturn(true);
+        when(node.mockStorage.invoke(any(), any(), any(), any())).thenReturn(true);
 
         Condition condition = Conditions.notExists(expKey);
 
@@ -779,7 +779,7 @@ public class ItMetaStorageServiceTest {
 
         ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
 
-        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture());
+        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any());
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 

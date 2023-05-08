@@ -60,6 +60,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Zone
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -836,11 +837,11 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             byte[] key = zoneScaleUpChangeTriggerKey(1).bytes();
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100));
+                keyValueStorage.put(key, longToBytes(100), HybridTimestamp.MIN_VALUE);
             }
 
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any());
+        }).when(keyValueStorage).invoke(any(), any());
 
         topology.putNode(NODE_1);
 
@@ -877,11 +878,11 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
             byte[] key = zoneScaleDownChangeTriggerKey(1).bytes();
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100));
+                keyValueStorage.put(key, longToBytes(100), HybridTimestamp.MIN_VALUE);
             }
 
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any());
+        }).when(keyValueStorage).invoke(any(), any());
 
         topology.removeNodes(Set.of(NODE_1));
 

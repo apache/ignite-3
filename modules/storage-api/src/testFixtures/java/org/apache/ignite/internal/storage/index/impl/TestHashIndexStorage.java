@@ -17,26 +17,28 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
-
 import java.nio.ByteBuffer;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.NavigableSet;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test-only implementation of a {@link HashIndexStorage}.
  */
 public class TestHashIndexStorage extends AbstractTestIndexStorage implements HashIndexStorage {
-    private final ConcurrentMap<ByteBuffer, Set<RowId>> index = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ByteBuffer, NavigableSet<RowId>> index = new ConcurrentHashMap<>();
 
     private final HashIndexDescriptor descriptor;
 
@@ -56,7 +58,7 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
 
     @Override
     Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key) {
-        return index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
+        return new RowIdIterator(key.byteBuffer());
     }
 
     @Override
@@ -65,17 +67,12 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
 
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
-                return Set.of(row.rowId());
-            } else if (v.contains(row.rowId())) {
-                return v;
-            } else {
-                var result = new HashSet<RowId>(capacity(v.size() + 1));
-
-                result.addAll(v);
-                result.add(row.rowId());
-
-                return result;
+                v = new ConcurrentSkipListSet<>();
             }
+
+            v.add(row.rowId());
+
+            return v;
         });
     }
 
@@ -84,19 +81,11 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
         checkStorageClosedOrInProcessOfRebalance();
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
-            if (v.contains(row.rowId())) {
-                if (v.size() == 1) {
-                    return null;
-                } else {
-                    var result = new HashSet<>(v);
-
-                    result.remove(row.rowId());
-
-                    return result;
-                }
-            } else {
-                return v;
+            if (v.remove(row.rowId()) && v.isEmpty()) {
+                return null;
             }
+
+            return v;
         });
     }
 
@@ -110,5 +99,53 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
      */
     public Set<RowId> allRowsIds() {
         return index.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+    }
+
+    /**
+     * Row IDs iterator that always returns up-to-date values.
+     */
+    private class RowIdIterator implements Iterator<RowId> {
+        private final ByteBuffer key;
+
+        @Nullable Boolean hasNext;
+
+        @Nullable RowId rowId;
+
+        RowIdIterator(ByteBuffer key) {
+            this.key = key;
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (hasNext != null) {
+                return hasNext;
+            }
+
+            // Yes, we must read it every time, because concurrency.
+            NavigableSet<RowId> rowIds = index.get(key);
+
+            if (rowIds == null) {
+                rowId = null;
+            } else if (rowId == null) {
+                rowId = rowIds.stream().findFirst().orElse(null);
+            } else {
+                rowId = rowIds.higher(rowId);
+            }
+
+            hasNext = rowId != null;
+
+            return hasNext;
+        }
+
+        @Override
+        public RowId next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+
+            hasNext = null;
+
+            return Objects.requireNonNull(rowId);
+        }
     }
 }
