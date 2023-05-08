@@ -86,7 +86,7 @@ public class ReplicaManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
+    private final AtomicBoolean metaStorageNodes = new AtomicBoolean();
 
     /** Meta storage service. */
     private final CompletableFuture<Set<String>> msNodes = new CompletableFuture<>();
@@ -202,15 +202,15 @@ public class ReplicaManager implements IgniteComponent {
                     ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
                     if (request instanceof PrimaryReplicaRequest && !localNode.name().equals(replica.proposedPrimary())) {
-                        declineLeaseProlongation(request.groupId(), replica.proposedPrimary());
+                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
                     }
                 } else {
                     LOG.warn("Failed to process replica request [request={}]", ex, request);
 
                     msg = prepareReplicaErrorResponse(requestTimestamp, ex);
 
-                    if (request instanceof PrimaryReplicaRequest && isTimeoutException(ex)) {
-                        declineLeaseProlongation(request.groupId(), null);
+                    if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                        stopLeaseProlongation(request.groupId(), null);
                     }
                 }
 
@@ -229,7 +229,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param ex An exception
      * @return True if this exception has thrown due to timeout or connection problem, false otherwise.
      */
-    private static boolean isTimeoutException(Throwable ex) {
+    private static boolean isConnectivityRelatedException(Throwable ex) {
         if (ex instanceof ExecutionException || ex instanceof CompletionException) {
             ex = ex.getCause();
         }
@@ -273,7 +273,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
      */
-    private void declineLeaseProlongation(ReplicationGroupId groupId, String redirectNodeId) {
+    private void stopLeaseProlongation(ReplicationGroupId groupId, String redirectNodeId) {
         LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}, redirectNodeId={}]", groupId, redirectNodeId);
 
         msNodes.thenAccept(nodeIds -> {
@@ -409,7 +409,7 @@ public class ReplicaManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!metaStorageNodes.compareAndSet(false, true)) {
             return;
         }
 

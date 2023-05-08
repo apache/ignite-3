@@ -102,6 +102,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     private DistributionZonesConfiguration dstZnsCfg;
 
     private List<String> placementDriverNodeNames;
+
     private List<String> nodeNames;
 
     private List<Closeable> servicesToClose;
