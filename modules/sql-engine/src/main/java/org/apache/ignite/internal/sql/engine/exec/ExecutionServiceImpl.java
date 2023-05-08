@@ -62,7 +62,7 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
+import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
@@ -352,7 +352,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
         if (dqm != null) {
-            RemoteException e = new RemoteException(nodeName, msg.queryId(), msg.fragmentId(), msg.error());
+            RemoteFragmentExecutionException e = new RemoteFragmentExecutionException(
+                    nodeName,
+                    msg.queryId(),
+                    msg.fragmentId(),
+                    msg.traceId(),
+                    msg.code(),
+                    msg.message()
+            );
 
             dqm.onError(e);
         }
@@ -495,7 +502,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeName, fragmentId)).complete(null);
         }
 
-        private void onError(RemoteException ex) {
+        private void onError(RemoteFragmentExecutionException ex) {
             root.thenAccept(root -> {
                 root.onError(ex);
 

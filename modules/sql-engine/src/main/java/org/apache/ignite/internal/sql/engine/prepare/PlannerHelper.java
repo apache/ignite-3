@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE;
+import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
 import java.util.ArrayList;
@@ -36,11 +38,11 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
  * Utility class that encapsulates the query optimization pipeline.
@@ -82,8 +84,11 @@ public final class PlannerHelper {
 
             RelNode rel = root.rel;
 
-            if (HintUtils.containsDisabledRules(root.hints)) {
-                planner.setDisabledRules(HintUtils.disabledRules(root.hints));
+            Hints hints = Hints.parse(root.hints);
+
+            List<String> disableRuleParams = hints.params(DISABLE_RULE);
+            if (!disableRuleParams.isEmpty()) {
+                planner.setDisabledRules(Set.copyOf(disableRuleParams));
             }
 
             // Transformation chain
@@ -93,12 +98,10 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
-            JoinSizeFinder joinSizeFinder = new JoinSizeFinder();
-
-            joinSizeFinder.visit(rel);
-
-            if (joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE) {
-                Set<String> disabledRules = new HashSet<>(HintUtils.disabledRules(root.hints));
+            boolean amountOfJoinsAreBig = hasTooMuchJoins(rel);
+            boolean enforceJoinOrder = hints.present(ENFORCE_JOIN_ORDER);
+            if (amountOfJoinsAreBig || enforceJoinOrder) {
+                Set<String> disabledRules = new HashSet<>(disableRuleParams);
 
                 disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE));
                 disabledRules.add(shortRuleName(CoreRules.JOIN_COMMUTE_OUTER));
@@ -119,8 +122,8 @@ public final class PlannerHelper {
             IgniteRel igniteRel = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                final List<RexNode> projects = new ArrayList<>();
-                final RexBuilder rexBuilder = igniteRel.getCluster().getRexBuilder();
+                List<RexNode> projects = new ArrayList<>();
+                RexBuilder rexBuilder = igniteRel.getCluster().getRexBuilder();
 
                 for (int field : Pair.left(root.fields)) {
                     projects.add(rexBuilder.makeInputRef(igniteRel, field));
@@ -138,6 +141,14 @@ public final class PlannerHelper {
 
             throw ex;
         }
+    }
+
+    private static boolean hasTooMuchJoins(RelNode rel) {
+        JoinSizeFinder joinSizeFinder = new JoinSizeFinder();
+
+        joinSizeFinder.visit(rel);
+
+        return joinSizeFinder.sizeOfBiggestJoin() > MAX_SIZE_OF_JOIN_TO_OPTIMIZE;
     }
 
     /**

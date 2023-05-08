@@ -23,9 +23,9 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionCustomDataTypeTest;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for expressions for {@link UuidType UUID data type}.
  */
-public class ItUuidExpressionTest extends BaseExpressionCustomDataTypeTest<UUID> {
+public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
 
     /** {@code RAND_UUID} function.*/
     @Test
@@ -68,7 +68,7 @@ public class ItUuidExpressionTest extends BaseExpressionCustomDataTypeTest<UUID>
 
     /** {@inheritDoc} **/
     @Override
-    protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
-        return CustomDataTypeTestSpecs.UUID_TYPE;
+    protected DataTypeTestSpec<UUID> getTypeSpec() {
+        return DataTypeTestSpecs.UUID_TYPE;
     }
 }

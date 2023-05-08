@@ -634,19 +634,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
             @Override
             public void onDisappeared(ClusterNode member) {
-                scheduleRemoveFromLogicalTopology(raftService, member);
+                raftService.removeFromCluster(Set.of(member));
             }
         };
-    }
-
-    private void scheduleRemoveFromLogicalTopology(CmgRaftService raftService, ClusterNode node) {
-        scheduledExecutor.schedule(() -> {
-            ClusterNode physicalTopologyNode = clusterService.topologyService().getByConsistentId(node.name());
-
-            if (physicalTopologyNode == null || !physicalTopologyNode.id().equals(node.id())) {
-                raftService.removeFromCluster(Set.of(node));
-            }
-        }, configuration.failoverTimeout().value(), TimeUnit.MILLISECONDS);
     }
 
     private void sendClusterState(CmgRaftService raftService, ClusterNode node) {

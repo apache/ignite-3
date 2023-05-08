@@ -37,8 +37,20 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 
 ## Release Procedure
 
+### Update Version
+
+Update version number in `version.json`.
+
 ### Build Binaries
 `dotnet publish Apache.Ignite --configuration Release --output release/bin`
 
 ### Pack NuGet
 `dotnet pack Apache.Ignite --configuration Release --include-source --output release/nupkg`
+
+### Build Docs
+1. `dotnet tool restore`
+2. `dotnet docfx docs/docfx.json`
+
+Resulting docs are in `docs/_site`.
+
+To view them locally, run `dotnet docfx docs/docfx.json --serve`.
