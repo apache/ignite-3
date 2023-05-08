@@ -560,12 +560,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
             RelDataType type = inferDynamicParamType(dynamicParam);
 
-            if (inferredType.equals(unknownType) || !SqlTypeUtil.equalSansNullability(type, inferredType)) {
+            boolean narrowType = inferredType.equals(unknownType) || SqlTypeUtil.canCastFrom(inferredType, type, true)
+                    && SqlTypeUtil.comparePrecision(inferredType.getPrecision(), type.getPrecision()) > 0;
+
+            if (narrowType) {
                 setValidatedNodeType(node, type);
-            } else {
-                setValidatedNodeType(node, inferredType);
+
+                return;
             }
-        } else if (node instanceof SqlCall) {
+        }
+
+        if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
             if (newScope != null) {
@@ -581,7 +586,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             Arrays.fill(operandTypes, unknownType);
 
-            if (operandTypeInference != null && !(node instanceof SqlCase)) {
+            if (operandTypeInference != null && !(call instanceof SqlCase)) {
                 operandTypeInference.inferOperandTypes(callBinding, inferredType, operandTypes);
             } else if (operandTypeChecker instanceof FamilyOperandTypeChecker) {
                 // Infer operand types from checker for dynamic parameters if it's possible.
