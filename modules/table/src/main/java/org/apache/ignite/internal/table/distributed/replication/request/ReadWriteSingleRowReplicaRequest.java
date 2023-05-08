@@ -21,6 +21,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write single-row replica request.
@@ -32,6 +33,7 @@ public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaReques
      *
      * @return Table partition id.
      */
+    @Nullable
     @Marshallable
     TablePartitionId commitPartitionId();
 }

@@ -23,7 +23,7 @@ import java.util.Collection;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.Message;import org.jetbrains.annotations.Nullable;
 
 public final class RaftOutter {
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.ENTRY_META)
@@ -33,16 +33,20 @@ public final class RaftOutter {
         @Marshallable
         EnumOutter.EntryType type();
 
+        @Nullable
         Collection<String> peersList();
 
         long dataLen();
 
+        @Nullable
         Collection<String> oldPeersList();
 
         long checksum();
 
+        @Nullable
         Collection<String> learnersList();
 
+        @Nullable
         Collection<String> oldLearnersList();
 
         /**
@@ -57,12 +61,16 @@ public final class RaftOutter {
 
         long lastIncludedTerm();
 
+        @Nullable
         Collection<String> peersList();
 
+        @Nullable
         Collection<String> oldPeersList();
 
+        @Nullable
         Collection<String> learnersList();
 
+        @Nullable
         Collection<String> oldLearnersList();
     }
 }

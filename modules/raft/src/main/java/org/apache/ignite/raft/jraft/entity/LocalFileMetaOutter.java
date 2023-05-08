@@ -22,7 +22,7 @@ package org.apache.ignite.raft.jraft.entity;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.Message;import org.jetbrains.annotations.Nullable;
 
 public final class LocalFileMetaOutter {
     /**
@@ -72,9 +72,11 @@ public final class LocalFileMetaOutter {
 
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_FILE_META)
     public interface LocalFileMeta extends Message {
+        @Nullable
         @Marshallable
         FileSource source();
 
+        @Nullable
         String checksum();
 
         boolean hasUserMeta();

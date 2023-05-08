@@ -72,6 +72,7 @@ dependencies {
     testFixturesImplementation libs.classgraph
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
+    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 

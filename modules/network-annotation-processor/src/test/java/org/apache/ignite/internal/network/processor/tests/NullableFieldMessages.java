@@ -15,35 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.message;
+package org.apache.ignite.internal.network.processor.tests;
 
-import java.util.Set;
-import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
- */
-@Transferable(value = ComputeMessageTypes.EXECUTE_RESPONSE)
-public interface ExecuteResponse extends NetworkMessage {
-    /**
-     * Returns job execution result ({@code null} if the execution has failed).
-     *
-     * @return result ({@code null} if the execution has failed)
-     */
-    @Nullable
-    @Marshallable
-    Object result();
+/** Messages with {@link Nullable} fields. */
+public class NullableFieldMessages {
+    /** Message with {@link UUID} field that is {@link Nullable} field. */
+    @Transferable(6)
+    public interface NullableArbitraryFieldMessage extends NetworkMessage {
+        @Nullable
+        UUID value();
+    }
 
-    /**
-     * Returns a {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful).
-     *
-     * @return {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful)
-     */
-    @Nullable
-    @Marshallable
-    Throwable throwable();
+    /** Message with {@link Marshallable} field that is {@link Nullable}. */
+    @Transferable(7)
+    public interface NullableMarshallableFieldMessage extends NetworkMessage {
+        @Nullable
+        @Marshallable
+        Object value();
+    }
+
+    /** Message with {@link NetworkMessage} field that is {@link Nullable}. */
+    @Transferable(8)
+    public interface NullableNetworkMessageFieldMessage extends NetworkMessage {
+        @Nullable
+        NetworkMessage value();
+    }
 }

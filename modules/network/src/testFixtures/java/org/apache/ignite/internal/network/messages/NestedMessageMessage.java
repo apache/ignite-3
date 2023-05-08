@@ -19,11 +19,13 @@ package org.apache.ignite.internal.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Nested {@link NetworkMessage} implementation.
  */
 @Transferable(TestMessageTypes.NESTED_MESSAGE)
 public interface NestedMessageMessage extends NetworkMessage {
+    @Nullable
     NetworkMessage nestedMessage();
 }

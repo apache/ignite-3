@@ -23,7 +23,7 @@ import java.util.List;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.Message;import org.jetbrains.annotations.Nullable;
 
 public final class LocalStorageOutter {
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.STABLE_PB_META)
@@ -35,6 +35,7 @@ public final class LocalStorageOutter {
 
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_SNAPSHOT_PB_META)
     public interface LocalSnapshotPbMeta extends Message {
+        @Nullable
         RaftOutter.SnapshotMeta meta();
 
         @Marshallable
