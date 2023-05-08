@@ -58,11 +58,10 @@ public partial class LinqTests
     }
 
     [Test]
-    [Ignore("IGNITE-19330")]
     public void TestRemainder()
     {
-        TestOpDouble(x => x.Key % 3d, 1.0d, "select (_T0.KEY % ?) from");
-        TestOpInt(x => x.Key % 4, 2, "select (_T0.KEY % ?) from");
+        TestOpDouble(x => x.Key % 3d, 2.0d, "select (_T0.KEY % ?) from");
+        TestOpInt(x => x.Key % 4, 3, "select (_T0.KEY % ?) from");
     }
 
     [Test]
