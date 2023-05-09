@@ -35,8 +35,8 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
 import java.util.Set;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
