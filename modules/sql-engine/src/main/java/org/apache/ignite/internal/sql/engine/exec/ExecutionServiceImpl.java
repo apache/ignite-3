@@ -218,7 +218,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             BaseQueryContext ctx,
             MultiStepPlan plan
     ) {
-        DistributedQueryManager queryManager = new DistributedQueryManager(ctx);
+        DistributedQueryManager queryManager = new DistributedQueryManager(true, ctx);
 
         DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager);
 
@@ -427,6 +427,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * A convenient class that manages the initialization and termination of distributed queries.
      */
     private class DistributedQueryManager {
+        private final boolean coordinator;
+
         private final BaseQueryContext ctx;
 
         private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
@@ -441,9 +443,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-
-        private DistributedQueryManager(BaseQueryContext ctx) {
+        private DistributedQueryManager(boolean coordinator, BaseQueryContext ctx) {
             this.ctx = ctx;
+            this.coordinator = coordinator;
 
             var root = new CompletableFuture<AsyncRootNode<RowT, List<Object>>>();
 
@@ -454,6 +456,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             });
 
             this.root = root;
+        }
+
+        private DistributedQueryManager(BaseQueryContext ctx) {
+            this(false, ctx);
         }
 
         private List<AbstractNode<?>> localFragments() {
@@ -660,32 +666,32 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         for (String nodeName : fragmentDesc.nodeNames()) {
                             CompletableFuture<Void> resultOfSending = sendFragment(nodeName, fragment, fragmentDesc, attributes);
 
-                            resultsOfFragmentSending.add(resultOfSending);
+                            resultsOfFragmentSending.add(
+                                    resultOfSending.handle((ignored, t) -> {
+                                        if (t == null) {
+                                            return null;
+                                        }
 
-                            resultOfSending.handle((ignored, t) -> {
-                                if (t == null) {
-                                    return null;
-                                }
+                                        // if we were unable to send a request, then no need
+                                        // to wait for the remote node to complete initialization
 
-                                // if we were unable to send a request, then no need
-                                // to wait for the remote node to complete initialization
+                                        CompletableFuture<?> completionFuture = remoteFragmentInitCompletion.get(
+                                                new RemoteFragmentKey(nodeName, fragment.fragmentId())
+                                        );
 
-                                CompletableFuture<?> completionFuture = remoteFragmentInitCompletion.get(
-                                        new RemoteFragmentKey(nodeName, fragment.fragmentId())
-                                );
+                                        if (completionFuture != null) {
+                                            completionFuture.complete(null);
+                                        }
 
-                                if (completionFuture != null) {
-                                    completionFuture.complete(null);
-                                }
-
-                                throw ExceptionUtils.withCauseAndCode(
-                                        IgniteInternalException::new,
-                                        Sql.INTERNAL_ERR,
-                                        format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
-                                                nodeName, fragment.fragmentId(), t.getMessage()),
-                                        t
-                                );
-                            });
+                                        throw ExceptionUtils.withCauseAndCode(
+                                                IgniteInternalException::new,
+                                                Sql.INTERNAL_ERR,
+                                                format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
+                                                        nodeName, fragment.fragmentId(), t.getMessage()),
+                                                t
+                                        );
+                                    })
+                            );
                         }
                     }
 
@@ -812,61 +818,86 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start
                     .thenCompose(tmp -> {
-                        Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
-                        for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
-                            requestsPerNode.computeIfAbsent(entry.getKey().nodeName(), key -> new ArrayList<>()).add(entry.getValue());
-                        }
+                        CompletableFuture<Void> cancelResult = coordinator
+                                ? awaitFragmentInitialisationAndClose()
+                                : closeLocalFragments();
 
-                        List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
-                        for (Map.Entry<String, List<CompletableFuture<?>>> entry : requestsPerNode.entrySet()) {
-                            String nodeId = entry.getKey();
-
-                            cancelFuts.add(
-                                    CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
-                                            .handle((none2, t) -> {
-                                                // Some fragments may be completed exceptionally, and that is fine.
-                                                // Here we need to make sure that all query initialisation requests
-                                                // have been processed before sending a cancellation request. That's
-                                                // why we just ignore any exception.
-
-                                                return null;
-                                            })
-                                            .thenCompose(ignored -> messageService.send(
-                                                    nodeId,
-                                                    FACTORY.queryCloseMessage()
-                                                            .queryId(ctx.queryId())
-                                                            .build()
-                                            ))
-                            );
-                        }
-
-                        if (cancel) {
-                            ExecutionCancelledException ex = new ExecutionCancelledException();
-
-                            for (AbstractNode<?> node : localFragments) {
-                                node.context().execute(() -> node.onError(ex), node::onError);
-                            }
-                        }
-
-                        var compoundCancelFut = CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
-                        var finalStepFut = compoundCancelFut.whenComplete((r, e) -> {
+                        var finalStepFut = cancelResult.whenComplete((r, e) -> {
                             queryManagerMap.remove(ctx.queryId());
 
                             try {
                                 ctx.cancel().cancel();
-                            } catch (Exception ex) {
+                            } catch (Exception ignored) {
                                 // NO-OP
                             }
 
                             cancelFut.complete(null);
                         });
 
-                        return compoundCancelFut.thenCombine(finalStepFut, (none1, none2) -> null);
+                        return cancelResult.thenCombine(finalStepFut, (none1, none2) -> null);
                     });
 
             start.completeAsync(() -> null, taskExecutor);
 
             return cancelFut.thenApply(Function.identity());
+        }
+
+        private CompletableFuture<Void> closeLocalFragments() {
+            ExecutionCancelledException ex = new ExecutionCancelledException();
+
+            List<CompletableFuture<?>> localFragmentCompletions = new ArrayList<>();
+            for (AbstractNode<?> node : localFragments) {
+                if (node.context().isCancelled()) {
+                    continue;
+                }
+
+                localFragmentCompletions.add(
+                        node.context().submit(() -> node.onError(ex), node::onError)
+                );
+            }
+
+            return CompletableFuture.allOf(
+                    localFragmentCompletions.toArray(new CompletableFuture[0])
+            );
+        }
+
+        private CompletableFuture<Void> awaitFragmentInitialisationAndClose() {
+            Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
+            for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
+                requestsPerNode.computeIfAbsent(entry.getKey().nodeName(), key -> new ArrayList<>()).add(entry.getValue());
+            }
+
+            List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
+            for (Map.Entry<String, List<CompletableFuture<?>>> entry : requestsPerNode.entrySet()) {
+                String nodeId = entry.getKey();
+
+                cancelFuts.add(
+                        CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
+                                .handle((none2, t) -> {
+                                    // Some fragments may be completed exceptionally, and that is fine.
+                                    // Here we need to make sure that all query initialisation requests
+                                    // have been processed before sending a cancellation request. That's
+                                    // why we just ignore any exception.
+
+                                    return null;
+                                })
+                                .thenCompose(ignored -> {
+                                    // for local fragments don't send the message, just close the fragments
+                                    if (localNode.name().equals(nodeId)) {
+                                        return closeLocalFragments();
+                                    }
+
+                                    return messageService.send(
+                                            nodeId,
+                                            FACTORY.queryCloseMessage()
+                                                    .queryId(ctx.queryId())
+                                                    .build()
+                                    );
+                                })
+                );
+            }
+
+            return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
         }
 
         /**
