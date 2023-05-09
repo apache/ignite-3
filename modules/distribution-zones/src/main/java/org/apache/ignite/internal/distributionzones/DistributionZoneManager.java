@@ -56,6 +56,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -63,6 +64,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -85,6 +87,8 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -111,6 +115,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -187,6 +192,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
+    /** Baseline manager. */
+    private final BaselineManager baselineManager;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -244,6 +252,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for data nodes keys. */
     private final WatchListener dataNodesWatchListener;
 
+    /** Meta storage listener for changes in the distribution zones data nodes. */
+    private final WatchListener distributionZonesDataNodesListener;
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -252,6 +263,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
+     * @param baselineManager Baseline manager.
      * @param nodeName Node name.
      */
     public DistributionZoneManager(
@@ -260,6 +272,7 @@ public class DistributionZoneManager implements IgniteComponent {
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
+            BaselineManager baselineManager,
             String nodeName
     ) {
         this.zonesConfiguration = zonesConfiguration;
@@ -267,10 +280,13 @@ public class DistributionZoneManager implements IgniteComponent {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
+        this.baselineManager = baselineManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
         this.dataNodesWatchListener = createMetastorageDataNodesListener();
+
+        this.distributionZonesDataNodesListener = createDistributionZonesDataNodesListener();
 
         zonesState = new ConcurrentHashMap<>();
 
@@ -728,6 +744,11 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
             zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
 
+            zonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
+
+            // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
+            metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), distributionZonesDataNodesListener);
+
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
@@ -851,6 +872,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         metaStorageManager.unregisterWatch(topologyWatchListener);
         metaStorageManager.unregisterWatch(dataNodesWatchListener);
+
+        metaStorageManager.unregisterWatch(distributionZonesDataNodesListener);
 
         //Need to update trackers with max possible value to complete all futures that are waiting for trackers.
         topVerTracker.update(Long.MAX_VALUE);
@@ -2008,6 +2031,141 @@ public class DistributionZoneManager implements IgniteComponent {
         Augmentation(Set<String> nodeNames, boolean addition) {
             this.nodeNames = nodeNames;
             this.addition = addition;
+        }
+    }
+
+    private WatchListener createDistributionZonesDataNodesListener() {
+        return new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    return failedFuture(new NodeStoppingException());
+                }
+
+                try {
+                    byte[] dataNodesBytes = evt.entryEvent().newEntry().value();
+
+                    if (dataNodesBytes == null) {
+                        //The zone was removed so data nodes was removed too.
+                        return completedFuture(null);
+                    }
+
+                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
+
+                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+
+                    for (int i = 0; i < tables.value().size(); i++) {
+                        TableView tableView = tables.value().get(i);
+
+                        int tableZoneId = tableView.zoneId();
+
+                        if (zoneId == tableZoneId) {
+                            TableConfiguration tableCfg = tables.get(tableView.name());
+
+                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
+
+                            List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
+                            DistributionZoneConfiguration distributionZoneConfiguration =
+                                    getZoneById(zonesConfiguration, tableZoneId);
+
+                            Set<String> dataNodes = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodesBytes));
+
+                            if (dataNodes.isEmpty()) {
+                                return completedFuture(null);
+                            }
+
+                            for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
+                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+
+                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
+
+                                int replicas = distributionZoneConfiguration.replicas().value();
+
+                                int partId = part;
+
+                                RebalanceUtil.updatePendingAssignmentsKeys(
+                                        tableView.name(), replicaGrpId, dataNodes, replicas,
+                                        evt.entryEvent().newEntry().revision(), metaStorageManager, part, tableAssignments.get(part)
+                                ).exceptionally(e -> {
+                                    LOG.error(
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                            partId
+                                    );
+
+                                    return null;
+                                });
+                            }
+                        }
+                    }
+
+                    return completedFuture(null);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process data nodes event", e);
+            }
+        };
+    }
+
+    /**
+     * Listener of replicas configuration changes.
+     *
+     * @param replicasCtx Replicas configuration event context.
+     * @return A future, which will be completed, when event processed by listener.
+     */
+    private CompletableFuture<?> onUpdateReplicas(ConfigurationNotificationEvent<Integer> replicasCtx) {
+        if (!busyLock.enterBusy()) {
+            return completedFuture(new NodeStoppingException());
+        }
+
+        try {
+            if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
+                DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
+
+                List<TableConfiguration> tblsCfg = new ArrayList<>();
+
+                tablesConfiguration.tables().value().namedListKeys().forEach(tblName -> {
+                    if (tablesConfiguration.tables().get(tblName).zoneId().value().equals(zoneCfg.zoneId())) {
+                        tblsCfg.add(tablesConfiguration.tables().get(tblName));
+                    }
+                });
+
+                CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
+
+                int furCur = 0;
+
+                for (TableConfiguration tblCfg : tblsCfg) {
+
+                    LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
+                            tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
+
+                    int partCnt = zoneCfg.partitions();
+
+                    int newReplicas = replicasCtx.newValue();
+
+                    byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+
+                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
+                    for (int i = 0; i < partCnt; i++) {
+                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
+
+                        futs[furCur++] = RebalanceUtil.updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
+                                baselineManager.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
+                                replicasCtx.storageRevision(), metaStorageManager, i, tableAssignments.get(i));
+                    }
+                }
+                return allOf(futs);
+            } else {
+                return completedFuture(null);
+            }
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

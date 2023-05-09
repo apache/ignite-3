@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -47,6 +48,7 @@ public class DistributionZoneMockTest {
                 mock(MetaStorageManager.class),
                 mock(LogicalTopologyService.class),
                 mock(VaultManager.class),
+                mock(BaselineManager.class),
                 ""
         );
 

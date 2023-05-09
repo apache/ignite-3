@@ -313,9 +313,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
-    /** Meta storage listener for changes in the distribution zones data nodes. */
-    private final WatchListener distributionZonesDataNodesListener;
-
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
 
@@ -430,8 +427,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
 
-        distributionZonesDataNodesListener = createDistributionZonesDataNodesListener();
-
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
 
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -448,11 +443,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc.start();
 
         lowWatermark.start();
-
-        distributionZonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
-
-        // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-        metaStorageMgr.registerExactWatch(zoneDataNodesKey(), distributionZonesDataNodesListener);
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -591,63 +581,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return completedFuture(null);
-    }
-
-    /**
-     * Listener of replicas configuration changes.
-     *
-     * @param replicasCtx Replicas configuration event context.
-     * @return A future, which will be completed, when event processed by listener.
-     */
-    private CompletableFuture<?> onUpdateReplicas(ConfigurationNotificationEvent<Integer> replicasCtx) {
-        if (!busyLock.enterBusy()) {
-            return completedFuture(new NodeStoppingException());
-        }
-
-        try {
-            if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
-                DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
-
-                List<TableConfiguration> tblsCfg = new ArrayList<>();
-
-                tablesCfg.tables().value().namedListKeys().forEach(tblName -> {
-                    if (tablesCfg.tables().get(tblName).zoneId().value().equals(zoneCfg.zoneId())) {
-                        tblsCfg.add(tablesCfg.tables().get(tblName));
-                    }
-                });
-
-                CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
-
-                int furCur = 0;
-
-                for (TableConfiguration tblCfg : tblsCfg) {
-
-                    LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                            tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
-
-                    int partCnt = zoneCfg.partitions();
-
-                    int newReplicas = replicasCtx.newValue();
-
-                    byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
-
-                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
-
-                    for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
-
-                        futs[furCur++] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
-                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
-                                replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
-                    }
-                }
-                return allOf(futs);
-            } else {
-                return completedFuture(null);
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     /**
@@ -1007,8 +940,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         busyLock.block();
-
-        metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
@@ -1973,85 +1904,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return new IgniteException(th);
-    }
-
-    /**
-     * Creates meta storage listener for distribution zones data nodes updates.
-     *
-     * @return The watch listener.
-     */
-    private WatchListener createDistributionZonesDataNodesListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    byte[] dataNodesBytes = evt.entryEvent().newEntry().value();
-
-                    if (dataNodesBytes == null) {
-                        //The zone was removed so data nodes was removed too.
-                        return completedFuture(null);
-                    }
-
-                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
-
-                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
-
-                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
-
-                    for (int i = 0; i < tables.value().size(); i++) {
-                        TableView tableView = tables.value().get(i);
-
-                        int tableZoneId = tableView.zoneId();
-
-                        DistributionZoneConfiguration distributionZoneConfiguration =
-                                getZoneById(distributionZonesConfiguration, tableZoneId);
-
-                        if (zoneId == tableZoneId) {
-                            TableConfiguration tableCfg = tables.get(tableView.name());
-
-                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
-
-                            List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
-
-                            for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
-
-                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
-
-                                int replicas = distributionZoneConfiguration.replicas().value();
-
-                                int partId = part;
-
-                                updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, dataNodes, replicas,
-                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part, tableAssignments.get(part)
-                                ).exceptionally(e -> {
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
-                                            partId
-                                    );
-
-                                    return null;
-                                });
-                            }
-                        }
-                    }
-
-                    return completedFuture(null);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
-            }
-        };
     }
 
     /**

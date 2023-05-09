@@ -100,6 +100,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
+                null,
                 "test"
         );
 
