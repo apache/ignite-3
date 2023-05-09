@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones;
+package org.apache.ignite.internal.distributionzones.rebalance;
 
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;

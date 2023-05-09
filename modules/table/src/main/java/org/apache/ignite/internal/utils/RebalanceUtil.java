@@ -88,6 +88,7 @@ public class RebalanceUtil {
      */
     private static final int OUTDATED_UPDATE_RECEIVED = 5;
 
+    // TODO: sanpwc remove
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *

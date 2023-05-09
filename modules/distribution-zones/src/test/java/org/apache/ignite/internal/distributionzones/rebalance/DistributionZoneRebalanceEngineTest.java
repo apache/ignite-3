@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
@@ -31,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -48,17 +48,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -77,27 +75,20 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.utils.RebalanceUtil;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -109,19 +100,23 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * Tests the distribution zone watch listener in {@link TableManager}.
+ * Tests the distribution zone dataNodes watch listener in {@link DistributionZoneRebalanceEngine}.
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
+public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private SimpleInMemoryKeyValueStorage keyValueStorage;
-
-    private ConfigurationManager clusterCfgMgr;
 
     @Mock()
     private ClusterService clusterService;
 
-    private TablesConfiguration tablesConfiguration;
+    private MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
+
+    private DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
+
+    private VaultManager vaultManager = mock(VaultManager.class);
+
+    private DistributionZoneRebalanceEngine rebalanceEngine;
 
     @InjectConfiguration
             ("mock.distributionZones {"
@@ -131,19 +126,9 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
     private WatchListener watchListener;
 
-    private TableManager tableManager;
-
     @BeforeEach
     public void setUp() {
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
-                List.of(),
-                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
-        );
-
-        MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
+        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
 
         doAnswer(invocation -> {
             ByteArray key = invocation.getArgument(0);
@@ -155,11 +140,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             }
 
             return null;
-        }).when(metaStorageManager).registerExactWatch(any(), any());
-
-        tablesConfiguration = mock(TablesConfiguration.class);
-
-        clusterCfgMgr.start();
+        }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -232,62 +213,38 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
             return ret;
         });
 
-        VaultManager vaultManager = mock(VaultManager.class);
-
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
-
-        tableManager = new TableManager(
-                "node1",
-                (x) -> {},
-                tablesConfiguration,
-                distributionZonesConfiguration,
-                clusterService,
-                null,
-                null,
-                null,
-                null,
-                null,
-                mock(TopologyService.class),
-                null,
-                null,
-                null,
-                metaStorageManager,
-                mock(SchemaManager.class),
-                null,
-                null,
-                mock(OutgoingSnapshotsManager.class),
-                mock(TopologyAwareRaftGroupServiceFactory.class),
-                vaultManager,
-                null,
-                null
-        );
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        clusterCfgMgr.stop();
-
         keyValueStorage.close();
-
-        tableManager.stop();
+        rebalanceEngine.stop();
     }
 
     @Test
-    void dataNodesTriggersAssignmentsChanging() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table0 = mockTable(0, 1);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table1 = mockTable(1, 1);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table2 = mockTable(2, 2);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table3 = mockTable(3, 2);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table4 = mockTable(4, 2);
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table5 = mockTable(5, 2);
+    void dataNodesTriggersAssignmentsChanging(
+            @InjectConfiguration
+                    ("mock.tables {"
+                            + "table0 = { zoneId = 1 },"
+                            + "table1 = { zoneId = 1 },"
+                            + "table2 = { zoneId = 2 },"
+                            + "table3 = { zoneId = 2 },"
+                            + "table4 = { zoneId = 2 },"
+                            + "table5 = { zoneId = 2 }}")
+            TablesConfiguration tablesConfiguration
+    ) {
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
+                new AtomicBoolean(),
+                new IgniteSpinBusyLock(),
+                distributionZonesConfiguration,
+                tablesConfiguration,
+                metaStorageManager,
+                distributionZoneManager
+        );
 
-        List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables =
-                List.of(table0, table1, table2, table3, table4, table5);
-
-        mockTables(mockedTables);
-
-        tableManager.start();
+        rebalanceEngine.start();
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -297,20 +254,25 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         zoneNodes.put(2, nodes);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
         verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any());
     }
 
     @Test
-    void sequentialAssignmentsChanging() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1);
+    void sequentialAssignmentsChanging(
+            @InjectConfiguration ("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
+    ) {
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
+                new AtomicBoolean(),
+                new IgniteSpinBusyLock(),
+                distributionZonesConfiguration,
+                tablesConfiguration,
+                metaStorageManager,
+                distributionZoneManager
+        );
 
-        List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables = List.of(table);
-
-        mockTables(mockedTables);
-
-        tableManager.start();
+        rebalanceEngine.start();
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -320,7 +282,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         zoneNodes.put(1, nodes);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
@@ -331,20 +293,25 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         zoneNodes.clear();
         zoneNodes.put(1, nodes);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
     }
 
     @Test
-    void sequentialEmptyAssignmentsChanging() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1);
+    void sequentialEmptyAssignmentsChanging(
+            @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
+    ) {
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
+                new AtomicBoolean(),
+                new IgniteSpinBusyLock(),
+                distributionZonesConfiguration,
+                tablesConfiguration,
+                metaStorageManager,
+                distributionZoneManager
+        );
 
-        List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables = List.of(table);
-
-        mockTables(mockedTables);
-
-        tableManager.start();
+        rebalanceEngine.start();
 
         watchListenerOnUpdate(1, null, 1);
 
@@ -356,7 +323,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         zoneNodes.put(1, nodes);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
@@ -367,20 +334,25 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         zoneNodes.clear();
         zoneNodes.put(1, nodes);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
     }
 
     @Test
-    void staleDataNodesEvent() {
-        IgniteBiTuple<TableView, ExtendedTableConfiguration> table = mockTable(0, 1);
+    void staleDataNodesEvent(
+            @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
+    ) {
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
+                new AtomicBoolean(),
+                new IgniteSpinBusyLock(),
+                distributionZonesConfiguration,
+                tablesConfiguration,
+                metaStorageManager,
+                distributionZoneManager
+        );
 
-        List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables = List.of(table);
-
-        mockTables(mockedTables);
-
-        tableManager.start();
+        rebalanceEngine.start();
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -390,7 +362,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         zoneNodes.put(1, nodes);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
@@ -398,7 +370,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         watchListenerOnUpdate(1, nodes2, 1);
 
-        checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
         TablePartitionId partId = new TablePartitionId(new UUID(0, 0), 0);
 
@@ -408,17 +380,20 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     }
 
     private void checkAssignments(
-            List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables,
+            TablesConfiguration tablesConfiguration,
             Map<Integer, Set<String>> zoneNodes,
             Function<TablePartitionId, ByteArray> assignmentFunction
     ) {
-        for (int i = 0; i < mockedTables.size(); i++) {
-            TableView tableView = mockedTables.get(i).get1();
+        tablesConfiguration.tables().value().forEach(tableView -> {
+            ExtendedTableView extendedTableView = (ExtendedTableView) tableView;
+
+            UUID tableId = extendedTableView.id();
+
             DistributionZoneConfiguration distributionZoneConfiguration =
                     getZoneById(distributionZonesConfiguration, tableView.zoneId());
 
             for (int j = 0; j < distributionZoneConfiguration.partitions().value(); j++) {
-                TablePartitionId partId = new TablePartitionId(new UUID(0, i), j);
+                TablePartitionId partId = new TablePartitionId(tableId, j);
 
                 byte[] actualAssignmentsBytes = keyValueStorage.get(assignmentFunction.apply(partId).bytes()).value();
 
@@ -441,7 +416,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                     assertNull(actualAssignmentsBytes);
                 }
             }
-        }
+        });
     }
 
     private void watchListenerOnUpdate(int zoneId, Set<String> nodes, long rev) {
@@ -487,40 +462,5 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         when(tableCfg.assignments()).thenReturn(assignmentValue);
 
         return new IgniteBiTuple<>(tableView, tableCfg);
-
-    }
-
-    private void mockTables(List<IgniteBiTuple<TableView, ExtendedTableConfiguration>> mockedTables) {
-        NamedListView<TableView> valueList = mock(NamedListView.class);
-
-        when(valueList.namedListKeys()).thenReturn(new ArrayList<>());
-
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-        when(valueList.size()).thenReturn(mockedTables.size());
-        when(tables.value()).thenReturn(valueList);
-
-        for (int i = 0; i < mockedTables.size(); i++) {
-            IgniteBiTuple<TableView, ExtendedTableConfiguration> mockedTable = mockedTables.get(i);
-
-            TableView tableView = mockedTable.get1();
-
-            when(valueList.get(i)).thenReturn(tableView);
-
-            when(tables.get(tableView.name())).thenReturn(mockedTable.get2());
-        }
-
-        ExtendedTableConfiguration tableCfg = mock(ExtendedTableConfiguration.class);
-        when(tables.any()).thenReturn(tableCfg);
-
-        when(tableCfg.assignments()).thenReturn(mock(ConfigurationValue.class));
-
-        when(tablesConfiguration.tables()).thenReturn(tables);
-
-        ConfigurationValue<Integer> gcThreads = mock(ConfigurationValue.class);
-
-        when(gcThreads.value()).thenReturn(1);
-
-        when(tablesConfiguration.gcThreads()).thenReturn(gcThreads);
     }
 }
