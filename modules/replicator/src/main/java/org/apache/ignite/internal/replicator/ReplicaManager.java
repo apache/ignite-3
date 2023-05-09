@@ -281,6 +281,7 @@ public class ReplicaManager implements IgniteComponent {
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
+                    //TODO: IGNITE-19441 Stop lease prolongation message might send severa times.
                     clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                             .groupId(groupId)
                             .redirectProposal(redirectNodeId)
