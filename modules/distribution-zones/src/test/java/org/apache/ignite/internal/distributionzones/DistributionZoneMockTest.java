@@ -48,7 +48,6 @@ public class DistributionZoneMockTest {
                 mock(MetaStorageManager.class),
                 mock(LogicalTopologyService.class),
                 mock(VaultManager.class),
-                mock(BaselineManager.class),
                 ""
         );
 

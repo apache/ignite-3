@@ -192,9 +192,6 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
-    /** Baseline manager. */
-    private final BaselineManager baselineManager;
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -263,7 +260,6 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
-     * @param baselineManager Baseline manager.
      * @param nodeName Node name.
      */
     public DistributionZoneManager(
@@ -272,7 +268,6 @@ public class DistributionZoneManager implements IgniteComponent {
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
-            BaselineManager baselineManager,
             String nodeName
     ) {
         this.zonesConfiguration = zonesConfiguration;
@@ -280,7 +275,6 @@ public class DistributionZoneManager implements IgniteComponent {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
-        this.baselineManager = baselineManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
@@ -2155,9 +2149,16 @@ public class DistributionZoneManager implements IgniteComponent {
                     for (int i = 0; i < partCnt; i++) {
                         TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                        futs[furCur++] = RebalanceUtil.updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
-                                baselineManager.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
-                                replicasCtx.storageRevision(), metaStorageManager, i, tableAssignments.get(i));
+                        futs[furCur++] = RebalanceUtil.updatePendingAssignmentsKeys(
+                                tblCfg.name().value(),
+                                replicaGrpId,
+                                zonesState.get(zoneCfg.zoneId()).nodes(),
+                                newReplicas,
+                                replicasCtx.storageRevision(),
+                                metaStorageManager,
+                                i,
+                                tableAssignments.get(i)
+                        );
                     }
                 }
                 return allOf(futs);

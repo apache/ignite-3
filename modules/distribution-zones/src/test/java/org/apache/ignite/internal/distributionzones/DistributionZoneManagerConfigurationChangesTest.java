@@ -128,7 +128,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
-                null,
                 "test"
         );
 
