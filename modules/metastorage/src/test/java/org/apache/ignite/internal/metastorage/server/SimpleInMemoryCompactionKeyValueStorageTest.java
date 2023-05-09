@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-/**
- * Tests for in-memory key-value storage implementation.
- */
-class SimpleInMemoryKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
-    /** {@inheritDoc} */
+/** Compaction test for the simple in-memory implementation of {@link KeyValueStorage}. */
+public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");

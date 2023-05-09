@@ -43,8 +43,10 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -676,6 +678,8 @@ public abstract class QueryChecker {
      * Updates an SQL query string to include hints for the optimizer to disable certain rules.
      */
     private static final class AddDisabledRulesTemplate implements QueryTemplate {
+        private static final Pattern SELECT_REGEXP = Pattern.compile("(?i)^select");
+        private static final Pattern SELECT_QRY_CHECK = Pattern.compile("(?i)^select .*");
 
         private final QueryTemplate input;
 
@@ -698,10 +702,10 @@ public abstract class QueryChecker {
             if (!disabledRules.isEmpty()) {
                 String originalQuery = input.originalQueryString();
 
-                assert qry.matches("(?i)^select .*") : "SELECT query was expected: " + originalQuery + ". Updated: " + qry;
+                assert SELECT_QRY_CHECK.matcher(qry).matches() : "SELECT query was expected: " + originalQuery + ". Updated: " + qry;
 
-                return qry.replaceAll("(?i)^select", "select "
-                        + disabledRules.stream().collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */")));
+                return SELECT_REGEXP.matcher(qry).replaceAll("select "
+                        + HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules.toArray(ArrayUtils.STRING_EMPTY_ARRAY)));
             } else {
                 return qry;
             }

@@ -301,7 +301,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(8)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any());
     }
 
     @Test
@@ -324,7 +324,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
         nodes = Set.of("node3", "node4", "node5");
 
@@ -335,7 +335,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
     }
 
     @Test
@@ -360,7 +360,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
         Set<String> emptyNodes = emptySet();
 
@@ -373,7 +373,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
     }
 
     @Test
@@ -396,7 +396,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         checkAssignments(mockedTables, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
         Set<String> nodes2 = Set.of("node3", "node4", "node5");
 
@@ -408,7 +408,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
     }
 
     private void checkAssignments(

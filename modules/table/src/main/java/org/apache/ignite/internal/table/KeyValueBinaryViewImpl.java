@@ -479,9 +479,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
-            if (row.hasValue()) {
-                pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
-            }
+            pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
         }
 
         return pairs;

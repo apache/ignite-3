@@ -46,6 +46,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -483,15 +484,18 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
 
         if (currentStableAssignments != null) {
-            keyValueStorage.put(stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments));
+            keyValueStorage.put(stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),
+                    HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPendingAssignments != null) {
-            keyValueStorage.put(pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments));
+            keyValueStorage.put(pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments),
+                    HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPlannedAssignments != null) {
-            keyValueStorage.put(plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments));
+            keyValueStorage.put(plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments),
+                    HybridTimestamp.MIN_VALUE);
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(
