@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
@@ -44,6 +45,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.distributionzones.RebalanceUtil.updatePendingAssignmentsKeys;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -1333,7 +1335,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             byte[] dataNodesBytes = e.value();
 
                             if (dataNodesBytes != null) {
-                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
+                                newDataNodes = dataNodes(fromBytes(dataNodesBytes));
                             } else {
                                 newDataNodes = emptySet();
                             }
@@ -2047,10 +2049,15 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
+                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
+
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);
 
                         int tableZoneId = tableView.zoneId();
+
+                        DistributionZoneConfiguration distributionZoneConfiguration =
+                                getZoneById(zonesConfiguration, tableZoneId);
 
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
@@ -2058,15 +2065,6 @@ public class DistributionZoneManager implements IgniteComponent {
                             byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
 
                             List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
-
-                            DistributionZoneConfiguration distributionZoneConfiguration =
-                                    getZoneById(zonesConfiguration, tableZoneId);
-
-                            Set<String> dataNodes = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodesBytes));
-
-                            if (dataNodes.isEmpty()) {
-                                return completedFuture(null);
-                            }
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
@@ -2077,9 +2075,15 @@ public class DistributionZoneManager implements IgniteComponent {
 
                                 int partId = part;
 
-                                RebalanceUtil.updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, dataNodes, replicas,
-                                        evt.entryEvent().newEntry().revision(), metaStorageManager, part, tableAssignments.get(part)
+                                updatePendingAssignmentsKeys(
+                                        tableView.name(),
+                                        replicaGrpId,
+                                        dataNodes,
+                                        replicas,
+                                        evt.entryEvent().newEntry().revision(),
+                                        metaStorageManager,
+                                        part,
+                                        tableAssignments.get(part)
                                 ).exceptionally(e -> {
                                     LOG.error(
                                             "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
@@ -2148,16 +2152,12 @@ public class DistributionZoneManager implements IgniteComponent {
                     for (int i = 0; i < partCnt; i++) {
                         TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                        futs[furCur++] = RebalanceUtil.updatePendingAssignmentsKeys(
+                        futs[furCur++] = updatePendingAssignmentsKeys(
                                 tblCfg.name().value(),
                                 replicaGrpId,
-                                zonesState.get(zoneCfg.zoneId()).nodes(),
+                                zonesState.get(zoneCfg.zoneId()).nodes,
                                 newReplicas,
-                                replicasCtx.storageRevision(),
-                                metaStorageManager,
-                                i,
-                                tableAssignments.get(i)
-                        );
+                                replicasCtx.storageRevision(), metaStorageManager, i, tableAssignments.get(i));
                     }
                 }
                 return allOf(futs);
