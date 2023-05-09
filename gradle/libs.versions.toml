@@ -30,6 +30,7 @@ jetbrainsAnnotations = "20.1.0"
 jline = "3.21.0"
 jmh = "1.35"
 junit5 = "5.9.1"
+junitPioneer = "2.0.1"
 jsr305 = "3.0.2"
 okhttp = "4.9.1"
 gson = "2.8.9"
@@ -121,6 +122,9 @@ junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "ju
 junit5-impl = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
 junit5-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit5" }
 junit-testkit = { module = "org.junit.platform:junit-platform-testkit", version.ref = "testkit" }
+
+#junit-pioneer
+junit-pioneer = { module = "org.junit-pioneer:junit-pioneer", version.ref = "junitPioneer" }
 
 #Micronaut
 micronaut-inject = { module = "io.micronaut:micronaut-inject", version.ref = "micronaut" }

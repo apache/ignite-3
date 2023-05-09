@@ -15,20 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
-
-/**
- * Cluster management configuration schema.
- */
-@ConfigurationRoot(rootName = "cluster", type = ConfigurationType.LOCAL)
-public class ClusterManagementConfigurationSchema {
-    /** Invoke timeout used by Cluster Management module (ms). */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long networkInvokeTimeout = 500;
+/** Compaction test for the simple in-memory implementation of {@link KeyValueStorage}. */
+public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
+    @Override
+    KeyValueStorage createStorage() {
+        return new SimpleInMemoryKeyValueStorage("test");
+    }
 }

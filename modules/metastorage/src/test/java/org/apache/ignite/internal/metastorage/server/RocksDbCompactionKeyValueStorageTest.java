@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-/**
- * Cluster management configuration schema.
- */
-@ConfigurationRoot(rootName = "cluster", type = ConfigurationType.LOCAL)
-public class ClusterManagementConfigurationSchema {
-    /** Invoke timeout used by Cluster Management module (ms). */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long networkInvokeTimeout = 500;
+/** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
+@ExtendWith(WorkDirectoryExtension.class)
+public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
+    @WorkDirectory
+    private Path workDir;
+
+    @Override
+    KeyValueStorage createStorage() {
+        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
+    }
 }
