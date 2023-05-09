@@ -47,9 +47,11 @@ public class Catalog {
     /**
      * Constructor.
      *
-     * @param version Catalog version.
-     * @param activationTimestamp Catalog activation timestamp.
-     * @param descriptors Schema descriptors.
+     * @param version A version of the catalog.
+     * @param activationTimestamp A timestamp when this version becomes active (i.e. available for use).
+     * @param objectIdGen Current state of identifier generator. This value should be used to assign an
+     *      id to a new object in the next version of the catalog.
+     * @param descriptors Enumeration of schemas available in the current version of catalog.
      */
     public Catalog(
             int version,

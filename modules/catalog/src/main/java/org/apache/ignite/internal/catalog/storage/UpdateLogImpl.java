@@ -215,6 +215,7 @@ public class UpdateLogImpl implements UpdateLog {
             return CompletableFuture.completedFuture(null);
         }
 
+        /** {@inheritDoc} */
         @Override
         public void onError(Throwable e) {
             assert false;

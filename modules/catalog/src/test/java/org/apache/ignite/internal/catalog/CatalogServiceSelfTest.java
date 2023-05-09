@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -229,6 +230,21 @@ public class CatalogServiceSelfTest {
 
         // retry limit is hardcoded at org.apache.ignite.internal.catalog.CatalogServiceImpl.MAX_RETRY_COUNT
         Mockito.verify(updateLogMock, times(10)).append(any());
+    }
+
+    @Test
+    public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
+        UpdateLog updateLogMock = Mockito.mock(UpdateLog.class);
+
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock);
+
+        service.start();
+
+        verify(updateLogMock).start();
+
+        service.stop();
+
+        verify(updateLogMock).stop();
     }
 
     private static CreateTableParams simpleTable(String name) {

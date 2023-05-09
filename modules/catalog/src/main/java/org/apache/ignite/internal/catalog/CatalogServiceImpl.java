@@ -75,7 +75,6 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        //TODO: IGNITE-19080 restore state.
         int objectIdGen = 0;
 
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
@@ -88,7 +87,8 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
+    public void stop() throws Exception {
+        updateLog.stop();
     }
 
     /** {@inheritDoc} */

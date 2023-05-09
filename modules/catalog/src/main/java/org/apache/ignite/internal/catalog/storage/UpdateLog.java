@@ -63,6 +63,11 @@ public interface UpdateLog extends IgniteComponent {
      */
     @FunctionalInterface
     interface OnUpdateHandler {
+        /**
+         * An actual handler that will be invoked when new update is appended to the log.
+         *
+         * @param update A new update.
+         */
         void handle(VersionedUpdate update);
     }
 }
