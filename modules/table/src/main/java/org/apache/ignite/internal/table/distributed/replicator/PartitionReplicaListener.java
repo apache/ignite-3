@@ -651,7 +651,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
 
-                if (resolvedReadResult != null && resolvedReadResult.hasValue()) {
+                if (resolvedReadResult != null) {
                     batchRows.add(resolvedReadResult);
                 }
             }
@@ -1154,7 +1154,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         for (RowId rowId : cursor) {
                             BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
-                            if (row != null && row.hasValue()) {
+                            if (row != null) {
                                 return action.apply(rowId, row);
                             }
                         }
