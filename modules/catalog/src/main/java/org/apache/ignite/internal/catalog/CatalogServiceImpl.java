@@ -63,7 +63,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
     private final UpdateLog updateLog;
 
-    private final PendingComparableValuesTracker<Integer> versionTracker = new PendingComparableValuesTracker<>(0);
+    private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
 
     /**
      * Constructor.
