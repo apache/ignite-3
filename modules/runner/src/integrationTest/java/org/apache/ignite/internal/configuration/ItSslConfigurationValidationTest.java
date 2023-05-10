@@ -35,7 +35,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Integration test for checking SSL configuration validation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19315")
 public class ItSslConfigurationValidationTest {
     @ParameterizedTest
     @ValueSource(strings = {"clientConnector", "network", "rest"})
