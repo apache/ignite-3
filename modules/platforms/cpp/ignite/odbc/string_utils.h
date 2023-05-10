@@ -133,7 +133,7 @@ T1 lexical_cast(const T2 &val)
  * @param value Value.
  * @return Lower value.
  */
-[[nodiscard]] std::string to_lower(std::string value) {
+[[nodiscard]] inline std::string to_lower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), ::tolower);
     return value;
 }
