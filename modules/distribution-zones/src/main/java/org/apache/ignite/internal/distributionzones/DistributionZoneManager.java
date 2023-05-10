@@ -289,6 +289,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         topVerTracker = new PendingComparableValuesTracker<>(0L);
 
+        // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
+        // meta storage notification thread that won't start before all components start.
+        //noinspection ThisEscapedInObjectConstruction
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 stopGuard,
                 busyLock,
