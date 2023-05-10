@@ -379,6 +379,11 @@ import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
 
 /**
  * Contains implementations of Rex operators as Java code.
+ * Changes in comparison with original code:
+ * 1. AbstractRexCallImplementor#genValueStatement() -> append op instanceof SqlTableFunction)
+ * 2. NotImplementor -> nullPolicy inheritance
+ * 3. ExtractImplementor isIntervalType info
+ * 4. DefaultImplementor DEFAULT_VALUE_PLACEHOLDER
  *
  * <p>Immutable.
  */
