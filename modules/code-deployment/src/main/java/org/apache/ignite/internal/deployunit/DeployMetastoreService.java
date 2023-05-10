@@ -82,7 +82,13 @@ public class DeployMetastoreService {
                     return metaStorage.invoke(
                             force ? exists(key) : revision(key).le(e.revision()),
                             put(key, UnitMetaSerializer.serialize(prev)),
-                            noop());
+                            noop())
+                            .thenCompose(finished -> {
+                                if (!finished && !force) {
+                                    return updateMeta(id, version, false, transformer);
+                                }
+                                return CompletableFuture.completedFuture(finished);
+                            });
                 });
     }
 

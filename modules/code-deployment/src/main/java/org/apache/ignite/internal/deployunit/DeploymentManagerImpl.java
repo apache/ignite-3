@@ -151,13 +151,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 })
                                 .thenApply(completed -> {
                                     if (completed) {
-                                        messaging.startDeployAsyncToCmg(id, version, unitContent)
-                                                .thenAccept(ids -> metastore.updateMeta(id, version, unitMeta -> {
-                                                    for (String consistentId : ids) {
-                                                        unitMeta.addConsistentId(consistentId);
-                                                    }
-                                                    unitMeta.updateStatus(DEPLOYED);
-                                                }));
+                                        messaging.startDeployAsyncToCmg(id, version, unitContent).thenAccept(deployFutures -> {
+                                            deployFutures.forEach(future -> future.thenApply(node -> metastore.updateMeta(id, version,
+                                                    unitMeta -> unitMeta.addConsistentId(node))));
+
+                                            allOf(deployFutures.toArray(new CompletableFuture[0]))
+                                                    .thenApply(v -> metastore.updateMeta(id, version,
+                                                            unitMeta -> unitMeta.updateStatus(DEPLOYED))
+                                                    );
+                                        });
                                     }
                                     return completed;
                                 }));
