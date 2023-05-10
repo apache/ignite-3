@@ -56,6 +56,9 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 
+/**
+ * Zone rebalance manager.
+ */
 public class DistributionZoneRebalanceEngine {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
@@ -78,6 +81,7 @@ public class DistributionZoneRebalanceEngine {
     /** Distribution zones manager. */
     private final DistributionZoneManager distributionZoneManager;
 
+    /** Meta storage listener for data nodes changes. */
     private final WatchListener dataNodesListener;
 
     public DistributionZoneRebalanceEngine(
@@ -98,6 +102,9 @@ public class DistributionZoneRebalanceEngine {
         this.dataNodesListener = createDistributionZonesDataNodesListener();
     }
 
+    /**
+     * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
+     */
     public void start() {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -113,6 +120,9 @@ public class DistributionZoneRebalanceEngine {
         }
     }
 
+    /**
+     * Stops the rebalance engine by unregistering meta storage watches.
+     */
     public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
@@ -158,7 +168,9 @@ public class DistributionZoneRebalanceEngine {
 
                             byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
 
-                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null ? Collections.emptyList() : ByteUtils.fromBytes(assignmentsBytes);
+                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null ?
+                                    Collections.emptyList() :
+                                    ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
