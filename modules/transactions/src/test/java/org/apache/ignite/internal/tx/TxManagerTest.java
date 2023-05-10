@@ -36,8 +36,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -103,13 +102,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin();
 
-        ReplicationGroupId replicationGroupName = new TestReplicationGroupId("part_1");
+        TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 0);
 
         ClusterNode node = mock(ClusterNode.class);
 
-        tx.enlist(replicationGroupName, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
 
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(replicationGroupName));
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(tablePartitionId));
     }
 
     @Test

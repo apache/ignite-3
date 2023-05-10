@@ -15,23 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Read-write dual row replica request.
+ * Describes update of the object id generator.
  */
-@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
-public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
+public class ObjectIdGenUpdateEntry implements UpdateEntry {
+    private static final long serialVersionUID = -6550888305785861504L;
+
+    private final int delta;
+
     /**
-     * Gets a commit partition id.
+     * Constructs the object.
      *
-     * @return Table partition id.
+     * @param delta A delta by which to correct the id generator.
      */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+    public ObjectIdGenUpdateEntry(int delta) {
+        this.delta = delta;
+    }
+
+    /** Returns delta by which to correct the id generator. */
+    public int delta() {
+        return delta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 }

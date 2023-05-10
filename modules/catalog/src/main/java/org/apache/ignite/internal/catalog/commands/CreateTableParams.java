@@ -18,26 +18,15 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
-import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * CREATE TABLE statement.
  */
 public class CreateTableParams extends AbstractTableCommandParams {
-    private static final long serialVersionUID = 8940651692824552250L;
-
     public static Builder builder() {
         return new Builder();
     }
-
-    /** Replicas number. */
-    @Nullable
-    private Integer replicas;
-
-    /** Number of partitions for the new table. */
-    @Nullable
-    private Integer partitions;
 
     /** Primary key columns. */
     @Nullable
@@ -50,32 +39,11 @@ public class CreateTableParams extends AbstractTableCommandParams {
     /** Columns. */
     private List<ColumnParams> cols;
 
-    private String dataStorage;
-
-    @Nullable
-    private Map<String, Object> dataStorageOptions;
-
     @Nullable
     private String zone;
 
     private CreateTableParams() {
 
-    }
-
-    /**
-     * Get replicas count.
-     */
-    @Nullable
-    public Integer replicas() {
-        return replicas;
-    }
-
-    /**
-     * Get partitions count.
-     */
-    @Nullable
-    public Integer partitions() {
-        return partitions;
     }
 
     /**
@@ -104,21 +72,6 @@ public class CreateTableParams extends AbstractTableCommandParams {
         return colocationCols;
     }
 
-
-    /**
-     * Returns data storage.
-     */
-    public String dataStorage() {
-        return dataStorage;
-    }
-
-    /**
-     * Returns data storage options.
-     */
-    public Map<String, Object> dataStorageOptions() {
-        return dataStorageOptions == null ? Map.of() : dataStorageOptions;
-    }
-
     /**
      * Get zone name.
      */
@@ -133,31 +86,6 @@ public class CreateTableParams extends AbstractTableCommandParams {
     public static class Builder extends AbstractBuilder<CreateTableParams, Builder> {
         private Builder() {
             super(new CreateTableParams());
-        }
-
-        /**
-         * Set partitions count.
-         *
-         * @param partitions Partitions.
-         * @return {@code this.}
-         */
-        public Builder partitions(@Nullable Integer partitions) {
-            params.partitions = partitions;
-
-            return this;
-        }
-
-
-        /**
-         * Set replicas count.
-         *
-         * @param replicas Replication factor.
-         * @return {@code this}.
-         */
-        public Builder replicas(@Nullable Integer replicas) {
-            params.replicas = replicas;
-
-            return this;
         }
 
         /**
@@ -191,30 +119,6 @@ public class CreateTableParams extends AbstractTableCommandParams {
          */
         public Builder colocationColumns(@Nullable List<String> colocationCols) {
             params.colocationCols = colocationCols;
-
-            return this;
-        }
-
-        /**
-         * Sets data storage.
-         *
-         * @param dataStorage Data storage.
-         * @return {@code this}.
-         */
-        public Builder dataStorage(String dataStorage) {
-            params.dataStorage = dataStorage;
-
-            return this;
-        }
-
-        /**
-         * Adds data storage option.
-         *
-         * @param options Options.
-         * @return {@code this}.
-         */
-        public Builder dataStorageOptions(Map<String, Object> options) {
-            params.dataStorageOptions = options;
 
             return this;
         }
