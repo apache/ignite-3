@@ -208,7 +208,7 @@ public class DistributionZoneManager implements IgniteComponent {
     private final Map<Integer, ZoneState> zonesState;
 
     /** The tracker for the last topology version which was observed by distribution zone manager. */
-    private final PendingComparableValuesTracker<Long> topVerTracker;
+    private final PendingComparableValuesTracker<Long, Void> topVerTracker;
 
     /** The last meta storage revision on which scale up timer was started. */
     private volatile long lastScaleUpRevision;
@@ -806,7 +806,7 @@ public class DistributionZoneManager implements IgniteComponent {
             //Only wait for a scale up revision if the auto adjust scale up has a zero value.
             //So if the value of the auto adjust scale up has become non-zero, then need to complete all futures.
             if (newScaleUp > 0) {
-                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
+                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision, null);
             }
 
             return completedFuture(null);
@@ -850,7 +850,7 @@ public class DistributionZoneManager implements IgniteComponent {
             //Only wait for a scale down revision if the auto adjust scale down has a zero value.
             //So if the value of the auto adjust scale down has become non-zero, then need to complete all futures.
             if (newScaleDown > 0) {
-                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
+                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision, null);
             }
 
             return completedFuture(null);
@@ -874,11 +874,11 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
         //Need to update trackers with max possible value to complete all futures that are waiting for trackers.
-        topVerTracker.update(Long.MAX_VALUE);
+        topVerTracker.update(Long.MAX_VALUE, null);
 
         zonesState.values().forEach(zoneState -> {
-            zoneState.scaleUpRevisionTracker().update(Long.MAX_VALUE);
-            zoneState.scaleDownRevisionTracker().update(Long.MAX_VALUE);
+            zoneState.scaleUpRevisionTracker().update(Long.MAX_VALUE, null);
+            zoneState.scaleDownRevisionTracker().update(Long.MAX_VALUE, null);
         });
 
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
@@ -908,8 +908,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = zonesState.remove(zoneId);
 
-            zoneState.scaleUpRevisionTracker.update(Long.MAX_VALUE);
-            zoneState.scaleDownRevisionTracker.update(Long.MAX_VALUE);
+            zoneState.scaleUpRevisionTracker.update(Long.MAX_VALUE, null);
+            zoneState.scaleDownRevisionTracker.update(Long.MAX_VALUE, null);
 
             return completedFuture(null);
         }
@@ -1173,7 +1173,7 @@ public class DistributionZoneManager implements IgniteComponent {
             VaultEntry topVerEntry = vaultMgr.get(zonesLogicalTopologyVersionKey()).join();
 
             if (topVerEntry != null && topVerEntry.value() != null) {
-                topVerTracker.update(bytesToLong(topVerEntry.value()));
+                topVerTracker.update(bytesToLong(topVerEntry.value()), null);
             }
 
             VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyKey()).join();
@@ -1202,9 +1202,9 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             zonesState.values().forEach(zoneState -> {
-                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision);
+                zoneState.scaleUpRevisionTracker().update(lastScaleUpRevision, null);
 
-                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision);
+                zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision, null);
 
                 zoneState.nodes(logicalTopology);
             });
@@ -1277,7 +1277,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         lastScaleDownRevision = revision;
                     }
 
-                    topVerTracker.update(topVer);
+                    topVerTracker.update(topVer, null);
 
                     logicalTopology = newLogicalTopology;
 
@@ -1366,12 +1366,12 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     //Associates scale up meta storage revision and data nodes.
                     if (scaleUpRevision > 0) {
-                        zoneState.scaleUpRevisionTracker.update(scaleUpRevision);
+                        zoneState.scaleUpRevisionTracker.update(scaleUpRevision, null);
                     }
 
                     //Associates scale down meta storage revision and data nodes.
                     if (scaleDownRevision > 0) {
-                        zoneState.scaleDownRevisionTracker.update(scaleDownRevision);
+                        zoneState.scaleDownRevisionTracker.update(scaleDownRevision, null);
                     }
                 } finally {
                     busyLock.leaveBusy();
@@ -1796,10 +1796,10 @@ public class DistributionZoneManager implements IgniteComponent {
         private volatile Set<String> nodes;
 
         /** The tracker for scale up meta storage revision of current data nodes value. */
-        private final PendingComparableValuesTracker<Long> scaleUpRevisionTracker;
+        private final PendingComparableValuesTracker<Long, Void> scaleUpRevisionTracker;
 
         /** The tracker for scale down meta storage revision of current data nodes value. */
-        private final PendingComparableValuesTracker<Long> scaleDownRevisionTracker;
+        private final PendingComparableValuesTracker<Long, Void> scaleDownRevisionTracker;
 
         /**
          * Constructor.
@@ -1991,7 +1991,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @return The tracker.
          */
-        private PendingComparableValuesTracker<Long> scaleUpRevisionTracker() {
+        private PendingComparableValuesTracker<Long, Void> scaleUpRevisionTracker() {
             return scaleUpRevisionTracker;
         }
 
@@ -2000,7 +2000,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @return The tracker.
          */
-        private PendingComparableValuesTracker<Long> scaleDownRevisionTracker() {
+        private PendingComparableValuesTracker<Long, Void> scaleDownRevisionTracker() {
             return scaleDownRevisionTracker;
         }
 

@@ -179,7 +179,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final HybridClock hybridClock;
 
     /** Safe time. */
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Placement Driver. */
     private final PlacementDriver placementDriver;
@@ -236,7 +236,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
             Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             HybridClock hybridClock,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
             PlacementDriver placementDriver,
             StorageUpdateHandler storageUpdateHandler,

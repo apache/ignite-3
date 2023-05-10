@@ -69,7 +69,7 @@ public class StorageUpdateHandlerTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
     ));
 
@@ -161,7 +161,7 @@ public class StorageUpdateHandlerTest {
         verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
 
         // Let's check that if lvm is greater than the safe time, then nothing will happen.
-        safeTimeTracker.update(new HybridTimestamp(10, 10));
+        safeTimeTracker.update(new HybridTimestamp(10, 10), null);
 
         lowWatermarkReference.set(new HybridTimestamp(11, 1));
 

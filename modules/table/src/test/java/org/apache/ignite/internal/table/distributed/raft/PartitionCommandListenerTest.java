@@ -164,7 +164,7 @@ public class PartitionCommandListenerTest {
     private final HybridClock hybridClock = new HybridClockImpl();
 
     /** Safe time tracker. */
-    private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
+    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
 
     @Captor
     private ArgumentCaptor<Throwable> commandClosureResultCaptor;
