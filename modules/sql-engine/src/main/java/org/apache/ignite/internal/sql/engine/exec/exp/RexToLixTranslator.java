@@ -101,6 +101,14 @@ import static java.util.Objects.requireNonNull;
 /**
  * Translates {@link org.apache.calcite.rex.RexNode REX expressions} to
  * {@link Expression linq4j expressions}.
+ * Changes in comparison with original code:
+ * 1. RexToLixTranslator#visitDynamicParam() refactoring
+ * 2. RexToLixTranslator#translateCast() SqlTypeName.DECIMAL special case converter.
+ * 3. RexToLixTranslator#translateCast() BYTESTRING_TO_STRING, STRING_TO_BYTESTRING special case converters.
+ * 4. RexToLixTranslator#translateCast() case INTERVAL_SECOND -> case CHARACTER special case converters.
+ * 5. RexToLixTranslator#translateCast() case TIMESTAMP -> case CHAR  special case converters.
+ * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters.
+ * 7. EnumUtils.convert -> ConverterUtils.convert
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
     public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
