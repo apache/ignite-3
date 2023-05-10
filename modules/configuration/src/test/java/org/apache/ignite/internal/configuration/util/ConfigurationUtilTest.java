@@ -209,19 +209,23 @@ public class ConfigurationUtilTest {
         assertSame(parentNode, root.value());
 
         NodeValue<Object> elements = find(List.of("elements"), parentNode, true);
-        assertNotNull(elements.field());
+        assertEquals("elements", elements.field().getName());
+        assertSame(NamedElementConfigurationSchema.class, elements.field().getType());
         assertSame(parentChange.elements(), elements.value());
 
         NodeValue<Object> elementsName = find(List.of("elements", "name"), parentNode, true);
-        assertNotNull(elementsName.field());
+        assertEquals("elements", elementsName.field().getName());
+        assertSame(NamedElementConfigurationSchema.class, elementsName.field().getType());
         assertSame(parentChange.elements().get("name"), elementsName.value());
 
         NodeValue<Object> elementsNameChild = find(List.of("elements", "name", "child"), parentNode, true);
-        assertNotNull(elementsNameChild.field());
+        assertEquals("child", elementsNameChild.field().getName());
+        assertSame(ChildConfigurationSchema.class, elementsNameChild.field().getType());
         assertSame(parentChange.elements().get("name").child(), elementsNameChild.value());
 
         NodeValue<Object> elementsNameChildStr = find(List.of("elements", "name", "child", "str"), parentNode, true);
-        assertNotNull(elementsNameChildStr.field());
+        assertEquals("str", elementsNameChildStr.field().getName());
+        assertSame(String.class, elementsNameChildStr.field().getType());
         assertSame(parentChange.elements().get("name").child().str(), elementsNameChildStr.value());
     }
 
@@ -253,13 +257,15 @@ public class ConfigurationUtilTest {
         });
 
         NodeValue<Object> subCfgStrVal = find(List.of("polymorphicSubCfg", "strVal"), parentNode, true);
-        assertSame(String.class, subCfgStrVal.field().getGenericType());
+        assertEquals("strVal", subCfgStrVal.field().getName());
+        assertSame(String.class, subCfgStrVal.field().getType());
         assertSame(
                 ((FirstPolymorphicInstanceView) parentChange.changePolymorphicSubCfg()).strVal(),
                 subCfgStrVal.value()
         );
 
         NodeValue<Object> subCfgLongVal = find(List.of("polymorphicSubCfg", "longVal"), parentNode, true);
+        assertEquals("longVal", subCfgLongVal.field().getName());
         assertSame(long.class, subCfgLongVal.field().getGenericType());
         assertSame(
                 parentChange.changePolymorphicSubCfg().longVal(),
@@ -267,6 +273,7 @@ public class ConfigurationUtilTest {
         );
 
         NodeValue<Object> name0strVal = find(List.of("polymorphicNamedCfg", "name0", "strVal"), parentNode, true);
+        assertEquals("strVal", name0strVal.field().getName());
         assertSame(String.class, name0strVal.field().getGenericType());
         assertSame(
                 ((FirstPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name0")).strVal(),
@@ -274,13 +281,23 @@ public class ConfigurationUtilTest {
         );
 
         NodeValue<Object> name0longVal = find(List.of("polymorphicNamedCfg", "name0", "longVal"), parentNode, true);
+        assertEquals("longVal", name0longVal.field().getName());
         assertSame(long.class, name0longVal.field().getGenericType());
         assertSame(
                 parentChange.changePolymorphicNamedCfg().get("name0").longVal(),
                 name0longVal.value()
         );
 
+        NodeValue<Object> name0someVal = find(List.of("polymorphicNamedCfg", "name0", "someVal"), parentNode, true);
+        assertEquals("someVal", name0someVal.field().getName());
+        assertSame(String.class, name0someVal.field().getGenericType());
+        assertSame(
+                ((FirstPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name0")).someVal(),
+                name0someVal.value()
+        );
+
         NodeValue<Object> name1intVal = find(List.of("polymorphicNamedCfg", "name1", "intVal"), parentNode, true);
+        assertEquals("intVal", name1intVal.field().getName());
         assertSame(int.class, name1intVal.field().getGenericType());
         assertSame(
                 ((SecondPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name1")).intVal(),
@@ -288,10 +305,19 @@ public class ConfigurationUtilTest {
         );
 
         NodeValue<Object> name1longVal = find(List.of("polymorphicNamedCfg", "name1", "longVal"), parentNode, true);
+        assertEquals("longVal", name1longVal.field().getName());
         assertSame(long.class, name1longVal.field().getGenericType());
         assertSame(
                 parentChange.changePolymorphicNamedCfg().get("name1").longVal(),
                 name1longVal.value()
+        );
+
+        NodeValue<Object> name1someVal = find(List.of("polymorphicNamedCfg", "name1", "someVal"), parentNode, true);
+        assertEquals("someVal", name1someVal.field().getName());
+        assertSame(int.class, name1someVal.field().getGenericType());
+        assertSame(
+                ((SecondPolymorphicInstanceView) parentChange.changePolymorphicNamedCfg().get("name1")).someVal(),
+                name1someVal.value()
         );
     }
 
@@ -829,6 +855,8 @@ public class ConfigurationUtilTest {
         exp.put("rootPolymorphic.polymorphicSubCfg.strVal", null);
         exp.put("rootPolymorphic.polymorphicSubCfg.intVal", 0);
 
+        exp.put("rootPolymorphic.polymorphicSubCfg.someVal", 10);
+
         assertEquals(exp, act);
     }
 
@@ -864,6 +892,8 @@ public class ConfigurationUtilTest {
 
         exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".strVal", null);
         exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".intVal", 0);
+
+        exp.put("rootPolymorphic.polymorphicNamedCfg." + internalId + ".someVal", 10);
 
         assertEquals(exp, act);
     }
@@ -1114,6 +1144,9 @@ public class ConfigurationUtilTest {
         /** String value. */
         @Value(hasDefault = true)
         public String strVal = "strVal";
+
+        @Value(hasDefault = true)
+        public String someVal = "someVal";
     }
 
     /**
@@ -1124,5 +1157,8 @@ public class ConfigurationUtilTest {
         /** Integer value. */
         @Value(hasDefault = true)
         public int intVal = 0;
+
+        @Value(hasDefault = true)
+        public int someVal = 10;
     }
 }

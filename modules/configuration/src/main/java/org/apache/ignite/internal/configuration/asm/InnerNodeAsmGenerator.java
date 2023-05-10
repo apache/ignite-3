@@ -176,7 +176,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
     private static final String CONSTRUCT_MTD_NAME = "construct";
 
-    /** Mapping for each configuration schema node to it's {@link FieldDefinition}. */
+    /** Mapping for each configuration schema node to its {@link FieldDefinition}. */
     private final Map<Field, FieldDefinition> fieldToFieldDefinitionMap = new HashMap<>();
 
     static {
@@ -320,7 +320,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         MethodDefinition classInitializer = innerNodeClassDef.getClassInitializer();
         fieldToFieldDefinitionMap.forEach((k, v) -> {
-            // Get declared field
+            // Get declared field.
             BytecodeExpression getDeclaredFieldExp = constantClass(k.getDeclaringClass())
                     .invoke(GET_DECLARED_FIELD_MTD, constantString(k.getName()));
             classInitializer.getBody().append(BytecodeExpressions.setStatic(v, getDeclaredFieldExp));

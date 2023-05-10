@@ -248,7 +248,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         Object value = node.value();
         if (value instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) value).accept(null, null, visitor);
+            return ((TraversableTreeNode) value).accept(node.field(), null, visitor);
         }
 
         assert value == null || value instanceof Serializable;
