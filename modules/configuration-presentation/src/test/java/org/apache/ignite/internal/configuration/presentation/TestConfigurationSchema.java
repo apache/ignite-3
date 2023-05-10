@@ -15,14 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.security;
+package org.apache.ignite.internal.configuration.presentation;
 
-/** General interface for all authentication provider configs. */
-public interface AuthenticationProviderConfig {
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Value;
 
-    /** Authentication type. */
-    AuthenticationType type();
+/**
+ * Test root configuration schema.
+ */
+@ConfigurationRoot(rootName = "root")
+public class TestConfigurationSchema {
+    /** Foo field. */
+    @Value(hasDefault = true)
+    public String foo = "foo";
 
-    /** Name of the authentication provider. */
-    String name();
+    /** Sub configuration schema. */
+    @ConfigValue
+    public TestChildConfigurationSchema subCfg;
 }

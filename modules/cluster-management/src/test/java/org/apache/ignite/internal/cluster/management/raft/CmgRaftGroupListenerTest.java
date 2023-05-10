@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.cluster.management.network.auth.Authentication.authentication;
-import static org.apache.ignite.security.AuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -152,13 +150,13 @@ public class CmgRaftGroupListenerTest {
     }
 
     @Test
-    void absentAuthConfigUpdateErasesAuthConfig() {
+    void absentClusterConfigUpdateErasesClusterConfig() {
         ClusterState clusterState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(Set.of("foo")))
                 .metaStorageNodes(Set.copyOf(Set.of("bar")))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag)
-                .restAuthToApply(authentication(msgFactory, disabled()))
+                .clusterConfigurationToApply("config")
                 .build();
 
         listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
@@ -177,7 +175,7 @@ public class CmgRaftGroupListenerTest {
         listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
         ClusterState updatedClusterState = listener.storage().getClusterState();
         assertAll(
-                () -> assertNull(updatedClusterState.restAuthToApply()),
+                () -> assertNull(updatedClusterState.clusterConfigurationToApply()),
                 () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),
                 () -> assertEquals(updatedClusterState.metaStorageNodes(), clusterState.metaStorageNodes()),
                 () -> assertEquals(updatedClusterState.version(), clusterState.version()),

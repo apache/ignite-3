@@ -17,15 +17,10 @@
 
 package org.apache.ignite.internal.cli.call.cluster;
 
-import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
-
 import java.util.List;
-import org.apache.ignite.internal.cli.commands.cluster.init.AuthenticationOptions;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.internal.cli.core.call.CallInput;
-import org.apache.ignite.security.AuthenticationConfig;
-import org.apache.ignite.security.AuthenticationProviderConfig;
-import org.apache.ignite.security.BasicAuthenticationProviderConfig;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Input for {@link ClusterInitCall}.
@@ -35,19 +30,19 @@ public class ClusterInitCallInput implements CallInput {
     private final List<String> metaStorageNodes;
     private final List<String> cmgNodes;
     private final String clusterName;
-    private final AuthenticationConfig authenticationConfig;
+    private final String clusterConfiguration;
 
     private ClusterInitCallInput(
             String clusterUrl,
             List<String> metaStorageNodes,
             List<String> cmgNodes,
             String clusterName,
-            AuthenticationConfig authenticationConfig) {
+            @Nullable String clusterConfiguration) {
         this.clusterUrl = clusterUrl;
         this.metaStorageNodes = metaStorageNodes;
         this.cmgNodes = cmgNodes;
         this.clusterName = clusterName;
-        this.authenticationConfig = authenticationConfig;
+        this.clusterConfiguration = clusterConfiguration;
     }
 
     /**
@@ -94,8 +89,14 @@ public class ClusterInitCallInput implements CallInput {
         return clusterName;
     }
 
-    public AuthenticationConfig authenticationConfig() {
-        return authenticationConfig;
+    /**
+     * Cluster configuration.
+     *
+     * @return Cluster configuration.
+     */
+    @Nullable
+    public String clusterConfiguration() {
+        return clusterConfiguration;
     }
 
     /**
@@ -110,10 +111,11 @@ public class ClusterInitCallInput implements CallInput {
 
         private String clusterName;
 
-        private AuthenticationConfig authenticationConfig;
+        @Nullable
+        private String clusterConfiguration;
 
-        public ClusterInitCallInputBuilder authenticationSettings(AuthenticationConfig authenticationConfig) {
-            this.authenticationConfig = authenticationConfig;
+        public ClusterInitCallInputBuilder clusterConfiguration(String clusterConfiguration) {
+            this.clusterConfiguration = clusterConfiguration;
             return this;
         }
 
@@ -132,28 +134,12 @@ public class ClusterInitCallInput implements CallInput {
             this.metaStorageNodes = clusterInitOptions.metaStorageNodes();
             this.cmgNodes = clusterInitOptions.cmgNodes();
             this.clusterName = clusterInitOptions.clusterName();
-            this.authenticationConfig = toAuthenticationConfig(clusterInitOptions.authenticationOptions());
+            this.clusterConfiguration = clusterInitOptions.clusterConfiguration();
             return this;
         }
 
         public ClusterInitCallInput build() {
-            return new ClusterInitCallInput(clusterUrl, metaStorageNodes, cmgNodes, clusterName, authenticationConfig);
-        }
-
-        private AuthenticationConfig toAuthenticationConfig(AuthenticationOptions options) {
-            if (options == null) {
-                return null;
-            }
-
-            return new AuthenticationConfig(options.enabled(), extractAuthenticationProviders(options));
-        }
-
-        private static List<AuthenticationProviderConfig> extractAuthenticationProviders(AuthenticationOptions options) {
-            if (!nullOrBlank(options.basicLogin()) && !nullOrBlank(options.basicPassword())) {
-                return List.of(new BasicAuthenticationProviderConfig("basic", options.basicLogin(), options.basicPassword()));
-            } else {
-                return List.of();
-            }
+            return new ClusterInitCallInput(clusterUrl, metaStorageNodes, cmgNodes, clusterName, clusterConfiguration);
         }
     }
 }

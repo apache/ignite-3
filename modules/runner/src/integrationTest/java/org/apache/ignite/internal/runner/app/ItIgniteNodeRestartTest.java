@@ -73,7 +73,6 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -183,9 +182,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
-
-    @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -298,7 +294,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,

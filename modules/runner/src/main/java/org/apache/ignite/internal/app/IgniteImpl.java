@@ -65,6 +65,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
@@ -143,7 +144,6 @@ import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.security.AuthenticationConfig;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -727,10 +727,8 @@ public class IgniteImpl implements Ignite {
                                 }, startupExecutor);
                     }, startupExecutor)
                     .thenRunAsync(() -> {
-                        SecurityConfiguration restConfiguration = clusterCfgMgr.configurationRegistry()
-                                .getConfiguration(SecurityConfiguration.KEY);
-
-                        distributedConfigurationUpdater.setClusterRestConfiguration(restConfiguration);
+                        HoconPresentation presentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
+                        distributedConfigurationUpdater.setDistributedConfigurationPresentation(presentation);
                     }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
                     .thenComposeAsync(v -> {
@@ -912,15 +910,16 @@ public class IgniteImpl implements Ignite {
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames         names of nodes that will host the CMG.
      * @param clusterName Human-readable name of a cluster.
+     * @param clusterConfiguration cluster configuration, that will be applied after init.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     public void init(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            AuthenticationConfig authenticationConfig
+            String clusterConfiguration
     ) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig);
+        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
     }
 
     /**
