@@ -140,31 +140,30 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
-        return tables.tablesAsync().thenApply(tablesList -> {
-            return tablesList.stream()
-                    .filter(t -> matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
-                    .filter(t -> matches(t.name(), tlbNameRegex))
-                    .flatMap(
-                        tbl -> {
-                            SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
 
-                            List<Pair<String, Column>> tblColPairs = new ArrayList<>();
+        return tables.tablesAsync().thenApply(tablesList -> tablesList.stream()
+                .filter(t -> matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
+                .filter(t -> matches(t.name(), tlbNameRegex))
+                .flatMap(
+                    tbl -> {
+                        SchemaDescriptor schema = ((TableImpl) tbl).schemaView().schema();
 
-                            for (Column column : schema.keyColumns().columns()) {
-                                tblColPairs.add(new Pair<>(tbl.name(), column));
-                            }
+                        List<Pair<String, Column>> tblColPairs = new ArrayList<>();
 
-                            for (Column column : schema.valueColumns().columns()) {
-                                tblColPairs.add(new Pair<>(tbl.name(), column));
-                            }
+                        for (Column column : schema.keyColumns().columns()) {
+                            tblColPairs.add(new Pair<>(tbl.name(), column));
+                        }
 
-                            return tblColPairs.stream();
-                        })
-                    .filter(e -> matches(e.getSecond().name(), colNameRegex))
-                    .sorted(bySchemaThenTabNameThenColOrder)
-                    .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-        });
+                        for (Column column : schema.valueColumns().columns()) {
+                            tblColPairs.add(new Pair<>(tbl.name(), column));
+                        }
+
+                        return tblColPairs.stream();
+                    })
+                .filter(e -> matches(e.getSecond().name(), colNameRegex))
+                .sorted(bySchemaThenTabNameThenColOrder)
+                .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
     }
 
     /**
@@ -225,7 +224,7 @@ public class JdbcMetadataCatalog {
                 DEFAULT_SCHEMA_NAME,
                 tblName,
                 col.name(),
-                Commons.nativeTypeToClass(colType),
+                Commons.nativeTypeToJdbcClass(colType),
                 Commons.nativeTypePrecision(colType),
                 Commons.nativeTypeScale(colType),
                 col.nullable()

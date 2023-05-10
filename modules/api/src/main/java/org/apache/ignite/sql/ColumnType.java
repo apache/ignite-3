@@ -164,4 +164,25 @@ public enum ColumnType {
                 throw new IllegalArgumentException("Unsupported type " + type);
         }
     }
+
+    /**
+     * Column type to Java class for JDBC..
+     */
+    public static Class<?> columnTypeToJdbcClass(ColumnType type) {
+        assert type != null;
+
+        switch (type) {
+            case DATE:
+                return java.sql.Date.class;
+
+            case TIME:
+                return java.sql.Time.class;
+
+            case DATETIME:
+            case TIMESTAMP:
+                return java.sql.Timestamp.class;
+            default:
+                return columnTypeToClass(type);
+        }
+    }
 }

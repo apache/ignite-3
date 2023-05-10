@@ -121,12 +121,11 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15507")
     public void testDecimalAndDateTypeMetaData() throws Exception {
         createMetaTable();
 
         try {
-            ResultSet rs = stmt.executeQuery("SELECT t.DECIMAL_COL, t.DATE FROM PUBLIC.METATEST t;");
+            ResultSet rs = stmt.executeQuery("SELECT t.DECIMAL_COL, t.DATE_COL FROM PUBLIC.METATEST t;");
 
             assertNotNull(rs);
 

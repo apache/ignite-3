@@ -159,7 +159,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             schemaName,
             tblName,
             colName,
-            ColumnType.columnTypeToClass(fldMeta.type()),
+            ColumnType.columnTypeToJdbcClass(fldMeta.type()),
             fldMeta.precision(),
             fldMeta.scale(),
             fldMeta.nullable()
