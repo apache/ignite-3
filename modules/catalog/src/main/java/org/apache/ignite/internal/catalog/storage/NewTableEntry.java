@@ -15,23 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Read-write dual row replica request.
+ * Describes addition of a new table.
  */
-@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
-public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
+public class NewTableEntry implements UpdateEntry {
+    private static final long serialVersionUID = 2970125889493580121L;
+
+    private final TableDescriptor descriptor;
+
     /**
-     * Gets a commit partition id.
+     * Constructs the object.
      *
-     * @return Table partition id.
+     * @param descriptor A descriptor of a table to add.
      */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+    public NewTableEntry(TableDescriptor descriptor) {
+        this.descriptor = descriptor;
+    }
+
+    /** Returns descriptor of a table to add. */
+    public TableDescriptor descriptor() {
+        return descriptor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 }

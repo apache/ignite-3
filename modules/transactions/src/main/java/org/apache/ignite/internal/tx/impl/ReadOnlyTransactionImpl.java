@@ -23,7 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 
@@ -61,23 +61,23 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId replicationGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
         return null;
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
         return true;
     }
 
     @Override
-    public ReplicationGroupId commitPartition() {
+    public TablePartitionId commitPartition() {
         return null;
     }
 

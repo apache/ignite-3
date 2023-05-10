@@ -57,6 +57,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -651,7 +652,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
 
-                if (resolvedReadResult != null && resolvedReadResult.hasValue()) {
+                if (resolvedReadResult != null) {
                     batchRows.add(resolvedReadResult);
                 }
             }
@@ -972,7 +973,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request) {
-        List<ReplicationGroupId> aggregatedGroupIds = request.groups().values().stream()
+        List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream)
                 .map(IgniteBiTuple::get1)
                 .collect(Collectors.toList());
@@ -988,11 +989,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
 
         request.groups().forEach(
-                (recipientNode, replicationGroupIds) ->
+                (recipientNode, tablePartitionIds) ->
                         cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = changeStateFuture.thenCompose(ignored ->
                                 txManager.cleanup(
                                         recipientNode,
-                                        replicationGroupIds,
+                                        tablePartitionIds,
                                         txId,
                                         commit,
                                         request.commitTimestamp()
@@ -1006,12 +1007,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Finishes a transaction.
      *
-     * @param aggregatedGroupIds Replication groups identifies which are enlisted in the transaction.
+     * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @return Future to wait of the finish.
      */
-    private CompletableFuture<Object> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {
+    private CompletableFuture<Object> finishTransaction(List<TablePartitionId> aggregatedGroupIds, UUID txId, boolean commit) {
         // TODO: IGNITE-17261 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
@@ -1024,8 +1025,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txId(txId)
                 .commit(commit)
                 .safeTimeLong(currentTimestamp.longValue())
-                .tablePartitionIds(aggregatedGroupIds.stream()
-                        .map(rgId -> tablePartitionId((TablePartitionId) rgId)).collect(Collectors.toList()));
+                .tablePartitionIds(
+                        aggregatedGroupIds.stream()
+                                .map(PartitionReplicaListener::tablePartitionId)
+                                .collect(Collectors.toList())
+                );
 
         if (commit) {
             finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
@@ -1154,7 +1158,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         for (RowId rowId : cursor) {
                             BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
-                            if (row != null && row.hasValue()) {
+                            if (row != null) {
                                 return action.apply(rowId, row);
                             }
                         }
