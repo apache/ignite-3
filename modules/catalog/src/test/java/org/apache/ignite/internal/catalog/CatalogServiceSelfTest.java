@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -40,11 +41,15 @@ import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -58,6 +63,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /**
@@ -245,6 +251,35 @@ public class CatalogServiceSelfTest {
         service.stop();
 
         verify(updateLogMock).stop();
+    }
+
+    @Test
+    public void testCreateTableEvents() {
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName("PUBLIC")
+                .tableName(TABLE_NAME)
+                .ifTableExists(true)
+                .zone("ZONE")
+                .columns(List.of(
+                        new ColumnParams("key1", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("key2", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), true)
+                ))
+                .primaryKeyColumns(List.of("key1", "key2"))
+                .colocationColumns(List.of("key2"))
+                .build();
+
+        EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
+        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+
+        service.listen(CatalogEvent.TABLE_CREATE, eventListener);
+
+        CompletableFuture<Void> fut = service.createTable(params);
+
+        assertThat(fut, willBe((Object) null));
+
+        verify(eventListener).notify(any(CreateTableEventParameters.class), ArgumentMatchers.isNull());
+        verifyNoMoreInteractions(eventListener);
     }
 
     private static CreateTableParams simpleTable(String name) {

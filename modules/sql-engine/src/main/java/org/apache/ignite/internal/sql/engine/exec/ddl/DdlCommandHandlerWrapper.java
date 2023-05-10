@@ -54,6 +54,7 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
         if (cmd instanceof CreateTableCommand) {
             return catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
+                    .handle((res, err) -> Boolean.TRUE)
                     .thenCompose(res -> super.handle(cmd));
         }
 

@@ -481,6 +481,10 @@ public class IgniteImpl implements Ignite {
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
 
+        catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr, vaultMgr)
+        );
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -508,10 +512,6 @@ public class IgniteImpl implements Ignite {
         );
 
         indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
-
-        catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vaultMgr)
-        );
 
         qryEngine = new SqlQueryProcessor(
                 registry,
