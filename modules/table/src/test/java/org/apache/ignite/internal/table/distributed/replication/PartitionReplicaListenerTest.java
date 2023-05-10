@@ -212,7 +212,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private TopologyService topologySrv;
 
     @Mock
-    private PendingComparableValuesTracker<HybridTimestamp> safeTimeClock;
+    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeClock;
 
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;
