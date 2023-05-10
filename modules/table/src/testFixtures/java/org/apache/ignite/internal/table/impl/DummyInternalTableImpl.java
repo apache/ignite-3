@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -70,6 +71,8 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -199,7 +202,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
-        lenient().doReturn(CompletableFuture.completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
@@ -302,8 +305,25 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
+                new Schemas() {
+                    @Override
+                    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
+                        return completedFuture(null);
+                    }
+
+                    @Override
+                    public FullTableSchema readyTableSchema(UUID tableId, HybridTimestamp ts) {
+                        throw new UnsupportedOperationException("Not yet");
+                    }
+
+                    @Override
+                    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding,
+                            HybridTimestamp toIncluding) {
+                        return List.of(new FullTableSchema(1, 1, List.of(), List.of()));
+                    }
+                },
                 peer -> true,
-                CompletableFuture.completedFuture(schemaManager)
+                completedFuture(schemaManager)
         );
 
         partitionListener = new PartitionListener(
@@ -397,7 +417,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return CompletableFuture.completedFuture(mock(ClusterNode.class));
+        return completedFuture(mock(ClusterNode.class));
     }
 
     @Override
