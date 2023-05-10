@@ -44,7 +44,7 @@ public class IndexMetaLeafIo extends BplusLeafIo<IndexMetaKey> implements IndexM
 
     @Override
     public void store(long dstPageAddr, int dstIdx, BplusIo<IndexMetaKey> srcIo, long srcPageAddr, int srcIdx) {
-        IndexMetaIo.super.store(dstPageAddr, dstIdx, srcPageAddr, srcIdx);
+        IndexMetaIo.super.store(dstPageAddr, dstIdx, srcIo, srcPageAddr, srcIdx);
     }
 
     @Override

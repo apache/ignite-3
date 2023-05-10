@@ -77,7 +77,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -189,9 +188,6 @@ public class ItRebalanceDistributedTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
-
-    @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -635,8 +631,25 @@ public class ItRebalanceDistributedTest {
 
             raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
 
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+
+            cmgManager = new ClusterManagementGroupManager(
+                    vaultManager,
+                    clusterService,
+                    raftManager,
+                    clusterStateStorage,
+                    logicalTopology,
+                    clusterManagementConfiguration,
+                    distributedConfigurationUpdater,
+                    nodeAttributes
+            );
+
             replicaManager = new ReplicaManager(
                     clusterService,
+                    cmgManager,
                     new HybridClockImpl(),
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
@@ -649,23 +662,6 @@ public class ItRebalanceDistributedTest {
             );
 
             txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
-
-            var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
-
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
-
-            cmgManager = new ClusterManagementGroupManager(
-                    vaultManager,
-                    clusterService,
-                    raftManager,
-                    clusterStateStorage,
-                    logicalTopology,
-                    clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
-                    nodeAttributes
-            );
 
             String nodeName = clusterService.nodeName();
 

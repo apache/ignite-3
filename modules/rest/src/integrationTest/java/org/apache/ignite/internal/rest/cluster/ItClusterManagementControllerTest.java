@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rest.cluster;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -86,149 +85,6 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     }
 
     @Test
-    void testInitEnabledAuthEmptyProviders() {
-        String givenInvalidBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "        \"enabled\": true\n"
-                + "    }\n"
-                + "}";
-        // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
-        );
-
-        // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("Providers list must not be empty"));
-    }
-
-    @Test
-    void testInitEnabledAuthEmptyLogin() {
-        String givenInvalidBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "      \"enabled\": true,\n"
-                + "      \"providers\": [\n"
-                + "        {\n"
-                + "          \"name\": \"basic\",\n"
-                + "          \"type\": \"basic\",\n"
-                + "          \"password\": \"admin\"\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
-                + "  }";
-        // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
-        );
-
-        // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("Username must not be empty"));
-    }
-
-    @Test
-    void testInitEnabledAuthEmptyPassword() {
-        String givenInvalidBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "      \"enabled\": true,\n"
-                + "      \"providers\": [\n"
-                + "        {\n"
-                + "          \"name\": \"basic\",\n"
-                + "          \"type\": \"basic\",\n"
-                + "          \"username\": \"admin\"\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
-                + "  }";
-        // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
-        );
-
-        // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("Password must not be empty"));
-    }
-
-    @Test
-    void testInitEnabledAuthEmptyType() {
-        String givenInvalidBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "      \"enabled\": true,\n"
-                + "      \"providers\": [\n"
-                + "        {\n"
-                + "          \"name\": \"basic\",\n"
-                + "          \"username\": \"admin\",\n"
-                + "          \"password\": \"admin\"\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
-                + "  }";
-        // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
-        );
-
-        // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("missing type id property"));
-    }
-
-    @Test
-    void testInitEnabledAuthEmptyName() {
-        String givenInvalidBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "    \"" + cluster.get(0).clusterService().nodeName() + "\""
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "      \"enabled\": true,\n"
-                + "      \"providers\": [\n"
-                + "        {\n"
-                + "          \"type\": \"basic\",\n"
-                + "          \"username\": \"admin\",\n"
-                + "          \"password\": \"admin\"\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n"
-                + "  }";
-        // When
-        var thrown = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
-        );
-
-        // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getProblem(thrown).detail(), containsString("Name must not be empty"));
-    }
-
-    @Test
     void testInitAlreadyInitializedWithAnotherNodes() {
         // Given cluster is not initialized
         HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
@@ -247,10 +103,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "        \"" + cluster.get(0).clusterService().nodeName() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authenticationConfig\": {\n"
-                + "        \"enabled\": false\n"
-                + "    }\n"
+                + "    \"clusterName\": \"cluster\"\n"
                 + "}";
 
         // When

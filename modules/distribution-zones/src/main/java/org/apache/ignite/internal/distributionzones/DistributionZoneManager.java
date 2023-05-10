@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
@@ -98,6 +99,7 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAl
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
+import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -244,6 +246,9 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for data nodes keys. */
     private final WatchListener dataNodesWatchListener;
 
+    /** Watch listener for data nodes keys. */
+    private final DistributionZoneRebalanceEngine rebalanceEngine;
+
     /**
      * Creates a new distribution zone manager.
      *
@@ -283,6 +288,18 @@ public class DistributionZoneManager implements IgniteComponent {
         );
 
         topVerTracker = new PendingComparableValuesTracker<>(0L);
+
+        // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
+        // meta storage notification thread that won't start before all components start.
+        //noinspection ThisEscapedInObjectConstruction
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
+                stopGuard,
+                busyLock,
+                zonesConfiguration,
+                tablesConfiguration,
+                metaStorageManager,
+                this
+        );
     }
 
     @TestOnly
@@ -728,6 +745,8 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
             zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
 
+            rebalanceEngine.start();
+
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
@@ -846,6 +865,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        rebalanceEngine.stop();
 
         logicalTopologyService.removeEventListener(topologyEventListener);
 
@@ -1317,7 +1338,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             byte[] dataNodesBytes = e.value();
 
                             if (dataNodesBytes != null) {
-                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
+                                newDataNodes = dataNodes(fromBytes(dataNodesBytes));
                             } else {
                                 newDataNodes = emptySet();
                             }
@@ -2009,5 +2030,20 @@ public class DistributionZoneManager implements IgniteComponent {
             this.nodeNames = nodeNames;
             this.addition = addition;
         }
+    }
+
+    /**
+     * Returns a data nodes set for the specified zone.
+     *
+     * @param zoneId Zone id.
+     * @return Data nodes set.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
+    public Set<String> getDataNodesByZoneId(int zoneId) {
+        return inBusyLock(busyLock, () -> {
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            return zoneState.nodes;
+        });
     }
 }

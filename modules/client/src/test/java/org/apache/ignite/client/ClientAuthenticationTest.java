@@ -122,8 +122,7 @@ public class ClientAuthenticationTest {
                 change.changeProviders().create("basic", authenticationProviderChange ->
                         authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("usr")
-                                .changePassword("pwd")
-                                .changeName("basic"));
+                                .changePassword("pwd"));
             }).join();
         }
 
