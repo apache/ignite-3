@@ -36,9 +36,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -74,12 +76,17 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        registry = new ConfigurationRegistry(
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(FilterValidator.INSTANCE),
-                new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
+        );
+        registry = new ConfigurationRegistry(
+                List.of(DistributionZonesConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED),
+                List.of(),
+                List.of(TestPersistStorageConfigurationSchema.class),
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(FilterValidator.INSTANCE))
         );
 
         registry.start();

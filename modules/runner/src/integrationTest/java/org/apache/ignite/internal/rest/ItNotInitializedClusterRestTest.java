@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -205,5 +206,47 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(response.statusCode(), is(200));
         // And version is a semver
         assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
+    }
+
+    @Test
+    @DisplayName("Cluster is not initialized, if config is invalid")
+    void initClusterWithInvalidConfig() throws IOException, InterruptedException {
+        // When POST /management/v1/cluster/init with invalid config
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:true "
+                + "     }\"\n"
+                + "  }";
+
+        // Then
+        HttpResponse<String> initResponse = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
+        Problem initProblem = objectMapper.readValue(initResponse.body(), Problem.class);
+
+        assertThat(initResponse.statusCode(), is(500));
+        assertAll(
+                () -> assertThat(initProblem.status(), is(500)),
+                () -> assertThat(initProblem.title(), is("Internal Server Error")),
+                () -> assertThat(
+                        initProblem.detail(),
+                        containsString("Invalid configuration: Validation did not pass for keys: "
+                                + "[security.authentication, Providers must be present, if auth is enabled]")
+                )
+        );
+
+        // And cluster is not initialized
+        HttpResponse<String> stateResponse = client.send(get("/management/v1/cluster/state"), BodyHandlers.ofString());
+        Problem stateProblem = objectMapper.readValue(stateResponse.body(), Problem.class);
+
+        assertAll(
+                () -> assertThat(stateProblem.status(), is(409)),
+                () -> assertThat(stateProblem.title(), is("Conflict")),
+                () -> assertThat(stateProblem.detail(),
+                        is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."))
+        );
     }
 }

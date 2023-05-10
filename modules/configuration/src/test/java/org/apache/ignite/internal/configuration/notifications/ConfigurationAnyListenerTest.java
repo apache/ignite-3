@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,6 +54,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -154,10 +154,10 @@ public class ConfigurationAnyListenerTest {
     public void before() throws Exception {
         registry = new ConfigurationRegistry(
                 List.of(RootConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
+                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class),
+                new TestConfigurationValidator()
         );
 
         registry.start();

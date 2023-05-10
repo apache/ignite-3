@@ -23,11 +23,11 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NodeFinderType;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
@@ -120,10 +120,10 @@ public class ClusterServiceTestUtils {
     private static ClusterService clusterService(String nodeName, int port, NodeFinder nodeFinder, StaleIds staleIds) {
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
                 List.of(),
-                List.of()
+                List.of(),
+                new TestConfigurationValidator()
         );
 
         NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);

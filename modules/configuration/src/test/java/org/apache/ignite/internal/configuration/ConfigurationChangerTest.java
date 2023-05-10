@@ -65,6 +65,8 @@ import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -221,9 +223,9 @@ public class ConfigurationChangerTest {
 
         ConfigurationChanger changer2 = new TestConfigurationChanger(
                 List.of(KEY),
-                Set.of(validator),
                 storage,
-                generator
+                generator,
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
         changer2.start();
@@ -593,7 +595,12 @@ public class ConfigurationChangerTest {
 
     private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
 
-        return new TestConfigurationChanger(List.of(rootKey), Set.of(), storage, generator);
+        return new TestConfigurationChanger(
+                List.of(rootKey),
+                storage,
+                generator,
+                new TestConfigurationValidator()
+        );
     }
 
     private static KeyPathNode node(String key) {

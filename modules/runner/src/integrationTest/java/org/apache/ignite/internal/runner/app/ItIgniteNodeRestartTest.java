@@ -79,6 +79,8 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -260,7 +262,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             throw new NodeConfigWriteException("Failed to write config content to file.", e);
         }
 
-        var generator = new ConfigurationTreeGenerator(
+        var localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
@@ -268,9 +270,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                modules.local().validators(),
-                new LocalFileConfigurationStorage(configFile, generator),
-                generator
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator),
+                localConfigurationGenerator,
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
@@ -303,8 +305,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 logicalTopology,
                 clusterManagementConfiguration,
                 distributedConfigurationUpdater,
-                nodeAttributes
-        );
+                nodeAttributes,
+                new TestConfigurationValidator());
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 clusterSvc,
@@ -333,12 +335,18 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
 
-        var clusterCfgMgr = new ConfigurationManager(
+        ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().validators(),
-                cfgStorage,
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
+        );
+
+        var clusterCfgMgr = new ConfigurationManager(
+                modules.distributed().rootKeys(),
+                cfgStorage,
+                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions(),
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
         Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()

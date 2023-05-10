@@ -41,6 +41,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -125,8 +126,8 @@ public class ItDistributedConfigurationStorageTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     distributedConfigurationUpdater,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,

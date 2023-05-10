@@ -42,6 +42,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -106,10 +107,10 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     public void setUp() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
-                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
+                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class),
+                new TestConfigurationValidator()
         );
 
         clusterService = mock(ClusterService.class);

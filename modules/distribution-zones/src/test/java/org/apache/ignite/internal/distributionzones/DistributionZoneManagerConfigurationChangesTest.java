@@ -47,9 +47,11 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -91,12 +93,17 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @BeforeEach
     public void setUp() throws Exception {
-        clusterCfgMgr = new ConfigurationManager(
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
+        );
+        clusterCfgMgr = new ConfigurationManager(
+                List.of(DistributionZonesConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED),
+                List.of(),
+                List.of(TestPersistStorageConfigurationSchema.class),
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
         );
 
         DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()

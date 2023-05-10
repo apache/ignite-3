@@ -59,11 +59,7 @@ import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 import org.apache.ignite.internal.configuration.util.NodeValue;
-import org.apache.ignite.internal.configuration.validation.ExceptKeysValidator;
-import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
-import org.apache.ignite.internal.configuration.validation.OneOfValidator;
-import org.apache.ignite.internal.configuration.validation.PowerOfTwoValidator;
-import org.apache.ignite.internal.configuration.validation.RangeValidator;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -99,7 +95,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      * Constructor.
      *
      * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
      * @param storage                     Configuration storage.
      * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
      *                                    ConfigurationRoot} and {@link Config}).
@@ -109,16 +104,16 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
-            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
             Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions
+            Collection<Class<?>> polymorphicSchemaExtensions,
+            ConfigurationValidator configurationValidator
     ) {
         this(
                 rootKeys,
-                validators,
                 storage,
-                new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions)
+                new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions),
+                configurationValidator
         );
 
         this.ownConfigTreeGenerator = true;
@@ -128,16 +123,15 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      * Constructor.
      *
      * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
      * @param storage                     Configuration storage.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
-            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
-            ConfigurationTreeGenerator generator
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
     ) {
         this.generator = generator;
 
@@ -145,15 +139,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         this.rootKeys = rootKeys;
 
-        Set<Validator<?, ?>> validators0 = new HashSet<>(validators);
-
-        validators0.add(new ImmutableValidator());
-        validators0.add(new OneOfValidator());
-        validators0.add(new ExceptKeysValidator());
-        validators0.add(new PowerOfTwoValidator());
-        validators0.add(new RangeValidator());
-
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, validators0, storage) {
+        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());

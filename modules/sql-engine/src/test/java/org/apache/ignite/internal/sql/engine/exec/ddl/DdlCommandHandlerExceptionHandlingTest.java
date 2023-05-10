@@ -33,7 +33,9 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -77,12 +79,18 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private static final String ZONE_NAME = "zone1";
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
+    private final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
             List.of(DistributionZonesConfiguration.KEY),
-            Set.of(),
-            new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
             List.of(TestPersistStorageConfigurationSchema.class)
+    );
+
+    private final ConfigurationRegistry registry = new ConfigurationRegistry(
+            List.of(DistributionZonesConfiguration.KEY),
+            new TestConfigurationStorage(DISTRIBUTED),
+            List.of(),
+            List.of(TestPersistStorageConfigurationSchema.class),
+            ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
     );
 
     private DistributionZoneManager distributionZoneManager;

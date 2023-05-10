@@ -25,7 +25,6 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -38,6 +37,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -93,10 +93,10 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         ConfigurationManager cfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
                 cfgStorage,
                 List.of(),
-                List.of(TestPersistStorageConfigurationSchema.class)
+                List.of(TestPersistStorageConfigurationSchema.class),
+                new TestConfigurationValidator()
         );
 
         components.add(cfgMgr);

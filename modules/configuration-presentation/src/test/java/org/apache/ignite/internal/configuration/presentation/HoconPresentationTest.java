@@ -41,7 +41,9 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,12 +77,14 @@ public class HoconPresentationTest {
             }
         };
 
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(TestRootConfiguration.KEY);
+
         cfgRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
-                Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of()
+                List.of(),
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
         cfgRegistry.start();

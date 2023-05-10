@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -152,8 +152,8 @@ public class ItDistributedConfigurationPropertiesTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     distributedConfigurationUpdater,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -194,10 +194,10 @@ public class ItDistributedConfigurationPropertiesTest {
 
             distributedCfgManager = new ConfigurationManager(
                     List.of(DistributedConfiguration.KEY),
-                    Set.of(),
                     distributedCfgStorage,
                     List.of(),
-                    List.of()
+                    List.of(),
+                    new TestConfigurationValidator()
             );
         }
 

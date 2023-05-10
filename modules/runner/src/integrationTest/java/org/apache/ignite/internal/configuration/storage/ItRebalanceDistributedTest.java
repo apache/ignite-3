@@ -79,6 +79,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -616,9 +617,9 @@ public class ItRebalanceDistributedTest {
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
-                    Set.of(),
                     new LocalFileConfigurationStorage(configPath, generator),
-                    generator
+                    generator,
+                    new TestConfigurationValidator()
             );
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -644,8 +645,8 @@ public class ItRebalanceDistributedTest {
                     logicalTopology,
                     clusterManagementConfiguration,
                     distributedConfigurationUpdater,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             replicaManager = new ReplicaManager(
                     clusterService,
@@ -688,7 +689,6 @@ public class ItRebalanceDistributedTest {
                             TablesConfiguration.KEY,
                             DistributionZonesConfiguration.KEY
                     ),
-                    Set.of(),
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
@@ -700,7 +700,8 @@ public class ItRebalanceDistributedTest {
                             FunctionCallDefaultConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
                             TestDataStorageConfigurationSchema.class
-                    )
+                    ),
+                    new TestConfigurationValidator()
             );
 
             Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->

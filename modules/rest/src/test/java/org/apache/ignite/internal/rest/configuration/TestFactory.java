@@ -30,7 +30,9 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 
 /**
  * Factory that creates beans needed for unit tests.
@@ -53,12 +55,14 @@ public class TestFactory {
             }
         };
 
+        var generator = new ConfigurationTreeGenerator(TestRootConfiguration.KEY);
+
         var configurationRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
-                Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
-                List.of()
+                List.of(),
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
         configurationRegistry.start();

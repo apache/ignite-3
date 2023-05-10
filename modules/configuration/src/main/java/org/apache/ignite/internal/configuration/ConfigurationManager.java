@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.Collection;
-import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -35,7 +34,6 @@ public class ConfigurationManager implements IgniteComponent {
      * Constructor.
      *
      * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
      * @param storage                     Configuration storage.
      * @param generator                   Configuration tree generator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
@@ -43,15 +41,15 @@ public class ConfigurationManager implements IgniteComponent {
      */
     public ConfigurationManager(
             Collection<RootKey<?, ?>> rootKeys,
-            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
-            ConfigurationTreeGenerator generator
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,
-                validators,
                 storage,
-                generator
+                generator,
+                configurationValidator
         );
     }
 
@@ -59,7 +57,6 @@ public class ConfigurationManager implements IgniteComponent {
      * Constructor.
      *
      * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
      * @param storage                     Configuration storage.
      * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
      *                                    ConfigurationRoot} and {@link Config}).
@@ -69,17 +66,17 @@ public class ConfigurationManager implements IgniteComponent {
      */
     public ConfigurationManager(
             Collection<RootKey<?, ?>> rootKeys,
-            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
             Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions
+            Collection<Class<?>> polymorphicSchemaExtensions,
+            ConfigurationValidator configurationValidator
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,
-                validators,
                 storage,
                 internalSchemaExtensions,
-                polymorphicSchemaExtensions
+                polymorphicSchemaExtensions,
+                configurationValidator
         );
     }
 

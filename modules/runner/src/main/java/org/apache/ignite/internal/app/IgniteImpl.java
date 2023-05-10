@@ -69,6 +69,8 @@ import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
@@ -302,17 +304,25 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+        ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
+        LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
+                configPath,
+                localConfigurationGenerator
+        );
+
+        ConfigurationValidator localConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
+
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                modules.local().validators(),
-                new LocalFileConfigurationStorage(configPath, generator),
-                generator
+                localFileConfigurationStorage,
+                localConfigurationGenerator,
+                localConfigurationValidator
         );
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
@@ -366,6 +376,15 @@ public class IgniteImpl implements Ignite {
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater();
 
+        ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
+                modules.distributed().rootKeys(),
+                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions()
+        );
+
+        ConfigurationValidator distributedConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
@@ -374,8 +393,8 @@ public class IgniteImpl implements Ignite {
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 distributedConfigurationUpdater,
-                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY)
-        );
+                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
+                distributedConfigurationValidator);
 
         replicaMgr = new ReplicaManager(
                 clusterSvc,
@@ -398,12 +417,13 @@ public class IgniteImpl implements Ignite {
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
+
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
-                modules.distributed().validators(),
                 cfgStorage,
                 modules.distributed().internalSchemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                modules.distributed().polymorphicSchemaExtensions(),
+                distributedConfigurationValidator
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

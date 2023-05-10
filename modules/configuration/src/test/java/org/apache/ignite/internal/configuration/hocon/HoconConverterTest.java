@@ -33,7 +33,6 @@ import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -50,6 +49,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -209,13 +209,13 @@ public class HoconConverterTest {
     public static void beforeAll() {
         registry = new ConfigurationRegistry(
                 List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of(
                         HoconFirstPolymorphicInstanceConfigurationSchema.class,
                         HoconSecondPolymorphicInstanceConfigurationSchema.class
-                )
+                ),
+                new TestConfigurationValidator()
         );
 
         registry.start();
