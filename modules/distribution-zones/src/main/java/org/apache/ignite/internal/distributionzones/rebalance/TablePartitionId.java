@@ -21,10 +21,12 @@ import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.NotNull;
 
+// TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Should be refactored to ZonePartitionId.
 /**
  * The class is used to identify a table replication group.
  */
 public class TablePartitionId implements ReplicationGroupId {
+    private static final long serialVersionUID = -2428659904367844831L;
 
     /** Table id. */
     private final UUID tableId;

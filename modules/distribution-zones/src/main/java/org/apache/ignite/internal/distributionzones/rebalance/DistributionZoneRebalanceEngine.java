@@ -84,6 +84,16 @@ public class DistributionZoneRebalanceEngine {
     /** Meta storage listener for data nodes changes. */
     private final WatchListener dataNodesListener;
 
+    /**
+     * The constructor.
+     *
+     * @param stopGuard Prevents double stopping of the component.
+     * @param busyLock Busy lock to stop synchronously.
+     * @param zonesConfiguration Distribution zone configuration.
+     * @param tablesConfiguration Tables configuration.
+     * @param metaStorageManager Meta Storage manager.
+     * @param distributionZoneManager Distribution zones manager.
+     */
     public DistributionZoneRebalanceEngine(
             AtomicBoolean stopGuard,
             IgniteSpinBusyLock busyLock,
@@ -168,8 +178,7 @@ public class DistributionZoneRebalanceEngine {
 
                             byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
 
-                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null ?
-                                    Collections.emptyList() :
+                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null ? Collections.emptyList() :
                                     ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
