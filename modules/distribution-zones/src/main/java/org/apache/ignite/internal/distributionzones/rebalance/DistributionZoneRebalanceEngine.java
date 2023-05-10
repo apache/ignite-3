@@ -60,16 +60,22 @@ public class DistributionZoneRebalanceEngine {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
 
+    /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard;
 
+    /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock;
 
+    /** Distribution zone configuration. */
     private final DistributionZonesConfiguration zonesConfiguration;
 
+    /** Tables configuration. */
     private final TablesConfiguration tablesConfiguration;
 
+    /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
 
+    /** Distribution zones manager. */
     private final DistributionZoneManager distributionZoneManager;
 
     private final WatchListener dataNodesListener;

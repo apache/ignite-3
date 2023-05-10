@@ -246,6 +246,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for data nodes keys. */
     private final WatchListener dataNodesWatchListener;
 
+    /** Watch listener for data nodes keys. */
     private final DistributionZoneRebalanceEngine rebalanceEngine;
 
     /**
@@ -2028,6 +2029,12 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Returns a data nodes set for the specified zone.
+     *
+     * @param zoneId Zone id.
+     * @return Data nodes set.
+     */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
     public Set<String> getDataNodesByZoneId(int zoneId) {
         return inBusyLock(busyLock, () -> {
