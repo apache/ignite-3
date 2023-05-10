@@ -34,7 +34,6 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-schema')
     implementation project(':ignite-affinity')
-    implementation project(':ignite-baseline')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core
