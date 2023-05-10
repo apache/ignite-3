@@ -293,20 +293,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
 
-        ReplicaManager replicaMgr = new ReplicaManager(
-                clusterSvc,
-                hybridClock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
-        );
-
-        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var lockManager = new HeapLockManager();
-
-        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
-
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -324,6 +310,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 distributedConfigurationUpdater,
                 nodeAttributes
         );
+
+        ReplicaManager replicaMgr = new ReplicaManager(
+                clusterSvc,
+                cmgManager,
+                hybridClock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
+
+        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var lockManager = new HeapLockManager();
+
+        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,

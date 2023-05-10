@@ -15,26 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
-
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.annotations.Marshallable;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * Read-write replica request.
+ * This is an interface for requests are designed for primary replica.
  */
-public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    UUID transactionId();
-
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
-     *
-     * @return Raft term.
-     */
-    @Deprecated
-    @Marshallable
-    Long term();
+public interface PrimaryReplicaRequest extends ReplicaRequest {
 }

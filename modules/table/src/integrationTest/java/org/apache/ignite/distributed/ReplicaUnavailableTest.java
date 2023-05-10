@@ -26,12 +26,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
@@ -103,7 +105,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         replicaService = new ReplicaService(clusterService.messagingService(), clock);
 
+        var cmgManager = mock(ClusterManagementGroupManager.class);
+
+        // This test is run without Meta storage.
+        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
+
         replicaManager = new ReplicaManager(clusterService,
+                cmgManager,
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class));
 
@@ -134,6 +142,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
                     try {
+                        log.info("Replica msg " + message.getClass().getSimpleName());
+
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 completedFuture(null),
@@ -141,7 +151,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                         .result(Integer.valueOf(5))
                                         .build()),
                                 mock(TopologyAwareRaftGroupService.class),
-                                new PendingComparableValuesTracker<>(0L));
+                                new PendingComparableValuesTracker<>(0L)
+                        );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }

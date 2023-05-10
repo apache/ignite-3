@@ -635,21 +635,6 @@ public class ItRebalanceDistributedTest {
 
             raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
 
-            replicaManager = new ReplicaManager(
-                    clusterService,
-                    new HybridClockImpl(),
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
-            );
-
-            HybridClock hybridClock = new HybridClockImpl();
-
-            ReplicaService replicaSvc = new ReplicaService(
-                    clusterService.messagingService(),
-                    hybridClock
-            );
-
-            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
-
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -666,6 +651,22 @@ public class ItRebalanceDistributedTest {
                     distributedConfigurationUpdater,
                     nodeAttributes
             );
+
+            replicaManager = new ReplicaManager(
+                    clusterService,
+                    cmgManager,
+                    new HybridClockImpl(),
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+            );
+
+            HybridClock hybridClock = new HybridClockImpl();
+
+            ReplicaService replicaSvc = new ReplicaService(
+                    clusterService.messagingService(),
+                    hybridClock
+            );
+
+            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
 
             String nodeName = clusterService.nodeName();
 

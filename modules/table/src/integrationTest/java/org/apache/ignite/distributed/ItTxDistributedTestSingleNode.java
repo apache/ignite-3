@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -299,8 +301,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             raftServers.put(node.name(), raftSrv);
 
+            var cmgManager = mock(ClusterManagementGroupManager.class);
+
+            // This test is run without Meta storage.
+            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
+
             ReplicaManager replicaMgr = new ReplicaManager(
                     cluster.get(i),
+                    cmgManager,
                     clock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );

@@ -256,4 +256,15 @@ public class Replica {
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
     }
+
+    /**
+     * Returns consistent id of the most convenient primary node.
+     *
+     * @return Node consistent id.
+     */
+    public String proposedPrimary() {
+        Peer leased = raftClient.leader();
+
+        return leased != null ? leased.consistentId() : localNode.name();
+    }
 }

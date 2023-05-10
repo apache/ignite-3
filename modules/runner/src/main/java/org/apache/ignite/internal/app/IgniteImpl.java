@@ -353,12 +353,6 @@ public class IgniteImpl implements Ignite {
 
         LockManager lockMgr = new HeapLockManager();
 
-        replicaMgr = new ReplicaManager(
-                clusterSvc,
-                clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
-        );
-
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
@@ -380,6 +374,13 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
                 distributedConfigurationUpdater,
                 nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY)
+        );
+
+        replicaMgr = new ReplicaManager(
+                clusterSvc,
+                cmgMgr,
+                clock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
