@@ -273,7 +273,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         //Workaround for distributed configuration.
         addDefaults(superRoot);
-
+        dropNulls(superRoot);
         // Validate the read configuration
         validateConfiguration(defaultConfiguration(), superRoot);
 

@@ -370,8 +370,8 @@ public class ConfigurationRegistryTest {
         @PolymorphicId(hasDefault = true)
         public String typeId = "fourth0";
 
-        @Value
-        public String strVal;
+        @Value(hasDefault = true)
+        public String strVal = "";
     }
 
     /**
@@ -379,7 +379,7 @@ public class ConfigurationRegistryTest {
      */
     @PolymorphicConfigInstance("fourth0")
     public static class Fourth0PolymorphicConfigurationSchema extends FourthPolymorphicConfigurationSchema {
-        @Value
-        public int intVal;
+        @Value(hasDefault = true)
+        public int intVal = 0;
     }
 }
