@@ -128,7 +128,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+        when(distributionZoneManager.getDataNodesByZoneId(anyInt())).thenReturn(Set.of("node0"));
 
         doAnswer(invocation -> {
             ByteArray key = invocation.getArgument(0);
