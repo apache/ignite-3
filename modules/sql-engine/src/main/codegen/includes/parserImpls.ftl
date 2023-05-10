@@ -91,6 +91,36 @@ SqlTypeNameSpec UuidType(Span s) :
     }
 }
 
+SqlNode ColumnDataType(SqlIdentifier id) :
+{
+    SqlDataTypeSpec type = null;
+    SqlNode dflt = null;
+    boolean nullable = true;
+    ColumnStrategy strategy = null;
+    final Span s = Span.of();
+}
+{
+    type = DataTypeEx()
+    [
+        <NOT> <NULL> {
+            nullable = false;
+        }
+    ]
+    (
+        <DEFAULT_> { s.add(this); } dflt = Literal() {
+            strategy = ColumnStrategy.DEFAULT;
+        }
+    |
+        {
+            dflt = null;
+            strategy = nullable ? ColumnStrategy.NULLABLE
+                : ColumnStrategy.NOT_NULLABLE;
+        }
+    )
+    {
+        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
+    }
+}
 
 void TableElement(List<SqlNode> list) :
 {
@@ -371,25 +401,45 @@ SqlNode ColumnWithType() :
 }
 {
     id = SimpleIdentifier()
-    type = DataTypeEx()
-    [
-        <NOT> <NULL> {
-            nullable = false;
-        }
-    ]
+    {
+        return ColumnDataType(id);
+    }
+}
+
+SqlNode AlterColumnWithType() :
+{
+    SqlIdentifier id;
+    SqlDataTypeSpec type = null;
+    boolean nullable = true;
+    ColumnStrategy strategy = null;
+    SqlNode dflt = null;
+    final Span s = Span.of();
+}
+{
+    id = SimpleIdentifier()
     (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
+        <DATA> <TYPE> {
+            return ColumnDataType(id);
+        }
+    |
+        <SET> <NOT> <NULL> {
+            strategy = ColumnStrategy.NOT_NULLABLE;
+        }
+    |
+        <DROP> <NOT> <NULL> {
+            strategy = ColumnStrategy.NULLABLE;
+        }
+    |
+        <SET> <DEFAULT_> { s.add(this); } dflt = Literal() {
             strategy = ColumnStrategy.DEFAULT;
         }
     |
-        {
-            dflt = null;
-            strategy = nullable ? ColumnStrategy.NULLABLE
-                : ColumnStrategy.NOT_NULLABLE;
+        <DROP> <DEFAULT_> {
+            strategy = ColumnStrategy.DEFAULT;
         }
     )
     {
-        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
+        return SqlDdlNodes.column(s.add(id).end(this), id, type, dflt, strategy);
     }
 }
 
@@ -423,6 +473,10 @@ SqlNode SqlAlterTable() :
     |
         <DROP> [<COLUMN>] colIgnoreErr = IfExistsOpt() cols = SimpleIdentifierOrList() {
             return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, colIgnoreErr, cols);
+        }
+    |
+        <ALTER> [<COLUMN>] col = AlterColumnWithType() {
+            return new IgniteSqlAlterTableAlterColumn(s.end(this), ifExists, id, col);
         }
     )
 }
