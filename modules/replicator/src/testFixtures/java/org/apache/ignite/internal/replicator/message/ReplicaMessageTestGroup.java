@@ -23,5 +23,5 @@ import org.apache.ignite.network.annotations.MessageGroup;
 @MessageGroup(groupType = 31, groupName = "TestReplicaMessages")
 public interface ReplicaMessageTestGroup {
     /** Message type for {@link PrimaryReplicaTestRequest}. */
-    short PRIMARY_REPLICA_TEST_REQUEST = 41;
+    short PRIMARY_REPLICA_TEST_REQUEST = 1;
 }

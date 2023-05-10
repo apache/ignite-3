@@ -198,23 +198,23 @@ public class ReplicaManager implements IgniteComponent {
 
                 if (ex == null) {
                     msg = prepareReplicaResponse(requestTimestamp, res);
-
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (request instanceof PrimaryReplicaRequest && !localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    }
                 } else {
                     LOG.warn("Failed to process replica request [request={}]", ex, request);
 
                     msg = prepareReplicaErrorResponse(requestTimestamp, ex);
-
-                    if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
                 }
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+
+                if (request instanceof PrimaryReplicaRequest) {
+                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+                    if (!localNode.name().equals(replica.proposedPrimary())) {
+                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
+                    } else if (isConnectivityRelatedException(ex)) {
+                        stopLeaseProlongation(request.groupId(), null);
+                    }
+                }
 
                 return null;
             });
@@ -281,7 +281,7 @@ public class ReplicaManager implements IgniteComponent {
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
-                    //TODO: IGNITE-19441 Stop lease prolongation message might send severa times.
+                    //TODO: IGNITE-19441 Stop lease prolongation message might be sent several
                     clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                             .groupId(groupId)
                             .redirectProposal(redirectNodeId)
