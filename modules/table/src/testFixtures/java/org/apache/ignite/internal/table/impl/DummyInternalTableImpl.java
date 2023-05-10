@@ -333,7 +333,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         @Override
         public void run() {
             while (true) {
-                safeTime.update(CLOCK.now());
+                safeTime.update(CLOCK.now(), null);
 
                 try {
                     Thread.sleep(1_000);

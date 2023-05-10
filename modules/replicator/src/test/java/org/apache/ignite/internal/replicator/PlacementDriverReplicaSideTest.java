@@ -158,7 +158,7 @@ public class PlacementDriverReplicaSideTest {
     }
 
     private void updateIndex(long index) {
-        storageIndexTracker.update(index);
+        storageIndexTracker.update(index, null);
     }
 
     @Test

@@ -32,7 +32,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Tracker that stores comparable value internally, this value can grow when {@link #update(Comparable)} method is called. The tracker gives
+ * Tracker that stores comparable value internally, this value can grow when {@link #update} method is called. The tracker gives
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
 public class PendingComparableValuesTracker<T extends Comparable<T>, R> implements ManuallyCloseable {
@@ -110,17 +110,6 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     }
 
     /**
-     * Updates the internal state, if it is lower than {@code newValue} and completes all futures waiting for {@code newValue}
-     * that had been created for corresponding values that are lower than the given one.
-     *
-     * @param newValue New value.
-     * @throws TrackerClosedException if the tracker is closed.
-     */
-    public void update(T newValue) {
-        update(newValue, null);
-    }
-
-    /**
      * Provides the future that is completed when this tracker's internal value reaches given one. If the internal value is greater or equal
      * then the given one, returns completed future.
      *
@@ -171,9 +160,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
         TrackerClosedException trackerClosedException = new TrackerClosedException();
 
-        completeWaitersOnClose(trackerClosedException);
-
-        valueFutures.clear();
+        cleanupWaitersOnClose(trackerClosedException);
     }
 
     protected void completeWaitersOnUpdate(T newValue, @Nullable R futureResult) {
@@ -198,8 +185,10 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         return future;
     }
 
-    protected void completeWaitersOnClose(TrackerClosedException trackerClosedException) {
+    protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {
         valueFutures.values().forEach(future -> future.completeExceptionally(trackerClosedException));
+
+        valueFutures.clear();
     }
 
     Map.Entry<T, R> currentEntry() {

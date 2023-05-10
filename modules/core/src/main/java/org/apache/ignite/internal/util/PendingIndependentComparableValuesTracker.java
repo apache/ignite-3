@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Tracker that stores comparable value internally, this value can grow when {@link #update(Comparable)} method is called. The tracker gives
+ * Tracker that stores comparable value internally, this value can grow when {@link #update} method is called. The tracker gives
  * ability to wait for certain value, see {@link #waitFor(Comparable)}. In addition to {@link PendingComparableValuesTracker}
  * given tracker supports multiple independent waiters for same value.
  */
@@ -78,7 +78,9 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
     }
 
     @Override
-    protected void completeWaitersOnClose(TrackerClosedException trackerClosedException) {
+    protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {
         valueFutures.forEach((k, futureSet) -> futureSet.forEach(f -> f.completeExceptionally(trackerClosedException)));
+
+        valueFutures.clear();
     }
 }

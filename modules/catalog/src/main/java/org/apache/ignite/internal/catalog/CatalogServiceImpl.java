@@ -270,7 +270,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
             registerCatalog(catalog);
 
-            versionTracker.update(catalog.version());
+            versionTracker.update(catalog.version(), null);
         }
     }
 

@@ -69,16 +69,16 @@ public class PendingComparableValuesTrackerTest {
         assertFalse(f1.isDone());
         assertFalse(f2.isDone());
 
-        tracker.update(ts1);
+        tracker.update(ts1, null);
         assertThat(f0, willCompleteSuccessfully());
         assertFalse(f1.isDone());
         assertFalse(f2.isDone());
 
-        tracker.update(ts2);
+        tracker.update(ts2, null);
         assertThat(f1, willCompleteSuccessfully());
         assertFalse(f2.isDone());
 
-        tracker.update(ts3);
+        tracker.update(ts3, null);
         assertThat(f2, willCompleteSuccessfully());
     }
 
@@ -137,7 +137,7 @@ public class PendingComparableValuesTrackerTest {
             for (int i = 0; i < iterations; i++) {
                 HybridTimestamp now = clock.now();
 
-                tracker.update(now);
+                tracker.update(now, null);
 
                 HybridTimestamp timestampToWait =
                         new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
@@ -163,7 +163,7 @@ public class PendingComparableValuesTrackerTest {
             return null;
         }, threads, "trackableHybridClockTest");
 
-        tracker.update(HybridTimestamp.MAX_VALUE);
+        tracker.update(HybridTimestamp.MAX_VALUE, null);
 
         assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
     }
@@ -215,7 +215,7 @@ public class PendingComparableValuesTrackerTest {
             return null;
         }, threads, "trackableHybridClockTest");
 
-        tracker.update(HybridTimestamp.MAX_VALUE);
+        tracker.update(HybridTimestamp.MAX_VALUE, null);
 
         assertThat(CompletableFuture.allOf(allFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
     }
@@ -229,7 +229,7 @@ public class PendingComparableValuesTrackerTest {
         CompletableFuture<Void> writerFuture = CompletableFuture.runAsync(() -> {
             try {
                 barrier.await();
-                tracker.update(2);
+                tracker.update(2, null);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -259,7 +259,7 @@ public class PendingComparableValuesTrackerTest {
         tracker.close();
 
         assertThrows(TrackerClosedException.class, tracker::current);
-        assertThrows(TrackerClosedException.class, () -> tracker.update(2));
+        assertThrows(TrackerClosedException.class, () -> tracker.update(2, null));
 
         assertThat(future0, willThrowFast(TrackerClosedException.class));
         assertThat(tracker.waitFor(2), willThrowFast(TrackerClosedException.class));

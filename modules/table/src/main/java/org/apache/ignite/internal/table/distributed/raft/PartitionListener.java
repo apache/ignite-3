@@ -488,7 +488,7 @@ public class PartitionListener implements RaftGroupListener {
             T newValue
     ) {
         try {
-            tracker.update(newValue);
+            tracker.update(newValue, null);
         } catch (TrackerClosedException ignored) {
             // No-op.
         }

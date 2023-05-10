@@ -115,7 +115,7 @@ public class ClusterTimeImpl implements ClusterTime {
      * @param newValue New safe time value.
      */
     public void updateSafeTime(HybridTimestamp newValue) {
-        this.safeTime.update(newValue);
+        this.safeTime.update(newValue, null);
     }
 
     /**
