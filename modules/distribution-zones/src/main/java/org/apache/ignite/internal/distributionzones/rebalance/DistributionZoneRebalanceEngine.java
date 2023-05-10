@@ -244,7 +244,7 @@ public class DistributionZoneRebalanceEngine {
                         futs[furCur++] = updatePendingAssignmentsKeys(
                                 tblCfg.name().value(),
                                 replicaGrpId,
-                                distributionZoneManager.dataNodes(zoneCfg.zoneId()),
+                                distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
                                 newReplicas,
                                 replicasCtx.storageRevision(), metaStorageManager, i, tableAssignments.get(i));
                     }
