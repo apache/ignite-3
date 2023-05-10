@@ -19,6 +19,7 @@
 
 #include "ignite/odbc/app/parameter.h"
 #include "ignite/protocol/writer.h"
+#include "ignite/common/ignite_type.h"
 
 #include <map>
 #include <cstdint>
@@ -35,7 +36,7 @@ class parameter_set
     typedef std::map<std::uint16_t, parameter> parameter_binding_map;
 
     /** parameter meta vector. */
-    typedef std::vector<std::int8_t> parameter_type_vector;
+    typedef std::vector<ignite_type> parameter_type_vector;
 public:
     /**
      * Default constructor.
@@ -58,17 +59,17 @@ public:
     /**
      * Bind parameter.
      *
-     * @param paramIdx parameter index.
+     * @param param_idx parameter index.
      * @param param parameter.
      */
-    void bind_parameter(std::uint16_t paramIdx, const parameter& param);
+    void bind_parameter(std::uint16_t param_idx, const parameter& param);
 
     /**
      * Unbind specified parameter.
      *
-     * @param paramIdx parameter index.
+     * @param param_idx parameter index.
      */
-    void unbind_parameter(std::uint16_t paramIdx);
+    void unbind_parameter(std::uint16_t param_idx);
 
     /**
      * Unbind all m_parameters.
@@ -122,7 +123,7 @@ public:
      * @param dflt Default value to return if the type can not be found.
      * @return Type ID of the parameter or dflt, if the type can not be returned.
      */
-    std::int8_t get_param_type(std::int16_t idx, std::int8_t dflt);
+    ignite_type get_param_type(std::int16_t idx, ignite_type dflt);
 
     /**
      * Get expected m_parameters number.

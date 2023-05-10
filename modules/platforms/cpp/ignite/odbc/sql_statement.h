@@ -39,84 +39,86 @@ class sql_statement : public diagnosable_adapter
 {
     friend class sql_connection;
 public:
-    /**
-     * Destructor.
-     */
-    ~sql_statement();
+    // Delete
+    sql_statement(sql_statement &&) = delete;
+    sql_statement(const sql_statement &) = delete;
+    sql_statement &operator=(sql_statement &&) = delete;
+    sql_statement &operator=(const sql_statement &) = delete;
 
     /**
      * Bind result column to data buffer provided by application
      *
      * @param column_idx Column index.
-     * @param targetType Type of target buffer.
-     * @param targetValue Pointer to target buffer.
-     * @param bufferLength Length of target buffer.
-     * @param strLengthOrIndicator Pointer to the length/indicator buffer.
+     * @param target_type Type of target buffer.
+     * @param target_value Pointer to target buffer.
+     * @param buffer_length Length of target buffer.
+     * @param str_length_or_indicator Pointer to the length/indicator buffer.
      */
-    void BindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator);
+    void bind_column(uint16_t column_idx, std::int16_t target_type, void* target_value, SQLLEN buffer_length,
+        SQLLEN* str_length_or_indicator);
 
     /**
      * Set column binding offset pointer.
      *
      * @param ptr Column binding offset pointer.
      */
-    void SetColumnBindOffsetPtr(int* ptr);
+    void set_column_bind_offset_ptr(int* ptr);
 
     /**
      * Get column binding offset pointer.
      *
      * @return Column binding offset pointer.
      */
-    int* GetColumnBindOffsetPtr();
+    int* get_column_bind_offset_ptr();
 
     /**
      * Get number of columns in the result set.
      *
      * @return Columns number.
      */
-    int32_t get_column_number();
+    std::int32_t get_column_number();
 
     /**
      * Bind parameter.
      *
-     * @param paramIdx parameter index.
-     * @param ioType Type of the parameter (input/output).
-     * @param bufferType The data type of the parameter.
-     * @param paramSqlType The SQL data type of the parameter.
-     * @param columnSize  The size of the column or expression of the corresponding parameter marker.
-     * @param decDigits  The decimal digits of the column or expression of the corresponding parameter marker.
+     * @param param_idx parameter index.
+     * @param io_type Type of the parameter (input/output).
+     * @param buffer_type The data type of the parameter.
+     * @param param_sql_type The SQL data type of the parameter.
+     * @param column_size  The size of the column or expression of the corresponding parameter marker.
+     * @param dec_digits  The decimal digits of the column or expression of the corresponding parameter marker.
      * @param buffer A pointer to a buffer for the parameter's data.
-     * @param bufferLen Length of the ParameterValuePtr buffer in bytes.
-     * @param resLen A pointer to a buffer for the parameter's length.
+     * @param buffer_len Length of the ParameterValuePtr buffer in bytes.
+     * @param res_len A pointer to a buffer for the parameter's length.
      */
-    void bind_parameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
-                       SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen);
+    void bind_parameter(uint16_t param_idx, std::int16_t io_type, std::int16_t buffer_type, std::int16_t param_sql_type,
+                       SQLULEN column_size, std::int16_t dec_digits, void* buffer, SQLLEN buffer_len, SQLLEN* res_len);
 
     /**
      * Set statement attribute.
      *
      * @param attr Attribute type.
      * @param value Value pointer.
-     * @param valueLen Value length.
+     * @param value_len Value length.
      */
-    void set_attribute(int attr, void* value, SQLINTEGER valueLen);
+    void set_attribute(int attr, void* value, SQLINTEGER value_len);
 
     /**
      * Get statement attribute.
      *
      * @param attr Attribute type.
      * @param buf Buffer for value.
-     * @param bufLen Buffer length.
-     * @param valueLen Resulting value length.
+     * @param buf_len Buffer length.
+     * @param value_len Resulting value length.
      */
-    void get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
+    void get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
 
     /**
      * Get number m_parameters required by the prepared statement.
      *
-     * @param paramNum Number of m_parameters.
+     * @param param_num Number of m_parameters.
      */
-    void get_parameters_number(uint16_t& paramNum);
+    void get_parameters_number(uint16_t& param_num);
 
     /**
      * Set parameter binding offset pointer.
@@ -131,26 +133,26 @@ public:
      * @param column_idx Column index.
      * @param buffer Buffer to put column data to.
      */
-    void GetColumnData(uint16_t column_idx, application_data_buffer& buffer);
+    void get_column_data(uint16_t column_idx, application_data_buffer& buffer);
 
     /**
      * Prepare SQL query.
      *
      * @param query SQL query.
      */
-    void PrepareSqlQuery(const std::string& query);
+    void prepare_sql_query(const std::string& query);
 
     /**
      * Execute SQL query.
      *
      * @param query SQL query.
      */
-    void ExecuteSqlQuery(const std::string& query);
+    void execute_sql_query(const std::string& query);
 
     /**
      * Execute SQL query.
      */
-    void ExecuteSqlQuery();
+    void execute_sql_query();
 
     /**
      * Get columns metadata.
@@ -159,7 +161,7 @@ public:
      * @param table Table search pattern.
      * @param column Column search pattern.
      */
-    void ExecuteGetColumnsMetaQuery(const std::string& schema,
+    void execute_get_columns_meta_query(const std::string& schema,
         const std::string& table, const std::string& column);
 
     /**
@@ -168,26 +170,25 @@ public:
      * @param catalog Catalog search pattern.
      * @param schema Schema search pattern.
      * @param table Table search pattern.
-     * @param tableType Table type search pattern.
+     * @param table_type Table type search pattern.
      */
-    void ExecuteGetTablesMetaQuery(const std::string& catalog,
+    void execute_get_tables_meta_query(const std::string& catalog,
         const std::string& schema, const std::string& table,
-        const std::string& tableType);
+        const std::string& table_type);
 
     /**
      * Get foreign keys.
      *
-     * @param primaryCatalog Primary key catalog name.
-     * @param primarySchema Primary key schema name.
-     * @param primaryTable Primary key table name.
-     * @param foreignCatalog Foreign key catalog name.
-     * @param foreignSchema Foreign key schema name.
-     * @param foreignTable Foreign key table name.
+     * @param primary_catalog Primary key catalog name.
+     * @param primary_schema Primary key schema name.
+     * @param primary_table Primary key table name.
+     * @param foreign_catalog Foreign key catalog name.
+     * @param foreign_schema Foreign key schema name.
+     * @param foreign_table Foreign key table name.
      */
-    void ExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
-        const std::string& primarySchema, const std::string& primaryTable,
-        const std::string& foreignCatalog, const std::string& foreignSchema,
-        const std::string& foreignTable);
+    void execute_get_foreign_keys_query(const std::string& primary_catalog, const std::string& primary_schema,
+        const std::string& primary_table, const std::string& foreign_catalog, const std::string& foreign_schema,
+        const std::string& foreign_table);
 
     /**
      * Get primary keys.
@@ -196,8 +197,7 @@ public:
      * @param schema Schema name.
      * @param table Table name.
      */
-    void ExecuteGetPrimaryKeysQuery(const std::string& catalog,
-        const std::string& schema, const std::string& table);
+    void execute_get_primary_keys_query(const std::string& catalog, const std::string& schema, const std::string& table);
 
     /**
      * Get special columns.
@@ -207,25 +207,23 @@ public:
      * @param schema Schema name.
      * @param table Table name.
      * @param scope Minimum required scope of the rowid.
-     * @param type Determines whether to return special columns that
-     *             can have a NULL value.
+     * @param type Determines whether to return special columns that can have a NULL value.
      */
-    void ExecuteSpecialColumnsQuery(int16_t type,
-        const std::string& catalog, const std::string& schema,
-        const std::string& table, int16_t scope, int16_t nullable);
+    void execute_special_columns_query(std::uint16_t type, const std::string& catalog, const std::string& schema,
+        const std::string& table, std::uint16_t scope, std::uint16_t nullable);
 
     /**
      * Get type info.
      *
-     * @param sqlType SQL type for which to return info or SQL_ALL_TYPES.
+     * @param sql_type SQL type for which to return info or SQL_ALL_TYPES.
      */
-    void ExecuteGetTypeInfoQuery(int16_t sqlType);
+    void execute_get_type_info_query(std::int16_t sql_type);
 
     /**
      * Free resources
      * @param option indicates what needs to be freed
      */
-    void FreeResources(int16_t option);
+    void free_resources(std::uint16_t option);
 
     /**
      * Close statement.
@@ -237,12 +235,12 @@ public:
      * @param orientation Fetch type
      * @param offset Fetch offset
      */
-    void FetchScroll(int16_t orientation, int64_t offset);
+    void fetch_scroll(std::int16_t orientation, std::int64_t offset);
 
     /**
      * Fetch query result row.
      */
-    void FetchRow();
+    void fetch_row();
 
     /**
      * Get column metadata.
@@ -256,69 +254,69 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const;
+    [[nodiscard]] bool is_data_available() const;
 
     /**
      * More results.
      *
      * Move to next result set or affected rows number.
      */
-    void MoreResults();
+    void more_results();
 
     /**
      * Get column attribute.
      *
-     * @param colIdx Column index.
-     * @param attrId Attribute ID.
-     * @param strbuf Buffer for string attribute value.
+     * @param column_idx Column index.
+     * @param attr_id Attribute ID.
+     * @param string_buf Buffer for string attribute value.
      * @param buffer_len String buffer size.
      * @param result_len Buffer to put resulting string length to.
-     * @param numbuf Numeric value buffer.
+     * @param numeric_buf Numeric value buffer.
      */
-    void GetColumnAttribute(uint16_t colIdx, uint16_t attrId, char* strbuf,
-        int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf);
+    void get_column_attribute(uint16_t column_idx, uint16_t attr_id, char* string_buf,
+        std::int16_t buffer_len, std::int16_t* result_len, SQLLEN* numeric_buf);
 
     /**
      * Get number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
-    int64_t affected_rows();
+    std::int64_t affected_rows();
 
     /**
      * Set rows fetched buffer pointer.
      *
      * @param ptr Rows fetched buffer pointer.
      */
-    void SetRowsFetchedPtr(SQLINTEGER* ptr);
+    void set_row_fetched_ptr(SQLINTEGER* ptr);
 
     /**
      * Get rows fetched buffer pointer.
      *
      * @return Rows fetched buffer pointer.
      */
-    SQLINTEGER* GetRowsFetchedPtr();
+    SQLINTEGER* get_row_fetched_ptr();
 
     /**
      * Set row statuses array pointer.
      *
      * @param ptr Row statuses array pointer.
      */
-    void SetRowStatusesPtr(SQLUSMALLINT* ptr);
+    void set_row_statuses_ptr(SQLUSMALLINT* ptr);
 
     /**
      * Get row statuses array pointer.
      *
      * @return Row statuses array pointer.
      */
-    SQLUSMALLINT* GetRowStatusesPtr();
+    SQLUSMALLINT* get_row_statuses_ptr();
 
     /**
      * Select next parameter data for which is required.
      *
-     * @param paramPtr Pointer to param id stored here.
+     * @param param_ptr Pointer to param id stored here.
      */
-    void SelectParam(void** paramPtr);
+    void select_param(void** param_ptr);
 
     /**
      * Puts data for previously selected parameter or column.
@@ -331,67 +329,66 @@ public:
     /**
      * Get type info of the parameter of the prepared statement.
      *
-     * @param paramNum - parameter index.
+     * @param param_num - parameter index.
      * @param data_type - Data type.
-     * @param paramSize - Size of the parameter.
-     * @param decimalDigits - big_decimal digits.
+     * @param param_size - Size of the parameter.
+     * @param decimal_digits - big_decimal digits.
      * @param nullable - Nullability flag.
      */
-    void DescribeParam(int16_t paramNum, int16_t* data_type,
-        SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable);
+    void describe_param(std::uint16_t param_num, std::int16_t* data_type,
+        SQLULEN* param_size, std::int16_t* decimal_digits, std::int16_t* nullable);
 
 private:
-    IGNITE_NO_COPY_ASSIGNMENT(statement);
-
-
     /**
      * Bind result column to specified data buffer.
      *
      * @param column_idx Column index.
      * @param buffer Buffer to put column data to.
      */
-    void SafeBindColumn(uint16_t column_idx, const application_data_buffer& buffer);
+    void safe_bind_column(uint16_t column_idx, const application_data_buffer& buffer);
 
     /**
      * Unbind specified column buffer.
      *
      * @param column_idx Column index.
      */
-    void SafeUnbindColumn(uint16_t column_idx);
+    void safe_unbind_column(uint16_t column_idx);
 
     /**
      * Unbind all column buffers.
      */
-    void SafeUnbindAllColumns();
+    void safe_unbind_all_columns();
 
     /**
      * Bind result column to data buffer provided by application
      *
      * @param column_idx Column index.
-     * @param targetType Type of target buffer.
-     * @param targetValue Pointer to target buffer.
-     * @param bufferLength Length of target buffer.
-     * @param strLengthOrIndicator Pointer to the length/indicator buffer.
+     * @param target_type Type of target buffer.
+     * @param target_value Pointer to target buffer.
+     * @param buffer_length Length of target buffer.
+     * @param str_length_or_indicator Pointer to the length/indicator buffer.
      * @return Operation result.
      */
-    sql_result InternalBindColumn(uint16_t column_idx, int16_t targetType, void* targetValue, SQLLEN bufferLength, SQLLEN* strLengthOrIndicator);
+    sql_result internal_bind_column(uint16_t column_idx, std::int16_t target_type, void* target_value,
+        SQLLEN buffer_length, SQLLEN* str_length_or_indicator);
 
     /**
      * Bind parameter.
      *
-     * @param paramIdx parameter index.
-     * @param ioType Type of the parameter (input/output).
-     * @param bufferType The data type of the parameter.
-     * @param paramSqlType The SQL data type of the parameter.
-     * @param columnSize  The size of the column or expression of the corresponding parameter marker.
-     * @param decDigits  The decimal digits of the column or expression of the corresponding parameter marker.
+     * @param param_idx parameter index.
+     * @param io_type Type of the parameter (input/output).
+     * @param buffer_type The data type of the parameter.
+     * @param param_sql_type The SQL data type of the parameter.
+     * @param column_size  The size of the column or expression of the corresponding parameter marker.
+     * @param dec_digits  The decimal digits of the column or expression of the corresponding parameter marker.
      * @param buffer A pointer to a buffer for the parameter's data.
-     * @param bufferLen Length of the ParameterValuePtr buffer in bytes.
-     * @param resLen A pointer to a buffer for the parameter's length.
+     * @param buffer_len Length of the ParameterValuePtr buffer in bytes.
+     * @param res_len A pointer to a buffer for the parameter's length.
      * @return Operation result.
      */
-    sql_result InternalBindParameter(uint16_t paramIdx, int16_t ioType, int16_t bufferType, int16_t paramSqlType,
-                                    SQLULEN columnSize, int16_t decDigits, void* buffer, SQLLEN bufferLen, SQLLEN* resLen);
+    sql_result internal_bind_parameter(uint16_t param_idx, std::int16_t io_type, std::int16_t buffer_type,
+        std::int16_t param_sql_type, SQLULEN column_size, std::int16_t dec_digits, void* buffer, SQLLEN buffer_len,
+        SQLLEN* res_len);
 
     /**
      * Set statement attribute.
@@ -399,10 +396,10 @@ private:
      *
      * @param attr Attribute type.
      * @param value Value pointer.
-     * @param valueLen Value length.
+     * @param value_len Value length.
      * @return Operation result.
      */
-    sql_result internal_set_attribute(int attr, void* value, SQLINTEGER valueLen);
+    sql_result internal_set_attribute(int attr, void* value, SQLINTEGER value_len);
 
     /**
      * Get statement attribute.
@@ -410,18 +407,18 @@ private:
      *
      * @param attr Attribute type.
      * @param buf Buffer for value.
-     * @param bufLen Buffer length.
-     * @param valueLen Resulting value length.
+     * @param buf_len Buffer length.
+     * @param value_len Resulting value length.
      * @return Operation result.
      */
-    sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
+    sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER* value_len);
 
     /**
      * Get number m_parameters required by the prepared statement.
      *
-     * @param paramNum Number of m_parameters.
+     * @param param_num Number of m_parameters.
      */
-    sql_result InternalGetParametersNumber(uint16_t& paramNum);
+    sql_result internal_get_parameters_number(uint16_t& param_num);
 
     /**
      * Get value of the column in the result set.
@@ -430,15 +427,16 @@ private:
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    sql_result InternalGetColumnData(uint16_t column_idx, application_data_buffer& buffer);
+    sql_result internal_get_column_data(uint16_t column_idx, application_data_buffer& buffer);
 
 
     /**
      * Free resources
+     *
      * @param option indicates what needs to be freed
      * @return Operation result.
      */
-    sql_result InternalFreeResources(int16_t option);
+    sql_result internal_free_resources(std::uint16_t option);
 
     /**
      * Close statement.
@@ -449,34 +447,12 @@ private:
     sql_result internal_close();
 
     /**
-     * Stop streaming.
-     *
-     * @return Operation result.
-     */
-    sql_result StopStreaming();
-
-    /**
-     * Process internal SQL command.
-     *
-     * @param query SQL query.
-     * @return Operation result.
-     */
-    sql_result ProcessInternalCommand(const std::string& query);
-
-    /**
-     * Check if the streaming is active currently.
-     *
-     * @return @c true, if the streaming is active.
-     */
-    bool IsStreamingActive() const;
-
-    /**
      * Prepare SQL query.
      *
      * @param query SQL query.
      * @return Operation result.
      */
-    sql_result InternalPrepareSqlQuery(const std::string& query);
+    sql_result internal_prepare_sql_query(const std::string& query);
 
     /**
      * Execute SQL query.
@@ -484,21 +460,14 @@ private:
      * @param query SQL query.
      * @return Operation result.
      */
-    sql_result InternalExecuteSqlQuery(const std::string& query);
+    sql_result internal_execute_sql_query(const std::string& query);
 
     /**
      * Execute SQL query.
      *
      * @return Operation result.
      */
-    sql_result InternalExecuteSqlQuery();
-
-    /**
-     * Process internal query.
-     *
-     * @return Operation result.
-     */
-    sql_result ProcessInternalQuery();
+    sql_result internal_execute_sql_query();
 
     /**
      * Fetch query result row with offset
@@ -506,14 +475,14 @@ private:
      * @param offset Fetch offset
      * @return Operation result.
      */
-    sql_result InternalFetchScroll(int16_t orientation, int64_t offset);
+    sql_result internal_fetch_scroll(std::int16_t orientation, std::int64_t offset);
 
     /**
      * Fetch query result row.
      *
      * @return Operation result.
      */
-    sql_result InternalFetchRow();
+    sql_result internal_fetch_row();
 
     /**
      * Get number of columns in the result set.
@@ -521,7 +490,7 @@ private:
      * @param res Columns number.
      * @return Operation result.
      */
-    sql_result InternalGetColumnNumber(int32_t &res);
+    sql_result internal_get_column_number(std::int32_t &res);
 
     /**
      * Get columns metadata.
@@ -531,8 +500,8 @@ private:
      * @param column Column search pattern.
      * @return Operation result.
      */
-    sql_result InternalExecuteGetColumnsMetaQuery(const std::string& schema,
-        const std::string& table, const std::string& column);
+    sql_result internal_execute_get_columns_meta_query(const std::string& schema, const std::string& table,
+        const std::string& column);
 
     /**
      * Get tables metadata.
@@ -540,28 +509,26 @@ private:
      * @param catalog Catalog search pattern.
      * @param schema Schema search pattern.
      * @param table Table search pattern.
-     * @param tableType Table type search pattern.
+     * @param table_type Table type search pattern.
      * @return Operation result.
      */
-    sql_result InternalExecuteGetTablesMetaQuery(const std::string& catalog,
-        const std::string& schema, const std::string& table,
-        const std::string& tableType);
+    sql_result internal_execute_get_tables_meta_query(const std::string& catalog, const std::string& schema,
+        const std::string& table, const std::string& table_type);
 
     /**
      * Get foreign keys.
      *
-     * @param primaryCatalog Primary key catalog name.
-     * @param primarySchema Primary key schema name.
-     * @param primaryTable Primary key table name.
-     * @param foreignCatalog Foreign key catalog name.
-     * @param foreignSchema Foreign key schema name.
-     * @param foreignTable Foreign key table name.
+     * @param primary_catalog Primary key catalog name.
+     * @param primary_schema Primary key schema name.
+     * @param primary_table Primary key table name.
+     * @param foreign_catalog Foreign key catalog name.
+     * @param foreign_schema Foreign key schema name.
+     * @param foreign_table Foreign key table name.
      * @return Operation result.
      */
-    sql_result InternalExecuteGetForeignKeysQuery(const std::string& primaryCatalog,
-        const std::string& primarySchema, const std::string& primaryTable,
-        const std::string& foreignCatalog, const std::string& foreignSchema,
-        const std::string& foreignTable);
+    sql_result internal_execute_get_foreign_keys_query(const std::string& primary_catalog,
+        const std::string& primary_schema, const std::string& primary_table, const std::string& foreign_catalog,
+        const std::string& foreign_schema, const std::string& foreign_table);
 
     /**
      * Get primary keys.
@@ -571,8 +538,8 @@ private:
      * @param table Table name.
      * @return Operation result.
      */
-    sql_result InternalExecuteGetPrimaryKeysQuery(const std::string& catalog,
-        const std::string& schema, const std::string& table);
+    sql_result internal_execute_get_primary_keys_query(const std::string& catalog, const std::string& schema,
+        const std::string& table);
 
     /**
      * Get special columns.
@@ -582,21 +549,19 @@ private:
      * @param schema Schema name.
      * @param table Table name.
      * @param scope Minimum required scope of the rowid.
-     * @param nullable Determines whether to return special columns
-     *                 that can have a NULL value.
+     * @param nullable Determines whether to return special columns that can have a NULL value.
      * @return Operation result.
      */
-    sql_result InternalExecuteSpecialColumnsQuery(int16_t type,
-        const std::string& catalog, const std::string& schema,
-        const std::string& table, int16_t scope, int16_t nullable);
+    sql_result internal_execute_special_columns_query(std::uint16_t type, const std::string& catalog,
+        const std::string& schema, const std::string& table, std::uint16_t scope, std::uint16_t nullable);
 
     /**
      * Get type info.
      *
-     * @param sqlType SQL type for which to return info or SQL_ALL_TYPES.
+     * @param sql_type SQL type for which to return info or SQL_ALL_TYPES.
      * @return Operation result.
      */
-    sql_result InternalExecuteGetTypeInfoQuery(int16_t sqlType);
+    sql_result internal_execute_get_type_info_query(std::int16_t sql_type);
 
     /**
      * Next results.
@@ -605,37 +570,37 @@ private:
      *
      * @return Operation result.
      */
-    sql_result InternalMoreResults();
+    sql_result internal_more_results();
 
     /**
      * Get column attribute.
      *
-     * @param colIdx Column index.
-     * @param attrId Attribute ID.
-     * @param strbuf Buffer for string attribute value.
+     * @param column_idx Column index.
+     * @param attr_id Attribute ID.
+     * @param string_buf Buffer for string attribute value.
      * @param buffer_len String buffer size.
      * @param result_len Buffer to put resulting string length to.
-     * @param numbuf Numeric value buffer.
+     * @param numeric_buf Numeric value buffer.
      * @return Operation result.
      */
-    sql_result InternalGetColumnAttribute(uint16_t colIdx, uint16_t attrId,
-        char* strbuf, int16_t buffer_len, int16_t* result_len, SQLLEN* numbuf);
+    sql_result internal_get_column_attribute(uint16_t column_idx, uint16_t attr_id, char* string_buf,
+        std::int16_t buffer_len, std::int16_t* result_len, SQLLEN* numeric_buf);
 
     /**
      * Get number of rows affected by the statement.
      *
-     * @param rowCnt Number of rows affected by the statement.
+     * @param row_count Number of rows affected by the statement.
      * @return Operation result.
      */
-    sql_result InternalAffectedRows(int64_t& rowCnt);
+    sql_result internal_affected_rows(std::int64_t& row_count);
 
     /**
      * Select next parameter data for which is required.
      *
-     * @param paramPtr Pointer to param id stored here.
+     * @param param_ptr Pointer to param id stored here.
      * @return Operation result.
      */
-    sql_result InternalSelectParam(void** paramPtr);
+    sql_result internal_select_aram(void** param_ptr);
 
     /**
      * Puts data for previously selected parameter or column.
@@ -644,32 +609,32 @@ private:
      * @param len Data length.
      * @return Operation result.
      */
-    sql_result InternalPutData(void* data, SQLLEN len);
+    sql_result internal_put_data(void* data, SQLLEN len);
 
     /**
      * Get type info of the parameter of the prepared statement.
      *
-     * @param paramNum - parameter index.
+     * @param param_num - parameter index.
      * @param data_type - Data type.
-     * @param paramSize - Size of the parameter.
-     * @param decimalDigits - big_decimal digits.
+     * @param param_size - Size of the parameter.
+     * @param decimal_digits - big_decimal digits.
      * @param nullable - Nullability flag.
      * @return Operation result.
      */
-    sql_result InternalDescribeParam(int16_t paramNum, int16_t* data_type,
-        SQLULEN* paramSize, int16_t* decimalDigits, int16_t* nullable);
+    sql_result internal_describe_param(std::uint16_t param_num, std::int16_t* data_type, SQLULEN* param_size,
+        std::int16_t* decimal_digits, std::int16_t* nullable);
 
     /**
      * Make request to data source to update m_parameters metadata.
      */
-    sql_result UpdateParamsMeta();
+    sql_result update_params_meta();
 
     /**
      * Convert SQLRESULT to SQL_ROW_RESULT.
      *
      * @return Operation result.
      */
-    uint16_t sql_resultToRowResult(sql_result value);
+    static uint16_t sql_result_to_row_result(sql_result value);
 
     /**
      * Constructor.
@@ -677,34 +642,34 @@ private:
      *
      * @param parent Connection associated with the statement.
      */
-    sql_statement(sql_connection & parent);
+    sql_statement(sql_connection &parent) : m_connection(parent) { }
 
     /** Connection associated with the statement. */
-    sql_connection & connection;
+    sql_connection &m_connection;
 
     /** Column bindings. */
-    column_binding_map column_bindings;
+    column_binding_map m_column_bindings;
 
     /** Underlying query. */
-    std::auto_ptr<query::query> currentQuery;
+    std::unique_ptr<query> m_current_query;
 
     /** Buffer to store number of rows fetched by the last fetch. */
-    SQLINTEGER* rowsFetched;
+    SQLINTEGER* m_rows_fetched{nullptr};
 
     /** Array to store statuses of rows fetched by the last fetch. */
-    SQLUSMALLINT* rowStatuses;
+    SQLUSMALLINT* m_row_statuses{nullptr};
 
     /** Offset added to pointers to change binding of column data. */
-    int* columnBindOffset;
+    int* m_column_bind_offset{nullptr};
 
     /** Row array size. */
-    SQLULEN rowArraySize;
+    SQLULEN m_row_array_size{1};
 
     /** Parameters. */
     parameter_set m_parameters;
 
     /** Query timeout in seconds. */
-    int32_t timeout;
+    std::int32_t m_timeout{0};
 };
 
 } // namespace ignite

@@ -25,7 +25,7 @@ namespace ignite {
 template<typename T>
 T* get_pointer_with_offset(T* ptr, size_t offset)
 {
-    auto* ptr_bytes = static_cast<std::uint8_t*>(ptr);
+    auto* ptr_bytes = reinterpret_cast<std::uint8_t*>(ptr);
     return (T*)(ptr_bytes + offset);
 }
 

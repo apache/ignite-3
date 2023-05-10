@@ -246,19 +246,19 @@ public:
      *
      * @param attr Attribute type.
      * @param buf Buffer for value.
-     * @param bufLen Buffer length.
-     * @param valueLen Resulting value length.
+     * @param buf_len Buffer length.
+     * @param value_len Resulting value length.
      */
-    void get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER *valueLen);
+    void get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER *value_len);
 
     /**
      * Set connection attribute.
      *
      * @param attr Attribute type.
      * @param value Value pointer.
-     * @param valueLen Value length.
+     * @param value_len Value length.
      */
-    void set_attribute(int attr, void* value, SQLINTEGER valueLen);
+    void set_attribute(int attr, void* value, SQLINTEGER value_len);
 
 private:
 
@@ -379,11 +379,11 @@ private:
      *
      * @param attr Attribute type.
      * @param buf Buffer for value.
-     * @param bufLen Buffer length.
-     * @param valueLen Resulting value length.
+     * @param buf_len Buffer length.
+     * @param value_len Resulting value length.
      * @return Operation result.
      */
-    sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen);
+    sql_result internal_get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER* value_len);
 
     /**
      * Set connection attribute.
@@ -391,10 +391,10 @@ private:
      *
      * @param attr Attribute type.
      * @param value Value pointer.
-     * @param valueLen Value length.
+     * @param value_len Value length.
      * @return Operation result.
      */
-    sql_result internal_set_attribute(int attr, void* value, SQLINTEGER valueLen);
+    sql_result internal_set_attribute(int attr, void* value, SQLINTEGER value_len);
 
     /**
      * Receive specified number of bytes.

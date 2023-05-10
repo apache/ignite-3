@@ -90,7 +90,7 @@ public:
      *
      * @return Return code of the last operation.
      */
-    [[nodiscard]] int get_return_code() const;
+    [[nodiscard]] SQLRETURN get_return_code() const;
 
     /**
      * Get row count.

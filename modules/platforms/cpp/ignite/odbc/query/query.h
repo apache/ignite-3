@@ -40,6 +40,11 @@ class query
 {
 public:
     /**
+     * Virtual destructor
+     */
+    virtual ~query() = default;
+
+    /**
      * Execute query.
      *
      * @return Execution result.
@@ -52,7 +57,7 @@ public:
      * @param column_bindings Application buffers to put data to.
      * @return Operation result.
      */
-    virtual sql_result fetch_next_row(column_binding_map& column_bindings) = 0;
+    virtual sql_result fetch_next_row(column_binding_map& m_column_bindings) = 0;
 
     /**
      * Get data of the specified column in the result set.

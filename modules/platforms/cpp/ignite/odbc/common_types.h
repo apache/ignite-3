@@ -377,7 +377,7 @@ enum class response_status
  * @param result Internal result type.
  * @return ODBC result type.
  */
-int sql_result_to_return_code(sql_result result);
+SQLRETURN sql_result_to_return_code(sql_result result);
 
 /**
  * Convert ODBC field type to internal diagnostic_field type value.

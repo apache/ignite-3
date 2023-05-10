@@ -117,7 +117,7 @@ void parameter_set::update_params_types(const parameter_type_vector& meta)
     m_types_set = true;
 }
 
-std::int8_t parameter_set::get_param_type(std::int16_t idx, std::int8_t dflt)
+ignite_type parameter_set::get_param_type(std::int16_t idx, ignite_type dflt)
 {
     if (idx > 0 && static_cast<size_t>(idx) <= m_param_types.size())
         return m_param_types[idx - 1];

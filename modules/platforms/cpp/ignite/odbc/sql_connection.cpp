@@ -302,12 +302,12 @@ sql_result sql_connection::internal_transaction_rollback()
     return sql_result::AI_ERROR;
 }
 
-void sql_connection::get_attribute(int attr, void* buf, SQLINTEGER bufLen, SQLINTEGER* valueLen)
+void sql_connection::get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER* value_len)
 {
-    IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, bufLen, valueLen));
+    IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, buf_len, value_len));
 }
 
-sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* valueLen)
+sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* value_len)
 {
     if (!buf)
     {
@@ -325,8 +325,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
             // TODO: IGNITE-19204 Implement connection management.
             *val = SQL_CD_TRUE;
 
-            if (valueLen)
-                *valueLen = SQL_IS_INTEGER;
+            if (value_len)
+                *value_len = SQL_IS_INTEGER;
 
             break;
         }
@@ -337,8 +337,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
 
             *val = static_cast<SQLUINTEGER>(m_timeout);
 
-            if (valueLen)
-                *valueLen = SQL_IS_INTEGER;
+            if (value_len)
+                *value_len = SQL_IS_INTEGER;
 
             break;
         }
@@ -349,8 +349,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
 
             *val = static_cast<SQLUINTEGER>(m_login_timeout);
 
-            if (valueLen)
-                *valueLen = SQL_IS_INTEGER;
+            if (value_len)
+                *value_len = SQL_IS_INTEGER;
 
             break;
         }
@@ -361,8 +361,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
 
             *val = m_auto_commit ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF;
 
-            if (valueLen)
-                *valueLen = SQL_IS_INTEGER;
+            if (value_len)
+                *value_len = SQL_IS_INTEGER;
 
             break;
         }
@@ -379,9 +379,9 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
     return sql_result::AI_SUCCESS;
 }
 
-void sql_connection::set_attribute(int attr, void* value, SQLINTEGER valueLen)
+void sql_connection::set_attribute(int attr, void* value, SQLINTEGER value_len)
 {
-    IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, valueLen));
+    IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, value_len));
 }
 
 sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTEGER)

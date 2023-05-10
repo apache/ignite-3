@@ -95,14 +95,14 @@ SQLRETURN SQL_API SQLDriverConnect(SQLHDBC      conn,
 
 SQLRETURN SQL_API SQLConnect(SQLHDBC        conn,
                              SQLCHAR*       server_name,
-                             SQLSMALLINT    serverNameLen,
-                             SQLCHAR*       userName,
-                             SQLSMALLINT    userNameLen,
+                             SQLSMALLINT    server_name_len,
+                             SQLCHAR*       user_name,
+                             SQLSMALLINT    user_name_len,
                              SQLCHAR*       auth,
-                             SQLSMALLINT    authLen)
+                             SQLSMALLINT    auth_len)
 {
-    return ignite::SQLConnect(conn, server_name, serverNameLen,
-        userName, userNameLen, auth, authLen);
+    return ignite::SQLConnect(conn, server_name, server_name_len,
+        user_name, user_name_len, auth, auth_len);
 }
 
 SQLRETURN SQL_API SQLDisconnect(SQLHDBC conn)
@@ -110,9 +110,9 @@ SQLRETURN SQL_API SQLDisconnect(SQLHDBC conn)
     return ignite::SQLDisconnect(conn);
 }
 
-SQLRETURN SQL_API SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
+SQLRETURN SQL_API SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER query_len)
 {
-    return ignite::SQLPrepare(stmt, query, queryLen);
+    return ignite::SQLPrepare(stmt, query, query_len);
 }
 
 SQLRETURN SQL_API SQLExecute(SQLHSTMT stmt)
@@ -120,20 +120,20 @@ SQLRETURN SQL_API SQLExecute(SQLHSTMT stmt)
     return ignite::SQLExecute(stmt);
 }
 
-SQLRETURN SQL_API SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER queryLen)
+SQLRETURN SQL_API SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER query_len)
 {
-    return ignite::SQLExecDirect(stmt, query, queryLen);
+    return ignite::SQLExecDirect(stmt, query, query_len);
 }
 
 SQLRETURN SQL_API SQLBindCol(SQLHSTMT       stmt,
-                             SQLUSMALLINT   colNum,
-                             SQLSMALLINT    targetType,
-                             SQLPOINTER     targetValue,
-                             SQLLEN         bufferLength,
-                             SQLLEN*        strLengthOrIndicator)
+                             SQLUSMALLINT   col_num,
+                             SQLSMALLINT    target_type,
+                             SQLPOINTER     target_value,
+                             SQLLEN         buffer_length,
+                             SQLLEN*        str_length_or_indicator)
 {
-    return ignite::SQLBindCol(stmt, colNum, targetType,
-        targetValue, bufferLength, strLengthOrIndicator);
+    return ignite::SQLBindCol(stmt, col_num, target_type,
+        target_value, buffer_length, str_length_or_indicator);
 }
 
 SQLRETURN SQL_API SQLFetch(SQLHSTMT stmt)
@@ -152,10 +152,10 @@ SQLRETURN SQL_API SQLExtendedFetch(SQLHSTMT         stmt,
                                    SQLUSMALLINT     orientation,
                                    SQLLEN           offset,
                                    SQLULEN*         row_count,
-                                   SQLUSMALLINT*    rowStatusArray)
+                                   SQLUSMALLINT*    row_status_array)
 {
     return ignite::SQLExtendedFetch(stmt, orientation,
-        offset, row_count, rowStatusArray);
+        offset, row_count, row_status_array);
 }
 
 SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
@@ -165,31 +165,31 @@ SQLRETURN SQL_API SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
 
 SQLRETURN SQL_API SQLTables(SQLHSTMT    stmt,
                             SQLCHAR*    catalog_name,
-                            SQLSMALLINT catalogNameLen,
+                            SQLSMALLINT catalog_name_len,
                             SQLCHAR*    schema_name,
-                            SQLSMALLINT schemaNameLen,
+                            SQLSMALLINT schema_name_len,
                             SQLCHAR*    table_name,
-                            SQLSMALLINT tableNameLen,
-                            SQLCHAR*    tableType,
-                            SQLSMALLINT tableTypeLen)
+                            SQLSMALLINT table_name_len,
+                            SQLCHAR*    table_type,
+                            SQLSMALLINT table_type_len)
 {
-    return ignite::SQLTables(stmt, catalog_name, catalogNameLen,
-        schema_name, schemaNameLen, table_name, tableNameLen,
-        tableType, tableTypeLen);
+    return ignite::SQLTables(stmt, catalog_name, catalog_name_len,
+        schema_name, schema_name_len, table_name, table_name_len,
+        table_type, table_type_len);
 }
 
 SQLRETURN SQL_API SQLColumns(SQLHSTMT       stmt,
                              SQLCHAR*       catalog_name,
-                             SQLSMALLINT    catalogNameLen,
+                             SQLSMALLINT    catalog_name_len,
                              SQLCHAR*       schema_name,
-                             SQLSMALLINT    schemaNameLen,
+                             SQLSMALLINT    schema_name_len,
                              SQLCHAR*       table_name,
-                             SQLSMALLINT    tableNameLen,
+                             SQLSMALLINT    table_name_len,
                              SQLCHAR*       column_name,
-                             SQLSMALLINT    columnNameLen)
+                             SQLSMALLINT    column_name_len)
 {
-    return ignite::SQLColumns(stmt, catalog_name, catalogNameLen, schema_name,
-        schemaNameLen, table_name, tableNameLen, column_name, columnNameLen);
+    return ignite::SQLColumns(stmt, catalog_name, catalog_name_len, schema_name,
+        schema_name_len, table_name, table_name_len, column_name, column_name_len);
 }
 
 SQLRETURN SQL_API SQLMoreResults(SQLHSTMT stmt)
@@ -198,29 +198,29 @@ SQLRETURN SQL_API SQLMoreResults(SQLHSTMT stmt)
 }
 
 SQLRETURN SQL_API SQLBindParameter(SQLHSTMT     stmt,
-                                   SQLUSMALLINT paramIdx,
-                                   SQLSMALLINT  ioType,
-                                   SQLSMALLINT  bufferType,
-                                   SQLSMALLINT  paramSqlType,
-                                   SQLULEN      columnSize,
-                                   SQLSMALLINT  decDigits,
+                                   SQLUSMALLINT param_idx,
+                                   SQLSMALLINT  io_type,
+                                   SQLSMALLINT  buffer_type,
+                                   SQLSMALLINT  param_sql_type,
+                                   SQLULEN      column_size,
+                                   SQLSMALLINT  dec_digits,
                                    SQLPOINTER   buffer,
-                                   SQLLEN       bufferLen,
-                                   SQLLEN*      resLen)
+                                   SQLLEN       buffer_len,
+                                   SQLLEN*      res_len)
 {
-    return ignite::SQLBindParameter(stmt, paramIdx, ioType,
-        bufferType, paramSqlType, columnSize, decDigits,
-        buffer, bufferLen, resLen);
+    return ignite::SQLBindParameter(stmt, param_idx, io_type,
+        buffer_type, param_sql_type, column_size, dec_digits,
+        buffer, buffer_len, res_len);
 }
 
 SQLRETURN SQL_API SQLNativeSql(SQLHDBC      conn,
-                               SQLCHAR*     inQuery,
-                               SQLINTEGER   inQueryLen,
-                               SQLCHAR*     outQueryBuffer,
-                               SQLINTEGER   outQueryBufferLen,
-                               SQLINTEGER*  outQueryLen)
+                               SQLCHAR*     in_query,
+                               SQLINTEGER   in_query_len,
+                               SQLCHAR*     out_query_buffer,
+                               SQLINTEGER   out_query_buffer_len,
+                               SQLINTEGER*  out_query_len)
 {
-    return ignite::SQLNativeSql(conn, inQuery, inQueryLen, outQueryBuffer, outQueryBufferLen, outQueryLen);
+    return ignite::SQLNativeSql(conn, in_query, in_query_len, out_query_buffer, out_query_buffer_len, out_query_len);
 }
 
 
@@ -228,120 +228,120 @@ SQLRETURN SQL_API SQLNativeSql(SQLHDBC      conn,
 SQLRETURN SQL_API SQLColAttribute(SQLHSTMT        stmt,
                                   SQLUSMALLINT    column_num,
                                   SQLUSMALLINT    field_id,
-                                  SQLPOINTER      strAttr,
-                                  SQLSMALLINT     bufferLen,
-                                  SQLSMALLINT*    strAttrLen,
-                                  SQLLEN*         numericAttr)
+                                  SQLPOINTER      str_attr,
+                                  SQLSMALLINT     buffer_len,
+                                  SQLSMALLINT*    str_attr_len,
+                                  SQLLEN*         numeric_attr)
 #else
 SQLRETURN SQL_API SQLColAttribute(SQLHSTMT       stmt,
                                   SQLUSMALLINT   column_num,
                                   SQLUSMALLINT   field_id,
-                                  SQLPOINTER     strAttr,
-                                  SQLSMALLINT    bufferLen,
-                                  SQLSMALLINT*   strAttrLen,
-                                  SQLPOINTER     numericAttr)
+                                  SQLPOINTER     str_attr,
+                                  SQLSMALLINT    buffer_len,
+                                  SQLSMALLINT*   str_attr_len,
+                                  SQLPOINTER     numeric_attr)
 #endif
 {
-    return ignite::SQLColAttribute(stmt, column_num, field_id, strAttr, bufferLen, strAttrLen, (SQLLEN*)numericAttr);
+    return ignite::SQLColAttribute(stmt, column_num, field_id, str_attr, buffer_len, str_attr_len, (SQLLEN*)numeric_attr);
 }
 
 SQLRETURN SQL_API SQLDescribeCol(SQLHSTMT       stmt,
                                  SQLUSMALLINT   column_num,
-                                 SQLCHAR*       columnNameBuf,
-                                 SQLSMALLINT    columnNameBufLen,
-                                 SQLSMALLINT*   columnNameLen,
+                                 SQLCHAR*       column_name_buf,
+                                 SQLSMALLINT    column_name_buf_len,
+                                 SQLSMALLINT*   column_name_len,
                                  SQLSMALLINT*   data_type,
-                                 SQLULEN*       columnSize,
-                                 SQLSMALLINT*   decimalDigits, 
+                                 SQLULEN*       column_size,
+                                 SQLSMALLINT*   decimal_digits,
                                  SQLSMALLINT*   nullable)
 {
-    return ignite::SQLDescribeCol(stmt, column_num, columnNameBuf,
-        columnNameBufLen, columnNameLen, data_type, columnSize,
-        decimalDigits, nullable);
+    return ignite::SQLDescribeCol(stmt, column_num, column_name_buf,
+        column_name_buf_len, column_name_len, data_type, column_size,
+        decimal_digits, nullable);
 }
 
 
-SQLRETURN SQL_API SQLRowCount(SQLHSTMT stmt, SQLLEN* rowCnt)
+SQLRETURN SQL_API SQLRowCount(SQLHSTMT stmt, SQLLEN* row_count)
 {
-    return ignite::SQLRowCount(stmt, rowCnt);
+    return ignite::SQLRowCount(stmt, row_count);
 }
 
 SQLRETURN SQL_API SQLForeignKeys(SQLHSTMT       stmt,
-                                 SQLCHAR*       primaryCatalogName,
-                                 SQLSMALLINT    primaryCatalogNameLen,
-                                 SQLCHAR*       primarySchemaName,
-                                 SQLSMALLINT    primarySchemaNameLen,
-                                 SQLCHAR*       primaryTableName,
-                                 SQLSMALLINT    primaryTableNameLen,
-                                 SQLCHAR*       foreignCatalogName,
-                                 SQLSMALLINT    foreignCatalogNameLen,
-                                 SQLCHAR*       foreignSchemaName,
-                                 SQLSMALLINT    foreignSchemaNameLen,
-                                 SQLCHAR*       foreignTableName,
-                                 SQLSMALLINT    foreignTableNameLen)
+                                 SQLCHAR*       primary_catalog_name,
+                                 SQLSMALLINT    primary_catalog_name_len,
+                                 SQLCHAR*       primary_schema_name,
+                                 SQLSMALLINT    primary_schema_name_len,
+                                 SQLCHAR*       primary_table_name,
+                                 SQLSMALLINT    primary_table_name_len,
+                                 SQLCHAR*       foreign_catalog_name,
+                                 SQLSMALLINT    foreign_catalog_name_len,
+                                 SQLCHAR*       foreign_schema_name,
+                                 SQLSMALLINT    foreign_schema_name_len,
+                                 SQLCHAR*       foreign_table_name,
+                                 SQLSMALLINT    foreign_table_name_len)
 {
-    return ignite::SQLForeignKeys(stmt, primaryCatalogName,
-        primaryCatalogNameLen, primarySchemaName, primarySchemaNameLen,
-        primaryTableName, primaryTableNameLen, foreignCatalogName,
-        foreignCatalogNameLen, foreignSchemaName, foreignSchemaNameLen,
-        foreignTableName, foreignTableNameLen);
+    return ignite::SQLForeignKeys(stmt, primary_catalog_name,
+        primary_catalog_name_len, primary_schema_name, primary_schema_name_len,
+        primary_table_name, primary_table_name_len, foreign_catalog_name,
+        foreign_catalog_name_len, foreign_schema_name, foreign_schema_name_len,
+        foreign_table_name, foreign_table_name_len);
 }
 
 SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT       stmt,
                                  SQLINTEGER     attr,
-                                 SQLPOINTER     valueBuf,
-                                 SQLINTEGER     valueBufLen,
-                                 SQLINTEGER*    valueResLen)
+                                 SQLPOINTER     value_buf,
+                                 SQLINTEGER     value_buf_len,
+                                 SQLINTEGER*    value_res_len)
 {
-    return ignite::SQLGetStmtAttr(stmt, attr, valueBuf, valueBufLen, valueResLen);
+    return ignite::SQLGetStmtAttr(stmt, attr, value_buf, value_buf_len, value_res_len);
 }
 
 SQLRETURN SQL_API SQLSetStmtAttr(SQLHSTMT    stmt,
                                  SQLINTEGER  attr,
                                  SQLPOINTER  value,
-                                 SQLINTEGER  valueLen)
+                                 SQLINTEGER  value_len)
 {
-    return ignite::SQLSetStmtAttr(stmt, attr, value, valueLen);
+    return ignite::SQLSetStmtAttr(stmt, attr, value, value_len);
 }
 
 SQLRETURN SQL_API SQLPrimaryKeys(SQLHSTMT       stmt,
                                  SQLCHAR*       catalog_name,
-                                 SQLSMALLINT    catalogNameLen,
+                                 SQLSMALLINT    catalog_name_len,
                                  SQLCHAR*       schema_name,
-                                 SQLSMALLINT    schemaNameLen,
+                                 SQLSMALLINT    schema_name_len,
                                  SQLCHAR*       table_name,
-                                 SQLSMALLINT    tableNameLen)
+                                 SQLSMALLINT    table_name_len)
 {
-    return ignite::SQLPrimaryKeys(stmt, catalog_name, catalogNameLen,
-        schema_name, schemaNameLen, table_name, tableNameLen);
+    return ignite::SQLPrimaryKeys(stmt, catalog_name, catalog_name_len,
+        schema_name, schema_name_len, table_name, table_name_len);
 }
 
-SQLRETURN SQL_API SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* paramCnt)
+SQLRETURN SQL_API SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* param_cnt)
 {
-    return ignite::SQLNumParams(stmt, paramCnt);
+    return ignite::SQLNumParams(stmt, param_cnt);
 }
 
-SQLRETURN SQL_API SQLGetDiagField(SQLSMALLINT   handleType,
+SQLRETURN SQL_API SQLGetDiagField(SQLSMALLINT   handle_type,
                                   SQLHANDLE     handle,
-                                  SQLSMALLINT   recNum,
-                                  SQLSMALLINT   diagId,
+                                  SQLSMALLINT   rec_num,
+                                  SQLSMALLINT   diag_id,
                                   SQLPOINTER    buffer,
-                                  SQLSMALLINT   bufferLen,
-                                  SQLSMALLINT*  resLen)
+                                  SQLSMALLINT   buffer_len,
+                                  SQLSMALLINT*  res_len)
 {
-    return ignite::SQLGetDiagField(handleType, handle, recNum, diagId, buffer, bufferLen, resLen);
+    return ignite::SQLGetDiagField(handle_type, handle, rec_num, diag_id, buffer, buffer_len, res_len);
 }
 
-SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT     handleType,
+SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT     handle_type,
                                 SQLHANDLE       handle,
-                                SQLSMALLINT     recNum,
+                                SQLSMALLINT     rec_num,
                                 SQLCHAR*        sql_state,
-                                SQLINTEGER*     nativeError,
-                                SQLCHAR*        msgBuffer,
-                                SQLSMALLINT     msgBufferLen,
-                                SQLSMALLINT*    msgLen)
+                                SQLINTEGER*     native_error,
+                                SQLCHAR*        msg_buffer,
+                                SQLSMALLINT     msg_buffer_len,
+                                SQLSMALLINT*    msg_len)
 {
-    return ignite::SQLGetDiagRec(handleType, handle, recNum, sql_state, nativeError, msgBuffer, msgBufferLen, msgLen);
+    return ignite::SQLGetDiagRec(handle_type, handle, rec_num, sql_state, native_error, msg_buffer, msg_buffer_len, msg_len);
 }
 
 SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)
@@ -349,52 +349,52 @@ SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)
     return ignite::SQLGetTypeInfo(stmt, type);
 }
 
-SQLRETURN SQL_API SQLEndTran(SQLSMALLINT handleType, SQLHANDLE handle, SQLSMALLINT completionType)
+SQLRETURN SQL_API SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT completion_type)
 {
-    return ignite::SQLEndTran(handleType, handle, completionType);
+    return ignite::SQLEndTran(handle_type, handle, completion_type);
 }
 
 SQLRETURN SQL_API SQLGetData(SQLHSTMT       stmt,
-                             SQLUSMALLINT   colNum,
-                             SQLSMALLINT    targetType,
-                             SQLPOINTER     targetValue,
-                             SQLLEN         bufferLength,
-                             SQLLEN*        strLengthOrIndicator)
+                             SQLUSMALLINT   col_num,
+                             SQLSMALLINT    target_type,
+                             SQLPOINTER     target_value,
+                             SQLLEN         buffer_length,
+                             SQLLEN*        str_length_or_indicator)
 {
-    return ignite::SQLGetData(stmt, colNum, targetType,
-        targetValue, bufferLength, strLengthOrIndicator);
+    return ignite::SQLGetData(stmt, col_num, target_type,
+        target_value, buffer_length, str_length_or_indicator);
 }
 
 SQLRETURN SQL_API SQLSetEnvAttr(SQLHENV     env,
                                 SQLINTEGER  attr,
                                 SQLPOINTER  value,
-                                SQLINTEGER  valueLen)
+                                SQLINTEGER  value_len)
 {
-    return ignite::SQLSetEnvAttr(env, attr, value, valueLen);
+    return ignite::SQLSetEnvAttr(env, attr, value, value_len);
 }
 
 SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV     env,
                                 SQLINTEGER  attr,
-                                SQLPOINTER  valueBuf,
-                                SQLINTEGER  valueBufLen,
-                                SQLINTEGER* valueResLen)
+                                SQLPOINTER  value_buf,
+                                SQLINTEGER  value_buf_len,
+                                SQLINTEGER* value_res_len)
 {
-    return ignite::SQLGetEnvAttr(env, attr, valueBuf, valueBufLen, valueResLen);
+    return ignite::SQLGetEnvAttr(env, attr, value_buf, value_buf_len, value_res_len);
 }
 
 SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT    stmt,
                                     SQLUSMALLINT id_type,
                                     SQLCHAR*    catalog_name,
-                                    SQLSMALLINT catalogNameLen,
+                                    SQLSMALLINT catalog_name_len,
                                     SQLCHAR*    schema_name,
-                                    SQLSMALLINT schemaNameLen,
+                                    SQLSMALLINT schema_name_len,
                                     SQLCHAR*    table_name,
-                                    SQLSMALLINT tableNameLen,
+                                    SQLSMALLINT table_name_len,
                                     SQLUSMALLINT scope,
                                     SQLUSMALLINT nullable)
 {
-    return ignite::SQLSpecialColumns(stmt, id_type, catalog_name, catalogNameLen, schema_name,
-        schemaNameLen, table_name, tableNameLen, scope, nullable);
+    return ignite::SQLSpecialColumns(stmt, id_type, catalog_name, catalog_name_len, schema_name,
+        schema_name_len, table_name, table_name_len, scope, nullable);
 }
 
 SQLRETURN SQL_API SQLParamData(SQLHSTMT stmt, SQLPOINTER* value)
@@ -402,19 +402,19 @@ SQLRETURN SQL_API SQLParamData(SQLHSTMT stmt, SQLPOINTER* value)
     return ignite::SQLParamData(stmt, value);
 }
 
-SQLRETURN SQL_API SQLPutData(SQLHSTMT stmt, SQLPOINTER data, SQLLEN strLengthOrIndicator)
+SQLRETURN SQL_API SQLPutData(SQLHSTMT stmt, SQLPOINTER data, SQLLEN str_length_or_indicator)
 {
-    return ignite::SQLPutData(stmt, data, strLengthOrIndicator);
+    return ignite::SQLPutData(stmt, data, str_length_or_indicator);
 }
 
 SQLRETURN SQL_API SQLDescribeParam(SQLHSTMT     stmt,
-                                   SQLUSMALLINT paramNum,
+                                   SQLUSMALLINT param_num,
                                    SQLSMALLINT* data_type,
-                                   SQLULEN*     paramSize,
-                                   SQLSMALLINT* decimalDigits,
+                                   SQLULEN*     param_size,
+                                   SQLSMALLINT* decimal_digits,
                                    SQLSMALLINT* nullable)
 {
-    return ignite::SQLDescribeParam(stmt, paramNum, data_type, paramSize, decimalDigits, nullable);
+    return ignite::SQLDescribeParam(stmt, param_num, data_type, param_size, decimal_digits, nullable);
 }
 
 SQLRETURN SQL_API SQLError(SQLHENV      env,
@@ -422,28 +422,28 @@ SQLRETURN SQL_API SQLError(SQLHENV      env,
                            SQLHSTMT     stmt,
                            SQLCHAR*     state,
                            SQLINTEGER*  error,
-                           SQLCHAR*     msgBuf,
-                           SQLSMALLINT  msgBufLen,
-                           SQLSMALLINT* msgResLen)
+                           SQLCHAR*     msg_buf,
+                           SQLSMALLINT  msg_buf_len,
+                           SQLSMALLINT* msg_res_len)
 {
-    return ignite::SQLError(env, conn, stmt, state, error, msgBuf, msgBufLen, msgResLen);
+    return ignite::SQLError(env, conn, stmt, state, error, msg_buf, msg_buf_len, msg_res_len);
 }
 
 SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC     conn,
                                     SQLINTEGER  attr,
-                                    SQLPOINTER  valueBuf,
-                                    SQLINTEGER  valueBufLen,
-                                    SQLINTEGER* valueResLen)
+                                    SQLPOINTER  value_buf,
+                                    SQLINTEGER  value_buf_len,
+                                    SQLINTEGER* value_res_len)
 {
-    return ignite::SQLGetConnectAttr(conn, attr, valueBuf, valueBufLen, valueResLen);
+    return ignite::SQLGetConnectAttr(conn, attr, value_buf, value_buf_len, value_res_len);
 }
 
 SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC     conn,
                                     SQLINTEGER  attr,
                                     SQLPOINTER  value,
-                                    SQLINTEGER  valueLen)
+                                    SQLINTEGER  value_len)
 {
-    return ignite::SQLSetConnectAttr(conn, attr, value, valueLen);
+    return ignite::SQLSetConnectAttr(conn, attr, value, value_len);
 }
 
 //
@@ -459,7 +459,7 @@ SQLRETURN SQL_API SQLCancel(SQLHSTMT stmt)
 }
 
 SQLRETURN SQL_API SQLColAttributes(SQLHSTMT     stmt,
-                                   SQLUSMALLINT colNum,
+                                   SQLUSMALLINT col_num,
                                    SQLUSMALLINT field_id,
                                    SQLPOINTER   strAttrBuf,
                                    SQLSMALLINT  strAttrBufLen,
@@ -467,7 +467,7 @@ SQLRETURN SQL_API SQLColAttributes(SQLHSTMT     stmt,
                                    SQLLEN*      numAttrBuf)
 {
     UNUSED_VALUE(stmt);
-    UNUSED_VALUE(colNum);
+    UNUSED_VALUE(col_num);
     UNUSED_VALUE(field_id);
     UNUSED_VALUE(strAttrBuf);
     UNUSED_VALUE(strAttrBufLen);
@@ -554,21 +554,21 @@ SQLRETURN SQL_API SQLSetStmtOption(SQLHSTMT     stmt,
 
 SQLRETURN SQL_API SQLStatistics(SQLHSTMT        stmt,
                                 SQLCHAR*        catalog_name,
-                                SQLSMALLINT     catalogNameLen,
+                                SQLSMALLINT     catalog_name_len,
                                 SQLCHAR*        schema_name,
-                                SQLSMALLINT     schemaNameLen,
+                                SQLSMALLINT     schema_name_len,
                                 SQLCHAR*        table_name,
-                                SQLSMALLINT     tableNameLen,
+                                SQLSMALLINT     table_name_len,
                                 SQLUSMALLINT    unique,
                                 SQLUSMALLINT    reserved)
 {
     UNUSED_VALUE(stmt);
     UNUSED_VALUE(catalog_name);
-    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(catalog_name_len);
     UNUSED_VALUE(schema_name);
-    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(schema_name_len);
     UNUSED_VALUE(table_name);
-    UNUSED_VALUE(tableNameLen);
+    UNUSED_VALUE(table_name_len);
     UNUSED_VALUE(unique);
     UNUSED_VALUE(reserved);
 
@@ -596,23 +596,23 @@ SQLRETURN SQL_API SQLBrowseConnect(SQLHDBC      conn,
 
 SQLRETURN SQL_API SQLProcedureColumns(SQLHSTMT      stmt,
                                       SQLCHAR *     catalog_name,
-                                      SQLSMALLINT   catalogNameLen,
+                                      SQLSMALLINT   catalog_name_len,
                                       SQLCHAR *     schema_name,
-                                      SQLSMALLINT   schemaNameLen,
+                                      SQLSMALLINT   schema_name_len,
                                       SQLCHAR *     procName,
                                       SQLSMALLINT   procNameLen,
                                       SQLCHAR *     column_name,
-                                      SQLSMALLINT   columnNameLen)
+                                      SQLSMALLINT   column_name_len)
 {
     UNUSED_VALUE(stmt);
     UNUSED_VALUE(catalog_name);
-    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(catalog_name_len);
     UNUSED_VALUE(schema_name);
-    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(schema_name_len);
     UNUSED_VALUE(procName);
     UNUSED_VALUE(procNameLen);
     UNUSED_VALUE(column_name);
-    UNUSED_VALUE(columnNameLen);
+    UNUSED_VALUE(column_name_len);
 
     LOG_MSG("SQLProcedureColumns called");
     return SQL_SUCCESS;
@@ -658,19 +658,19 @@ SQLRETURN SQL_API SQLBulkOperations(SQLHSTMT       stmt,
 
 SQLRETURN SQL_API SQLTablePrivileges(SQLHSTMT      stmt,
                                      SQLCHAR*      catalog_name,
-                                     SQLSMALLINT   catalogNameLen,
+                                     SQLSMALLINT   catalog_name_len,
                                      SQLCHAR*      schema_name,
-                                     SQLSMALLINT   schemaNameLen,
+                                     SQLSMALLINT   schema_name_len,
                                      SQLCHAR*      table_name,
-                                     SQLSMALLINT   tableNameLen)
+                                     SQLSMALLINT   table_name_len)
 {
     UNUSED_VALUE(stmt);
     UNUSED_VALUE(catalog_name);
-    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(catalog_name_len);
     UNUSED_VALUE(schema_name);
-    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(schema_name_len);
     UNUSED_VALUE(table_name);
-    UNUSED_VALUE(tableNameLen);
+    UNUSED_VALUE(table_name_len);
 
     LOG_MSG("SQLTablePrivileges called");
     return SQL_SUCCESS;
@@ -686,18 +686,18 @@ SQLRETURN SQL_API SQLCopyDesc(SQLHDESC src, SQLHDESC dst)
 }
 
 SQLRETURN SQL_API SQLGetDescField(SQLHDESC      descr,
-                                  SQLSMALLINT   recNum,
+                                  SQLSMALLINT   rec_num,
                                   SQLSMALLINT   field_id,
                                   SQLPOINTER    buffer,
-                                  SQLINTEGER    bufferLen,
-                                  SQLINTEGER*   resLen)
+                                  SQLINTEGER    buffer_len,
+                                  SQLINTEGER*   res_len)
 {
     UNUSED_VALUE(descr);
-    UNUSED_VALUE(recNum);
+    UNUSED_VALUE(rec_num);
     UNUSED_VALUE(field_id);
     UNUSED_VALUE(buffer);
-    UNUSED_VALUE(bufferLen);
-    UNUSED_VALUE(resLen);
+    UNUSED_VALUE(buffer_len);
+    UNUSED_VALUE(res_len);
 
     LOG_MSG("SQLGetDescField called");
     return SQL_SUCCESS;
@@ -732,41 +732,41 @@ SQLRETURN SQL_API SQLGetDescRec(SQLHDESC        DescriptorHandle,
 }
 
 SQLRETURN SQL_API SQLSetDescField(SQLHDESC      descr,
-                                  SQLSMALLINT   recNum,
+                                  SQLSMALLINT   rec_num,
                                   SQLSMALLINT   field_id,
                                   SQLPOINTER    buffer,
-                                  SQLINTEGER    bufferLen)
+                                  SQLINTEGER    buffer_len)
 {
     UNUSED_VALUE(descr);
-    UNUSED_VALUE(recNum);
+    UNUSED_VALUE(rec_num);
     UNUSED_VALUE(field_id);
     UNUSED_VALUE(buffer);
-    UNUSED_VALUE(bufferLen);
+    UNUSED_VALUE(buffer_len);
 
     LOG_MSG("SQLSetDescField called");
     return SQL_SUCCESS;
 }
 
 SQLRETURN SQL_API SQLSetDescRec(SQLHDESC      descr,
-                                SQLSMALLINT   recNum,
+                                SQLSMALLINT   rec_num,
                                 SQLSMALLINT   type,
                                 SQLSMALLINT   subType,
                                 SQLLEN        len,
                                 SQLSMALLINT   precision,
                                 SQLSMALLINT   scale,
                                 SQLPOINTER    buffer,
-                                SQLLEN*       resLen,
+                                SQLLEN*       res_len,
                                 SQLLEN*       id)
 {
     UNUSED_VALUE(descr);
-    UNUSED_VALUE(recNum);
+    UNUSED_VALUE(rec_num);
     UNUSED_VALUE(type);
     UNUSED_VALUE(subType);
     UNUSED_VALUE(len);
     UNUSED_VALUE(precision);
     UNUSED_VALUE(scale);
     UNUSED_VALUE(buffer);
-    UNUSED_VALUE(resLen);
+    UNUSED_VALUE(res_len);
     UNUSED_VALUE(id);
 
     LOG_MSG("SQLSetDescRec called");
@@ -775,23 +775,23 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC      descr,
 
 SQLRETURN SQL_API SQLColumnPrivileges(SQLHSTMT      stmt,
                                       SQLCHAR*      catalog_name,
-                                      SQLSMALLINT   catalogNameLen,
+                                      SQLSMALLINT   catalog_name_len,
                                       SQLCHAR*      schema_name,
-                                      SQLSMALLINT   schemaNameLen,
+                                      SQLSMALLINT   schema_name_len,
                                       SQLCHAR*      table_name,
-                                      SQLSMALLINT   tableNameLen,
+                                      SQLSMALLINT   table_name_len,
                                       SQLCHAR*      column_name,
-                                      SQLSMALLINT   columnNameLen)
+                                      SQLSMALLINT   column_name_len)
 {
     UNUSED_VALUE(stmt);
     UNUSED_VALUE(catalog_name);
-    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(catalog_name_len);
     UNUSED_VALUE(schema_name);
-    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(schema_name_len);
     UNUSED_VALUE(table_name);
-    UNUSED_VALUE(tableNameLen);
+    UNUSED_VALUE(table_name_len);
     UNUSED_VALUE(column_name);
-    UNUSED_VALUE(columnNameLen);
+    UNUSED_VALUE(column_name_len);
 
     LOG_MSG("SQLColumnPrivileges called");
     return SQL_SUCCESS;
@@ -811,19 +811,19 @@ SQLRETURN SQL_API SQLParamOptions(SQLHSTMT  stmt,
 
 SQLRETURN SQL_API SQLProcedures(SQLHSTMT        stmt,
                                 SQLCHAR*        catalog_name,
-                                SQLSMALLINT     catalogNameLen,
+                                SQLSMALLINT     catalog_name_len,
                                 SQLCHAR*        schema_name,
-                                SQLSMALLINT     schemaNameLen,
+                                SQLSMALLINT     schema_name_len,
                                 SQLCHAR*        table_name,
-                                SQLSMALLINT     tableNameLen)
+                                SQLSMALLINT     table_name_len)
 {
     UNUSED_VALUE(stmt);
     UNUSED_VALUE(catalog_name);
-    UNUSED_VALUE(catalogNameLen);
+    UNUSED_VALUE(catalog_name_len);
     UNUSED_VALUE(schema_name);
-    UNUSED_VALUE(schemaNameLen);
+    UNUSED_VALUE(schema_name_len);
     UNUSED_VALUE(table_name);
-    UNUSED_VALUE(tableNameLen);
+    UNUSED_VALUE(table_name_len);
 
     LOG_MSG("SQLProcedures called");
     return SQL_SUCCESS;

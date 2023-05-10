@@ -21,7 +21,7 @@
 namespace ignite
 {
 
-int sql_result_to_return_code(sql_result result)
+SQLRETURN sql_result_to_return_code(sql_result result)
 {
     switch (result)
     {

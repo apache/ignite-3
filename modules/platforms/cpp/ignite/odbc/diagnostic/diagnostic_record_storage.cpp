@@ -54,7 +54,7 @@ sql_result diagnostic_record_storage::get_operation_result() const
     return m_result;
 }
 
-int diagnostic_record_storage::get_return_code() const
+SQLRETURN diagnostic_record_storage::get_return_code() const
 {
     return sql_result_to_return_code(m_result);
 }
