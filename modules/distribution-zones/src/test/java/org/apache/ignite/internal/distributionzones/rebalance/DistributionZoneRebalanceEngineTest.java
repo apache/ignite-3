@@ -40,7 +40,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -52,13 +51,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -77,15 +74,12 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -435,32 +429,5 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         WatchEvent evt = new WatchEvent(entryEvent);
 
         watchListener.onUpdate(evt);
-    }
-
-    private IgniteBiTuple<TableView, ExtendedTableConfiguration> mockTable(int tableNum, int zoneId) {
-        TableView tableView = mock(TableView.class);
-        DistributionZoneView distributionZoneView = getZoneById(distributionZonesConfiguration, zoneId).value();
-
-        when(tableView.zoneId()).thenReturn(zoneId);
-        when(tableView.name()).thenReturn("table" + tableNum);
-
-        ExtendedTableConfiguration tableCfg = mock(ExtendedTableConfiguration.class);
-        ConfigurationValue valueId = mock(ConfigurationValue.class);
-        when(valueId.value()).thenReturn(new UUID(0, tableNum));
-        when(tableCfg.id()).thenReturn(valueId);
-
-        List<Set<Assignment>> tableAssignments = new ArrayList<>();
-
-        for (int i = 0; i < distributionZoneView.partitions(); i++) {
-            tableAssignments.add(Set.of(Assignment.forPeer("fakeAssignment")));
-        }
-
-        ConfigurationValue assignmentValue = mock(ConfigurationValue.class);
-
-        when(assignmentValue.value()).thenReturn(toBytes(tableAssignments));
-
-        when(tableCfg.assignments()).thenReturn(assignmentValue);
-
-        return new IgniteBiTuple<>(tableView, tableCfg);
     }
 }

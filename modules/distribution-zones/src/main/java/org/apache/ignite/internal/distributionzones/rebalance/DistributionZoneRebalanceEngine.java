@@ -178,8 +178,9 @@ public class DistributionZoneRebalanceEngine {
 
                             byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
 
-                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null ? Collections.emptyList() :
-                                    ByteUtils.fromBytes(assignmentsBytes);
+                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null
+                                    ? Collections.emptyList()
+                                    : ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
@@ -272,7 +273,11 @@ public class DistributionZoneRebalanceEngine {
                                 replicaGrpId,
                                 distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
                                 newReplicas,
-                                replicasCtx.storageRevision(), metaStorageManager, i, tableAssignments.get(i));
+                                replicasCtx.storageRevision(),
+                                metaStorageManager,
+                                i,
+                                tableAssignments.get(i)
+                        );
                     }
                 }
                 return allOf(futs);
