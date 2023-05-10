@@ -297,7 +297,6 @@ public class ItGeneratedRestClientTest {
                             .clusterName("cluster")
                             .metaStorageNodes(List.of(firstNodeName))
                             .cmgNodes(List.of())
-                            .clusterConfiguration(null)
             );
         });
     }
@@ -321,8 +320,7 @@ public class ItGeneratedRestClientTest {
                         new InitCommand()
                                 .clusterName("cluster")
                                 .metaStorageNodes(List.of("no-such-node"))
-                                .cmgNodes(List.of())
-                                .clusterConfiguration(null))
+                                .cmgNodes(List.of()))
         );
 
         assertThat(thrown.getCode(), equalTo(400));

@@ -419,12 +419,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     } else {
                         LOG.info("Cluster configuration is found in the Raft service, going to apply it");
                         return distributedConfigurationUpdater.updateConfiguration(state.clusterConfigurationToApply())
-                                .thenCompose(unused -> removeAuthConfigFromClusterState(service));
+                                .thenCompose(unused -> removeClusterConfigFromClusterState(service));
                     }
                 });
     }
 
-    private CompletableFuture<Void> removeAuthConfigFromClusterState(CmgRaftService service) {
+    private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
                     Collection<String> cmgNodes = state.cmgNodes();

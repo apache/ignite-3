@@ -43,7 +43,7 @@ public class InitCommand {
     @Schema(description = "The name of the cluster.")
     private final String clusterName;
 
-    @Schema(description = "Cluster configuration.")
+    @Schema(description = "Cluster configuration in HOCON format.")
     private final String clusterConfiguration;
 
     /**

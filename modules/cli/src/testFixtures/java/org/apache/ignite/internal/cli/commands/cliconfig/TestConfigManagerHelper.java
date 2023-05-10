@@ -52,6 +52,8 @@ public class TestConfigManagerHelper {
 
     private static final String CLUSTER_URL_SSL = "cluster_url_ssl.ini";
 
+    private static final String CLUSTER_CONFIGURATION_WITH_ENABLED_AUTH = "cluster-configuration-with-enabled-auth.conf";
+
     public static File createEmptyConfig() {
         return copyResourceToTempFile(EMPTY);
     }
@@ -97,15 +99,23 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
     }
 
+    public static String readClusterConfigurationWithEnabledAuth() {
+        return readResourceToString(CLUSTER_CONFIGURATION_WITH_ENABLED_AUTH);
+    }
+
     /**
      * Helper method to read resource to string.
      */
-    public static String readResourceToString(String resource) throws IOException {
-        byte[] bytes = TestConfigManagerHelper.class
-                .getClassLoader()
-                .getResourceAsStream(resource)
-                .readAllBytes();
-        return new String(bytes);
+    public static String readResourceToString(String resource) {
+        try {
+            byte[] bytes = TestConfigManagerHelper.class
+                    .getClassLoader()
+                    .getResourceAsStream(resource)
+                    .readAllBytes();
+            return new String(bytes);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
