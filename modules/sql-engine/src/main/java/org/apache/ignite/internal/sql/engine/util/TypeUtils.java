@@ -280,7 +280,7 @@ public class TypeUtils {
         } else {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
             //   Fix this after BOOLEAN type supported is implemented.
-            if (storageType == Boolean.class) {
+            if (storageType == Boolean.class || storageType == boolean.class) {
                 return val;
             }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);

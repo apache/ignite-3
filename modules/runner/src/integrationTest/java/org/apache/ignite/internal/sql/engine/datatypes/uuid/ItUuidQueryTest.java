@@ -41,11 +41,11 @@ public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
      */
     @ParameterizedTest
     @MethodSource("binaryComparisonOperators")
-    public void testUuidInvalidOperation(String opSql, String opName) {
+    public void testInvalidComparisonOperation(String opSql, String opName) {
         String query = format("SELECT * FROM t WHERE test_key {} 1", opSql);
 
         CalciteContextException t = assertThrows(CalciteContextException.class, () -> checkQuery(query).check());
-        String error = format("Invalid types for comparison: UUID {} INTEGER NOT NULL", opName);
+        String error = format("Cannot apply '{}'", opSql);
         assertThat(t.getMessage(), containsString(error));
     }
 

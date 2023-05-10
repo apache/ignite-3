@@ -294,7 +294,6 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT SUBSTR('abcdefg', 2)").returns("bcdefg");
         assertQuery("SELECT SUBSTR('abcdefg', -1)").returns("abcdefg");
         assertQuery("SELECT SUBSTR('abcdefg', 1, -3)").returns("");
-        assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100");
     }
 
     /**

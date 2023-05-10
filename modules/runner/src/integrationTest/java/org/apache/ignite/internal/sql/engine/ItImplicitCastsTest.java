@@ -36,8 +36,10 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -45,8 +47,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
 
+    @BeforeEach
     @AfterEach
     public void dropTables() {
+        sql("DROP TABLE IF EXISTS t1");
+        sql("DROP TABLE IF EXISTS t2");
         sql("DROP TABLE IF EXISTS t11");
         sql("DROP TABLE IF EXISTS t12");
     }
@@ -56,6 +61,8 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
     public void testFilter(ColumnPair columnPair) {
         sql(format("CREATE TABLE T11 (c1 int primary key, c2 {})", columnPair.lhs));
         sql(format("CREATE TABLE T12 (c1 int primary key, c2 {})", columnPair.rhs));
+
+        initData(columnPair);
 
         String value = columnPair.lhsLiteral(0);
         // Implicit casts are added to the left hand side of the expression.
@@ -70,6 +77,8 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
         sql(format("CREATE TABLE T11 (c1 int primary key, c2 {})", columnPair.lhs));
         sql(format("CREATE TABLE T12 (c1 int primary key, c2 {})", columnPair.rhs));
 
+        initData(columnPair);
+
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 = T12.c2").check();
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 IS NOT DISTINCT FROM T12.c2").check();
     }
@@ -80,8 +89,65 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
         sql(format("CREATE TABLE T11 (c1 int primary key, c2 {})", columnPair.lhs));
         sql(format("CREATE TABLE T12 (c1 int primary key, c2 {})", columnPair.rhs));
 
+        initData(columnPair);
+
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 != T12.c2").check();
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 IS DISTINCT FROM T12.c2").check();
+    }
+
+    /** MERGE with type coercion on insert. */
+    @ParameterizedTest
+    @CsvSource({
+            // UPDATE SET c1, INSERT src.c2
+            "src.c2 + 2",
+            "CAST((src.c2 + 2) AS VARCHAR)",
+    })
+    public void testMergeInsert(String insertC2) {
+        sql("CREATE TABLE T1 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
+        sql("CREATE TABLE T2 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
+
+        sql("INSERT INTO t1 VALUES(1, 10, 20)");
+        sql("INSERT INTO t1 VALUES(2, 20, 30)");
+        sql("INSERT INTO t2 VALUES(1, 10, 12)");
+
+        String sql = "MERGE INTO T2 dst USING t1 src ON dst.id = src.id "
+                + "WHEN NOT MATCHED THEN INSERT (id, c1, c2) VALUES (src.id, src.c1 + 1, " + insertC2 + ")";
+
+        sql(sql);
+
+        assertQuery("SELECT * FROM t2 ORDER BY id")
+                .returns(1, 10, 12)
+                .returns(2, 21, 32)
+                .check();
+    }
+
+    /** MERGE with type coercion on insert/update. */
+    @ParameterizedTest
+    @CsvSource({
+            // UPDATE SET c1, INSERT src.c2\
+            "100, src.c2 + 2",
+            "'100', src.c2 + 2",
+            "100, CAST((src.c2 + 2) AS VARCHAR)",
+            "'100', CAST((src.c2 + 2) AS VARCHAR)",
+    })
+    public void testMergeUpdateInsert(String updateC1, String insertC2) {
+        sql("CREATE TABLE T1 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
+        sql("CREATE TABLE T2 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
+
+        sql("INSERT INTO t1 VALUES(1, 10, 20)");
+        sql("INSERT INTO t1 VALUES(2, 20, 30)");
+        sql("INSERT INTO t2 VALUES(1, 10, 12)");
+
+        String sql = "MERGE INTO T2 dst USING t1 src ON dst.id = src.id "
+                + "WHEN MATCHED THEN UPDATE SET c1 = " + updateC1
+                + "WHEN NOT MATCHED THEN INSERT (id, c1, c2) VALUES (src.id, src.c1 + 1, " + insertC2 + ")";
+
+        sql(sql);
+
+        assertQuery("SELECT * FROM t2 ORDER BY id")
+                .returns(1, 100, 12)
+                .returns(2, 21, 32)
+                .check();
     }
 
     /**

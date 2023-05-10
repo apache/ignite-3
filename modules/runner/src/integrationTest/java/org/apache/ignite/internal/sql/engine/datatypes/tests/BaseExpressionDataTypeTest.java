@@ -51,11 +51,10 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
     /**
      * Binary comparison operator tests with dynamic parameters.
      */
-    @ParameterizedTest
-    @MethodSource("cmp")
-    public void testComparisonDynamicParameters(TestTypeArguments<T> arguments) {
-        Comparable<?> lower = (Comparable<?>) arguments.argValue(0);
-        Comparable<?> higher = (Comparable<?>) arguments.argValue(1);
+    @Test
+    public void testComparisonDynamicParameters() {
+        Comparable<?> lower = dataSamples.min();
+        Comparable<?> higher = dataSamples.max();
 
         checkComparisonWithDynamicParameters(higher, lower);
     }

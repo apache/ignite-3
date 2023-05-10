@@ -165,8 +165,8 @@ public class TestNode implements LifecycleAware {
      * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
-    public AsyncCursor<List<Object>> executePlan(QueryPlan plan) {
-        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
+    public AsyncCursor<List<Object>> executePlan(QueryPlan plan, Object... params) {
+        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext(params));
     }
 
     /**
@@ -174,11 +174,12 @@ public class TestNode implements LifecycleAware {
      * and returns the plan to execute.
      *
      * @param query A query string to prepare.
+     * @param params An array of dynamic parameters.
      * @return A plan to execute.
      */
-    public QueryPlan prepare(String query) {
+    public QueryPlan prepare(String query, Object... params) {
         StatementParseResult parseResult = IgniteSqlParser.parse(query, StatementParseResult.MODE);
-        BaseQueryContext ctx = createContext();
+        BaseQueryContext ctx = createContext(params);
 
         assertEquals(ctx.parameters().length, parseResult.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
@@ -195,10 +196,10 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(SqlNode queryAst) {
         assertThat(queryAst, not(instanceOf(SqlNodeList.class)));
 
-        return await(prepareService.prepareAsync(queryAst, createContext()));
+        return await(prepareService.prepareAsync(queryAst, createContext(new Object[0])));
     }
 
-    private BaseQueryContext createContext() {
+    private BaseQueryContext createContext(Object[] params) {
         return BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
@@ -206,6 +207,7 @@ public class TestNode implements LifecycleAware {
                                 .defaultSchema(schema)
                                 .build()
                 )
+                .parameters(params)
                 .build();
     }
 

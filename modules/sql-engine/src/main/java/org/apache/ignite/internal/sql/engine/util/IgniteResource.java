@@ -38,6 +38,16 @@ public interface IgniteResource {
     @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ").")
     Resources.ExInst<SqlValidatorException> correctIntegerLimit(String a0);
 
-    @Resources.BaseMessage("Invalid decimal literal")
+    @Resources.BaseMessage("Invalid decimal literal.")
     Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
+
+    // Fix error message because {1} and {} can get mixed up.
+    // mapping param/target from t1/t2 depends on position of dynamic parameter.
+    // Cannot apply ''{0}'' to arguments of type {1}, {2}. Dynamic parameter requires adding explicit type cast.
+    @Resources.BaseMessage
+            ("Values passed to {0} operator must have compatible types. Dynamic parameter requires adding explicit type cast.")
+    Resources.ExInst<SqlValidatorException> operationRequiresExplicitCast(String operation);
+
+    @Resources.BaseMessage("Assignment from {0} to {1} can not be performed. Dynamic parameter requires adding explicit type cast.")
+    Resources.ExInst<SqlValidatorException> assignmentRequiresExplicitCast(String type1, String type2);
 }

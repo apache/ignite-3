@@ -54,6 +54,7 @@ import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Query checker.
@@ -348,7 +349,7 @@ public abstract class QueryChecker {
      *
      * @return This.
      */
-    public QueryChecker withParam(Object param) {
+    public QueryChecker withParam(@Nullable Object param) {
         return this.withParams(param);
     }
 
