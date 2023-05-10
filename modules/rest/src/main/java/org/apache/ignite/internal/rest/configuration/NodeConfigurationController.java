@@ -21,6 +21,7 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Controller;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 

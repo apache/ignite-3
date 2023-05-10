@@ -18,18 +18,11 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
-import org.apache.ignite.internal.cluster.management.network.auth.AuthenticationProvider;
-import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.AuthenticationProviderChange;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.security.AuthenticationType;
 
 /**
  * Updater is responsible for applying changes to the cluster configuration when it's ready.
@@ -38,54 +31,28 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationUpdater.class);
 
-    private final CompletableFuture<SecurityConfiguration> securityConfigurationFuture = new CompletableFuture<>();
+    private final CompletableFuture<ConfigurationPresentation<String>> clusterCfgPresentation = new CompletableFuture<>();
 
-    public void setClusterRestConfiguration(SecurityConfiguration securityConfiguration) {
-        securityConfigurationFuture.complete(securityConfiguration);
+    public void setDistributedConfigurationPresentation(ConfigurationPresentation<String> presentation) {
+        clusterCfgPresentation.complete(presentation);
     }
 
     /**
-     * Applies changes to the {@link AuthenticationConfiguration} when {@link DistributedConfigurationUpdater#securityConfigurationFuture}
+     * Applies changes to the cluster configuration when {@link DistributedConfigurationUpdater#clusterCfgPresentation}
      * is complete.
      *
-     * @param authentication {@link AuthenticationConfiguration} that should be applied.
-     * @return Future that will be completed when {@link AuthenticationConfiguration} is applied.
+     * @param configurationToApply Cluster configuration that should be applied.
+     * @return Future that will be completed when cluster configuration is updated.
      */
-    public CompletableFuture<Void> updateRestAuthConfiguration(Authentication authentication) {
-        return securityConfigurationFuture.thenApply(SecurityConfiguration::authentication)
-                .thenCompose(configuration -> changeAuthConfiguration(configuration, authentication))
+    public CompletableFuture<Void> updateConfiguration(String configurationToApply) {
+        return clusterCfgPresentation.thenCompose(presentation -> presentation.update(configurationToApply))
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        LOG.error("Unable to change auth configuration", e);
+                        LOG.error("Unable to update cluster configuration", e);
                     } else {
-                        LOG.info("REST configuration updated successfully");
+                        LOG.info("Cluster configuration updated successfully");
                     }
                 });
-    }
-
-    private static CompletableFuture<Void> changeAuthConfiguration(AuthenticationConfiguration authConfiguration,
-            Authentication authentication) {
-        return authConfiguration.change(authChange -> {
-            authChange.changeProviders(providers -> {
-                authentication.providers().forEach(provider -> {
-                    providers.create(provider.name(), cfg -> applyProviderChange(cfg, provider));
-                });
-            });
-            authChange.changeEnabled(authentication.enabled());
-        });
-    }
-
-    private static void applyProviderChange(AuthenticationProviderChange change, AuthenticationProvider provider) {
-        AuthenticationType type = AuthenticationType.parse(provider.type());
-        if (type == AuthenticationType.BASIC) {
-            BasicAuthenticationProvider basicAuthProvider = (BasicAuthenticationProvider) provider;
-            change.convert(BasicAuthenticationProviderChange.class)
-                    .changeUsername(basicAuthProvider.username())
-                    .changePassword(basicAuthProvider.password())
-                    .changeName(provider.name());
-        } else {
-            throw new IllegalArgumentException("Unexpected authentication type: " + type);
-        }
     }
 
     @Override
@@ -95,6 +62,6 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     @Override
     public void stop() throws Exception {
-        securityConfigurationFuture.completeExceptionally(new NodeStoppingException("Component is stopped."));
+        clusterCfgPresentation.completeExceptionally(new NodeStoppingException("Component is stopped."));
     }
 }

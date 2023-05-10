@@ -156,6 +156,6 @@ public class VersionChain extends VersionChainKey {
 
     @Override
     public String toString() {
-        return S.toString(VersionChain.class, this);
+        return S.toString(VersionChain.class, this, "rowId", rowId);
     }
 }

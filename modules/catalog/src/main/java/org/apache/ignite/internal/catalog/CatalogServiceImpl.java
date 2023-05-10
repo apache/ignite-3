@@ -21,28 +21,30 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.catalog.storage.NewTableEntry;
+import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateLog;
+import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,45 +53,42 @@ import org.jetbrains.annotations.Nullable;
  * TODO: IGNITE-19081 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
 public class CatalogServiceImpl implements CatalogService, CatalogManager {
-    private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
-
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
+    private static final int MAX_RETRY_COUNT = 10;
 
     /** Versioned catalog descriptors. */
-    private final NavigableMap<Integer, CatalogDescriptor> catalogByVer = new ConcurrentSkipListMap<>();
+    private final NavigableMap<Integer, Catalog> catalogByVer = new ConcurrentSkipListMap<>();
 
     /** Versioned catalog descriptors sorted in chronological order. */
-    private final NavigableMap<Long, CatalogDescriptor> catalogByTs = new ConcurrentSkipListMap<>();
+    private final NavigableMap<Long, Catalog> catalogByTs = new ConcurrentSkipListMap<>();
 
-    private final MetaStorageManager metaStorageMgr;
+    private final UpdateLog updateLog;
 
-    private final WatchListener catalogVersionsListener;
+    private final PendingComparableValuesTracker<Integer> versionTracker = new PendingComparableValuesTracker<>(0);
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(MetaStorageManager metaStorageMgr) {
-        this.metaStorageMgr = metaStorageMgr;
-        catalogVersionsListener = new CatalogEventListener();
+    public CatalogServiceImpl(UpdateLog updateLog) {
+        this.updateLog = updateLog;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        if (CatalogService.useCatalogService()) {
-            metaStorageMgr.registerPrefixWatch(ByteArray.fromString("catalog-"), catalogVersionsListener);
-        }
+        int objectIdGen = 0;
 
-        //TODO: IGNITE-19080 restore state.
-        registerCatalog(new CatalogDescriptor(0, 0L,
-                new SchemaDescriptor(0, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0])));
+        SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
+        registerCatalog(new Catalog(0, 0L, objectIdGen, schemaPublic));
+
+        updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
+
+        updateLog.start();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
-        metaStorageMgr.unregisterWatch(catalogVersionsListener);
+    public void stop() throws Exception {
+        updateLog.stop();
     }
 
     /** {@inheritDoc} */
@@ -119,7 +118,7 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public @Nullable SchemaDescriptor schema(int version) {
-        CatalogDescriptor catalog = catalog(version);
+        Catalog catalog = catalog(version);
 
         if (catalog == null) {
             return null;
@@ -134,12 +133,12 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
         return catalogAt(timestamp).schema(CatalogService.PUBLIC);
     }
 
-    private CatalogDescriptor catalog(int version) {
+    private Catalog catalog(int version) {
         return catalogByVer.get(version);
     }
 
-    private CatalogDescriptor catalogAt(long timestamp) {
-        Entry<Long, CatalogDescriptor> entry = catalogByTs.floorEntry(timestamp);
+    private Catalog catalogAt(long timestamp) {
+        Entry<Long, Catalog> entry = catalogByTs.floorEntry(timestamp);
 
         if (entry == null) {
             throw new IllegalStateException("No valid schema found for given timestamp: " + timestamp);
@@ -148,92 +147,135 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
         return entry.getValue();
     }
 
-    /**
-     * MetaStorage event listener for catalog metadata updates.
-     */
-    private static class CatalogEventListener implements WatchListener {
-        @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            return completedFuture(null);
-        }
-
-        @Override
-        public void onError(Throwable e) {
-            LOG.warn("Unable to process catalog update event", e);
-        }
-    }
-
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> createTable(CreateTableParams params) {
-        // Creates TableDescriptor and saves it to MetaStorage.
-        // Atomically:
-        //        int id = metaStorage.get("lastId") + 1;
-        //        TableDescriptor table = new TableDescriptor(tableId, params)
-        //
-        //        Catalog newCatalog = catalogByVer.get(id -1).copy()
-        //        newCatalog.setId(id).addTable(table);
-        //
-        //        metaStorage.put("catalog-"+id, newCatalog);
-        //        metaStorage.put("lastId", id);
-
-        // Dummy implementation.
-        synchronized (this) {
-            CatalogDescriptor catalog = catalogByVer.lastEntry().getValue();
-
-            //TODO: IGNITE-19081 Add validation.
+    public CompletableFuture<Void> createTable(CreateTableParams params) {
+        return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
             SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
             if (schema.table(params.tableName()) != null) {
-                return params.ifTableExists()
-                        ? completedFuture(false)
-                        : failedFuture(new TableAlreadyExistsException(schemaName, params.tableName()));
+                throw new TableAlreadyExistsException(schemaName, params.tableName());
             }
 
-            int newVersion = catalogByVer.lastKey() + 1;
+            TableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
 
-            TableDescriptor table = CatalogUtils.fromParams(TABLE_ID_GEN.incrementAndGet(), params);
-
-            CatalogDescriptor newCatalog = new CatalogDescriptor(
-                    newVersion,
-                    System.currentTimeMillis(),
-                    new SchemaDescriptor(
-                            schema.id(),
-                            schemaName,
-                            newVersion,
-                            ArrayUtils.concat(schema.tables(), table),
-                            schema.indexes()
-                    )
+            return List.of(
+                    new NewTableEntry(table),
+                    new ObjectIdGenUpdateEntry(1)
             );
-
-            registerCatalog(newCatalog);
-        }
-
-        return completedFuture(true);
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> dropTable(DropTableParams params) {
+    public CompletableFuture<Void> dropTable(DropTableParams params) {
         return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> addColumn(AlterTableAddColumnParams params) {
+    public CompletableFuture<Void> addColumn(AlterTableAddColumnParams params) {
         return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> dropColumn(AlterTableDropColumnParams params) {
+    public CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params) {
         return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
-    private void registerCatalog(CatalogDescriptor newCatalog) {
+    private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
+    }
+
+    private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer) {
+        return saveUpdate(updateProducer, 0);
+    }
+
+    private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
+        if (attemptNo >= MAX_RETRY_COUNT) {
+            return failedFuture(new IgniteInternalException(Common.UNEXPECTED_ERR, "Max retry limit exceeded: " + attemptNo));
+        }
+
+        Catalog catalog = catalogByVer.lastEntry().getValue();
+
+        List<UpdateEntry> updates;
+        try {
+            updates = updateProducer.get(catalog);
+        } catch (Exception ex) {
+            return failedFuture(ex);
+        }
+
+        if (updates.isEmpty()) {
+            return completedFuture(null);
+        }
+
+        int newVersion = catalog.version() + 1;
+
+        return updateLog.append(new VersionedUpdate(newVersion, updates))
+                .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
+                .thenCompose(result -> {
+                    if (result) {
+                        return completedFuture(null);
+                    }
+
+                    return saveUpdate(updateProducer, attemptNo + 1);
+                });
+    }
+
+    class OnUpdateHandlerImpl implements OnUpdateHandler {
+        @Override
+        public void handle(VersionedUpdate update) {
+            Catalog catalog = catalogByVer.get(update.version() - 1);
+
+            assert catalog != null;
+
+            for (UpdateEntry entry : update.entries()) {
+                String schemaName = CatalogService.PUBLIC;
+                SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+                if (entry instanceof NewTableEntry) {
+                    catalog = new Catalog(
+                            update.version(),
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    update.version(),
+                                    ArrayUtils.concat(schema.tables(), ((NewTableEntry) entry).descriptor()),
+                                    schema.indexes()
+                            )
+                    );
+                } else if (entry instanceof ObjectIdGenUpdateEntry) {
+                    catalog = new Catalog(
+                            update.version(),
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    update.version(),
+                                    schema.tables(),
+                                    schema.indexes()
+                            )
+                    );
+                } else {
+                    assert false : entry;
+                }
+            }
+
+            registerCatalog(catalog);
+
+            versionTracker.update(catalog.version());
+        }
+    }
+
+    @FunctionalInterface
+    interface UpdateProducer {
+        List<UpdateEntry> get(Catalog catalog);
     }
 }

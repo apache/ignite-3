@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.raft.client;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest.TestReplicationGroup.GROUP_ID;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,29 +34,22 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -84,6 +73,8 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
     /** Base node port. */
     private static final int PORT_BASE = 1234;
+
+    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
@@ -436,79 +427,5 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                 .mapToObj(port -> new NetworkAddress("localhost", port))
                 .collect(Collectors.toList());
         return addresses;
-    }
-
-    /**
-     * Replication test group class.
-     */
-    public enum TestReplicationGroup implements ReplicationGroupId {
-        /** Replication group id. */
-        GROUP_ID;
-
-        /** {@inheritDoc} */
-        @Override
-        public String toString() {
-            return "TestReplicationGroup";
-        }
-    }
-
-    private static class TestRaftGroupListener implements RaftGroupListener {
-        @Override
-        public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-            iterator.forEachRemaining(closure -> {
-                closure.result(null);
-            });
-        }
-
-        @Override
-        public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        }
-
-        @Override
-        public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        }
-
-        @Override
-        public boolean onSnapshotLoad(Path path) {
-            return true;
-        }
-
-        @Override
-        public void onShutdown() {
-        }
-    }
-
-    /**
-     * Test implementation of {@link LogicalTopologyService}.
-     */
-    private static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
-        private final ClusterService clusterService;
-
-        public LogicalTopologyServiceTestImpl(ClusterService clusterService) {
-            this.clusterService = clusterService;
-        }
-
-        @Override
-        public void addEventListener(LogicalTopologyEventListener listener) {
-
-        }
-
-        @Override
-        public void removeEventListener(LogicalTopologyEventListener listener) {
-
-        }
-
-        @Override
-        public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-            return completedFuture(new LogicalTopologySnapshot(
-                    1,
-                    clusterService.topologyService().allMembers().stream().map(LogicalNode::new).collect(toSet()))
-            );
-        }
-
-        @Override
-        public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
-            return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
-        }
     }
 }

@@ -20,25 +20,32 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -73,14 +80,22 @@ public class ReplicaManager implements IgniteComponent {
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
+    private final AtomicBoolean metaStorageNodes = new AtomicBoolean();
+
+    /** Meta storage service. */
+    private final CompletableFuture<Set<String>> msNodes = new CompletableFuture<>();
 
     /** Cluster network service. */
     private final ClusterService clusterNetSvc;
+
+    /** Cluster group manager. */
+    private final ClusterManagementGroupManager cmgMgr;
 
     /** Replica message handler. */
     private final NetworkMessageHandler handler;
@@ -105,14 +120,18 @@ public class ReplicaManager implements IgniteComponent {
      * Constructor for a replica service.
      *
      * @param clusterNetSvc Cluster network service.
+     * @param cmgMgr Cluster group manager.
      * @param clock A hybrid logical clock.
+     * @param messageGroupsToHandle Message handlers.
      */
     public ReplicaManager(
             ClusterService clusterNetSvc,
+            ClusterManagementGroupManager cmgMgr,
             HybridClock clock,
             Set<Class<?>> messageGroupsToHandle
     ) {
         this.clusterNetSvc = clusterNetSvc;
+        this.cmgMgr = cmgMgr;
         this.clock = clock;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = this::onReplicaMessageReceived;
@@ -170,7 +189,9 @@ public class ReplicaManager implements IgniteComponent {
             }
 
             // replicaFut is always completed here.
-            CompletableFuture<?> result = replicaFut.join().processRequest(request);
+            Replica replica = replicaFut.join();
+
+            CompletableFuture<?> result = replica.processRequest(request);
 
             result.handle((res, ex) -> {
                 NetworkMessage msg;
@@ -185,11 +206,35 @@ public class ReplicaManager implements IgniteComponent {
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
+                if (request instanceof PrimaryReplicaRequest) {
+                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+                    if (!localNode.name().equals(replica.proposedPrimary())) {
+                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
+                    } else if (isConnectivityRelatedException(ex)) {
+                        stopLeaseProlongation(request.groupId(), null);
+                    }
+                }
+
                 return null;
             });
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Checks this exception is caused of timeout or connectivity issue.
+     *
+     * @param ex An exception
+     * @return True if this exception has thrown due to timeout or connection problem, false otherwise.
+     */
+    private static boolean isConnectivityRelatedException(Throwable ex) {
+        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
+            ex = ex.getCause();
+        }
+
+        return ex instanceof TimeoutException || ex instanceof IOException;
     }
 
     private void onPlacementDriverMessageReceived(NetworkMessage msg0, String senderConsistentId, @Nullable Long correlationId) {
@@ -220,6 +265,30 @@ public class ReplicaManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Sends stop lease prolongation message to all participants of placement driver group.
+     *
+     * @param groupId Replication group id.
+     * @param redirectNodeId Node consistent id to redirect.
+     */
+    private void stopLeaseProlongation(ReplicationGroupId groupId, String redirectNodeId) {
+        LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}, redirectNodeId={}]", groupId, redirectNodeId);
+
+        msNodes.thenAccept(nodeIds -> {
+            for (String nodeId : nodeIds) {
+                ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
+
+                if (node != null) {
+                    //TODO: IGNITE-19441 Stop lease prolongation message might be sent several
+                    clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                            .groupId(groupId)
+                            .redirectProposal(redirectNodeId)
+                            .build());
+                }
+            }
+        });
     }
 
     /**
@@ -327,12 +396,21 @@ public class ReplicaManager implements IgniteComponent {
                 IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS,
                 TimeUnit.SECONDS
         );
+
+        cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
+                    if (e != null) {
+                        msNodes.completeExceptionally(e);
+                    } else {
+                        msNodes.complete(nodes);
+                    }
+                }
+        );
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!metaStorageNodes.compareAndSet(false, true)) {
             return;
         }
 
