@@ -15,45 +15,53 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.catalog;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Catalog descriptor represents database schema snapshot.
  */
-public class CatalogDescriptor implements Serializable {
-    private static final long serialVersionUID = -2713639412596667759L;
-
+public class Catalog {
     private final int version;
+    private final int objectIdGen;
     private final long activationTimestamp;
     private final Map<String, SchemaDescriptor> schemas;
 
     @IgniteToStringExclude
-    private transient Map<Integer, TableDescriptor> tablesMap;
+    private final Map<Integer, TableDescriptor> tablesMap;
     @IgniteToStringExclude
-    private transient Map<Integer, IndexDescriptor> indexesMap;
+    private final Map<Integer, IndexDescriptor> indexesMap;
 
     /**
      * Constructor.
      *
-     * @param version Catalog version.
-     * @param activationTimestamp Catalog activation timestamp.
-     * @param descriptors Schema descriptors.
+     * @param version A version of the catalog.
+     * @param activationTimestamp A timestamp when this version becomes active (i.e. available for use).
+     * @param objectIdGen Current state of identifier generator. This value should be used to assign an
+     *      id to a new object in the next version of the catalog.
+     * @param descriptors Enumeration of schemas available in the current version of catalog.
      */
-    public CatalogDescriptor(int version, long activationTimestamp, SchemaDescriptor... descriptors) {
+    public Catalog(
+            int version,
+            long activationTimestamp,
+            int objectIdGen,
+            SchemaDescriptor... descriptors
+    ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
+        this.objectIdGen = objectIdGen;
 
         Objects.requireNonNull(descriptors, "schemas");
 
@@ -62,7 +70,10 @@ public class CatalogDescriptor implements Serializable {
 
         schemas = Arrays.stream(descriptors).collect(Collectors.toUnmodifiableMap(SchemaDescriptor::name, t -> t));
 
-        rebuildMaps();
+        tablesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.tables()))
+                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
+        indexesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes()))
+                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
     }
 
     public int version() {
@@ -71,6 +82,10 @@ public class CatalogDescriptor implements Serializable {
 
     public long time() {
         return activationTimestamp;
+    }
+
+    public int objectIdGenState() {
+        return objectIdGen;
     }
 
     public SchemaDescriptor schema(String name) {
@@ -87,19 +102,6 @@ public class CatalogDescriptor implements Serializable {
 
     public Collection<IndexDescriptor> tableIndexes(int tableId) {
         return indexesMap.values().stream().filter(desc -> desc.tableId() == tableId).collect(Collectors.toList());
-    }
-
-    private void rebuildMaps() {
-        tablesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.tables()))
-                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
-        indexesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes()))
-                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
-    }
-
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.defaultReadObject();
-
-        rebuildMaps();
     }
 
     /** {@inheritDoc} */

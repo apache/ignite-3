@@ -15,22 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog.storage;
+
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * DROP TABLE statement.
+ * Describes addition of a new table.
  */
-public class DropTableParams extends AbstractTableCommandParams {
-    public static Builder builder() {
-        return new Builder();
-    }
+public class NewTableEntry implements UpdateEntry {
+    private static final long serialVersionUID = 2970125889493580121L;
+
+    private final TableDescriptor descriptor;
 
     /**
-     * Parameters builder.
+     * Constructs the object.
+     *
+     * @param descriptor A descriptor of a table to add.
      */
-    public static class Builder extends AbstractBuilder<DropTableParams, Builder> {
-        Builder() {
-            super(new DropTableParams());
-        }
+    public NewTableEntry(TableDescriptor descriptor) {
+        this.descriptor = descriptor;
+    }
+
+    /** Returns descriptor of a table to add. */
+    public TableDescriptor descriptor() {
+        return descriptor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

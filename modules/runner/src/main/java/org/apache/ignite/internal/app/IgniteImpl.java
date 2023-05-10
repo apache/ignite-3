@@ -42,6 +42,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -506,7 +507,9 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
 
-        catalogManager = new CatalogServiceImpl(metaStorageMgr);
+        catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr, vaultMgr)
+        );
 
         qryEngine = new SqlQueryProcessor(
                 registry,

@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog.storage;
+
+import java.io.Serializable;
 
 /**
- * Marker interface for DDL command parameters.
+ * A marker interface describing a particular change within the {@link VersionedUpdate group}.
  */
-public interface DdlCommandParams {
+public interface UpdateEntry extends Serializable {
 }
