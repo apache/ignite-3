@@ -17,41 +17,33 @@
 
 package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-
 import jakarta.inject.Singleton;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.PeriodicSessionTask;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.rest.client.model.ClusterNode;
 import org.apache.ignite.rest.client.model.NodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link NodeNameRegistry}. */
 @Singleton
-public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEventListener {
+public class NodeNameRegistryImpl implements NodeNameRegistry, PeriodicSessionTask {
 
-    private static final IgniteLogger log = CliLoggers.forClass(NodeNameRegistryImpl.class);
+    private static final IgniteLogger LOG = CliLoggers.forClass(NodeNameRegistryImpl.class);
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
-    private volatile Map<String, URL> nodeNameToNodeUrl = Map.of();
-
-    private ScheduledExecutorService executor;
+    private volatile Map<String, String> nodeNameToNodeUrl = Map.of();
 
     public NodeNameRegistryImpl(PhysicalTopologyCall physicalTopologyCall) {
         this.physicalTopologyCall = physicalTopologyCall;
@@ -59,7 +51,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
 
     /** {@inheritDoc} */
     @Override
-    public Optional<URL> nodeUrlByName(String nodeName) {
+    public Optional<String> nodeUrlByName(String nodeName) {
         return Optional.ofNullable(nodeNameToNodeUrl.get(nodeName));
     }
 
@@ -71,67 +63,47 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, AsyncSessionEvent
 
     /** {@inheritDoc} */
     @Override
-    public Set<URL> urls() {
+    public Set<String> urls() {
         return new HashSet<>(nodeNameToNodeUrl.values());
     }
 
-    private void updateNodeNames(String nodeUrl) {
-        nodeNameToNodeUrl = physicalTopologyCall.execute(new UrlCallInput(nodeUrl))
+    @Override
+    public void update(SessionInfo sessionInfo) {
+        nodeNameToNodeUrl = physicalTopologyCall.execute(new UrlCallInput(sessionInfo.nodeUrl()))
                 .body()
                 .stream()
-                .map(this::toNodeNameAndUrlPair)
+                .map(NodeNameRegistryImpl::toNodeNameAndUrlPair)
                 .filter(it -> it.url != null)
                 .collect(Collectors.toUnmodifiableMap(it -> it.name, it -> it.url));
     }
 
-    private NodeNameAndUrlPair toNodeNameAndUrlPair(ClusterNode node) {
+    @Override
+    public void onDisconnect() {
+        nodeNameToNodeUrl = Map.of();
+    }
+
+    private static NodeNameAndUrlPair toNodeNameAndUrlPair(ClusterNode node) {
         return new NodeNameAndUrlPair(node.getName(), urlFromClusterNode(node.getMetadata()));
     }
 
     @Nullable
-    private URL urlFromClusterNode(NodeMetadata metadata) {
+    private static String urlFromClusterNode(NodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }
         try {
-            return new URL("http://" + metadata.getRestHost() + ":" + metadata.getHttpPort());
+            return new URL("http://" + metadata.getRestHost() + ":" + metadata.getHttpPort()).toString();
         } catch (Exception e) {
-            log.warn("Couldn't create URL: {}", e);
+            LOG.warn("Couldn't create URL: {}", e);
             return null;
-        }
-    }
-
-    /**
-     * Start pulling updates from a node.
-     *
-     * @param sessionInfo sessionInfo.
-     */
-
-    @Override
-    public synchronized void onConnect(SessionInfo sessionInfo) {
-        if (executor == null) {
-            executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("NodeNameRegistry", log));
-            executor.scheduleWithFixedDelay(() ->
-                    updateNodeNames(sessionInfo.nodeUrl()), 0, 5, TimeUnit.SECONDS);
-        }
-    }
-
-    /**
-     * Stops pulling updates.
-     */
-    @Override
-    public synchronized void onDisconnect() {
-        if (executor != null) {
-            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
-            executor = null;
         }
     }
 
     private static class NodeNameAndUrlPair {
         private final String name;
-        private final URL url;
+        private final String url;
 
-        private NodeNameAndUrlPair(String name, @Nullable URL url) {
+        private NodeNameAndUrlPair(String name, @Nullable String url) {
             this.name = name;
             this.url = url;
         }
