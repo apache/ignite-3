@@ -992,16 +992,18 @@ public class PartitionReplicaListener implements ReplicaListener {
                     boolean stillCommit = request.commit() && validationResult.isSuccessful();
 
                     return finishAndCleanup(request, stillCommit, aggregatedGroupIds, txId)
-                            .thenCompose(result -> {
-                                if (validationResult.isSuccessful()) {
-                                    return completedFuture(result);
-                                } else {
-                                    return failedFuture(new IncompatibleSchemaAbortException("Commit failed because schema "
-                                            + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                                            + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId()));
-                                }
-                            });
+                            .thenCompose(result -> failureIfValidationFailed(validationResult));
                 });
+    }
+
+    private static CompletableFuture<Void> failureIfValidationFailed(ForwardValidationResult validationResult) {
+        if (validationResult.isSuccessful()) {
+            return completedFuture(null);
+        } else {
+            return failedFuture(new IncompatibleSchemaAbortException("Commit failed because schema "
+                    + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId()));
+        }
     }
 
     private CompletableFuture<Void> finishAndCleanup(
