@@ -53,18 +53,21 @@ public class DummySchemas implements Schemas {
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
-        FullTableSchema fullSchema = new FullTableSchema(
+
+        List<TableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
+                .map(colName -> {
+                    Column column = schemaDescriptor.column(colName);
+
+                    assert column != null;
+
+                    return columnType(colName, column);
+                })
+                .collect(toList());
+
+        var fullSchema = new FullTableSchema(
                 1,
                 1,
-                schemaDescriptor.columnNames().stream()
-                        .map(colName -> {
-                            Column column = schemaDescriptor.column(colName);
-
-                            assert column != null;
-
-                            return columnType(colName, column);
-                        })
-                        .collect(toList()),
+                columns,
                 List.of()
         );
 
