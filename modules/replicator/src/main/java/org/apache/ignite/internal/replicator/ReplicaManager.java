@@ -249,9 +249,11 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
+            CompletableFuture<Replica> replicaFut = replicas.get(msg.groupId());
 
-            LOG.info("qqq received placement driver message groupId=" + msg.groupId());
+            if (replicaFut == null) {
+                return;
+            }
 
             replicaFut
                     .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
@@ -341,8 +343,6 @@ public class ReplicaManager implements IgniteComponent {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         Replica newReplica = new Replica(replicaGrpId, whenReplicaReady, listener, storageIndexTracker, raftClient, localNode);
-
-        LOG.info("qqq started replica id=" + replicaGrpId);
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
