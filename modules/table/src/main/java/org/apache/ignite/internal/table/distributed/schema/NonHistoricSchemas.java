@@ -68,7 +68,7 @@ public class NonHistoricSchemas implements Schemas {
 
                     assert column != null;
 
-                    return columnType(colName, column);
+                    return columnDescriptor(colName, column);
                 })
                 .collect(toList());
 
@@ -82,7 +82,7 @@ public class NonHistoricSchemas implements Schemas {
         return List.of(fullSchema);
     }
 
-    private static TableColumnDescriptor columnType(String colName, Column column) {
+    private static TableColumnDescriptor columnDescriptor(String colName, Column column) {
         return new TableColumnDescriptor(
                 colName,
                 NativeTypeSpec.getColumnType(column.type().spec()),
