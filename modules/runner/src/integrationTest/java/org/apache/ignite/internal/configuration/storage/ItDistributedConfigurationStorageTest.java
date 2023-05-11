@@ -39,7 +39,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -73,9 +72,6 @@ public class ItDistributedConfigurationStorageTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
-
-    @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -120,7 +116,6 @@ public class ItDistributedConfigurationStorageTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

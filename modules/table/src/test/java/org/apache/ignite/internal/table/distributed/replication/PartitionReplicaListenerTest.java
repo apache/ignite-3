@@ -62,7 +62,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -102,7 +102,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -187,8 +186,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Table messages factory. */
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
-    /** Replication group id. */
-    private final ReplicationGroupId grpId = new TablePartitionId(tblId, partId);
+    /** Partition group id. */
+    private final TablePartitionId grpId = new TablePartitionId(tblId, partId);
 
     /** Hybrid clock. */
     private final HybridClock clock = new HybridClockImpl();
@@ -213,7 +212,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private TopologyService topologySrv;
 
     @Mock
-    private PendingComparableValuesTracker<HybridTimestamp> safeTimeClock;
+    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeClock;
 
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;

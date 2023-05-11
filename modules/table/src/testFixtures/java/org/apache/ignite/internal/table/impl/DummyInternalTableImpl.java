@@ -46,6 +46,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -266,7 +266,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -323,16 +324,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * A process to update safe time periodically.
      */
     private static class SafeTimeUpdater implements Runnable {
-        PendingComparableValuesTracker<HybridTimestamp> safeTime;
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
-        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
             this.safeTime = safeTime;
         }
 
         @Override
         public void run() {
             while (true) {
-                safeTime.update(CLOCK.now());
+                safeTime.update(CLOCK.now(), null);
 
                 try {
                     Thread.sleep(1_000);

@@ -20,7 +20,7 @@ package org.apache.ignite;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.security.AuthenticationConfig;
+import org.jetbrains.annotations.Nullable;
 
 /** Initialization parameters. */
 public class InitParameters {
@@ -37,8 +37,8 @@ public class InitParameters {
     /** Human-readable name of the cluster. */
     private final String clusterName;
 
-    /** Authentication configuration, that will be applied after initialization. */
-    private final AuthenticationConfig authenticationConfig;
+    /** Cluster configuration, that will be applied after initialization. */
+    private final String clusterConfiguration;
 
     /**
      * Constructor.
@@ -47,27 +47,26 @@ public class InitParameters {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
-     * @param authenticationConfig authentication configuration.
+     * @param clusterConfiguration Cluster configuration.
      */
     InitParameters(
             String destinationNodeName,
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            AuthenticationConfig authenticationConfig
+            @Nullable String clusterConfiguration
     ) {
 
         Objects.requireNonNull(destinationNodeName);
         Objects.requireNonNull(metaStorageNodeNames);
         Objects.requireNonNull(cmgNodeNames);
         Objects.requireNonNull(clusterName);
-        Objects.requireNonNull(authenticationConfig);
 
         this.destinationNodeName = destinationNodeName;
         this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
         this.cmgNodeNames = List.copyOf(cmgNodeNames);
         this.clusterName = clusterName;
-        this.authenticationConfig = authenticationConfig;
+        this.clusterConfiguration = clusterConfiguration;
     }
 
     public static InitParametersBuilder builder() {
@@ -90,7 +89,7 @@ public class InitParameters {
         return clusterName;
     }
 
-    public AuthenticationConfig restAuthenticationConfig() {
-        return authenticationConfig;
+    public String clusterConfiguration() {
+        return clusterConfiguration;
     }
 }
