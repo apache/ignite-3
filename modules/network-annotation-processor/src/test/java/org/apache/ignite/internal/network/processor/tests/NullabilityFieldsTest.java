@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** Tests for messages with {@link org.jetbrains.annotations.NotNull} fields. */
+/** Tests for messages with and without {@link org.jetbrains.annotations.Nullable} fields. */
 public class NullabilityFieldsTest {
     private final TestMessagesFactory factory = new TestMessagesFactory();
 
@@ -68,6 +68,22 @@ public class NullabilityFieldsTest {
     }
 
     @Test
+    public void testNotNullArrayFieldBuildWithNull() {
+        assertThrows(NullPointerException.class, () -> {
+            factory.notNullArrayFieldMessage().value(null).build();
+        });
+        assertThrows(NullPointerException.class, () -> {
+            factory.notNullArrayFieldMessage().build();
+        });
+    }
+
+    @Test
+    public void testNotNullArrayFieldBuild() {
+        // Build with value.
+        factory.notNullArrayFieldMessage().value(new int[0]).build();
+    }
+
+    @Test
     public void testNullableArbitraryFieldWithNull() {
         factory.nullableArbitraryFieldMessage().value(null).build();
         factory.nullableArbitraryFieldMessage().build();
@@ -83,5 +99,11 @@ public class NullabilityFieldsTest {
     public void testNullableNetworkMessageFieldWithNull() {
         factory.nullableNetworkMessageFieldMessage().value(null).build();
         factory.nullableNetworkMessageFieldMessage().build();
+    }
+
+    @Test
+    public void testNullableArrayFieldWithNull() {
+        factory.nullableArrayFieldMessage().value(null).build();
+        factory.nullableArrayFieldMessage().build();
     }
 }

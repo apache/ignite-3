@@ -26,14 +26,14 @@ import org.jetbrains.annotations.Nullable;
 /** Messages with {@link Nullable} fields. */
 public class NullableFieldMessages {
     /** Message with {@link UUID} field that is {@link Nullable} field. */
-    @Transferable(6)
+    @Transferable(7)
     public interface NullableArbitraryFieldMessage extends NetworkMessage {
         @Nullable
         UUID value();
     }
 
     /** Message with {@link Marshallable} field that is {@link Nullable}. */
-    @Transferable(7)
+    @Transferable(8)
     public interface NullableMarshallableFieldMessage extends NetworkMessage {
         @Nullable
         @Marshallable
@@ -41,9 +41,15 @@ public class NullableFieldMessages {
     }
 
     /** Message with {@link NetworkMessage} field that is {@link Nullable}. */
-    @Transferable(8)
+    @Transferable(9)
     public interface NullableNetworkMessageFieldMessage extends NetworkMessage {
         @Nullable
         NetworkMessage value();
+    }
+
+    /** Message with array field that is {@link Nullable}. */
+    @Transferable(10)
+    public interface NullableArrayFieldMessage extends NetworkMessage {
+        int @Nullable [] value();
     }
 }

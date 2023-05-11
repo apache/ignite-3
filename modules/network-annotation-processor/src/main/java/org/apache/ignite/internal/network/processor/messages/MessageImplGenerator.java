@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.ArrayType;
@@ -119,7 +120,7 @@ public class MessageImplGenerator {
                     .addModifiers(Modifier.PRIVATE);
 
             boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
-            boolean isNotNull = isNotNull(getter);
+            boolean isNotNull = shouldRequireNotNull(getter);
             boolean isNetworkMessage = typeUtils.isSubType(getterType, NetworkMessage.class);
 
             if (isMarshallable && isNetworkMessage) {
@@ -757,11 +758,23 @@ public class MessageImplGenerator {
                 .build();
     }
 
-    private static boolean isNotNull(ExecutableElement el) {
-        TypeKind kind = el.getReturnType().getKind();
+    private static boolean shouldRequireNotNull(ExecutableElement el) {
+        TypeMirror returnType = el.getReturnType();
+
+        TypeKind kind = returnType.getKind();
 
         if (kind == TypeKind.ARRAY) {
-            return el.getReturnType().getAnnotation(Nullable.class) != null;
+            List<? extends AnnotationMirror> annotations = returnType.getAnnotationMirrors();
+
+            for (AnnotationMirror annotation : annotations) {
+                DeclaredType annotationType = annotation.getAnnotationType();
+
+                if (Nullable.class.getName().equals(annotationType.toString())) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         return !kind.isPrimitive() && el.getAnnotation(Nullable.class) == null;

@@ -43,4 +43,10 @@ public class NotNullFieldMessages {
     public interface NotNullNetworkMessageFieldMessage extends NetworkMessage {
         NetworkMessage value();
     }
+
+    /** Message with array field that is not {@link Nullable}. */
+    @Transferable(6)
+    public interface NotNullArrayFieldMessage extends NetworkMessage {
+        int[] value();
+    }
 }
