@@ -49,10 +49,10 @@ import org.apache.ignite.sql.ColumnType;
  * is possible.
  */
 // TODO: IGNITE-19447 - remove when switched to the CatalogService
-public class DummySchemas implements Schemas {
+public class NonHistoricSchemas implements Schemas {
     private final SchemaManager schemaManager;
 
-    public DummySchemas(SchemaManager schemaManager) {
+    public NonHistoricSchemas(SchemaManager schemaManager) {
         this.schemaManager = schemaManager;
     }
 
