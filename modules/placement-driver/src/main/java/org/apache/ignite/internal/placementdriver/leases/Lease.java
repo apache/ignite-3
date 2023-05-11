@@ -17,22 +17,24 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
-import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * A lease representation in memory.
  * The real lease is stored in Meta storage.
  */
-public class Lease implements Serializable {
+public class Lease {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE);
 
     /** A node that holds a lease until {@code stopLeas}. */
-    private final ClusterNode leaseholder;
+    private final String leaseholder;
 
     /** The lease is accepted, when the holder knows about it and applies all related obligations. */
     private final boolean accepted;
@@ -53,7 +55,7 @@ public class Lease implements Serializable {
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
      */
-    public Lease(ClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime) {
+    public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime) {
         this(leaseholder, startTime, leaseExpirationTime, false, false);
     }
 
@@ -66,8 +68,8 @@ public class Lease implements Serializable {
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is true when the holder accepted the lease, the false otherwise.
      */
-    private Lease(
-            ClusterNode leaseholder,
+    Lease(
+            String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
             boolean prolong,
@@ -132,7 +134,7 @@ public class Lease implements Serializable {
      *
      * @return Leaseholder or {@code null} if nothing holds the lease.
      */
-    public ClusterNode getLeaseholder() {
+    public String getLeaseholder() {
         return leaseholder;
     }
 
@@ -170,6 +172,56 @@ public class Lease implements Serializable {
      */
     public boolean isAccepted() {
         return accepted;
+    }
+
+    /**
+     * Encodes this lease into sequence of bytes.
+     *
+     * @return Lease representation in a byte array.
+     */
+    public byte[] bytes() {
+        byte[] leaseholderBytes = leaseholder == null ? null : leaseholder.getBytes(StandardCharsets.UTF_8);
+        short leaseholderBytesSize = (short) (leaseholderBytes == null ? 0 : leaseholderBytes.length);
+        int bufSize = leaseholderBytesSize + Short.BYTES + HYBRID_TIMESTAMP_SIZE * 2 + 1 + 1;
+
+        ByteBuffer buf = ByteBuffer.allocate(bufSize);
+
+        buf.put((byte) (accepted ? 1 : 0));
+        buf.put((byte) (prolongable ? 1 : 0));
+        buf.putLong(startTime.longValue());
+        buf.putLong(expirationTime.longValue());
+        buf.putShort(leaseholderBytesSize);
+        if (leaseholderBytes != null) {
+            buf.put(leaseholderBytes);
+        }
+
+        return buf.array();
+    }
+
+    /**
+     * Decodes a lease from the sequence of bytes.
+     *
+     * @param bytes Lease representation in a byte array.
+     * @return Decoded lease.
+     */
+    public static Lease fromBytes(byte[] bytes) {
+        ByteBuffer buf = ByteBuffer.wrap(bytes);
+
+        boolean accepted = buf.get() == 1;
+        boolean prolongable = buf.get() == 1;
+        HybridTimestamp startTime = hybridTimestamp(buf.getLong());
+        HybridTimestamp expirationTime = hybridTimestamp(buf.getLong());
+        short leaseholderBytesSize = buf.getShort();
+        String leaseholder;
+        if (leaseholderBytesSize > 0) {
+            byte[] leaseholderBytes = new byte[leaseholderBytesSize];
+            buf.get(leaseholderBytes);
+            leaseholder = new String(leaseholderBytes, StandardCharsets.UTF_8);
+        } else {
+            leaseholder = null;
+        }
+
+        return new Lease(leaseholder, startTime, expirationTime, prolongable, accepted);
     }
 
     @Override

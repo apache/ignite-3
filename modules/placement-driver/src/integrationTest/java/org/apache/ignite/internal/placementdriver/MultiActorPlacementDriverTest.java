@@ -350,7 +350,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         Lease lease = checkLeaseCreated(grpPart0, true);
         Lease leaseRenew = waitForProlong(grpPart0, lease);
 
-        assertEquals(acceptedNodeRef.get(), leaseRenew.getLeaseholder().name());
+        assertEquals(acceptedNodeRef.get(), leaseRenew.getLeaseholder());
     }
 
     @Test
@@ -416,7 +416,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        assertEquals(lease.getLeaseholder().name(), acceptedNodeRef.get());
+        assertEquals(lease.getLeaseholder(), acceptedNodeRef.get());
 
         waitForProlong(grpPart0, lease);
     }
@@ -441,7 +441,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         lease = waitForProlong(grpPart, lease);
 
-        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder().name());
+        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder());
 
         var service = clusterServices.get(acceptedNodeRef.get());
 
@@ -467,7 +467,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         Lease leaseRenew = waitNewLeaseholder(grpPart, lease);
 
-        log.info("Lease move from {} to {}", lease.getLeaseholder().name(), leaseRenew.getLeaseholder().name());
+        log.info("Lease move from {} to {}", lease.getLeaseholder(), leaseRenew.getLeaseholder());
     }
 
     /**

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver.leases;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -139,7 +140,7 @@ public class LeaseTracker {
                 if (msEntry.empty()) {
                     leases.remove(grpId);
                 } else {
-                    Lease lease = ByteUtils.fromBytes(msEntry.value());
+                    Lease lease = fromBytes(msEntry.value());
 
                     leases.put(grpId, lease);
                 }
