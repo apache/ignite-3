@@ -370,10 +370,13 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE);
+                            if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
+                                zoneChange.changeDataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE);
+                            } else {
+                                zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                            }
                         } else {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(
-                                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                            zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
                         }
 
                         if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() == null) {
