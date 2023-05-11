@@ -81,20 +81,32 @@ public class ForwardValidationResult {
     }
 
     /**
-     * Returns version number of the schema from which an incompatible transition tried to be made.
+     * Returns version number of the schema from which an incompatible transition tried to be made. Should only be called for a failed
+     * validation result, otherwise an exception is thrown.
      *
      * @return Version number of the schema from which an incompatible transition tried to be made.
      */
     public int fromSchemaVersion() {
+        throwIfSuccessful();
+
         return fromSchemaVersion;
     }
 
+    private void throwIfSuccessful() {
+        if (ok) {
+            throw new IllegalStateException("Should not be called on a successful result");
+        }
+    }
+
     /**
-     * Returns version number of the schema to which an incompatible transition tried to be made.
+     * Returns version number of the schema to which an incompatible transition tried to be made. Should only be called for a failed
+     *      * validation result, otherwise an exception is thrown.
      *
      * @return Version number of the schema to which an incompatible transition tried to be made.
      */
     public int toSchemaVersion() {
+        throwIfSuccessful();
+
         return toSchemaVersion;
     }
 }
