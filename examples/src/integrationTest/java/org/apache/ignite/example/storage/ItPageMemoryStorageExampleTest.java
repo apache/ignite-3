@@ -25,7 +25,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,7 +32,6 @@ import org.junit.jupiter.api.Test;
  */
 public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19427")
     public void testPersistentExample() throws Exception {
         addPersistentDataRegionConfig("persistent");
 
