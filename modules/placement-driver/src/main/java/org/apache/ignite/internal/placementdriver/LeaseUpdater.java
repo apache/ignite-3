@@ -306,7 +306,7 @@ public class LeaseUpdater {
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
                             writeNewLeaseInMetaStorage(grpId, lease, candidate);
-                        } else if (lease.isProlongable() && candidate.equals(lease.getLeaseholder())) {
+                        } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
                             prolongLeaseInMetaStorage(grpId, lease);
                         }

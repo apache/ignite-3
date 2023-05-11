@@ -443,6 +443,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         lease = waitForProlong(grpPart, lease);
 
         assertEquals(acceptedNodeRef.get(), lease.getLeaseholder());
+        assertTrue(lease.isAccepted());
 
         var service = clusterServices.get(acceptedNodeRef.get());
 
