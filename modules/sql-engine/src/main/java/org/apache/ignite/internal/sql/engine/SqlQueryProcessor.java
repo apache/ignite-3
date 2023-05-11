@@ -237,6 +237,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
+                catalogManager,
                 tableManager,
                 schemaManager,
                 replicaService,

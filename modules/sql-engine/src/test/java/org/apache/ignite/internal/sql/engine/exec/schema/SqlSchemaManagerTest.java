@@ -41,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
@@ -119,6 +120,7 @@ public class SqlSchemaManagerTest {
         testRevisionRegister = new TestRevisionRegister();
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
+                mock(CatalogService.class),
                 tableManager,
                 schemaManager,
                 replicaService,

@@ -42,6 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
@@ -97,6 +98,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public SqlSchemaManagerImpl(
+            CatalogService catalogService,
             TableManager tableManager,
             SchemaManager schemaManager,
             ReplicaService replicaService,
