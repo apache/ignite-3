@@ -23,17 +23,14 @@ import static java.util.stream.Collectors.toList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
-import org.apache.ignite.sql.ColumnType;
 
 /**
  * Dummy {@link Schemas} implementation that is not historic and always uses same {@link SchemaRegistry}.
@@ -60,7 +57,7 @@ public class DummySchemas implements Schemas {
 
                     assert column != null;
 
-                    return columnType(colName, column);
+                    return NonHistoricSchemas.columnDescriptor(column);
                 })
                 .collect(toList());
 
@@ -72,18 +69,5 @@ public class DummySchemas implements Schemas {
         );
 
         return List.of(fullSchema);
-    }
-
-    private static TableColumnDescriptor columnType(String colName, Column column) {
-        return new TableColumnDescriptor(
-                colName,
-                columnTypeFromNativeType(column.type()),
-                column.nullable(),
-                DefaultValue.constant(column.defaultValue())
-        );
-    }
-
-    private static ColumnType columnTypeFromNativeType(NativeType type) {
-        return NativeTypeSpec.getColumnType(type.spec());
     }
 }

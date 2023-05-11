@@ -82,7 +82,7 @@ public class NonHistoricSchemas implements Schemas {
         return List.of(fullSchema);
     }
 
-    private static TableColumnDescriptor columnDescriptor(Column column) {
+    public static TableColumnDescriptor columnDescriptor(Column column) {
         return new TableColumnDescriptor(
                 column.name(),
                 NativeTypeSpec.getColumnType(column.type().spec()),
