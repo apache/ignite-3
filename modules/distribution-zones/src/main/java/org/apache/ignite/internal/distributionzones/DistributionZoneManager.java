@@ -341,9 +341,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
-                        if (distributionZoneCfg.partitions() == null) {
-                            zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
-                        } else {
+                        if (distributionZoneCfg.partitions() != null) {
                             zoneChange.changePartitions(distributionZoneCfg.partitions());
                         }
 
@@ -353,9 +351,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
                         }
 
-                        if (distributionZoneCfg.replicas() == null) {
-                            zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
-                        } else {
+                        if (distributionZoneCfg.replicas() != null) {
                             zoneChange.changeReplicas(distributionZoneCfg.replicas());
                         }
 
@@ -363,22 +359,19 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changeFilter(distributionZoneCfg.filter());
                         }
 
-                        if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
-                            zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
-                        } else {
+                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
                             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
                         }
 
                         if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                            if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+                                zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                            }
                         } else {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(
-                                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                            zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
                         }
 
-                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() == null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE);
-                        } else {
+                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
                             zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
                         }
 
