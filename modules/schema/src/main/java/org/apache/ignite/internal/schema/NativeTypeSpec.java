@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -26,6 +28,8 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Base class for storage built-in data types definition. The class contains predefined values for fixed-sized types and some of the
@@ -352,6 +356,67 @@ public enum NativeTypeSpec {
                 return BigDecimal.class;
             default:
                 throw new IllegalStateException("Unknown typeSpec " + spec);
+        }
+    }
+
+    /**
+     * Gets client type by server type.
+     *
+     * @param spec Type spec.
+     * @return Client type code.
+     */
+    public static ColumnType getColumnType(NativeTypeSpec spec) {
+        switch (spec) {
+            case INT8:
+                return ColumnType.INT8;
+
+            case INT16:
+                return ColumnType.INT16;
+
+            case INT32:
+                return ColumnType.INT32;
+
+            case INT64:
+                return ColumnType.INT64;
+
+            case FLOAT:
+                return ColumnType.FLOAT;
+
+            case DOUBLE:
+                return ColumnType.DOUBLE;
+
+            case DECIMAL:
+                return ColumnType.DECIMAL;
+
+            case NUMBER:
+                return ColumnType.NUMBER;
+
+            case UUID:
+                return ColumnType.UUID;
+
+            case STRING:
+                return ColumnType.STRING;
+
+            case BYTES:
+                return ColumnType.BYTE_ARRAY;
+
+            case BITMASK:
+                return ColumnType.BITMASK;
+
+            case DATE:
+                return ColumnType.DATE;
+
+            case TIME:
+                return ColumnType.TIME;
+
+            case DATETIME:
+                return ColumnType.DATETIME;
+
+            case TIMESTAMP:
+                return ColumnType.TIMESTAMP;
+
+            default:
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
         }
     }
 

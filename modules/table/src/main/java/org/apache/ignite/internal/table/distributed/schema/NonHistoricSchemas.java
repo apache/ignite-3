@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,7 +32,6 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -96,67 +94,6 @@ public class NonHistoricSchemas implements Schemas {
     }
 
     private static ColumnType columnTypeFromNativeType(NativeType type) {
-        return getColumnType(type.spec());
-    }
-
-    /**
-     * Detects {@link ColumnType} by {@link NativeTypeSpec}.
-     *
-     * @param spec Native type spec.
-     * @return Detected {@link ColumnType}.
-     */
-    public static ColumnType getColumnType(NativeTypeSpec spec) {
-        switch (spec) {
-            case INT8:
-                return ColumnType.INT8;
-
-            case INT16:
-                return ColumnType.INT16;
-
-            case INT32:
-                return ColumnType.INT32;
-
-            case INT64:
-                return ColumnType.INT64;
-
-            case FLOAT:
-                return ColumnType.FLOAT;
-
-            case DOUBLE:
-                return ColumnType.DOUBLE;
-
-            case DECIMAL:
-                return ColumnType.DECIMAL;
-
-            case NUMBER:
-                return ColumnType.NUMBER;
-
-            case UUID:
-                return ColumnType.UUID;
-
-            case STRING:
-                return ColumnType.STRING;
-
-            case BYTES:
-                return ColumnType.BYTE_ARRAY;
-
-            case BITMASK:
-                return ColumnType.BITMASK;
-
-            case DATE:
-                return ColumnType.DATE;
-
-            case TIME:
-                return ColumnType.TIME;
-
-            case DATETIME:
-                return ColumnType.DATETIME;
-
-            case TIMESTAMP:
-                return ColumnType.TIMESTAMP;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
-        }
+        return NativeTypeSpec.getColumnType(type.spec());
     }
 }

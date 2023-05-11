@@ -28,10 +28,10 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.sql.ColumnType;
 
@@ -81,6 +81,6 @@ public class DummySchemas implements Schemas {
     }
 
     private static ColumnType columnTypeFromNativeType(NativeType type) {
-        return NonHistoricSchemas.getColumnType(type.spec());
+        return NativeTypeSpec.getColumnType(type.spec());
     }
 }
