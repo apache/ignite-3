@@ -47,7 +47,6 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -95,11 +94,8 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.failoverTimeout=0")
-    private static ClusterManagementConfiguration cmgConfiguration;
-
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
+    private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -137,7 +133,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

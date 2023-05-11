@@ -35,6 +35,9 @@ dependencies {
 
     annotationProcessor libs.auto.service
 
+    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
+
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-core"))
     integrationTestImplementation project(":ignite-runner")

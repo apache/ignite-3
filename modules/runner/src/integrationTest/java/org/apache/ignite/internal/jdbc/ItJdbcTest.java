@@ -23,12 +23,9 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.List;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.security.AuthenticationConfig;
-import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -73,9 +70,22 @@ class ItJdbcTest extends IgniteIntegrationTest {
         @BeforeAll
         void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
             cluster = new Cluster(testInfo, workDir);
-            cluster.startAndInit(1, builder -> builder.authenticationConfig(new AuthenticationConfig(
-                    true,
-                    List.of(new BasicAuthenticationProviderConfig("basic", "usr", "pwd")))
+            cluster.startAndInit(1, builder -> builder.clusterConfiguration(
+                    "{\n"
+                            + "  \"security\": {\n"
+                            + "    \"authentication\": {\n"
+                            + "      \"enabled\": true,\n"
+                            + "      \"providers\": [\n"
+                            + "        {\n"
+                            + "          \"name\": \"basic\",\n"
+                            + "          \"type\": \"basic\",\n"
+                            + "          \"username\": \"usr\",\n"
+                            + "          \"password\": \"pwd\"\n"
+                            + "        }\n"
+                            + "      ]\n"
+                            + "    }\n"
+                            + "  }\n"
+                            + "}\n"
             ));
         }
 

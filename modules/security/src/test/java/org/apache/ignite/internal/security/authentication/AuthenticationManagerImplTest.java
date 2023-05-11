@@ -51,8 +51,7 @@ class AuthenticationManagerImplTest {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
-                                .changePassword("password")
-                                .changeName("basic");
+                                .changePassword("password");
                     }));
                     change.changeEnabled(true);
                 })
@@ -92,8 +91,7 @@ class AuthenticationManagerImplTest {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
-                                .changePassword("password")
-                                .changeName("basic");
+                                .changePassword("password");
                     }));
                     change.changeEnabled(true);
                 })
@@ -134,8 +132,7 @@ class AuthenticationManagerImplTest {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
-                                .changePassword("password")
-                                .changeName("basic");
+                                .changePassword("password");
                     }));
                     change.changeEnabled(true);
                 })
@@ -173,8 +170,7 @@ class AuthenticationManagerImplTest {
                     change.changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
-                                .changePassword("password")
-                                .changeName("basic");
+                                .changePassword("password");
                     }));
                     change.changeEnabled(true);
                 })
@@ -194,8 +190,7 @@ class AuthenticationManagerImplTest {
                     change.changeProviders(providers -> providers.update("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
-                                .changePassword("new-password")
-                                .changeName("basic");
+                                .changePassword("new-password");
                     }));
                 })
                 .value();

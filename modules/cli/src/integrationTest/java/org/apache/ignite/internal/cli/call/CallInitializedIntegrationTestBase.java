@@ -28,7 +28,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Base class for call integration tests that needs initialized ignite cluster. Contains common methods and useful assertions.
  */
-public class CallInitializedIntegrationTestBase extends CliIntegrationTestBase {
+public abstract class CallInitializedIntegrationTestBase extends CliIntegrationTestBase {
     protected UrlCallInput urlInput;
 
     @BeforeAll

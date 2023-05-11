@@ -41,7 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @MicronautTest
 @ExtendWith(WorkDirectoryExtension.class)
-public class RestTestBase extends BaseItClusterManagementTest {
+public abstract class RestTestBase extends BaseItClusterManagementTest {
     static final List<MockNode> cluster = new ArrayList<>();
 
     static ClusterService clusterService;

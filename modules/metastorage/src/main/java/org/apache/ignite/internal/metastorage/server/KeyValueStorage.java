@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -91,64 +92,72 @@ public interface KeyValueStorage extends ManuallyCloseable {
      *
      * @param key The key.
      * @param value The value.
+     * @param opTs Operation's timestamp.
      */
-    void put(byte[] key, byte[] value);
+    void put(byte[] key, byte[] value, HybridTimestamp opTs);
 
     /**
      * Inserts an entry with the given key and given value and returns previous entry.
      *
      * @param key The key.
      * @param value The value.
+     * @param opTs Operation's timestamp.
      * @return Previous entry corresponding to the given key.
      */
-    Entry getAndPut(byte[] key, byte[] value);
+    Entry getAndPut(byte[] key, byte[] value, HybridTimestamp opTs);
 
     /**
      * Inserts entries with given keys and given values.
      *
      * @param keys The key list.
      * @param values The values list.
+     * @param opTs Operation's timestamp.
      */
-    void putAll(List<byte[]> keys, List<byte[]> values);
+    void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
 
     /**
      * Inserts entries with given keys and given values and returns previous entries.
      *
      * @param keys The key list.
      * @param values The values list.
+     * @param opTs Operation's timestamp.
      * @return Collection of previous entries corresponding to given keys.
      */
-    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
+    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs);
 
     /**
      * Removes an entry with the given key.
      *
      * @param key The key.
+     * @param opTs Operation's timestamp.
      */
-    void remove(byte[] key);
+    void remove(byte[] key, HybridTimestamp opTs);
 
     /**
      * Removes an entry with the given key and returns previous entry.
      *
      * @param key The key.
+     * @param opTs Operation's timestamp.
      * @return Previous entry.
      */
-    Entry getAndRemove(byte[] key);
+    Entry getAndRemove(byte[] key, HybridTimestamp opTs);
 
     /**
      * Remove all entries corresponding to given keys.
      *
      * @param keys The keys list.
+     * @param opTs Operation's timestamp.
      */
-    void removeAll(List<byte[]> keys);
+    void removeAll(List<byte[]> keys, HybridTimestamp opTs);
 
     /**
      * Remove all entries corresponding to given keys and returns previous entries.
      *
      * @param keys The keys list.
+     * @param opTs Operation's timestamp.
      * @return Previous entries.
      */
-    Collection<Entry> getAndRemoveAll(List<byte[]> keys);
+    Collection<Entry> getAndRemoveAll(List<byte[]> keys, HybridTimestamp opTs);
 
     /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
@@ -156,19 +165,21 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param condition Condition.
      * @param success Success operations.
      * @param failure Failure operations.
+     * @param opTs Operation's timestamp.
      * @return Result of test condition.
      */
-    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs);
 
     /**
      * Invoke, which supports nested conditional statements with left and right branches of execution.
      *
      * @param iif {@link If} statement to invoke
+     * @param opTs Operation's timestamp.
      * @return execution result
      * @see If
      * @see StatementResult
      */
-    StatementResult invoke(If iif);
+    StatementResult invoke(If iif, HybridTimestamp opTs);
 
     /**
      * Returns cursor by entries which correspond to the given keys range.
@@ -233,9 +244,13 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /**
      * Compacts storage (removes tombstones).
-     * TODO: IGNITE-16444 Correct compaction for Meta storage.
+     *
+     * @param lowWatermark A time threshold for the entry. Only entries that have revisions with timestamp higher or equal to the
+     *     watermark can be removed.
      */
-    void compact();
+    // TODO: IGNITE-16444 Correct compaction for Meta storage.
+    // TODO: IGNITE-19417 Provide low-watermark for compaction.
+    void compact(HybridTimestamp lowWatermark);
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.

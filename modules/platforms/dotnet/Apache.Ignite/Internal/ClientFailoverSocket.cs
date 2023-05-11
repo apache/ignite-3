@@ -116,6 +116,9 @@ namespace Apache.Ignite.Internal
         {
             var socket = new ClientFailoverSocket(configuration);
 
+            var logger = configuration.Logger.GetLogger(typeof(ClientFailoverSocket));
+            logger?.Info("Ignite.NET client version " + VersionUtils.GetInformationalVersion() + " is starting");
+
             await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.

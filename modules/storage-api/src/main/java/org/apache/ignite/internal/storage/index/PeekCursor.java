@@ -27,7 +27,21 @@ public interface PeekCursor<T> extends Cursor<T> {
     /**
      * Returns the next element without advancing the cursor, {@code null} if there is no next element.
      *
-     * <p>Usage notes:
+     * <p>The behavior of this method is tightly coupled with the behaviour of {@link #next()} and {@link #hasNext()}:
+     * <ul>
+     *     <li>
+     *         {@code peek()} returns exactly the same value as the {@link #next()} would, if called instead or right after.
+     *     </li>
+     *     <li>
+     *         This property can be applied to the end of the cursor. {@code peek()} returns {@code null} if {@link #next()} would
+     *         throw an {@link java.util.NoSuchElementException}, if it was called instead or right after.
+     *     </li>
+     *     <li>
+     *         {@link #next()}, called immediately after {@code peek()}, must thus return the same value, or throw an exception if the
+     *         value was {@code null}.
+     *     </li>
+     * </ul>
+     * These properties, in conjunction with basic iterator invariants, give strict constraints on {@link #hasNext()} usage:
      * <ul>
      *     <li>After the cursor is created, {@code #peek()} will return the actual (up-to-date) next element;</li>
      *     <li>After calling {@link #hasNext()}, if it returned {@code true}, then {@code peek()} will return the element (cached) that
@@ -36,6 +50,8 @@ public interface PeekCursor<T> extends Cursor<T> {
      *     <li>After {@link #next()} is called, but before {@link #hasNext()} is called, {@code peek()} will always return the actual
      *     (up-to-date) next element without advancing the cursor.</li>
      * </ul>
+     * In other words, {@link #hasNext()} call forces the cursor to return cached value from {@code peek()}, instead of looking for
+     * up-to-date value in the storage.
      */
     @Nullable T peek();
 }

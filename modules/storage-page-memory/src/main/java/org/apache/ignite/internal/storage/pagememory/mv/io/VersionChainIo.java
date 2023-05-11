@@ -86,7 +86,7 @@ public interface VersionChainIo {
      */
     default void store(long dstPageAddr, int dstIdx, BplusIo<VersionChainKey> srcIo, long srcPageAddr, int srcIdx) {
         int dstOffset = offset(dstIdx);
-        int srcOffset = offset(srcIdx);
+        int srcOffset = srcIo.offset(srcIdx);
 
         PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, SIZE_IN_BYTES);
     }

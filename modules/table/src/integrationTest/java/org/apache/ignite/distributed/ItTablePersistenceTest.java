@@ -52,6 +52,7 @@ import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -79,7 +80,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -377,7 +377,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
-                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(
+                    PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
                             new HybridTimestamp(1, 0)
                     );
 

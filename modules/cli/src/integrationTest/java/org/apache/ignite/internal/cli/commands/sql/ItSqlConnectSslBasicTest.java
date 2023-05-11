@@ -21,12 +21,10 @@ import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManage
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecretConfig;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.util.List;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.NodeConfig;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.security.AuthenticationConfig;
-import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -38,10 +36,8 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
-        builder.authenticationConfig(new AuthenticationConfig(
-                true,
-                List.of(new BasicAuthenticationProviderConfig("basic", "usr", "pwd")))
-        );
+        String clusterConfig = TestConfigManagerHelper.readClusterConfigurationWithEnabledAuth();
+        builder.clusterConfiguration(clusterConfig);
     }
 
     @Test

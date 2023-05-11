@@ -24,4 +24,10 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(PlacementDriverMessageGroup.STOP_LEASE_PROLONGATION)
 public interface StopLeaseProlongationMessage extends PlacementDriverActorMessage {
+    /**
+     * Gets a consistent id for proposed node which is match to primary criteria.
+     *
+     * @return Consistent id.
+     */
+    String redirectProposal();
 }

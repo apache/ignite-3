@@ -42,8 +42,8 @@ public class IgnitePrograms {
      */
     public static Program hep(RuleSet rules) {
         return (planner, rel, traits, materializations, lattices) -> {
-            final HepProgramBuilder builder = new HepProgramBuilder();
-            final List<RelOptRule> ruleList = new ArrayList<>();
+            HepProgramBuilder builder = new HepProgramBuilder();
+            List<RelOptRule> ruleList = new ArrayList<>();
 
             for (RelOptRule rule : rules) {
                 ruleList.add(rule);
@@ -51,7 +51,7 @@ public class IgnitePrograms {
 
             builder.addRuleCollection(ruleList);
 
-            final HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
+            HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
                     null, Commons.context(rel).config().getCostFactory());
 
             hepPlanner.setExecutor(planner.getExecutor());
