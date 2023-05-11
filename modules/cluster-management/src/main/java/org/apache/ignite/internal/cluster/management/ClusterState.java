@@ -23,6 +23,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents the state of the CMG. It contains:
@@ -65,5 +66,6 @@ public interface ClusterState extends NetworkMessage, Serializable {
     /**
      * Returns a cluster configuration that should be applied.
      */
+    @Nullable
     String clusterConfigurationToApply();
 }
