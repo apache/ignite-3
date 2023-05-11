@@ -71,7 +71,7 @@ public interface GcIo {
      */
     default void store(long dstPageAddr, int dstIdx, BplusIo<GcRowVersion> srcIo, long srcPageAddr, int srcIdx) {
         int dstOffset = offset(dstIdx);
-        int srcOffset = offset(srcIdx);
+        int srcOffset = srcIo.offset(srcIdx);
 
         PageUtils.copyMemory(srcPageAddr, srcOffset, dstPageAddr, dstOffset, SIZE_IN_BYTES);
     }

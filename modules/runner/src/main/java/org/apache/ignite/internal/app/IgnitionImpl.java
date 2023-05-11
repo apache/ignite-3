@@ -143,7 +143,7 @@ public class IgnitionImpl implements Ignition {
             node.init(parameters.metaStorageNodeNames(),
                     parameters.cmgNodeNames(),
                     parameters.clusterName(),
-                    parameters.restAuthenticationConfig()
+                    parameters.clusterConfiguration()
             );
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);

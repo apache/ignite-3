@@ -30,6 +30,7 @@ jetbrainsAnnotations = "20.1.0"
 jline = "3.21.0"
 jmh = "1.35"
 junit5 = "5.9.1"
+junitPioneer = "2.0.1"
 jsr305 = "3.0.2"
 okhttp = "4.9.1"
 gson = "2.8.9"
@@ -59,7 +60,6 @@ avatica = "1.23.0"
 jsonpath = "2.4.0"
 classgraph = "4.8.110"
 javassist = "3.28.0-GA"
-checker = "3.10.0"
 rocksdb = "7.9.2"
 disruptor = "3.3.7"
 metrics = "4.0.2"
@@ -121,6 +121,9 @@ junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "ju
 junit5-impl = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
 junit5-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit5" }
 junit-testkit = { module = "org.junit.platform:junit-platform-testkit", version.ref = "testkit" }
+
+#junit-pioneer
+junit-pioneer = { module = "org.junit-pioneer:junit-pioneer", version.ref = "junitPioneer" }
 
 #Micronaut
 micronaut-inject = { module = "io.micronaut:micronaut-inject", version.ref = "micronaut" }
@@ -231,8 +234,6 @@ janino-core = { module = "org.codehaus.janino:janino", version.ref = "janino" }
 janino-compiler = { module = "org.codehaus.janino:commons-compiler", version.ref = "janino" }
 
 javassist = { module = "org.javassist:javassist", version.ref = "javassist" }
-
-checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checker" }
 
 auto-service = { module = "com.google.auto.service:auto-service", version.ref = "autoService" }
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "autoService" }

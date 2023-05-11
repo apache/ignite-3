@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         topology.putNode(NODE_1);
         topology.putNode(NODE_2);
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L));
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L), HybridTimestamp.MIN_VALUE);
 
         distributionZoneManager.start();
 
@@ -65,7 +66,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L));
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L), HybridTimestamp.MIN_VALUE);
 
         distributionZoneManager.start();
 
@@ -76,7 +77,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerGreaterThanCmgTopVer() throws Exception {
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L));
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L), HybridTimestamp.MIN_VALUE);
 
         distributionZoneManager.start();
 
@@ -111,7 +112,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         // Wait for Zone Manager to initialize Meta Storage on start.
         assertLogicalTopologyVersion(1L, keyValueStorage);
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L));
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L), HybridTimestamp.MIN_VALUE);
 
         topology.putNode(NODE_2);
 
@@ -158,7 +159,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         // Wait for Zone Manager to initialize Meta Storage on start.
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L));
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(4L), HybridTimestamp.MIN_VALUE);
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -202,7 +203,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         clusterStateStorage.put(LOGICAL_TOPOLOGY_KEY, ByteUtils.toBytes(new LogicalTopologySnapshot(10L, clusterNodes2)));
 
-        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(11L));
+        keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(11L), HybridTimestamp.MIN_VALUE);
 
         topology.fireTopologyLeap();
 

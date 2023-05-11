@@ -36,13 +36,27 @@ dependencies {
 
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration:'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
 
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-network')))
-    testImplementation(testFixtures(project(':ignite-configuration:')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-network'))
+    testImplementation testFixtures(project(':ignite-configuration:'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
+
+    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
+    testFixturesImplementation project(':ignite-network-api')
+    testFixturesImplementation project(':ignite-raft')
+    testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-cluster-management')
 }
 
 description = 'ignite-replicator'

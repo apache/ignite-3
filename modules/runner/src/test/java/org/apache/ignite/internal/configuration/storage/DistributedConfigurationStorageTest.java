@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
@@ -86,7 +87,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             Collection<Operation> success = invocation.getArgument(1);
             Collection<Operation> failure = invocation.getArgument(2);
 
-            boolean invokeResult = metaStorage.invoke(toServerCondition(condition), success, failure);
+            boolean invokeResult = metaStorage.invoke(toServerCondition(condition), success, failure, HybridTimestamp.MIN_VALUE);
 
             return CompletableFuture.completedFuture(invokeResult);
         });

@@ -30,6 +30,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +60,7 @@ public class StorageUpdateHandler {
     private final DataStorageConfiguration dsCfg;
 
     /** Partition safe time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
 
     /** Low watermark. */
     private final LowWatermark lowWatermark;
@@ -79,7 +79,7 @@ public class StorageUpdateHandler {
             PartitionDataStorage storage,
             TableIndexStoragesSupplier indexes,
             DataStorageConfiguration dsCfg,
-            PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             LowWatermark lowWatermark
     ) {
         this.partitionId = partitionId;
@@ -422,7 +422,7 @@ public class StorageUpdateHandler {
     /**
      * Returns the partition safe time tracker.
      */
-    public PendingComparableValuesTracker<HybridTimestamp> getSafeTimeTracker() {
+    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
         return safeTimeTracker;
     }
 }

@@ -33,7 +33,6 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -66,8 +65,6 @@ public class MockNode {
 
     private final ClusterManagementConfiguration cmgConfiguration;
 
-    private final SecurityConfiguration securityConfiguration;
-
     private final NodeAttributesConfiguration nodeAttributes;
 
     private final List<IgniteComponent> components = new ArrayList<>();
@@ -84,7 +81,6 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
-            SecurityConfiguration securityConfiguration,
             NodeAttributesConfiguration nodeAttributes
     ) {
         this.testInfo = testInfo;
@@ -92,7 +88,6 @@ public class MockNode {
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
-        this.securityConfiguration = securityConfiguration;
         this.nodeAttributes = nodeAttributes;
 
         try {
@@ -116,7 +111,6 @@ public class MockNode {
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
