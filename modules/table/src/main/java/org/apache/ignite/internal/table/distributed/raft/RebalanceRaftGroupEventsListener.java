@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.utils.RebalanceUtil.intersect;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 
@@ -347,12 +347,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             // For further addition
             Set<Assignment> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
             calculatedSwitchAppend = subtract(calculatedSwitchAppend, addedNodes);
-            calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
+            calculatedSwitchAppend = CollectionUtils.intersect(calculatedAssignments, calculatedSwitchAppend);
 
             Set<Assignment> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
 
             Set<Assignment> calculatedPendingAddition = union(stable, reducedNodes);
-            calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
+            calculatedPendingAddition = CollectionUtils.intersect(calculatedAssignments, calculatedPendingAddition);
 
             // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
             SimpleCondition con1 = stableEntry.empty()

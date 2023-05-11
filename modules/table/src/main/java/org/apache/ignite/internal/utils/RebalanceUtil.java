@@ -34,7 +34,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
 
@@ -468,7 +468,7 @@ public class RebalanceUtil {
      * @return Result of the subtraction.
      */
     public static <T> Set<T> subtract(Set<T> minuend, Set<T> subtrahend) {
-        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toSet());
+        return CollectionUtils.difference(minuend, subtrahend);
     }
 
     /**
@@ -484,16 +484,5 @@ public class RebalanceUtil {
         res.addAll(op2);
 
         return res;
-    }
-
-    /**
-     * Returns an intersection of two set of nodes.
-     *
-     * @param op1 First operand.
-     * @param op2 Second operand.
-     * @return Result of the intersection.
-     */
-    public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
-        return op1.stream().filter(op2::contains).collect(Collectors.toSet());
     }
 }

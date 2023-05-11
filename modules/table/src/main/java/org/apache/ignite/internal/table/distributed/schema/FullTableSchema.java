@@ -20,9 +20,10 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,8 +105,8 @@ public class FullTableSchema {
         Map<String, TableColumnDescriptor> thisColumnsByName = this.columns.stream()
                 .collect(toMap(TableColumnDescriptor::name, identity()));
 
-        Set<String> addedColumnNames = subtract(thisColumnsByName.keySet(), prevColumnsByName.keySet());
-        Set<String> removedColumnNames = subtract(prevColumnsByName.keySet(), thisColumnsByName.keySet());
+        Set<String> addedColumnNames = difference(thisColumnsByName.keySet(), prevColumnsByName.keySet());
+        Set<String> removedColumnNames = difference(prevColumnsByName.keySet(), thisColumnsByName.keySet());
 
         List<TableColumnDescriptor> addedColumns = thisColumnsByName.values().stream()
                 .filter(col -> addedColumnNames.contains(col.name()))
@@ -130,8 +131,8 @@ public class FullTableSchema {
         Map<String, IndexDescriptor> thisIndexesByName = this.indexes.stream()
                 .collect(toMap(IndexDescriptor::name, identity()));
 
-        Set<String> addedIndexNames = subtract(thisIndexesByName.keySet(), prevIndexesByName.keySet());
-        Set<String> removedIndexNames = subtract(prevIndexesByName.keySet(), thisIndexesByName.keySet());
+        Set<String> addedIndexNames = difference(thisIndexesByName.keySet(), prevIndexesByName.keySet());
+        Set<String> removedIndexNames = difference(prevIndexesByName.keySet(), thisIndexesByName.keySet());
 
         List<IndexDescriptor> addedIndexes = thisIndexesByName.values().stream()
                 .filter(col -> addedIndexNames.contains(col.name()))
@@ -141,18 +142,6 @@ public class FullTableSchema {
                 .collect(toList());
 
         return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns, addedIndexes, removedIndexes);
-    }
-
-    private static Set<String> subtract(Set<String> minuend, Set<String> subtrahend) {
-        Set<String> result = new HashSet<>(minuend);
-        result.removeAll(subtrahend);
-        return result;
-    }
-
-    private static Set<String> intersect(Set<String> set1, Set<String> set2) {
-        Set<String> result = new HashSet<>(set1);
-        result.retainAll(set2);
-        return result;
     }
 
     private static boolean columnChanged(TableColumnDescriptor prevColumn, TableColumnDescriptor newColumn) {
