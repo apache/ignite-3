@@ -39,13 +39,15 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
 
         resetOutput();
 
+        String clusterConfigurationFile = ItClusterInitTest.class.getClassLoader()
+                .getResource("cluster-configuration-with-enabled-auth.conf")
+                .getPath();
+
         execute(
                 "cluster", "init",
                 "--meta-storage-node", CLUSTER_NODE_NAMES.get(0),
                 "--cluster-name", "cluster",
-                "--auth-enabled",
-                "--basic-auth-username", "admin",
-                "--basic-auth-password", "password"
+                "--cluster-config-file", clusterConfigurationFile
         );
 
         assertAll(

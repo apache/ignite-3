@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Read-write replica request.
  */
-public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware {
+public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     UUID transactionId();
 
     /**

@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-schema')
+    implementation project(':ignite-affinity')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core
@@ -51,11 +52,13 @@ dependencies {
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-metastorage')
     testImplementation project(':ignite-runner')
+
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-cluster-management')))
     testImplementation(testFixtures(project(':ignite-vault')))
+    testImplementation(testFixtures(project(':ignite-storage-page-memory')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
 
     testFixturesImplementation libs.jetbrains.annotations

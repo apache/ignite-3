@@ -60,9 +60,9 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -101,16 +101,17 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
 
-    List<String> placementDriverNodeNames;
-    List<String> nodeNames;
+    private List<String> placementDriverNodeNames;
 
-    List<Closeable> servicesToClose;
+    private List<String> nodeNames;
+
+    private List<Closeable> servicesToClose;
 
     /** The manager is used to read a data from Meta storage in the tests. */
-    MetaStorageManagerImpl metaStorageManager;
+    private MetaStorageManagerImpl metaStorageManager;
 
     /** Cluster service by node name. */
-    Map<String, ClusterService> clusterServices;
+    private Map<String, ClusterService> clusterServices;
 
     private TestInfo testInfo;
 
@@ -126,21 +127,27 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         this.testInfo = testInfo;
 
-        Map<String, ClusterService> services = startNodes();
-
-        this.clusterServices = services;
+        this.clusterServices = startNodes();
 
         List<LogicalTopologyServiceTestImpl> logicalTopManagers = new ArrayList<>();
 
-        servicesToClose = startPlacementDriver(services, logicalTopManagers);
+        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers);
 
         for (String nodeName : nodeNames) {
             if (!placementDriverNodeNames.contains(nodeName)) {
-                var service = services.get(nodeName);
+                var service = clusterServices.get(nodeName);
 
                 service.start();
 
-                servicesToClose.add(() -> service.stop());
+                servicesToClose.add(() -> {
+                    try {
+                        service.beforeNodeStop();
+
+                        service.stop();
+                    } catch (Exception e) {
+                        log.info("Fail to stop services [node={}]", e, nodeName);
+                    }
+                });
             }
         }
 
@@ -310,7 +317,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                             clusterService.stop();
                             vaultManager.stop();
                         } catch (Exception e) {
-                            log.info("Fail to stop services.");
+                            log.info("Fail to stop services [node={}]", e, nodeName);
                         }
                     }
             );

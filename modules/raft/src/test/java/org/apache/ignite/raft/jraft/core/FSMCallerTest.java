@@ -77,7 +77,8 @@ public class FSMCallerTest {
 
     private ExecutorService executor;
 
-    private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
+            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
     @BeforeEach
     public void setup() {
