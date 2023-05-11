@@ -93,7 +93,7 @@ public class FullTableSchema {
     }
 
     /**
-     * Computes a diff of this schema from a previous schema.
+     * Computes a diff between this and a previous schema.
      *
      * @param prevSchema Previous table schema.
      * @return Difference between the schemas.
