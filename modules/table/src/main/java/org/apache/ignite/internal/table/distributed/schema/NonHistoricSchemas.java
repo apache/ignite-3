@@ -27,12 +27,10 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.sql.ColumnType;
 
 /**
  * A dummy implementation over {@link SchemaManager}. It is dummy because:
@@ -87,13 +85,9 @@ public class NonHistoricSchemas implements Schemas {
     private static TableColumnDescriptor columnType(String colName, Column column) {
         return new TableColumnDescriptor(
                 colName,
-                columnTypeFromNativeType(column.type()),
+                NativeTypeSpec.getColumnType(column.type().spec()),
                 column.nullable(),
                 DefaultValue.constant(column.defaultValue())
         );
-    }
-
-    private static ColumnType columnTypeFromNativeType(NativeType type) {
-        return NativeTypeSpec.getColumnType(type.spec());
     }
 }
