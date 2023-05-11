@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface SnapshotRequestMessage extends NetworkMessage {
     /** Snapshot id. */
+    // TODO: IGNITE-19457 Maybe not nullable.
     @Nullable
     UUID id();
 }

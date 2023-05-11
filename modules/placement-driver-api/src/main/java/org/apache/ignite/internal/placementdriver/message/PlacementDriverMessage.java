@@ -31,6 +31,7 @@ public interface PlacementDriverMessage extends NetworkMessage {
      *
      * @return Replication group id.
      */
+    // TODO: IGNITE-19457 Maybe not nullable.
     @Nullable
     @Marshallable
     ReplicationGroupId groupId();

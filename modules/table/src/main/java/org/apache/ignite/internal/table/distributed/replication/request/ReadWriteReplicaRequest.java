@@ -36,6 +36,7 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
      *
      * @return Raft term.
      */
+    // TODO: IGNITE-19457 Maybe not nullable.
     @Deprecated
     @Nullable
     @Marshallable

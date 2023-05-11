@@ -33,6 +33,7 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
      *
      * @return Table partition id.
      */
+    // TODO: IGNITE-19457 Maybe not nullable.
     @Nullable
     @Marshallable
     TablePartitionId commitPartitionId();
