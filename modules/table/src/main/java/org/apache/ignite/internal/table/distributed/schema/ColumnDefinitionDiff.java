@@ -24,14 +24,14 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
  */
 public class ColumnDefinitionDiff {
     @SuppressWarnings("PMD.UnusedPrivateField")
-    private final TableColumnDescriptor prevColumn;
+    private final TableColumnDescriptor oldColumn;
     @SuppressWarnings("PMD.UnusedPrivateField")
-    private final TableColumnDescriptor nextColumn;
+    private final TableColumnDescriptor newColumn;
 
     // TODO: IGNITE-19229 - extend
 
-    public ColumnDefinitionDiff(TableColumnDescriptor prevColumn, TableColumnDescriptor nextColumn) {
-        this.prevColumn = prevColumn;
-        this.nextColumn = nextColumn;
+    public ColumnDefinitionDiff(TableColumnDescriptor oldColumn, TableColumnDescriptor newColumn) {
+        this.oldColumn = oldColumn;
+        this.newColumn = newColumn;
     }
 }
