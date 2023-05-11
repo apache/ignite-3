@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.tests;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
@@ -40,8 +41,10 @@ public class NullabilityFieldsTest {
 
     @Test
     public void testNotNullArbitraryFieldBuild() {
-        // Build with value.
-        factory.notNullArbitraryFieldMessage().value(UUID.randomUUID()).build();
+        assertDoesNotThrow(() -> {
+            // Build with value.
+            factory.notNullArbitraryFieldMessage().value(UUID.randomUUID()).build();
+        });
     }
 
     @Test
@@ -54,17 +57,23 @@ public class NullabilityFieldsTest {
 
     @Test
     public void testNotNullMarshallableFieldBuild() {
-        // Build with value.
-        factory.notNullMarshallableFieldMessage().value(new Object()).build();
+        assertDoesNotThrow(() -> {
+            // Build with value.
+            factory.notNullMarshallableFieldMessage().value(new Object()).build();
 
-        // Build with byte array representation of a value.
-        factory.notNullMarshallableFieldMessage().valueByteArray(new byte[0]).build();
+            // Build with byte array representation of a value.
+            factory.notNullMarshallableFieldMessage().valueByteArray(new byte[0]).build();
+        });
     }
 
     @Test
     public void testNotNullNetworkMessageFieldBuild() {
-        // Build with value.
-        factory.notNullNetworkMessageFieldMessage().value(factory.notNullArbitraryFieldMessage().value(UUID.randomUUID()).build()).build();
+        assertDoesNotThrow(() -> {
+            // Build with value.
+            factory.notNullNetworkMessageFieldMessage().value(
+                    factory.notNullArbitraryFieldMessage().value(UUID.randomUUID()).build()
+            ).build();
+        });
     }
 
     @Test
@@ -79,31 +88,41 @@ public class NullabilityFieldsTest {
 
     @Test
     public void testNotNullArrayFieldBuild() {
-        // Build with value.
-        factory.notNullArrayFieldMessage().value(new int[0]).build();
+        assertDoesNotThrow(() -> {
+            // Build with value.
+            factory.notNullArrayFieldMessage().value(new int[0]).build();
+        });
     }
 
     @Test
     public void testNullableArbitraryFieldWithNull() {
-        factory.nullableArbitraryFieldMessage().value(null).build();
-        factory.nullableArbitraryFieldMessage().build();
+        assertDoesNotThrow(() -> {
+            factory.nullableArbitraryFieldMessage().value(null).build();
+            factory.nullableArbitraryFieldMessage().build();
+        });
     }
 
     @Test
     public void testNullableMarshallableFieldWithNull() {
-        factory.nullableMarshallableFieldMessage().value(null).build();
-        factory.nullableMarshallableFieldMessage().build();
+        assertDoesNotThrow(() -> {
+            factory.nullableMarshallableFieldMessage().value(null).build();
+            factory.nullableMarshallableFieldMessage().build();
+        });
     }
 
     @Test
     public void testNullableNetworkMessageFieldWithNull() {
-        factory.nullableNetworkMessageFieldMessage().value(null).build();
-        factory.nullableNetworkMessageFieldMessage().build();
+        assertDoesNotThrow(() -> {
+            factory.nullableNetworkMessageFieldMessage().value(null).build();
+            factory.nullableNetworkMessageFieldMessage().build();
+        });
     }
 
     @Test
     public void testNullableArrayFieldWithNull() {
-        factory.nullableArrayFieldMessage().value(null).build();
-        factory.nullableArrayFieldMessage().build();
+        assertDoesNotThrow(() -> {
+            factory.nullableArrayFieldMessage().value(null).build();
+            factory.nullableArrayFieldMessage().build();
+        });
     }
 }
