@@ -176,7 +176,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
     private static final String CONSTRUCT_MTD_NAME = "construct";
 
-    /** Mapping for each configuration schema node to its {@link FieldDefinition}. */
+    /** Mapping for each configuration {@link Field} to a static constant with this {@link Field} as value. */
     private final Map<Field, FieldDefinition> fieldToFieldDefinitionMap = new HashMap<>();
 
     static {
