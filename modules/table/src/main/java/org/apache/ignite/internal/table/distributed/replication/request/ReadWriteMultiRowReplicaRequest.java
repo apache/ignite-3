@@ -21,6 +21,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write multi-row replica request.
@@ -32,6 +33,8 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
      *
      * @return Table partition id.
      */
+    // TODO: IGNITE-19457 Maybe not nullable.
+    @Nullable
     @Marshallable
     TablePartitionId commitPartitionId();
 }

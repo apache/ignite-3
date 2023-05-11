@@ -57,6 +57,7 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-replicator'
