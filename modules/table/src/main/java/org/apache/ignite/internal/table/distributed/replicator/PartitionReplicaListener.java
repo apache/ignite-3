@@ -185,8 +185,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Placement Driver. */
     private final PlacementDriver placementDriver;
 
-    private final Schemas schemas;
-
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
 
@@ -306,7 +304,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.placementDriver = placementDriver;
         this.isLocalPeerChecker = isLocalPeerChecker;
         this.storageUpdateHandler = storageUpdateHandler;
-        this.schemas = schemas;
         this.schemaFut = schemaFut;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
