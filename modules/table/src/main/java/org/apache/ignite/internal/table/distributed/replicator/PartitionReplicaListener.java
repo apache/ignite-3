@@ -2234,7 +2234,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction ID.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, ByteBuffer rowBuf, UUID txId) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
