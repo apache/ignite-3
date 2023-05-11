@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.cli.core.repl.completer.cluster;
 
 import jakarta.inject.Singleton;
-import java.net.URL;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
@@ -38,10 +37,7 @@ public class ClusterUrlDynamicCompleterFactory implements DynamicCompleterFactor
 
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
-        Set<String> urls = nodeNameRegistry.urls()
-                .stream()
-                .map(URL::toString)
-                .collect(Collectors.toSet());
+        Set<String> urls = new HashSet<>(nodeNameRegistry.urls());
         return new StringDynamicCompleter(urls);
     }
 }

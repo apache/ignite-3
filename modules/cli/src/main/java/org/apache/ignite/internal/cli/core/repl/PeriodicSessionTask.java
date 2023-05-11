@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.registry;
+package org.apache.ignite.internal.cli.core.repl;
 
-import java.util.Optional;
-import java.util.Set;
+/** Task which will be executed periodically while {@link Session} is connected. */
+public interface PeriodicSessionTask {
 
-/** Node name registry. */
-public interface NodeNameRegistry {
+    /** This method is called periodically. */
+    void update(SessionInfo sessionInfo);
 
-    /** Returns a node url by a provided node name. */
-    Optional<String> nodeUrlByName(String nodeName);
-
-    /** Returns set of node names. */
-    Set<String> names();
-
-    /** Returns set of node urls. */
-    Set<String> urls();
-
+    /** This method is called when the session is disconnected. */
+    void onDisconnect();
 }
