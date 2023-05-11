@@ -253,13 +253,6 @@ public class ReplicaManager implements IgniteComponent {
             CompletableFuture<Replica> replicaFut = replicas.get(msg.groupId());
 
             if (replicaFut == null) {
-                LeaseGrantedMessageResponse errorResponse = Replica.PLACEMENT_DRIVER_MESSAGES_FACTORY
-                        .leaseGrantedMessageResponse()
-                        .error("No replica")
-                        .build();
-
-                clusterNetSvc.messagingService().respond(senderConsistentId, errorResponse, correlationId);
-
                 return;
             }
 

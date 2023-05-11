@@ -91,10 +91,6 @@ public class LeaseNegotiator {
 
                     LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
 
-                    if (response.error() != null) {
-                        LOG.warn("Placement driver received error message from replica: " + response.error());
-                    }
-
                     fut.complete(response);
 
                     triggerToRenewLeases();
