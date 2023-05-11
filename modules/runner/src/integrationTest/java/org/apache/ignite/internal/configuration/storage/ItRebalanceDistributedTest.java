@@ -584,8 +584,6 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
         private List<IgniteComponent> nodeComponents;
 
         private final ConfigurationTreeGenerator generator;
@@ -634,8 +632,6 @@ public class ItRebalanceDistributedTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -643,7 +639,6 @@ public class ItRebalanceDistributedTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
                     nodeAttributes
             );
 
@@ -827,8 +822,7 @@ public class ItRebalanceDistributedTest {
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager,
-                    distributedConfigurationUpdater
+                    tableManager
             );
 
             nodeComponents.forEach(IgniteComponent::start);

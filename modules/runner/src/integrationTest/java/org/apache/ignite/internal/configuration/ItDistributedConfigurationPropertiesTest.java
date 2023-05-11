@@ -113,8 +113,6 @@ public class ItDistributedConfigurationPropertiesTest {
 
         private final ConfigurationManager distributedCfgManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
 
@@ -142,8 +140,6 @@ public class ItDistributedConfigurationPropertiesTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -151,7 +147,6 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
                     nodeAttributes
             );
 
@@ -207,7 +202,7 @@ public class ItDistributedConfigurationPropertiesTest {
         void start() {
             vaultManager.start();
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager, distributedConfigurationUpdater)
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
             // deploy watches to propagate data from the metastore into the vault
@@ -230,8 +225,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     metaStorageManager,
                     raftManager,
                     clusterService,
-                    vaultManager,
-                    distributedConfigurationUpdater
+                    vaultManager
             );
 
             for (IgniteComponent igniteComponent : components) {

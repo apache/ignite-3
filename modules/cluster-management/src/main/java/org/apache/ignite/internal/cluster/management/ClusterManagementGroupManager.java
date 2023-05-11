@@ -107,6 +107,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     private final CompletableFuture<Void> joinFuture = new CompletableFuture<>();
 
+    private final CompletableFuture<UpdateDistributedConfigurationAction> updateDistributedConfigurationActionFuture =
+            new CompletableFuture<>();
+
     /** Message factory. */
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -130,8 +133,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
 
-    private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
     /** Node's attributes configuration. */
     private final NodeAttributesConfiguration nodeAttributes;
 
@@ -143,7 +144,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            DistributedConfigurationUpdater distributedConfigurationUpdater,
             NodeAttributesConfiguration nodeAttributes
     ) {
         this.clusterService = clusterService;
@@ -151,8 +151,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;
         this.configuration = configuration;
-        this.distributedConfigurationUpdater = distributedConfigurationUpdater;
-
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
         this.nodeAttributes = nodeAttributes;
@@ -389,25 +387,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().thenCompose(this::pushClusterConfigToCluster);
-    }
-
-    private CompletableFuture<Void> pushClusterConfigToCluster(CmgRaftService service) {
-        return service.readClusterState()
-                .thenCompose(state -> {
-                    if (state == null) {
-                        LOG.info("No CMG state found in the Raft service");
-                        return completedFuture(null);
-                    } else if (state.clusterConfigurationToApply() == null) {
-                        // Config was applied or wasn't provided
-                        LOG.info("No cluster configuration found in the Raft service");
-                        return completedFuture(null);
-                    } else {
-                        LOG.info("Cluster configuration is found in the Raft service, going to apply it");
-                        return distributedConfigurationUpdater.updateConfiguration(state.clusterConfigurationToApply())
-                                .thenCompose(unused -> removeClusterConfigFromClusterState(service));
-                    }
-                });
+        raftServiceAfterJoin().thenAccept(service -> {
+            service.readClusterState()
+                    .thenAccept(state -> {
+                        updateDistributedConfigurationActionFuture.complete(
+                                new UpdateDistributedConfigurationAction(
+                                        state.clusterConfigurationToApply(),
+                                        removeClusterConfigFromClusterState(service)
+                                )
+                        );
+                    });
+        });
     }
 
     private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
@@ -826,6 +816,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    public CompletableFuture<UpdateDistributedConfigurationAction> clusterConfigurationToUpdate() {
+        return updateDistributedConfigurationActionFuture;
     }
 
     /**

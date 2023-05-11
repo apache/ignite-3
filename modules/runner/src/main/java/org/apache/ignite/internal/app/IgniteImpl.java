@@ -44,7 +44,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -63,6 +62,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
@@ -363,8 +363,6 @@ public class IgniteImpl implements Ignite {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
@@ -372,7 +370,6 @@ public class IgniteImpl implements Ignite {
                 clusterStateStorage,
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
-                distributedConfigurationUpdater,
                 nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY)
         );
 
@@ -404,6 +401,9 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
+
+
+        distributedConfigurationUpdater = new DistributedConfigurationUpdater(cmgMgr, clusterCfgMgr);
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
@@ -727,8 +727,11 @@ public class IgniteImpl implements Ignite {
                                 }, startupExecutor);
                     }, startupExecutor)
                     .thenRunAsync(() -> {
-                        HoconPresentation presentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
-                        distributedConfigurationUpdater.setDistributedConfigurationPresentation(presentation);
+                        try {
+                            lifecycleManager.startComponent(distributedConfigurationUpdater);
+                        } catch (NodeStoppingException e) {
+                            throw new CompletionException(e);
+                        }
                     }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
                     .thenComposeAsync(v -> {

@@ -293,8 +293,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -302,7 +300,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                distributedConfigurationUpdater,
                 nodeAttributes
         );
 
@@ -452,7 +449,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
-                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,

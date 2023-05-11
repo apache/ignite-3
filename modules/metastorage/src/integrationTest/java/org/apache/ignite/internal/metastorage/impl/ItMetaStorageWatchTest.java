@@ -91,8 +91,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
         Node(ClusterService clusterService, Path dataPath) {
             var vaultManager = new VaultManager(new InMemoryVaultService());
 
@@ -120,10 +118,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
-            components.add(distributedConfigurationUpdater);
-
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -131,7 +125,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater,
                     nodeAttributes
             );
 
