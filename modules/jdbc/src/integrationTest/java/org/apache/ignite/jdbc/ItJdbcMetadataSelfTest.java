@@ -127,8 +127,24 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals("java.lang.Integer", meta.getColumnClassName(2));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19462")
     @Test
-    public void testDecimalAndDateTypeMetaData() throws Exception {
+    public void testDatabaseMetaDataColumns() throws Exception {
+        createMetaTable();
+
+        try {
+            DatabaseMetaData dbMeta = conn.getMetaData();
+
+            ResultSet columns = dbMeta.getColumns(null, "PUBLIC", "METATEST", null);
+
+            checkMeta(columns.getMetaData());
+        } finally {
+            stmt.execute("DROP TABLE METATEST;");
+        }
+    }
+
+    @Test
+    public void testResultSetMetaDataColumns() throws Exception {
         createMetaTable();
 
         try {
@@ -138,32 +154,35 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             ResultSetMetaData meta = rs.getMetaData();
 
-            assertNotNull(meta);
-
-            assertEquals(14, meta.getColumnCount());
-
-            assertEquals("METATEST", meta.getTableName(1).toUpperCase());
-
-            int i = 1;
-            checkMeta(meta, i++, "TINYINT_COL", Types.TINYINT, "TINYINT", Byte.class);
-            checkMeta(meta, i++, "SMALLINT_COL", Types.SMALLINT, "SMALLINT", Short.class);
-            checkMeta(meta, i++, "INTEGER_COL", Types.INTEGER, "INTEGER", Integer.class);
-            checkMeta(meta, i++, "BIGINT_COL", Types.BIGINT, "BIGINT", Long.class);
-            checkMeta(meta, i++, "REAL_COL", Types.REAL, "REAL", Float.class);
-            checkMeta(meta, i++, "DOUBLE_COL", Types.DOUBLE, "DOUBLE", Double.class);
-            checkMeta(meta, i++, "DECIMAL_COL", Types.DECIMAL, "DECIMAL", BigDecimal.class);
-            checkMeta(meta, i++, "DATE_COL", DATE, "DATE", java.sql.Date.class);
-            checkMeta(meta, i++, "TIME_COL", Types.TIME, "TIME", java.sql.Time.class);
-            checkMeta(meta, i++, "TIMESTAMP_COL", Types.TIMESTAMP, "TIMESTAMP", java.sql.Timestamp.class);
-            checkMeta(meta, i++, "UUID_COL", Types.OTHER, "UUID", UUID.class);
-            checkMeta(meta, i++, "VARCHAR_COL", Types.VARCHAR, "VARCHAR", String.class);
-            checkMeta(meta, i++, "VARBINARY_COL", Types.VARBINARY, "VARBINARY", byte[].class);
-
-            assertEquals(i, meta.getColumnCount(), "There are not checked columns");
-
+            checkMeta(meta);
         } finally {
             stmt.execute("DROP TABLE METATEST;");
         }
+    }
+
+    private void checkMeta(ResultSetMetaData meta) throws SQLException {
+        assertNotNull(meta);
+
+        assertEquals(14, meta.getColumnCount());
+
+        assertEquals("METATEST", meta.getTableName(1).toUpperCase());
+
+        int i = 1;
+        checkMeta(meta, i++, "TINYINT_COL", Types.TINYINT, "TINYINT", Byte.class);
+        checkMeta(meta, i++, "SMALLINT_COL", Types.SMALLINT, "SMALLINT", Short.class);
+        checkMeta(meta, i++, "INTEGER_COL", Types.INTEGER, "INTEGER", Integer.class);
+        checkMeta(meta, i++, "BIGINT_COL", Types.BIGINT, "BIGINT", Long.class);
+        checkMeta(meta, i++, "REAL_COL", Types.REAL, "REAL", Float.class);
+        checkMeta(meta, i++, "DOUBLE_COL", Types.DOUBLE, "DOUBLE", Double.class);
+        checkMeta(meta, i++, "DECIMAL_COL", Types.DECIMAL, "DECIMAL", BigDecimal.class);
+        checkMeta(meta, i++, "DATE_COL", DATE, "DATE", java.sql.Date.class);
+        checkMeta(meta, i++, "TIME_COL", Types.TIME, "TIME", java.sql.Time.class);
+        checkMeta(meta, i++, "TIMESTAMP_COL", Types.TIMESTAMP, "TIMESTAMP", java.sql.Timestamp.class);
+        checkMeta(meta, i++, "UUID_COL", Types.OTHER, "UUID", UUID.class);
+        checkMeta(meta, i++, "VARCHAR_COL", Types.VARCHAR, "VARCHAR", String.class);
+        checkMeta(meta, i++, "VARBINARY_COL", Types.VARBINARY, "VARBINARY", byte[].class);
+
+        assertEquals(i, meta.getColumnCount(), "There are not checked columns");
     }
 
     private void checkMeta(ResultSetMetaData meta, int idx, String columnName, int expectedType, String expectedTypeName, Class expectedClass)
@@ -174,6 +193,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(expectedTypeName, meta.getColumnTypeName(idx));
         assertEquals(expectedClass.getName(), meta.getColumnClassName(idx));
     }
+
     private void createMetaTable() {
         try (Connection conn = DriverManager.getConnection(URL);
                 Statement stmt = conn.createStatement();

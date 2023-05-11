@@ -640,14 +640,11 @@ public final class Commons {
         switch (type.spec()) {
             case DATE:
                 return java.sql.Date.class;
-
             case TIME:
                 return java.sql.Time.class;
-
             case DATETIME:
             case TIMESTAMP:
                 return java.sql.Timestamp.class;
-
             default:
                 return nativeTypeToClass(type);
         }

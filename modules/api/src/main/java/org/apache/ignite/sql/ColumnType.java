@@ -166,7 +166,7 @@ public enum ColumnType {
     }
 
     /**
-     * Column type to Java class for JDBC..
+     * Column type to Java class for JDBC.
      */
     public static Class<?> columnTypeToJdbcClass(ColumnType type) {
         assert type != null;
@@ -174,10 +174,8 @@ public enum ColumnType {
         switch (type) {
             case DATE:
                 return java.sql.Date.class;
-
             case TIME:
                 return java.sql.Time.class;
-
             case DATETIME:
             case TIMESTAMP:
                 return java.sql.Timestamp.class;
