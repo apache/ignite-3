@@ -185,13 +185,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(i, meta.getColumnCount(), "There are not checked columns");
     }
 
-    private void checkMeta(ResultSetMetaData meta, int idx, String columnName, int expectedType, String expectedTypeName, Class expectedClass)
+    private void checkMeta(ResultSetMetaData meta, int idx, String columnName, int expType, String expTypeName, Class expClass)
             throws SQLException {
         assertEquals(columnName, meta.getColumnName(idx).toUpperCase());
         assertEquals(columnName, meta.getColumnLabel(idx).toUpperCase());
-        assertEquals(expectedType, meta.getColumnType(idx));
-        assertEquals(expectedTypeName, meta.getColumnTypeName(idx));
-        assertEquals(expectedClass.getName(), meta.getColumnClassName(idx));
+        assertEquals(expType, meta.getColumnType(idx));
+        assertEquals(expTypeName, meta.getColumnTypeName(idx));
+        assertEquals(expClass.getName(), meta.getColumnClassName(idx));
     }
 
     private void createMetaTable() {
@@ -202,13 +202,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             // Add columns with All supported types.
             EnumSet<ColumnType> excludeTypes = EnumSet
-                    .of(ColumnType.TIMESTAMP, ColumnType.BOOLEAN, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION, ColumnType.PERIOD, ColumnType.NULL);
+                    .of(ColumnType.TIMESTAMP, ColumnType.BOOLEAN, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION,
+                            ColumnType.PERIOD, ColumnType.NULL);
             Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
                     .forEach(t -> {
-                                String type = SqlTestUtils.toSqlType(t);
-                                joiner.add(type + "_COL " + type);
-                            }
-                    );
+                        String type = SqlTestUtils.toSqlType(t);
+                        joiner.add(type + "_COL " + type);
+                    });
             joiner.add("id INT PRIMARY KEY");
 
             stmt.executeUpdate("CREATE TABLE metatest(" + joiner + ")");
