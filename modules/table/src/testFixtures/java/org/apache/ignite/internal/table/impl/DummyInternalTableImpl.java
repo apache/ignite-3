@@ -312,11 +312,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     }
 
                     @Override
-                    public FullTableSchema readyTableSchema(UUID tableId, HybridTimestamp ts) {
-                        throw new UnsupportedOperationException("Not yet");
-                    }
-
-                    @Override
                     public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding,
                             HybridTimestamp toIncluding) {
                         return List.of(new FullTableSchema(1, 1, List.of(), List.of()));

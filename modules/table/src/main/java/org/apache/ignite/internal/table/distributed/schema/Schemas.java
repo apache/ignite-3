@@ -36,8 +36,6 @@ public interface Schemas {
      */
     CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts);
 
-    FullTableSchema readyTableSchema(UUID tableId, HybridTimestamp ts);
-
     /**
      * Returns all schema versions between (including) the two that were effective at the given timestamps.
      *

@@ -49,15 +49,6 @@ public class DummySchemas implements Schemas {
     }
 
     @Override
-    public FullTableSchema readyTableSchema(UUID tableId, HybridTimestamp ts) {
-        throw new UnsupportedOperationException("Not implemented yet");
-//        return new FullTableSchema(1, 1, "dummy",
-//                List.of(new TableColumnDescriptor("dummy", ColumnType.INT32, false, DefaultValue.constant(null))),
-//                List.of()
-//        );
-    }
-
-    @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
 
