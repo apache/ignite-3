@@ -212,7 +212,7 @@ public class IgniteImpl implements Ignite {
     private final MetaStorageManager metaStorageMgr;
 
     // TODO: IGNITE-18990 Integrate PlacementDriverManager into IgniteImpl
-     /** Placement driver manager. */
+    /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
     /** Configuration manager that handles cluster (distributed) configuration. */
