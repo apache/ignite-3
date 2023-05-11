@@ -61,7 +61,7 @@ class SchemaCompatValidator {
             @Nullable HybridTimestamp commitTimestamp
     ) {
         if (!commit) {
-            return completedFuture(null);
+            return completedFuture(ForwardValidationResult.success());
         }
 
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);

@@ -96,6 +96,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.table.impl.DummySchemas;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -503,6 +504,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 txStateStorage,
                                                 placementDriver,
                                                 storageUpdateHandler,
+                                                new DummySchemas(schemaManager),
                                                 peer -> assignment.equals(peer.consistentId()),
                                                 completedFuture(schemaManager)
                                         ),

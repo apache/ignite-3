@@ -207,47 +207,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final SchemaCompatValidator schemaCompatValidator;
 
-    public PartitionReplicaListener(
-            MvPartitionStorage mvDataStorage,
-            RaftGroupService raftClient,
-            TxManager txManager,
-            LockManager lockManager,
-            Executor scanRequestExecutor,
-            int partId,
-            UUID tableId,
-            Supplier<Map<UUID, IndexLocker>> indexesLockers,
-            Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
-            HybridClock hybridClock,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime,
-            TxStateStorage txStateStorage,
-            PlacementDriver placementDriver,
-            StorageUpdateHandler storageUpdateHandler,
-            Function<Peer, Boolean> isLocalPeerChecker,
-            CompletableFuture<SchemaRegistry> schemaFut
-    ) {
-        this(
-                mvDataStorage,
-                raftClient,
-                txManager,
-                lockManager,
-                scanRequestExecutor,
-                partId,
-                tableId,
-                indexesLockers,
-                pkIndexStorage,
-                secondaryIndexStorages,
-                hybridClock,
-                safeTime,
-                txStateStorage,
-                placementDriver,
-                storageUpdateHandler,
-                null,
-                isLocalPeerChecker,
-                schemaFut
-        );
-    }
-
     /**
      * The constructor.
      *
