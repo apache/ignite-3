@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 
@@ -99,10 +100,8 @@ public class FullTableSchema {
      * @return Difference between the schemas.
      */
     public TableDefinitionDiff diffFrom(FullTableSchema prevSchema) {
-        Map<String, TableColumnDescriptor> prevColumnsByName = prevSchema.columns.stream()
-                .collect(toMap(TableColumnDescriptor::name, identity()));
-        Map<String, TableColumnDescriptor> thisColumnsByName = this.columns.stream()
-                .collect(toMap(TableColumnDescriptor::name, identity()));
+        Map<String, TableColumnDescriptor> prevColumnsByName = toMapByName(prevSchema.columns, TableColumnDescriptor::name);
+        Map<String, TableColumnDescriptor> thisColumnsByName = toMapByName(this.columns, TableColumnDescriptor::name);
 
         List<TableColumnDescriptor> addedColumns = subtractKeyed(thisColumnsByName, prevColumnsByName);
         List<TableColumnDescriptor> removedColumns = subtractKeyed(prevColumnsByName, thisColumnsByName);
@@ -118,15 +117,17 @@ public class FullTableSchema {
             }
         }
 
-        Map<String, IndexDescriptor> prevIndexesByName = prevSchema.indexes.stream()
-                .collect(toMap(IndexDescriptor::name, identity()));
-        Map<String, IndexDescriptor> thisIndexesByName = this.indexes.stream()
-                .collect(toMap(IndexDescriptor::name, identity()));
+        Map<String, IndexDescriptor> prevIndexesByName = toMapByName(prevSchema.indexes, IndexDescriptor::name);
+        Map<String, IndexDescriptor> thisIndexesByName = toMapByName(this.indexes, IndexDescriptor::name);
 
         List<IndexDescriptor> addedIndexes = subtractKeyed(thisIndexesByName, prevIndexesByName);
         List<IndexDescriptor> removedIndexes = subtractKeyed(prevIndexesByName, thisIndexesByName);
 
         return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns, addedIndexes, removedIndexes);
+    }
+
+    private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {
+        return elements.stream().collect(toMap(nameExtractor, identity()));
     }
 
     private static <T> List<T> subtractKeyed(Map<String, T> diminuend, Map<String, T> subtrahend) {
