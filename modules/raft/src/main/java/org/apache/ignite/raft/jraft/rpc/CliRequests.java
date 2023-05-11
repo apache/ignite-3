@@ -24,7 +24,8 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 public final class CliRequests {
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_REQUEST)

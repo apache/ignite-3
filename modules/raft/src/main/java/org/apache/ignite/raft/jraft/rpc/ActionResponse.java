@@ -19,7 +19,8 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The result of an action.

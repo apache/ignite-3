@@ -23,7 +23,8 @@ import java.util.Collection;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.rpc.Message;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.jetbrains.annotations.Nullable;
 
 public final class RaftOutter {
     @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.ENTRY_META)
