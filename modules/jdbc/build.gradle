@@ -40,6 +40,7 @@ dependencies {
 
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-core"))
+    integrationTestImplementation testFixtures(project(":ignite-runner"))
     integrationTestImplementation project(":ignite-runner")
     integrationTestImplementation project(":ignite-api")
 }

@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -38,12 +39,18 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.StringJoiner;
+import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.sql.util.SqlTestUtils;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -125,7 +132,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         createMetaTable();
 
         try {
-            ResultSet rs = stmt.executeQuery("SELECT t.DECIMAL_COL, t.DATE_COL FROM PUBLIC.METATEST t;");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM PUBLIC.METATEST t");
 
             assertNotNull(rs);
 
@@ -133,31 +140,58 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             assertNotNull(meta);
 
-            assertEquals(2, meta.getColumnCount());
+            assertEquals(14, meta.getColumnCount());
 
             assertEquals("METATEST", meta.getTableName(1).toUpperCase());
-            assertEquals("DECIMAL_COL", meta.getColumnName(1).toUpperCase());
-            assertEquals("DECIMAL_COL", meta.getColumnLabel(1).toUpperCase());
-            assertEquals(DECIMAL, meta.getColumnType(1));
-            assertEquals("DECIMAL", meta.getColumnTypeName(1));
-            assertEquals("java.math.BigDecimal", meta.getColumnClassName(1));
 
-            assertEquals("METATEST", meta.getTableName(2).toUpperCase());
-            assertEquals("DATE_COL", meta.getColumnName(2).toUpperCase());
-            assertEquals("DATE_COL", meta.getColumnLabel(2).toUpperCase());
-            assertEquals(DATE, meta.getColumnType(2));
-            assertEquals("DATE", meta.getColumnTypeName(2));
-            assertEquals("java.sql.Date", meta.getColumnClassName(2));
+            int i = 1;
+            checkMeta(meta, i++, "TINYINT_COL", Types.TINYINT, "TINYINT", Byte.class);
+            checkMeta(meta, i++, "SMALLINT_COL", Types.SMALLINT, "SMALLINT", Short.class);
+            checkMeta(meta, i++, "INTEGER_COL", Types.INTEGER, "INTEGER", Integer.class);
+            checkMeta(meta, i++, "BIGINT_COL", Types.BIGINT, "BIGINT", Long.class);
+            checkMeta(meta, i++, "REAL_COL", Types.REAL, "REAL", Float.class);
+            checkMeta(meta, i++, "DOUBLE_COL", Types.DOUBLE, "DOUBLE", Double.class);
+            checkMeta(meta, i++, "DECIMAL_COL", Types.DECIMAL, "DECIMAL", BigDecimal.class);
+            checkMeta(meta, i++, "DATE_COL", DATE, "DATE", java.sql.Date.class);
+            checkMeta(meta, i++, "TIME_COL", Types.TIME, "TIME", java.sql.Time.class);
+            checkMeta(meta, i++, "TIMESTAMP_COL", Types.TIMESTAMP, "TIMESTAMP", java.sql.Timestamp.class);
+            checkMeta(meta, i++, "UUID_COL", Types.OTHER, "UUID", UUID.class);
+            checkMeta(meta, i++, "VARCHAR_COL", Types.VARCHAR, "VARCHAR", String.class);
+            checkMeta(meta, i++, "VARBINARY_COL", Types.VARBINARY, "VARBINARY", byte[].class);
+
+            assertEquals(i, meta.getColumnCount(), "There are not checked columns");
+
         } finally {
             stmt.execute("DROP TABLE METATEST;");
         }
     }
 
+    private void checkMeta(ResultSetMetaData meta, int idx, String columnName, int expectedType, String expectedTypeName, Class expectedClass)
+            throws SQLException {
+        assertEquals(columnName, meta.getColumnName(idx).toUpperCase());
+        assertEquals(columnName, meta.getColumnLabel(idx).toUpperCase());
+        assertEquals(expectedType, meta.getColumnType(idx));
+        assertEquals(expectedTypeName, meta.getColumnTypeName(idx));
+        assertEquals(expectedClass.getName(), meta.getColumnClassName(idx));
+    }
     private void createMetaTable() {
         try (Connection conn = DriverManager.getConnection(URL);
                 Statement stmt = conn.createStatement();
         ) {
-            stmt.executeUpdate("CREATE TABLE metatest(decimal_col DECIMAL, date_col DATE, id INT PRIMARY KEY)");
+            StringJoiner joiner = new StringJoiner(",");
+
+            // Add columns with All supported types.
+            EnumSet<ColumnType> excludeTypes = EnumSet
+                    .of(ColumnType.TIMESTAMP, ColumnType.BOOLEAN, ColumnType.NUMBER, ColumnType.BITMASK, ColumnType.DURATION, ColumnType.PERIOD, ColumnType.NULL);
+            Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
+                    .forEach(t -> {
+                                String type = SqlTestUtils.toSqlType(t);
+                                joiner.add(type + "_COL " + type);
+                            }
+                    );
+            joiner.add("id INT PRIMARY KEY");
+
+            stmt.executeUpdate("CREATE TABLE metatest(" + joiner + ")");
         } catch (SQLException ex) {
             throw new RuntimeException(ex);
         }
