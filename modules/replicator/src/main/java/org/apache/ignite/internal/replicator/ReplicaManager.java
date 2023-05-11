@@ -37,6 +37,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -252,6 +253,13 @@ public class ReplicaManager implements IgniteComponent {
             CompletableFuture<Replica> replicaFut = replicas.get(msg.groupId());
 
             if (replicaFut == null) {
+                LeaseGrantedMessageResponse errorResponse = Replica.PLACEMENT_DRIVER_MESSAGES_FACTORY
+                        .leaseGrantedMessageResponse()
+                        .error("No replica")
+                        .build();
+
+                clusterNetSvc.messagingService().respond(senderConsistentId, errorResponse, correlationId);
+
                 return;
             }
 

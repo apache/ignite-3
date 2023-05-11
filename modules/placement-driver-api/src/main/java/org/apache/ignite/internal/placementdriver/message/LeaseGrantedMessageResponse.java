@@ -27,4 +27,6 @@ public interface LeaseGrantedMessageResponse extends PlacementDriverReplicaMessa
     boolean accepted();
 
     String redirectProposal();
+
+    String error();
 }

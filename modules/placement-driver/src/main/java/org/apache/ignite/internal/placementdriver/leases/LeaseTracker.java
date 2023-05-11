@@ -34,7 +34,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -90,7 +89,7 @@ public class LeaseTracker {
                 key = key.replace(PLACEMENTDRIVER_PREFIX, "");
 
                 TablePartitionId grpId = TablePartitionId.fromString(key);
-                Lease lease = ByteUtils.fromBytes(entry.value());
+                Lease lease = fromBytes(entry.value());
 
                 leases.put(grpId, lease);
             }

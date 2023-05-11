@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ByteArray.fromString;
@@ -484,7 +485,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             if (!lease.getLeaseholder().equals(leaseRenew.getLeaseholder())) {
                 leaseRenewRef.set(leaseRenew);
@@ -514,7 +515,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             if (lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0) {
                 leaseRenewRef.set(leaseRenew);
@@ -547,7 +548,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = ByteUtils.fromBytes(leaseEntry.value());
+                Lease lease = fromBytes(leaseEntry.value());
 
                 if (!waitAccept) {
                     leaseRef.set(lease);
