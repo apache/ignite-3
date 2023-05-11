@@ -353,7 +353,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                            zoneChange.changeDataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE);
                         } else {
                             zoneChange.changeDataNodesAutoAdjustScaleUp(
                                     distributionZoneCfg.dataNodesAutoAdjustScaleUp());
