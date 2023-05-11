@@ -2865,6 +2865,7 @@ public class RexImpTable {
             Expression operand = argValueList.get(1);
             final SqlTypeName sqlTypeName =
                     call.operands.get(1).getType().getSqlTypeName();
+            // todo: need to be implemented by https://issues.apache.org/jira/browse/CALCITE-5698
             boolean isIntervalType = SqlTypeUtil.isInterval(call.operands.get(1).getType());
             switch (unit) {
                 case MILLENNIUM:
