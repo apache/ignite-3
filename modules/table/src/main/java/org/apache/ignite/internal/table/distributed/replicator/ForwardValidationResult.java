@@ -66,7 +66,7 @@ public class ForwardValidationResult {
      *
      * @return Whether the validation was successful
      */
-    public boolean isOk() {
+    public boolean isSuccessful() {
         return ok;
     }
 

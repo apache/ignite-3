@@ -81,7 +81,7 @@ class SchemaCompatValidator {
                 .thenApply(ignored -> {
                     for (UUID tableId : tableIds) {
                         ForwardValidationResult validationResult = validateSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
-                        if (!validationResult.isOk()) {
+                        if (!validationResult.isSuccessful()) {
                             return validationResult;
                         }
                     }

@@ -989,11 +989,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commit(), request.commitTimestamp())
                 .thenCompose(validationResult -> {
-                    boolean stillCommit = request.commit() && validationResult.isOk();
+                    boolean stillCommit = request.commit() && validationResult.isSuccessful();
 
                     return finishAndCleanup(request, stillCommit, aggregatedGroupIds, txId)
                             .thenCompose(result -> {
-                                if (validationResult.isOk()) {
+                                if (validationResult.isSuccessful()) {
                                     return completedFuture(result);
                                 } else {
                                     return failedFuture(new IncompatibleSchemaAbortException("Commit failed because schema "
