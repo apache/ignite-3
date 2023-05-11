@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
 import java.util.ArrayList;
@@ -105,15 +104,8 @@ public class FullTableSchema {
         Map<String, TableColumnDescriptor> thisColumnsByName = this.columns.stream()
                 .collect(toMap(TableColumnDescriptor::name, identity()));
 
-        Set<String> addedColumnNames = difference(thisColumnsByName.keySet(), prevColumnsByName.keySet());
-        Set<String> removedColumnNames = difference(prevColumnsByName.keySet(), thisColumnsByName.keySet());
-
-        List<TableColumnDescriptor> addedColumns = thisColumnsByName.values().stream()
-                .filter(col -> addedColumnNames.contains(col.name()))
-                .collect(toList());
-        List<TableColumnDescriptor> removedColumns = prevColumnsByName.values().stream()
-                .filter(col -> removedColumnNames.contains(col.name()))
-                .collect(toList());
+        List<TableColumnDescriptor> addedColumns = subtractKeyed(thisColumnsByName, prevColumnsByName);
+        List<TableColumnDescriptor> removedColumns = subtractKeyed(prevColumnsByName, thisColumnsByName);
 
         Set<String> intersectionColumnNames = intersect(thisColumnsByName.keySet(), prevColumnsByName.keySet());
         List<ColumnDefinitionDiff> changedColumns = new ArrayList<>();
@@ -131,17 +123,17 @@ public class FullTableSchema {
         Map<String, IndexDescriptor> thisIndexesByName = this.indexes.stream()
                 .collect(toMap(IndexDescriptor::name, identity()));
 
-        Set<String> addedIndexNames = difference(thisIndexesByName.keySet(), prevIndexesByName.keySet());
-        Set<String> removedIndexNames = difference(prevIndexesByName.keySet(), thisIndexesByName.keySet());
-
-        List<IndexDescriptor> addedIndexes = thisIndexesByName.values().stream()
-                .filter(col -> addedIndexNames.contains(col.name()))
-                .collect(toList());
-        List<IndexDescriptor> removedIndexes = prevIndexesByName.values().stream()
-                .filter(col -> removedIndexNames.contains(col.name()))
-                .collect(toList());
+        List<IndexDescriptor> addedIndexes = subtractKeyed(thisIndexesByName, prevIndexesByName);
+        List<IndexDescriptor> removedIndexes = subtractKeyed(prevIndexesByName, thisIndexesByName);
 
         return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns, addedIndexes, removedIndexes);
+    }
+
+    private static <T> List<T> subtractKeyed(Map<String, T> diminuend, Map<String, T> subtrahend) {
+        return diminuend.keySet().stream()
+                .filter(name -> !subtrahend.containsKey(name))
+                .map(diminuend::get)
+                .collect(toList());
     }
 
     private static boolean columnChanged(TableColumnDescriptor prevColumn, TableColumnDescriptor newColumn) {
