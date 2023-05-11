@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -40,20 +41,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for RocksDB key-value storage implementation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
+public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTest {
     @WorkDirectory
     private Path workDir;
 
     /** {@inheritDoc} */
     @Override
-    KeyValueStorage storage() {
+    KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
     }
 
     @Test
     void testWatchReplayOnSnapshotLoad() throws Exception {
-        storage.put("foo".getBytes(UTF_8), "bar".getBytes(UTF_8));
-        storage.put("baz".getBytes(UTF_8), "quux".getBytes(UTF_8));
+        storage.put("foo".getBytes(UTF_8), "bar".getBytes(UTF_8), HybridTimestamp.MIN_VALUE);
+        storage.put("baz".getBytes(UTF_8), "quux".getBytes(UTF_8), HybridTimestamp.MIN_VALUE);
 
         long revisionBeforeSnapshot = storage.revision();
 
@@ -63,7 +64,7 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
 
         storage.close();
 
-        storage = storage();
+        storage = createStorage();
 
         storage.start();
 

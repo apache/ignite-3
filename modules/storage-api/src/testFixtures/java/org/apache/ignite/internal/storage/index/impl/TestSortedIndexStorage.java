@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import static java.util.Collections.emptyNavigableMap;
+import static java.util.Collections.emptyNavigableSet;
+import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.storage.RowId.highestRowId;
+import static org.apache.ignite.internal.storage.RowId.lowestRowId;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.Map.Entry;
-import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.concurrent.ConcurrentNavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -39,19 +39,16 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
-    private static final Object NULL = new Object();
+    private final int partitionId;
 
-    /**
-     * {@code NavigableMap<RowId, Object>} is used as a {@link NavigableSet}, but map was chosen because methods like
-     * {@link NavigableSet#first()} throw an {@link NoSuchElementException} if the set is empty.
-     */
-    private final ConcurrentNavigableMap<ByteBuffer, NavigableMap<RowId, Object>> index;
+    private final NavigableSet<IndexRow> index;
 
     private final SortedIndexDescriptor descriptor;
 
@@ -61,8 +58,14 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     public TestSortedIndexStorage(int partitionId, SortedIndexDescriptor descriptor) {
         super(partitionId);
 
+        BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor);
+
+        this.partitionId = partitionId;
         this.descriptor = descriptor;
-        this.index = new ConcurrentSkipListMap<>(new BinaryTupleComparator(descriptor));
+        this.index = new ConcurrentSkipListSet<>(
+                comparing((IndexRow indexRow) -> indexRow.indexColumns().byteBuffer(), binaryTupleComparator)
+                        .thenComparing(IndexRow::rowId)
+        );
     }
 
     @Override
@@ -72,31 +75,27 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
     @Override
     Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key) {
-        return index.getOrDefault(key.byteBuffer(), emptyNavigableMap()).keySet().iterator();
+        // These must be two different instances, because "scan" call messes up headers.
+        BinaryTuplePrefix lowerBound = BinaryTuplePrefix.fromBinaryTuple(key);
+        BinaryTuplePrefix higherBound = BinaryTuplePrefix.fromBinaryTuple(key);
+
+        PeekCursor<IndexRow> peekCursor = scan(lowerBound, higherBound, GREATER_OR_EQUAL | LESS_OR_EQUAL);
+
+        return new TransformingIterator<>(peekCursor, IndexRow::rowId);
     }
 
     @Override
     public void put(IndexRow row) {
         checkStorageClosed();
 
-        index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
-            NavigableMap<RowId, Object> rowIds = v == null ? new ConcurrentSkipListMap<>() : v;
-
-            rowIds.put(row.rowId(), NULL);
-
-            return rowIds;
-        });
+        index.add(row);
     }
 
     @Override
     public void remove(IndexRow row) {
         checkStorageClosedOrInProcessOfRebalance();
 
-        index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
-            v.remove(row.rowId());
-
-            return v.isEmpty() ? null : v;
-        });
+        index.remove(row);
     }
 
     @Override
@@ -118,23 +117,35 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
             setEqualityFlag(upperBound);
         }
 
-        NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> navigableMap;
+        NavigableSet<IndexRow> navigableSet;
 
         if (lowerBound == null && upperBound == null) {
-            navigableMap = index;
+            navigableSet = index;
         } else if (lowerBound == null) {
-            navigableMap = index.headMap(upperBound.byteBuffer());
+            navigableSet = index.headSet(prefixToIndexRow(upperBound, highestRowId(partitionId)), true);
         } else if (upperBound == null) {
-            navigableMap = index.tailMap(lowerBound.byteBuffer());
+            navigableSet = index.tailSet(prefixToIndexRow(lowerBound, lowestRowId(partitionId)), true);
         } else {
             try {
-                navigableMap = index.subMap(lowerBound.byteBuffer(), upperBound.byteBuffer());
+                navigableSet = index.subSet(
+                        prefixToIndexRow(lowerBound, lowestRowId(partitionId)),
+                        true,
+                        prefixToIndexRow(upperBound, highestRowId(partitionId)),
+                        true
+                );
             } catch (IllegalArgumentException e) {
-                navigableMap = emptyNavigableMap();
+                // Upper bound is below the lower bound.
+                navigableSet = emptyNavigableSet();
             }
         }
 
-        return new ScanCursor(navigableMap);
+        return new ScanCursor(navigableSet);
+    }
+
+    private IndexRowImpl prefixToIndexRow(BinaryTuplePrefix prefix, RowId rowId) {
+        var binaryTuple = new BinaryTuple(descriptor.binaryTupleSchema(), prefix.byteBuffer());
+
+        return new IndexRowImpl(binaryTuple, rowId);
     }
 
     private static void setEqualityFlag(BinaryTuplePrefix prefix) {
@@ -150,20 +161,22 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         index.clear();
     }
 
+    private static final IndexRow NO_PEEKED_ROW = new IndexRowImpl(null, null);
+
     private class ScanCursor implements PeekCursor<IndexRow> {
-        private final NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> indexMap;
+        private final NavigableSet<IndexRow> indexSet;
 
         @Nullable
         private Boolean hasNext;
 
         @Nullable
-        private Entry<ByteBuffer, NavigableMap<RowId, Object>> currentEntry;
+        private IndexRow currentRow;
 
         @Nullable
-        private RowId rowId;
+        private IndexRow peekedRow = NO_PEEKED_ROW;
 
-        private ScanCursor(NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> indexMap) {
-            this.indexMap = indexMap;
+        private ScanCursor(NavigableSet<IndexRow> indexSet) {
+            this.indexSet = indexSet;
         }
 
         @Override
@@ -175,26 +188,26 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         public boolean hasNext() {
             checkStorageClosedOrInProcessOfRebalance();
 
-            advanceIfNeeded();
+            if (hasNext != null) {
+                return hasNext;
+            }
 
+            currentRow = peekedRow == NO_PEEKED_ROW ? peek() : peekedRow;
+            peekedRow = NO_PEEKED_ROW;
+
+            hasNext = currentRow != null;
             return hasNext;
         }
 
         @Override
         public IndexRow next() {
-            checkStorageClosedOrInProcessOfRebalance();
-
-            advanceIfNeeded();
-
-            boolean hasNext = this.hasNext;
-
-            if (!hasNext) {
+            if (!hasNext()) {
                 throw new NoSuchElementException();
             }
 
             this.hasNext = null;
 
-            return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
+            return currentRow;
         }
 
         @Override
@@ -202,78 +215,20 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
             checkStorageClosedOrInProcessOfRebalance();
 
             if (hasNext != null) {
-                if (hasNext) {
-                    return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
-                }
-
-                return null;
+                return currentRow;
             }
 
-            Entry<ByteBuffer, NavigableMap<RowId, Object>> indexMapEntry0 = currentEntry == null ? indexMap.firstEntry() : currentEntry;
-
-            RowId nextRowId = null;
-
-            if (rowId == null) {
-                if (indexMapEntry0 != null) {
-                    nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
+            if (currentRow == null) {
+                try {
+                    peekedRow = indexSet.first();
+                } catch (NoSuchElementException e) {
+                    peekedRow = null;
                 }
             } else {
-                Entry<RowId, Object> nextRowIdEntry = indexMapEntry0.getValue().higherEntry(rowId);
-
-                if (nextRowIdEntry != null) {
-                    nextRowId = nextRowIdEntry.getKey();
-                } else {
-                    indexMapEntry0 = indexMap.higherEntry(indexMapEntry0.getKey());
-
-                    if (indexMapEntry0 != null) {
-                        nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
-                    }
-                }
+                peekedRow = indexSet.higher(this.currentRow);
             }
 
-            return nextRowId == null
-                    ? null : new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry0.getKey()), nextRowId);
-        }
-
-        private void advanceIfNeeded() {
-            if (hasNext != null) {
-                return;
-            }
-
-            if (currentEntry == null) {
-                currentEntry = indexMap.firstEntry();
-            }
-
-            if (rowId == null) {
-                if (currentEntry != null) {
-                    rowId = getRowId(currentEntry.getValue().firstEntry());
-                }
-            } else {
-                Entry<RowId, Object> nextRowIdEntry = currentEntry.getValue().higherEntry(rowId);
-
-                if (nextRowIdEntry != null) {
-                    rowId = nextRowIdEntry.getKey();
-                } else {
-                    Entry<ByteBuffer, NavigableMap<RowId, Object>> nextIndexMapEntry = indexMap.higherEntry(currentEntry.getKey());
-
-                    if (nextIndexMapEntry == null) {
-                        hasNext = false;
-
-                        return;
-                    } else {
-                        currentEntry = nextIndexMapEntry;
-
-                        rowId = getRowId(currentEntry.getValue().firstEntry());
-                    }
-                }
-            }
-
-            hasNext = rowId != null;
-        }
-
-        @Nullable
-        private RowId getRowId(@Nullable Entry<RowId, ?> rowIdEntry) {
-            return rowIdEntry == null ? null : rowIdEntry.getKey();
+            return peekedRow;
         }
     }
 
@@ -281,6 +236,6 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
      * Returns all indexed row ids.
      */
     public Set<RowId> allRowsIds() {
-        return index.values().stream().flatMap(m -> m.keySet().stream()).collect(Collectors.toSet());
+        return index.stream().map(IndexRow::rowId).collect(Collectors.toSet());
     }
 }

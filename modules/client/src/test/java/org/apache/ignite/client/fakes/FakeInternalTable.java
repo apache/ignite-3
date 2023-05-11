@@ -469,12 +469,12 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public @Nullable PendingComparableValuesTracker<HybridTimestamp> getPartitionSafeTimeTracker(int partitionId) {
+    public @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId) {
         return null;
     }
 
     @Override
-    public @Nullable PendingComparableValuesTracker<Long> getPartitionStorageIndexTracker(int partitionId) {
+    public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return null;
     }
 }

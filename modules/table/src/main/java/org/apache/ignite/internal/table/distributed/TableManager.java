@@ -24,10 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -38,7 +35,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNum
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -76,7 +72,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -88,7 +83,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -116,6 +110,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -148,7 +143,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -313,9 +307,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
-    /** Meta storage listener for changes in the distribution zones data nodes. */
-    private final WatchListener distributionZonesDataNodesListener;
-
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
 
@@ -430,8 +421,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
 
-        distributionZonesDataNodesListener = createDistributionZonesDataNodesListener();
-
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
 
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -448,11 +437,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc.start();
 
         lowWatermark.start();
-
-        distributionZonesConfiguration.distributionZones().any().replicas().listen(this::onUpdateReplicas);
-
-        // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-        metaStorageMgr.registerExactWatch(zoneDataNodesKey(), distributionZonesDataNodesListener);
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -594,63 +578,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Listener of replicas configuration changes.
-     *
-     * @param replicasCtx Replicas configuration event context.
-     * @return A future, which will be completed, when event processed by listener.
-     */
-    private CompletableFuture<?> onUpdateReplicas(ConfigurationNotificationEvent<Integer> replicasCtx) {
-        if (!busyLock.enterBusy()) {
-            return completedFuture(new NodeStoppingException());
-        }
-
-        try {
-            if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
-                DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
-
-                List<TableConfiguration> tblsCfg = new ArrayList<>();
-
-                tablesCfg.tables().value().namedListKeys().forEach(tblName -> {
-                    if (tablesCfg.tables().get(tblName).zoneId().value().equals(zoneCfg.zoneId())) {
-                        tblsCfg.add(tablesCfg.tables().get(tblName));
-                    }
-                });
-
-                CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
-
-                int furCur = 0;
-
-                for (TableConfiguration tblCfg : tblsCfg) {
-
-                    LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                            tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
-
-                    int partCnt = zoneCfg.partitions();
-
-                    int newReplicas = replicasCtx.newValue();
-
-                    byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
-
-                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
-
-                    for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
-
-                        futs[furCur++] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
-                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
-                                replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
-                    }
-                }
-                return allOf(futs);
-            } else {
-                return completedFuture(null);
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Listener of assignment configuration changes.
      *
      * @param assignmentsCtx Assignment configuration context.
@@ -736,8 +663,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
-                var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-                var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
+                        new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+                PendingComparableValuesTracker<Long, Void>  storageIndexTracker =
+                        new PendingComparableValuesTracker<>(0L);
 
                 ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
@@ -1007,8 +936,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         busyLock.block();
-
-        metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
@@ -1976,85 +1903,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates meta storage listener for distribution zones data nodes updates.
-     *
-     * @return The watch listener.
-     */
-    private WatchListener createDistributionZonesDataNodesListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    byte[] dataNodesBytes = evt.entryEvent().newEntry().value();
-
-                    if (dataNodesBytes == null) {
-                        //The zone was removed so data nodes was removed too.
-                        return completedFuture(null);
-                    }
-
-                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
-
-                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
-
-                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
-
-                    for (int i = 0; i < tables.value().size(); i++) {
-                        TableView tableView = tables.value().get(i);
-
-                        int tableZoneId = tableView.zoneId();
-
-                        DistributionZoneConfiguration distributionZoneConfiguration =
-                                getZoneById(distributionZonesConfiguration, tableZoneId);
-
-                        if (zoneId == tableZoneId) {
-                            TableConfiguration tableCfg = tables.get(tableView.name());
-
-                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
-
-                            List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
-
-                            for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
-
-                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
-
-                                int replicas = distributionZoneConfiguration.replicas().value();
-
-                                int partId = part;
-
-                                updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, dataNodes, replicas,
-                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part, tableAssignments.get(part)
-                                ).exceptionally(e -> {
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
-                                            partId
-                                    );
-
-                                    return null;
-                                });
-                            }
-                        }
-                    }
-
-                    return completedFuture(null);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
-            }
-        };
-    }
-
-    /**
      * Creates meta storage listener for pending assignments updates.
      *
      * @return The watch listener.
@@ -2156,8 +2004,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-        var safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-        var storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
         InternalTable internalTable = tbl.internalTable();
 
@@ -2539,7 +2388,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         closeTracker(internalTable.getPartitionStorageIndexTracker(partitionId));
     }
 
-    private static void closeTracker(@Nullable PendingComparableValuesTracker<?> tracker) {
+    private static void closeTracker(@Nullable PendingComparableValuesTracker<?, Void> tracker) {
         if (tracker != null) {
             tracker.close();
         }
