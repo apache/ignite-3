@@ -36,6 +36,19 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 
+/**
+ * A dummy implementation over {@link SchemaManager}. It is dummy because:
+ *
+ * <ul>
+ *     <li>It imitates historicity, but always takes the latest known schema</li>
+ *     <li>{@link #tableSchemaVersionsBetween(UUID, HybridTimestamp, HybridTimestamp)} always returns a single schema to avoid
+ *     validation failures</li>
+ * </ul>
+ *
+ * <p>The point of this implementation is to allow the system work in the pre-SchemaSync fashion before the switch to CatalogService
+ * is possible.
+ */
+// TODO: IGNITE-19447 - remove when switched to the CatalogService
 public class DummySchemas implements Schemas {
     private final SchemaManager schemaManager;
 
