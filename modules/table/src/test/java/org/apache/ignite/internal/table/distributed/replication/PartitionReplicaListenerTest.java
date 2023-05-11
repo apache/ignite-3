@@ -109,7 +109,7 @@ import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.AbortDueToIncompatibleSchemaException;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
@@ -1273,8 +1273,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = beginAndCommitTx();
 
-        AbortDueToIncompatibleSchemaException ex = assertWillThrowFast(future,
-                AbortDueToIncompatibleSchemaException.class);
+        IncompatibleSchemaAbortException ex = assertWillThrowFast(future,
+                IncompatibleSchemaAbortException.class);
         assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
         assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
 

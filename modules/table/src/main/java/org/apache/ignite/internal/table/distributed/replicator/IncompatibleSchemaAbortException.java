@@ -24,8 +24,8 @@ import org.apache.ignite.tx.TransactionException;
  * Thrown when, during an attempt to commit a transaction, it turns out that the transaction cannot be committed
  * because an incompatible schema change has happened.
  */
-public class AbortDueToIncompatibleSchemaException extends TransactionException {
-    public AbortDueToIncompatibleSchemaException(String message) {
+public class IncompatibleSchemaAbortException extends TransactionException {
+    public IncompatibleSchemaAbortException(String message) {
         super(Transactions.TX_COMMIT_ERR, message);
     }
 }

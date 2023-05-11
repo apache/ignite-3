@@ -996,7 +996,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 if (validationResult.isOk()) {
                                     return completedFuture(result);
                                 } else {
-                                    return failedFuture(new AbortDueToIncompatibleSchemaException("Commit failed because schema "
+                                    return failedFuture(new IncompatibleSchemaAbortException("Commit failed because schema "
                                             + validationResult.fromSchemaVersion() + " is not forward-compatible with "
                                             + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId()));
                                 }
