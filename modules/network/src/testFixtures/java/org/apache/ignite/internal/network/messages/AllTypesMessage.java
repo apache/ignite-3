@@ -51,21 +51,21 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
 
     boolean booleanH();
 
-    byte[] byteArrI();
+    byte @Nullable [] byteArrI();
 
-    short[] shortArrJ();
+    short @Nullable [] shortArrJ();
 
-    int[] intArrK();
+    int @Nullable [] intArrK();
 
-    long[] longArrL();
+    long @Nullable [] longArrL();
 
-    float[] floatArrM();
+    float @Nullable [] floatArrM();
 
-    double[] doubleArrN();
+    double @Nullable [] doubleArrN();
 
-    char[] charArrO();
+    char @Nullable [] charArrO();
 
-    boolean[] booleanArrP();
+    boolean @Nullable [] booleanArrP();
 
     @Nullable
     String strQ();
