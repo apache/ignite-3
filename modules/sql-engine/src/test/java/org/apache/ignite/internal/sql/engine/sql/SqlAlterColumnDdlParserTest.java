@@ -23,10 +23,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
-import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.pretty.SqlFormatOptions;
@@ -64,50 +62,40 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     }
 
     private void validateDataType(String querySuffix, boolean notNull, @Nullable String dflt, @Nullable String typeName) {
-        IgniteSqlAlterTableAlterColumn alterColumn = parseAlterColumn(querySuffix);
+        IgniteSqlAlterColumn node = parseAlterColumn(querySuffix);
+
+        assertThat(node, instanceOf(IgniteSqlAlterColumnType.class));
+
+        IgniteSqlAlterColumnType alterColumn = (IgniteSqlAlterColumnType) node;
 
         assertNotNull(alterColumn.dataType());
-
         assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo(typeName));
         assertThat(alterColumn.dataType().getNullable(), is(!notNull));
 
-        if (dflt != null) {
-            assertThat(alterColumn.strategy(), equalTo(ColumnStrategy.DEFAULT));
+        if (dflt == null) {
+            assertNull(alterColumn.defaultExpression());
+        } else {
             assertThat(alterColumn.defaultExpression(), instanceOf(SqlLiteral.class));
             assertThat(((SqlLiteral) alterColumn.defaultExpression()).toValue(), equalTo(dflt));
-        } else if (notNull) {
-            assertThat(alterColumn.strategy(), equalTo(ColumnStrategy.NOT_NULLABLE));
-        } else {
-            assertThat(alterColumn.strategy(), equalTo(ColumnStrategy.NULLABLE));
         }
     }
 
     private void validateNotNull(String querySuffix, boolean notNull) {
-        IgniteSqlAlterTableAlterColumn alterColumn = parseAlterColumn(querySuffix);
+        IgniteSqlAlterColumn node = parseAlterColumn(querySuffix);
 
-        assertNull(alterColumn.dataType());
-        assertNull(alterColumn.defaultExpression());
-        assertNotNull(alterColumn.strategy());
+        assertThat(node, instanceOf(IgniteSqlAlterColumnNotNull.class));
 
-        switch (alterColumn.strategy()) {
-            case NULLABLE:
-                assertThat(notNull, is(false));
-                break;
+        IgniteSqlAlterColumnNotNull alterColumn = (IgniteSqlAlterColumnNotNull) node;
 
-            case NOT_NULLABLE:
-                assertThat(notNull, is(true));
-                break;
-
-            default:
-                fail("Unexpected strategy: "+ alterColumn.strategy());
-        }
+        assertThat(alterColumn.notNull(), is(notNull));
     }
 
     private void validateDefault(String querySuffix, @Nullable String defaultValue) {
-        IgniteSqlAlterTableAlterColumn alterColumn = parseAlterColumn(querySuffix);
+        IgniteSqlAlterColumn alter = parseAlterColumn(querySuffix);
 
-        assertNull(alterColumn.dataType());
-        assertThat(alterColumn.strategy(), equalTo(ColumnStrategy.DEFAULT));
+        assertThat(alter, instanceOf(IgniteSqlAlterColumnDefault.class));
+
+        IgniteSqlAlterColumnDefault alterColumn = (IgniteSqlAlterColumnDefault) alter;
 
         if (defaultValue == null) {
             assertNull(alterColumn.defaultExpression());
@@ -117,13 +105,13 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         }
     }
 
-    private IgniteSqlAlterTableAlterColumn parseAlterColumn(String querySuffix) {
+    private IgniteSqlAlterColumn parseAlterColumn(String querySuffix) {
         String query = QUERY_PREFIX + querySuffix;
 
         SqlNode node = parse(query);
-        assertThat(node, instanceOf(IgniteSqlAlterTableAlterColumn.class));
+        assertThat(node, instanceOf(IgniteSqlAlterColumn.class));
 
-        IgniteSqlAlterTableAlterColumn alterColumn = (IgniteSqlAlterTableAlterColumn) node;
+        IgniteSqlAlterColumn alterColumn = (IgniteSqlAlterColumn) node;
 
         assertThat(alterColumn.name().names, is(List.of(TABLE_NAME)));
         assertThat(alterColumn.columnName().getSimple(), equalTo(COLUMN_NAME));
