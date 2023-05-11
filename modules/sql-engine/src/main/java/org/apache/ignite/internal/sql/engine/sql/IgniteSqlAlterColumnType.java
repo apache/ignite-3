@@ -67,7 +67,7 @@ public class IgniteSqlAlterColumnType extends IgniteSqlAlterColumn {
      *
      * @return Column DEFAULT expression.
      */
-    public @Nullable SqlNode defaultExpression() {
+    public @Nullable SqlNode expression() {
         return column.expression;
     }
 

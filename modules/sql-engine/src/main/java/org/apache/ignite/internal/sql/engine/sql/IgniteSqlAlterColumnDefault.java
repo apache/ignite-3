@@ -59,7 +59,7 @@ public class IgniteSqlAlterColumnDefault extends IgniteSqlAlterColumn {
      *
      * @return DEFAULT expression or {@code null} if the DEFAULT needs to be dropped.
      */
-    public @Nullable SqlNode defaultExpression() {
+    public @Nullable SqlNode expression() {
         return dflt;
     }
 
