@@ -82,6 +82,12 @@ public class NonHistoricSchemas implements Schemas {
         return List.of(fullSchema);
     }
 
+    /**
+     * Converts a {@link Column} to a {@link TableColumnDescriptor}.
+     *
+     * @param column Column to convert.
+     * @return Conversion result.
+     */
     public static TableColumnDescriptor columnDescriptor(Column column) {
         return new TableColumnDescriptor(
                 column.name(),
