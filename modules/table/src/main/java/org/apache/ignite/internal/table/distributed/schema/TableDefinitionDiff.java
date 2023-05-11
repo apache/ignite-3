@@ -59,11 +59,46 @@ public class TableDefinitionDiff {
             List<IndexDescriptor> addedIndexes,
             List<IndexDescriptor> removedIndexes
     ) {
-        this.addedColumns = addedColumns;
-        this.removedColumns = removedColumns;
-        this.changedColumns = changedColumns;
-        this.addedIndexes = addedIndexes;
-        this.removedIndexes = removedIndexes;
+        this.addedColumns = List.copyOf(addedColumns);
+        this.removedColumns = List.copyOf(removedColumns);
+        this.changedColumns = List.copyOf(changedColumns);
+        this.addedIndexes = List.copyOf(addedIndexes);
+        this.removedIndexes = List.copyOf(removedIndexes);
+    }
+
+    /**
+     * Returns columns that were added.
+     */
+    public List<TableColumnDescriptor> addedColumns() {
+        return addedColumns;
+    }
+
+    /**
+     * Returns columns that were removed.
+     */
+    public List<TableColumnDescriptor> removedColumns() {
+        return removedColumns;
+    }
+
+    /**
+     * Returns columns that were changed.
+     */
+    public List<ColumnDefinitionDiff> changedColumns() {
+        return changedColumns;
+    }
+
+    /**
+     * Returns indexes that were added.
+     */
+    public List<IndexDescriptor> addedIndexes() {
+        return addedIndexes;
+    }
+
+    /**
+     * Returns indexes that were removed.
+     */
+    public List<IndexDescriptor> removedIndexes() {
+        return removedIndexes;
     }
 
     /**
