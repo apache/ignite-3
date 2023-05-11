@@ -44,7 +44,7 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP NOT NULL} statement.
      *
-     * <p>The parser is expected to produce an node of {@link IgniteSqlAlterColumnNotNull} class with the specified table name and the
+     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnNotNull} class with the specified table name and the
      * column name.
      * For the {@code SET NOT NULL} statement, {@link IgniteSqlAlterColumnNotNull#notNull()} must return {@code true}.
      * For the {@code DROP NOT NULL} statement, {@link IgniteSqlAlterColumnNotNull#notNull()} must return {@code false}.
@@ -58,9 +58,9 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
-     * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP DEFAULT [EXPR]} statement.
+     * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP DEFAULT} statement.
      *
-     * <p>The parser is expected to produce an node of {@link IgniteSqlAlterColumnDefault} class with the specified table name and the
+     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnDefault} class with the specified table name and the
      * column name.
      * For {@code SET DEFAULT 'EXPRESSION'}, {@link IgniteSqlAlterColumnDefault#expression()} must return expected default expression.
      * For {@code DROP DEFAULT}, {@link IgniteSqlAlterColumnDefault#expression()} must return {@code null}.
@@ -77,9 +77,9 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
-     * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP DEFAULT [EXPR]} statement.
+     * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
      *
-     * <p>The parser is expected to produce an node of {@link IgniteSqlAlterColumnType} class with the specified {@link
+     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnType} class with the specified {@link
      * IgniteSqlAlterColumnType#name() table name}, {@link IgniteSqlAlterColumnType#columnName() column name}, column {@link
      * IgniteSqlAlterColumnType#dataType() data type} and an optional {@link IgniteSqlAlterColumnType#expression() default expression}.
      */
