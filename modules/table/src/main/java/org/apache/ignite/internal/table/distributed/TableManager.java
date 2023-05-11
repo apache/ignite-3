@@ -1282,6 +1282,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
 
+            String localNode = clusterService.topologyService().localMember().name();
+
+            LOG.info("qqq dropping table id=" + tblId + " on node " + localNode + " replicas count=" + replicaMgr.startedGroups().size());
+            replicaMgr.startedGroups().forEach(id -> LOG.info("qqq1 tblId=" + tblId + ", node=" + localNode + ", groupId=" + id));
+
             for (int p = 0; p < partitions; p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(tblId, p);
 
@@ -1291,6 +1296,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
             }
+
+            LOG.info("qqq replicas left count=" + replicaMgr.startedGroups().size() + " id=" + tblId + " on node " + localNode);
+            replicaMgr.startedGroups().forEach(id -> LOG.info("qqq2 tblId=" + tblId + ", node=" + localNode + ", groupId=" + id));
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
