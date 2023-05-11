@@ -409,9 +409,9 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         setLogicalTopologyInMetaStorage(nodes0, 1);
 
-        CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 1);
+        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.topologyVersionedDataNodes(DEFAULT_ZONE_ID, 1);
 
-        assertEquals(nodes0, dataNodesFut.get(3, SECONDS));
+        assertEquals(nodes0, dataNodesFut0.get(3, SECONDS));
 
         Set<String> nodes1 = Set.of("node0", "node2");
 
@@ -429,25 +429,22 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
             byte[] scaleUpKey = zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID).bytes();
             byte[] scaleDownKey = zoneScaleDownChangeTriggerKey(DEFAULT_ZONE_ID).bytes();
 
-            if (iif.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(scaleUpKey, op.key()))) {
+            if (iif.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(scaleUpKey, op.key()))
+                    && scaleUpCount.getAndIncrement() == 0) {
+                distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleUp(1000).build())
+                        .get(3, SECONDS);
 
-                if (scaleUpCount.getAndIncrement() == 0) {
-                    distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new Builder(DEFAULT_ZONE_NAME)
-                                    .dataNodesAutoAdjustScaleUp(1000).build())
-                            .get(3, SECONDS);
-
-                    scaleUpLatch.await(5, SECONDS);
-                }
+                scaleUpLatch.await(5, SECONDS);
             }
 
-            if (iif.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(scaleDownKey, op.key()))) {
-                if (scaleDownCount.getAndIncrement() == 0) {
-                    distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new Builder(DEFAULT_ZONE_NAME)
-                                    .dataNodesAutoAdjustScaleDown(1000).build())
-                            .get(3, SECONDS);
+            if (iif.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(scaleDownKey, op.key()))
+                    && scaleDownCount.getAndIncrement() == 0) {
+                distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new Builder(DEFAULT_ZONE_NAME)
+                                .dataNodesAutoAdjustScaleDown(1000).build())
+                        .get(3, SECONDS);
 
-                    scaleDownLatch.await(5, SECONDS);
-                }
+                scaleDownLatch.await(5, SECONDS);
             }
 
             return invocation.callRealMethod();
