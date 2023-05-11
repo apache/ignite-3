@@ -418,7 +418,7 @@ SqlNode AlterColumnWithType() :
 {
     id = SimpleIdentifier()
     (
-        <DATA> <TYPE> {
+        <SET> <DATA> <TYPE> {
             return ColumnDataType(id);
         }
     |

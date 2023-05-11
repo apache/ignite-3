@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.schema.ColumnStrategy;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
@@ -47,42 +48,98 @@ public class IgniteSqlAlterTableAlterColumn extends IgniteAbstractSqlAlterTable 
         return ImmutableNullableList.of(name, column);
     }
 
+    public SqlIdentifier columnName() {
+        return column.name;
+    }
+
+    public @Nullable SqlNode defaultExpression() {
+        return column.expression;
+    }
+
+    public @Nullable SqlDataTypeSpec dataType() {
+        return column.dataType;
+    }
+
+    public ColumnStrategy strategy() {
+        return column.strategy;
+    }
+
+    public boolean addNotNull() {
+        return column.dataType == null
+                && column.strategy != null
+                && column.strategy == ColumnStrategy.NOT_NULLABLE;
+    }
+
+    public boolean dropNotNull() {
+        return column.dataType == null
+                && column.strategy != null
+                && column.strategy == ColumnStrategy.NULLABLE;
+    }
+
+    public boolean addDefault() {
+        return column.dataType == null
+                && column.strategy != null
+                && column.strategy == ColumnStrategy.DEFAULT
+                && column.expression != null;
+    }
+
+    public boolean dropDefault() {
+        return column.dataType == null
+                && column.strategy != null
+                && column.strategy == ColumnStrategy.DEFAULT
+                && column.expression == null;
+    }
+
     /** {@inheritDoc} */
     @Override protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("ALTER");
         writer.keyword("COLUMN");
 
-        column.unparse(writer, leftPrec, rightPrec);
-    }
+        column.name.unparse(writer, leftPrec, rightPrec);
 
-    /** Processing columns definition. */
-    public SqlNode column() {
-        return column;
-    }
+        if (column.dataType != null) {
+            writer.keyword("SET DATA TYPE");
 
-    /**
-     * TODO Blah.
-     *
-     * @return Blah.
-     */
-    public @Nullable Boolean notNull() {
-        if (column.dataType != null || column.strategy == null) {
-            return null;
+            column.dataType.unparse(writer, 0, 0);
+
+            if (Boolean.FALSE.equals(column.dataType.getNullable())) {
+                writer.keyword("NOT NULL");
+            }
+
+            SqlNode expression = column.expression;
+
+            if (expression != null) {
+                if (column.strategy == ColumnStrategy.DEFAULT) {
+                    writer.keyword("DEFAULT");
+
+                    column.expression.unparse(writer, 0, 0);
+                } else {
+                    throw new AssertionError("Unexpected strategy: " + column.strategy);
+                }
+            }
+        } else {
+            switch (column.strategy) {
+                case DEFAULT:
+                    if (column.expression != null) {
+                        writer.keyword("SET DEFAULT");
+
+                        column.expression.unparse(writer, 0, 0);
+                    } else {
+                        writer.keyword("DROP DEFAULT");
+                    }
+
+                    break;
+                case NULLABLE:
+                    writer.keyword("DROP NOT NULL");
+
+                    break;
+                case NOT_NULLABLE:
+                    writer.keyword("SET NOT NULL");
+
+                    break;
+                default:
+                    throw new AssertionError("Unexpected strategy: " + column.strategy);
+            }
         }
-
-        return column.strategy == ColumnStrategy.NOT_NULLABLE;
-    }
-
-    /**
-     * TODO Blah.
-     *
-     * @return Blah.
-     */
-    public @Nullable Boolean defaultValue() {
-        if (column.dataType != null || column.strategy == null || column.strategy != ColumnStrategy.DEFAULT) {
-            return null;
-        }
-
-        return column.expression != null;
     }
 }
