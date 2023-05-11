@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
-
 /**
  * This is a temporary package to host code needed until CatalogService is ready
  * TODO: IGNITE-19447 - remove/rework when switched to full-blown usage of CatalogService.
  */
+package org.apache.ignite.internal.table.distributed.schema;

@@ -97,6 +97,12 @@ public class NonHistoricSchemas implements Schemas {
         return getColumnType(type.spec());
     }
 
+    /**
+     * Detects {@link ColumnType} by {@link NativeTypeSpec}.
+     *
+     * @param spec Native type spec.
+     * @return Detected {@link ColumnType}.
+     */
     public static ColumnType getColumnType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:

@@ -38,8 +38,8 @@ public class CompletableFutureAssert {
      *
      * @param future Future to work on.
      * @param expectedExceptionClass Expected class of the exception.
-     * @return Matched exception.
      * @param <X> Exception type.
+     * @return Matched exception.
      */
     public static <X extends Throwable> X assertWillThrowFast(
             CompletableFuture<?> future,

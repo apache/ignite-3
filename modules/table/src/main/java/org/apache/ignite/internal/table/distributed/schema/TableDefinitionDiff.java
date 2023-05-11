@@ -49,6 +49,9 @@ public class TableDefinitionDiff {
         return EMPTY;
     }
 
+    /**
+     * Constructor.
+     */
     public TableDefinitionDiff(
             List<TableColumnDescriptor> addedColumns,
             List<TableColumnDescriptor> removedColumns,

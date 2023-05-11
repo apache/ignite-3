@@ -41,6 +41,9 @@ public class FullTableSchema {
 
     private final List<IndexDescriptor> indexes;
 
+    /**
+     * Constructor.
+     */
     public FullTableSchema(
             int schemaVersion,
             int tableId,

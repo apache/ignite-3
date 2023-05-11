@@ -23,7 +23,9 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
  * Captures a difference between 'old' and 'new' versions of the same column definition.
  */
 public class ColumnDefinitionDiff {
+    @SuppressWarnings("PMD.UnusedPrivateField")
     private final TableColumnDescriptor prevColumn;
+    @SuppressWarnings("PMD.UnusedPrivateField")
     private final TableColumnDescriptor nextColumn;
 
     // TODO: IGNITE-19229 - extend
