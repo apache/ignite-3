@@ -465,6 +465,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     public CompletableFuture<Long> readIndex() {
         Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readIndexRequest()
                 .groupId(groupId)
+                .peerId(p.consistentId())
                 .build();
 
         Peer leader = leader();
