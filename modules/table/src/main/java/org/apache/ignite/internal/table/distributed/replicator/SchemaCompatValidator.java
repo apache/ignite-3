@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
@@ -42,28 +41,20 @@ class SchemaCompatValidator {
     }
 
     /**
-     * Performs forward compatibility validation (if needed). That is, for each table enlisted in the transaction,
-     * checks to see whether the initial schema (identified by the begin timestamp) is forward-compatible with the
-     * commit schema (identified by the commit timestamp).
-     *
-     * <p>If doing an abort (and not commit), the validation always succeeds.
+     * Performs commit forward compatibility validation. That is, for each table enlisted in the transaction, checks to see whether the
+     * initial schema (identified by the begin timestamp) is forward-compatible with the commit schema (identified by the commit
+     * timestamp).
      *
      * @param txId ID of the transaction that gets validated.
      * @param enlistedGroupIds IDs of the partitions that are enlisted with the transaction.
-     * @param commit Whether it's a commit attempt (otherwise it's an abort).
      * @param commitTimestamp Commit timestamp (or {@code null} if it's an abort).
      * @return Future completed with validation result.
      */
     CompletableFuture<ForwardValidationResult> validateForwards(
             UUID txId,
             List<TablePartitionId> enlistedGroupIds,
-            boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        if (!commit) {
-            return completedFuture(ForwardValidationResult.success());
-        }
-
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
         List<UUID> tableIds = enlistedGroupIds.stream()

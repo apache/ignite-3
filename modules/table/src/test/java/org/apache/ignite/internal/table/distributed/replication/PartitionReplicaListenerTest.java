@@ -1183,6 +1183,34 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void abortsSuccessfully() {
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndAbortTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(false));
+    }
+
+    private CompletableFuture<?> beginAndAbortTx() {
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
+
+        TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
+                .groupId(grpId)
+                .txId(txId)
+                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .commit(false)
+                .term(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(commitRequest);
+    }
+
+    @Test
     public void commitsOnSameSchemaSuccessfully() {
         when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
                 .thenReturn(List.of(

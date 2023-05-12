@@ -987,13 +987,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         UUID txId = request.txId();
 
-        return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commit(), request.commitTimestamp())
-                .thenCompose(validationResult -> {
-                    boolean stillCommit = request.commit() && validationResult.isSuccessful();
-
-                    return finishAndCleanup(request, stillCommit, aggregatedGroupIds, txId)
-                            .thenCompose(result -> failureIfValidationFailed(validationResult));
-                });
+        if (request.commit()) {
+            return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commitTimestamp())
+                    .thenCompose(validationResult -> {
+                        return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId)
+                                .thenCompose(result -> failureIfValidationFailed(validationResult));
+                    });
+        } else {
+            // Aborting.
+            return finishAndCleanup(request, false, aggregatedGroupIds, txId);
+        }
     }
 
     private static CompletableFuture<Void> failureIfValidationFailed(ForwardValidationResult validationResult) {
