@@ -365,5 +365,6 @@ public class CollectionUtilsTest {
     @Test
     void testIntersect() {
         assertThat(intersect(Set.of(1, 2), Set.of(2, 3)), is(Set.of(2)));
+        assertThat(intersect(Set.of(1, 2), Set.of(3, 4)), is(Set.of()));
     }
 }
