@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
 
@@ -416,7 +416,7 @@ public class RebalanceUtil {
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 
-        Set<Assignment> pendingAssignments = subtract(assignments, switchReduce);
+        Set<Assignment> pendingAssignments = difference(assignments, switchReduce);
 
         byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
         byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
@@ -458,17 +458,6 @@ public class RebalanceUtil {
         );
 
         return metaStorageMgr.invoke(resultingOperation).thenApply(unused -> null);
-    }
-
-    /**
-     * Removes nodes from set of nodes.
-     *
-     * @param minuend Set to remove nodes from.
-     * @param subtrahend Set of nodes to be removed.
-     * @return Result of the subtraction.
-     */
-    public static <T> Set<T> subtract(Set<T> minuend, Set<T> subtrahend) {
-        return CollectionUtils.difference(minuend, subtrahend);
     }
 
     /**
