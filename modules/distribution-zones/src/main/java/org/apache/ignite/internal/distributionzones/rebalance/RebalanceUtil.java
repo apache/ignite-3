@@ -28,8 +28,12 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -375,5 +379,32 @@ public class RebalanceUtil {
      */
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
         return op1.stream().filter(op2::contains).collect(Collectors.toSet());
+    }
+
+    public static CompletableFuture<Set<Assignment>> partitionAssignments(MetaStorageManager metaStorageManager, TablePartitionId partId) {
+        return metaStorageManager.get(pendingPartAssignmentsKey(partId))
+                .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
+    }
+
+    public static CompletableFuture<List<Set<Assignment>>> partitionsAssignments(
+            MetaStorageManager metaStorageManager, UUID tableId, int partNum) {
+        Map<ByteArray, Integer> partitionKeysToPartitionNumb = new HashMap<>();
+
+        for (int i = 0; i < partNum; i++) {
+            partitionKeysToPartitionNumb.put(pendingPartAssignmentsKey(new TablePartitionId(tableId, i)), partNum);
+        }
+
+        List<Set<Assignment>> result = new ArrayList<>(partNum);
+
+        // TODO: KKK what if partition assignments are not in the metastorage yet? is it even possible?
+        return metaStorageManager.getAll(partitionKeysToPartitionNumb.keySet())
+                .thenApply(entries -> {
+                    for (var entry : entries.entrySet()) {
+                        result.add(
+                                partitionKeysToPartitionNumb.get(entry.getKey()),
+                                ByteUtils.fromBytes(entry.getValue().value()));
+                    }
+                });
+
     }
 }

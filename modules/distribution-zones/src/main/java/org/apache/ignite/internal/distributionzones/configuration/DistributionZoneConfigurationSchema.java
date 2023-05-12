@@ -48,6 +48,7 @@ public class DistributionZoneConfigurationSchema {
     public int zoneId = DEFAULT_ZONE_ID;
 
     /** Count of zone partitions. */
+    @Immutable
     @Range(min = 1, max = 65_000)
     @Value(hasDefault = true)
     public int partitions = DEFAULT_PARTITION_COUNT;

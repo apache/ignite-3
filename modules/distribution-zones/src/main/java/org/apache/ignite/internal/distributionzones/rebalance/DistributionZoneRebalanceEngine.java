@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.updatePendingAssignmentsKeys;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -176,38 +177,38 @@ public class DistributionZoneRebalanceEngine {
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
-                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
+                            UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
-                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null
-                                    ? Collections.emptyList()
-                                    : ByteUtils.fromBytes(assignmentsBytes);
+                            CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = partitionsAssignments(
+                                    metaStorageManager,
+                                    tableId, distributionZoneConfiguration.partitions().value());
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
-
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
                                 int replicas = distributionZoneConfiguration.replicas().value();
 
                                 int partId = part;
 
-                                updatePendingAssignmentsKeys(
-                                        tableView.name(),
-                                        replicaGrpId,
-                                        dataNodes,
-                                        replicas,
-                                        evt.entryEvent().newEntry().revision(),
-                                        metaStorageManager,
-                                        part,
-                                        tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(part)
-                                ).exceptionally(e -> {
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
-                                            partId
-                                    );
+                                tableAssignmentsFut.thenCompose(tableAssignments ->
+                                        updatePendingAssignmentsKeys(
+                                                tableView.name(),
+                                                replicaGrpId,
+                                                dataNodes,
+                                                replicas,
+                                                evt.entryEvent().newEntry().revision(),
+                                                metaStorageManager,
+                                                partId,
+                                                tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(partId)
+                                        ).exceptionally(e -> {
+                                            LOG.error(
+                                                    "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                                    partId
+                                            );
 
-                                    return null;
-                                });
+                                            return null;
+                                        })
+                                );
                             }
                         }
                     }
@@ -261,23 +262,28 @@ public class DistributionZoneRebalanceEngine {
 
                     int newReplicas = replicasCtx.newValue();
 
-                    byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+                    UUID tableId = ((ExtendedTableConfiguration) tblCfg).id().value();
 
-                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+                    CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = partitionsAssignments(
+                            metaStorageManager,
+                            tableId, partCnt);
 
                     for (int i = 0; i < partCnt; i++) {
                         TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                        futs[furCur++] = updatePendingAssignmentsKeys(
+                        int partId = i;
+
+                        futs[furCur++] =
+                                tableAssignmentsFut.thenCompose(tableAssignments -> updatePendingAssignmentsKeys(
                                 tblCfg.name().value(),
                                 replicaGrpId,
                                 distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
                                 newReplicas,
                                 replicasCtx.storageRevision(),
                                 metaStorageManager,
-                                i,
-                                tableAssignments.get(i)
-                        );
+                                        partId,
+                                tableAssignments.get(partId)
+                        ));
                     }
                 }
                 return allOf(futs);
