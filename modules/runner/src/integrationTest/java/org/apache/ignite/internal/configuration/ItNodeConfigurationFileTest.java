@@ -37,7 +37,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * General integration tests for node configuration file.
+ * Integration tests for the node configuration file.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeConfigurationFileTest {
