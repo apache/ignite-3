@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.to
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
+import org.apache.ignite.internal.configuration.util.NodeValue;
 import org.apache.ignite.internal.configuration.validation.ExceptKeysValidator;
 import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
 import org.apache.ignite.internal.configuration.validation.OneOfValidator;
@@ -237,20 +239,21 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
         SuperRoot superRoot = changer.superRoot();
 
-        Object node;
+        NodeValue<?> node;
         try {
             node = ConfigurationUtil.find(path, superRoot, false);
         } catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
 
-        if (node instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) node).accept(null, visitor);
+        Object value = node.value();
+        if (value instanceof TraversableTreeNode) {
+            return ((TraversableTreeNode) value).accept(node.field(), null, visitor);
         }
 
-        assert node == null || node instanceof Serializable;
+        assert value == null || value instanceof Serializable;
 
-        return visitor.visitLeafNode(null, (Serializable) node);
+        return visitor.visitLeafNode(node.field(), null, (Serializable) value);
     }
 
     /**
@@ -306,7 +309,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
                 newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitInnerNode(String key, InnerNode newRoot) {
+                    public Void visitInnerNode(Field field, String key, InnerNode newRoot) {
                         DynamicConfiguration<InnerNode, ?> config = (DynamicConfiguration<InnerNode, ?>) configs.get(key);
 
                         assert config != null : key;

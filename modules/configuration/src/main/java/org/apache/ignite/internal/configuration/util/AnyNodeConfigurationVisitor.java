@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.util;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
@@ -26,19 +27,19 @@ import org.apache.ignite.internal.configuration.tree.NamedListNode;
 public abstract class AnyNodeConfigurationVisitor<T> implements ConfigurationVisitor<T> {
     /** {@inheritDoc} */
     @Override
-    public final T visitLeafNode(String key, Serializable val) {
+    public final T visitLeafNode(Field field, String key, Serializable val) {
         return visitNode(key, val);
     }
 
     /** {@inheritDoc} */
     @Override
-    public final T visitInnerNode(String key, InnerNode node) {
+    public final T visitInnerNode(Field field, String key, InnerNode node) {
         return visitNode(key, node);
     }
 
     /** {@inheritDoc} */
     @Override
-    public final T visitNamedListNode(String key, NamedListNode<?> node) {
+    public final T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         return visitNode(key, node);
     }
 

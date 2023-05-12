@@ -15,22 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.tree;
+package org.apache.ignite.internal.configuration.util;
 
 import java.lang.reflect.Field;
 
-/**
- * An interface for traversing a tree.
- */
-public interface TraversableTreeNode {
+/** The wrapper class for a configuration node value. Contains {@link Field} of the node and the value. */
+public class NodeValue<T> {
+    private final Field field;
+    private final T value;
+
     /**
-     * Accept the visitor.
+     * Constructor.
      *
-     * @param field Field of the node retrieved from its holder object.
-     * @param key Name of the node retrieved from its holder object.
-     * @param visitor Configuration visitor.
-     * @param <T> Parameter type of the passed visitor.
-     * @return Whatever {@code visitor} returned.
+     * @param field The field.
+     * @param value The value.
      */
-    <T> T accept(Field field, String key, ConfigurationVisitor<T> visitor);
+    public NodeValue(Field field, T value) {
+        this.field = field;
+        this.value = value;
+    }
+
+    /**
+     * Returns the field.
+     *
+     * @return The field.
+     */
+    public Field field() {
+        return field;
+    }
+
+    /**
+     * Returns the value.
+     *
+     * @return The value.
+     */
+    public T value() {
+        return value;
+    }
 }
