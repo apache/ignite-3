@@ -266,7 +266,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -323,16 +324,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * A process to update safe time periodically.
      */
     private static class SafeTimeUpdater implements Runnable {
-        PendingComparableValuesTracker<HybridTimestamp> safeTime;
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
-        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
             this.safeTime = safeTime;
         }
 
         @Override
         public void run() {
             while (true) {
-                safeTime.update(CLOCK.now());
+                safeTime.update(CLOCK.now(), null);
 
                 try {
                     Thread.sleep(1_000);

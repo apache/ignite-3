@@ -15,35 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.message;
+package org.apache.ignite.internal.network.processor.tests;
 
-import java.util.Set;
-import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
- */
-@Transferable(value = ComputeMessageTypes.EXECUTE_RESPONSE)
-public interface ExecuteResponse extends NetworkMessage {
-    /**
-     * Returns job execution result ({@code null} if the execution has failed).
-     *
-     * @return result ({@code null} if the execution has failed)
-     */
-    @Nullable
-    @Marshallable
-    Object result();
+/** Messages with not {@link Nullable} fields. */
+public class NotNullFieldMessages {
+    /** Message with {@link UUID} field that is not {@link Nullable} field. */
+    @Transferable(3)
+    public interface NotNullArbitraryFieldMessage extends NetworkMessage {
+        UUID value();
+    }
 
-    /**
-     * Returns a {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful).
-     *
-     * @return {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful)
-     */
-    @Nullable
-    @Marshallable
-    Throwable throwable();
+    /** Message with {@link Marshallable} field that is not {@link Nullable}. */
+    @Transferable(4)
+    public interface NotNullMarshallableFieldMessage extends NetworkMessage {
+        @Marshallable
+        Object value();
+    }
+
+    /** Message with {@link NetworkMessage} field that is not {@link Nullable}. */
+    @Transferable(5)
+    public interface NotNullNetworkMessageFieldMessage extends NetworkMessage {
+        NetworkMessage value();
+    }
+
+    /** Message with array field that is not {@link Nullable}. */
+    @Transferable(6)
+    public interface NotNullArrayFieldMessage extends NetworkMessage {
+        int[] value();
+    }
 }

@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft;
+package org.apache.ignite.internal.cli.core.repl;
 
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
-import org.jetbrains.annotations.Nullable;
+/** Task which will be executed periodically while {@link Session} is connected. */
+public interface PeriodicSessionTask {
 
-/**
- * Test WriteCommand.
-*/
-@Transferable(10)
-public interface TestWriteCommand extends WriteCommand {
-    @Nullable
-    String value();
+    /** This method is called periodically. */
+    void update(SessionInfo sessionInfo);
 
-    static TestWriteCommand testWriteCommand() {
-        return testWriteCommand(null);
-    }
-
-    static TestWriteCommand testWriteCommand(String value) {
-        return new TestRaftMessagesFactory().testWriteCommand().value(value).build();
-    }
+    /** This method is called when the session is disconnected. */
+    void onDisconnect();
 }

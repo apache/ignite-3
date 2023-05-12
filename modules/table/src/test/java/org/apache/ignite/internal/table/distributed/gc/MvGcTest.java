@@ -347,7 +347,7 @@ public class MvGcTest {
 
         StorageUpdateHandler storageUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lvm);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
                 HybridTimestamp.MIN_VALUE
         ));
 
@@ -362,7 +362,7 @@ public class MvGcTest {
         verify(safeTimeTracker).waitFor(lvm);
 
         // Update the safe time to be equal to the low watermark and make sure the garbage collection starts.
-        safeTimeTracker.update(lvm);
+        safeTimeTracker.update(lvm, null);
 
         assertThat(invokeVacuumMethodFuture, willSucceedFast());
     }

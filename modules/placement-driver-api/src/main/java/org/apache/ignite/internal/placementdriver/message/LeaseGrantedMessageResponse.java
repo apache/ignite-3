@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver.message;
 
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Response for lease granted message.
@@ -26,5 +27,6 @@ import org.apache.ignite.network.annotations.Transferable;
 public interface LeaseGrantedMessageResponse extends PlacementDriverReplicaMessage {
     boolean accepted();
 
+    @Nullable
     String redirectProposal();
 }

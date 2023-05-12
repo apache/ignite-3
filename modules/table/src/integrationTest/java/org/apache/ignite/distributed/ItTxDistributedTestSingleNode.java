@@ -446,9 +446,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
-                PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
-                PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
 

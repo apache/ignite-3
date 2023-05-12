@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.utils;
+package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -61,7 +58,6 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -484,17 +480,17 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
 
         if (currentStableAssignments != null) {
-            keyValueStorage.put(stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),
+            keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPendingAssignments != null) {
-            keyValueStorage.put(pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments),
+            keyValueStorage.put(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPendingAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
         if (currentPlannedAssignments != null) {
-            keyValueStorage.put(plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments),
+            keyValueStorage.put(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentPlannedAssignments),
                     HybridTimestamp.MIN_VALUE);
         }
 
@@ -503,21 +499,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 replicas, 1, metaStorageManager, partNum, tableCfgAssignments
         );
 
-        byte[] actualStableBytes = keyValueStorage.get(stablePartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualStableAssignments = null;
 
         if (actualStableBytes != null) {
             actualStableAssignments = ByteUtils.fromBytes(actualStableBytes);
         }
 
-        byte[] actualPendingBytes = keyValueStorage.get(pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
             actualPendingAssignments = ByteUtils.fromBytes(actualPendingBytes);
         }
 
-        byte[] actualPlannedBytes = keyValueStorage.get(plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
+        byte[] actualPlannedBytes = keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPlannedAssignments = null;
 
         if (actualPlannedBytes != null) {

@@ -307,7 +307,7 @@ public class ReplicaManager implements IgniteComponent {
             CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
-            PendingComparableValuesTracker<Long> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -334,7 +334,7 @@ public class ReplicaManager implements IgniteComponent {
             CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
-            PendingComparableValuesTracker<Long> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
