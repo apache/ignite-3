@@ -53,6 +53,7 @@ public class UpdateDistributedConfigurationAction {
      *
      * @return Configuration that should be applied.
      */
+    @Nullable
     public String configuration() {
         return configuration;
     }
