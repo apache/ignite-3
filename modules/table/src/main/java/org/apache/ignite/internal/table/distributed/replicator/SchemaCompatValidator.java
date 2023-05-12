@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -57,10 +58,9 @@ class SchemaCompatValidator {
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        List<UUID> tableIds = enlistedGroupIds.stream()
+        Set<UUID> tableIds = enlistedGroupIds.stream()
                 .map(TablePartitionId::tableId)
-                .distinct()
-                .collect(toList());
+                .collect(toSet());
 
         assert commitTimestamp != null;
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account
@@ -69,16 +69,23 @@ class SchemaCompatValidator {
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemas.waitForSchemasAvailability(commitTimestamp)
-                .thenApply(ignored -> {
-                    for (UUID tableId : tableIds) {
-                        ForwardValidationResult validationResult = validateSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
-                        if (!validationResult.isSuccessful()) {
-                            return validationResult;
-                        }
-                    }
+                .thenApply(ignored -> validateSchemasCompatibility(tableIds, commitTimestamp, beginTimestamp));
+    }
 
-                    return ForwardValidationResult.success();
-                });
+    private ForwardValidationResult validateSchemasCompatibility(
+            Set<UUID> tableIds,
+            HybridTimestamp commitTimestamp,
+            HybridTimestamp beginTimestamp
+    ) {
+        for (UUID tableId : tableIds) {
+            ForwardValidationResult validationResult = validateSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+
+            if (!validationResult.isSuccessful()) {
+                return validationResult;
+            }
+        }
+
+        return ForwardValidationResult.success();
     }
 
     private ForwardValidationResult validateSchemaCompatibility(
