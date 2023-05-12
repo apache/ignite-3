@@ -403,28 +403,31 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             CompletableFuture<Void> configurationAppliedFuture,
             CmgRaftService service
     ) {
-        return configurationAppliedFuture.whenComplete((v1, e1) -> {
-            service.readClusterState()
-                    .thenCompose(state -> {
-                        Collection<String> cmgNodes = state.cmgNodes();
-                        Collection<String> msNodes = state.metaStorageNodes();
-                        IgniteProductVersion igniteVersion = state.igniteVersion();
-                        ClusterTag clusterTag = state.clusterTag();
-                        ClusterState clusterState = msgFactory.clusterState()
-                                .cmgNodes(Set.copyOf(cmgNodes))
-                                .metaStorageNodes(Set.copyOf(msNodes))
-                                .version(igniteVersion.toString())
-                                .clusterTag(clusterTag)
-                                .build();
-                        LOG.info("Removing cluster configuration from cluster state");
-                        return service.updateClusterState(clusterState);
-                    })
-                    .whenComplete((v2, e2) -> {
-                        if (e2 != null) {
-                            LOG.warn("Error when removing cluster configuration", e2);
-                        }
-                    });
-        });
+        return configurationAppliedFuture.thenCombine(
+                        service.readClusterState(),
+                        (ignored, state) -> {
+                            Collection<String> cmgNodes = state.cmgNodes();
+                            Collection<String> msNodes = state.metaStorageNodes();
+                            IgniteProductVersion igniteVersion = state.igniteVersion();
+                            ClusterTag clusterTag = state.clusterTag();
+                            return msgFactory.clusterState()
+                                    .cmgNodes(Set.copyOf(cmgNodes))
+                                    .metaStorageNodes(Set.copyOf(msNodes))
+                                    .version(igniteVersion.toString())
+                                    .clusterTag(clusterTag)
+                                    .build();
+                        })
+                .thenCompose(state -> {
+                    LOG.info("Removing cluster configuration from cluster state");
+                    return service.updateClusterState(state);
+                })
+                .whenComplete((v2, e2) -> {
+                    if (e2 != null) {
+                        LOG.warn("Error when removing cluster configuration", e2);
+                    } else {
+                        LOG.info("Removed cluster configuration from cluster state");
+                    }
+                });
     }
 
     /**
