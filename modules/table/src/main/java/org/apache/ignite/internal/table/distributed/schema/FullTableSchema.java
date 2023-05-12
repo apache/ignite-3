@@ -130,10 +130,10 @@ public class FullTableSchema {
         return elements.stream().collect(toMap(nameExtractor, identity()));
     }
 
-    private static <T> List<T> subtractKeyed(Map<String, T> diminuend, Map<String, T> subtrahend) {
-        return diminuend.keySet().stream()
+    private static <T> List<T> subtractKeyed(Map<String, T> minuend, Map<String, T> subtrahend) {
+        return minuend.keySet().stream()
                 .filter(name -> !subtrahend.containsKey(name))
-                .map(diminuend::get)
+                .map(minuend::get)
                 .collect(toList());
     }
 
