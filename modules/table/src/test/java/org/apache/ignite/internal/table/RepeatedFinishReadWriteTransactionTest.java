@@ -268,7 +268,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         @Override
         public CompletableFuture<Void> cleanup(ClusterNode recipientNode,
                 List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds, UUID txId, boolean commit,
-                HybridTimestamp commitTimestamp) {
+                @Nullable HybridTimestamp commitTimestamp) {
             return null;
         }
 

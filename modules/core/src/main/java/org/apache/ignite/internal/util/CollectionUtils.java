@@ -22,6 +22,7 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
+import static java.util.stream.Collectors.toSet;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -595,5 +596,16 @@ public final class CollectionUtils {
      */
     public static IntSet setOf(Collection<Integer> coll) {
         return IntSets.unmodifiable(new IntOpenHashSet(coll));
+    }
+
+    /**
+     * Returns an intersection of two sets.
+     *
+     * @param op1 First operand.
+     * @param op2 Second operand.
+     * @return Result of the intersection.
+     */
+    public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
+        return op1.stream().filter(op2::contains).collect(toSet());
     }
 }

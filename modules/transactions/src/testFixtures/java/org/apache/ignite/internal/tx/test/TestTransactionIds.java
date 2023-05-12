@@ -33,7 +33,7 @@ public class TestTransactionIds {
     /** Hard-coded node ID. */
     private static final int SOLE_NODE_ID = 0xdeadbeef;
 
-    private static final TransactionIdGenerator TRANSACTION_ID_GENERATOR = new TransactionIdGenerator(SOLE_NODE_ID);
+    public static final TransactionIdGenerator TRANSACTION_ID_GENERATOR = new TransactionIdGenerator(SOLE_NODE_ID);
 
     /**
      * Generates new transaction ID using the global clock and hard-coded node ID.

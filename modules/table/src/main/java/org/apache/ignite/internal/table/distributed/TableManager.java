@@ -143,6 +143,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -826,6 +827,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             txStateStorage,
                                                             placementDriver,
                                                             storageUpdateHandler,
+                                                            new NonHistoricSchemas(schemaManager),
                                                             this::isLocalPeer,
                                                             schemaManager.schemaRegistry(causalityToken, tblId)
                                                     ),
@@ -2098,6 +2100,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             txStatePartitionStorage,
                                             placementDriver,
                                             storageUpdateHandler,
+                                            new NonHistoricSchemas(schemaManager),
                                             this::isLocalPeer,
                                             completedFuture(schemaManager.schemaRegistry(tblId))
                                     ),
