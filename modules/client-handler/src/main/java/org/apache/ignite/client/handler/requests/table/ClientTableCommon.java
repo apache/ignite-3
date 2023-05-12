@@ -372,7 +372,7 @@ public class ClientTableCommon {
      * @return Client type code.
      */
     public static ColumnType getColumnType(NativeTypeSpec spec) {
-        return NativeTypeSpec.getColumnType(spec);
+        return spec.asColumnType();
     }
 
     /**

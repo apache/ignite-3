@@ -360,13 +360,12 @@ public enum NativeTypeSpec {
     }
 
     /**
-     * Gets client type by server type.
+     * Gets client type corresponding to this server type.
      *
-     * @param spec Type spec.
      * @return Client type code.
      */
-    public static ColumnType getColumnType(NativeTypeSpec spec) {
-        switch (spec) {
+    public ColumnType asColumnType() {
+        switch (this) {
             case INT8:
                 return ColumnType.INT8;
 
@@ -416,7 +415,7 @@ public enum NativeTypeSpec {
                 return ColumnType.TIMESTAMP;
 
             default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + this);
         }
     }
 

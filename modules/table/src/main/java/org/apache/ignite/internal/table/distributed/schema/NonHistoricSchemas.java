@@ -27,7 +27,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -91,7 +90,7 @@ public class NonHistoricSchemas implements Schemas {
     public static TableColumnDescriptor columnDescriptor(Column column) {
         return new TableColumnDescriptor(
                 column.name(),
-                NativeTypeSpec.getColumnType(column.type().spec()),
+                column.type().spec().asColumnType(),
                 column.nullable(),
                 DefaultValue.constant(column.defaultValue())
         );
