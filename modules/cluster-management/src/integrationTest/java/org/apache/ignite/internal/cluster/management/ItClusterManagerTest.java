@@ -382,6 +382,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(configurationAction.configuration(), is(clusterConfiguration));
         configurationAction.nextAction().apply(CompletableFuture.completedFuture(null)).join();
 
+        System.out.println("STOP THE LEADER");
         stopNodes(List.of(leaderNode));
 
         cluster.remove(leaderNode);

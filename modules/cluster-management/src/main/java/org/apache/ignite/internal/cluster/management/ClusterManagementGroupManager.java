@@ -387,17 +387,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        isCmgLeader().whenComplete((v, e) -> {
             raftServiceAfterJoin().thenCompose(service ->
                     service.readClusterState()
                             .thenAccept(state -> {
+                                LOG.error("READ CLUSTER STATE");
                                 updateDistributedConfigurationActionFuture.complete(
                                         new UpdateDistributedConfigurationAction(
                                                 state.clusterConfigurationToApply(),
                                                 (result) -> removeClusterConfigFromClusterState(result, service))
                                 );
                             }));
-        });
     }
 
     private CompletableFuture<Void> removeClusterConfigFromClusterState(
@@ -417,6 +416,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                 .version(igniteVersion.toString())
                                 .clusterTag(clusterTag)
                                 .build();
+                        LOG.info("Removing cluster configuration from cluster state");
                         return service.updateClusterState(clusterState);
                     })
                     .whenComplete((v2, e2) -> {
