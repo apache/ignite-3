@@ -613,8 +613,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
                     ThreadMXBean bean = ManagementFactory.getThreadMXBean();
                     ThreadInfo[] infos = bean.dumpAllThreads(true, true);
-                    for (ThreadInfo info : infos)
+                    for (ThreadInfo info : infos) {
                         System.out.println(info);
+                    }
                 });
             }
             List<BinaryRow> scannedRows = scanAllRows(publisher);
