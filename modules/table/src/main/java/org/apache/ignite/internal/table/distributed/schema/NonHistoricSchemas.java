@@ -82,7 +82,8 @@ public class NonHistoricSchemas implements Schemas {
     }
 
     /**
-     * Converts a {@link Column} to a {@link TableColumnDescriptor}.
+     * Converts a {@link Column} to a {@link TableColumnDescriptor}. Please note that the conversion is not full; it's
+     * used in the code that actually doesn't care about columns.
      *
      * @param column Column to convert.
      * @return Conversion result.
