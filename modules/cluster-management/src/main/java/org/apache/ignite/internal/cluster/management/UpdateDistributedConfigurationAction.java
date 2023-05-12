@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Composite action to update the distributed configuration.
- * Contains {@link #configuration()} that should be applied to the distributed configuration
- * and {@link #nextAction()} that should be performed after the update.
  */
 public class UpdateDistributedConfigurationAction {
 
@@ -32,10 +32,8 @@ public class UpdateDistributedConfigurationAction {
      */
     private final String configuration;
 
-    /**
-     * The next action to be performed.
-     */
-    private final CompletableFuture<Void> nextAction;
+    private final Function<CompletableFuture<Void>, CompletableFuture<Void>> nextAction;
+
 
     /**
      * Constructor.
@@ -43,7 +41,10 @@ public class UpdateDistributedConfigurationAction {
      * @param configuration Configuration that should be applied.
      * @param nextAction The next action to be performed.
      */
-    public UpdateDistributedConfigurationAction(@Nullable String configuration, CompletableFuture<Void> nextAction) {
+    public UpdateDistributedConfigurationAction(
+            @Nullable String configuration,
+            Function<CompletableFuture<Void>, CompletableFuture<Void>> nextAction
+    ) {
         this.configuration = configuration;
         this.nextAction = nextAction;
     }
@@ -62,7 +63,7 @@ public class UpdateDistributedConfigurationAction {
      *
      * @return The next action to be performed.
      */
-    public CompletableFuture<Void> nextAction() {
+    public Function<CompletableFuture<Void>, CompletableFuture<Void>> nextAction() {
         return nextAction;
     }
 }

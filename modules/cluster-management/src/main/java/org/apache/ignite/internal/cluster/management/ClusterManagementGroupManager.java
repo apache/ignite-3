@@ -387,39 +387,44 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().thenAccept(service -> {
-            service.readClusterState()
-                    .thenAccept(state -> {
-                        updateDistributedConfigurationActionFuture.complete(
-                                new UpdateDistributedConfigurationAction(
-                                        state.clusterConfigurationToApply(),
-                                        removeClusterConfigFromClusterState(service)
-                                )
-                        );
-                    });
+        isCmgLeader().whenComplete((v, e) -> {
+            raftServiceAfterJoin().thenCompose(service ->
+                    service.readClusterState()
+                            .thenAccept(state -> {
+                                updateDistributedConfigurationActionFuture.complete(
+                                        new UpdateDistributedConfigurationAction(
+                                                state.clusterConfigurationToApply(),
+                                                (result) -> removeClusterConfigFromClusterState(result, service))
+                                );
+                            }));
         });
     }
 
-    private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
-        return service.readClusterState()
-                .thenCompose(state -> {
-                    Collection<String> cmgNodes = state.cmgNodes();
-                    Collection<String> msNodes = state.metaStorageNodes();
-                    IgniteProductVersion igniteVersion = state.igniteVersion();
-                    ClusterTag clusterTag = state.clusterTag();
-                    ClusterState clusterState = msgFactory.clusterState()
-                            .cmgNodes(Set.copyOf(cmgNodes))
-                            .metaStorageNodes(Set.copyOf(msNodes))
-                            .version(igniteVersion.toString())
-                            .clusterTag(clusterTag)
-                            .build();
-                    return service.updateClusterState(clusterState);
-                })
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.warn("Error when removing cluster configuration", e);
-                    }
-                });
+    private CompletableFuture<Void> removeClusterConfigFromClusterState(
+            CompletableFuture<Void> configurationAppliedFuture,
+            CmgRaftService service
+    ) {
+        return configurationAppliedFuture.whenComplete((v1, e1) -> {
+            service.readClusterState()
+                    .thenCompose(state -> {
+                        Collection<String> cmgNodes = state.cmgNodes();
+                        Collection<String> msNodes = state.metaStorageNodes();
+                        IgniteProductVersion igniteVersion = state.igniteVersion();
+                        ClusterTag clusterTag = state.clusterTag();
+                        ClusterState clusterState = msgFactory.clusterState()
+                                .cmgNodes(Set.copyOf(cmgNodes))
+                                .metaStorageNodes(Set.copyOf(msNodes))
+                                .version(igniteVersion.toString())
+                                .clusterTag(clusterTag)
+                                .build();
+                        return service.updateClusterState(clusterState);
+                    })
+                    .whenComplete((v2, e2) -> {
+                        if (e2 != null) {
+                            LOG.warn("Error when removing cluster configuration", e2);
+                        }
+                    });
+        });
     }
 
     /**

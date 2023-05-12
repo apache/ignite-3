@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -32,26 +33,27 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     private final ClusterManagementGroupManager cmgMgr;
 
-    private final ConfigurationManager clusterCfgMgr;
+    private final ConfigurationPresentation<String> presentation;
 
-    public DistributedConfigurationUpdater(ClusterManagementGroupManager cmgMgr, ConfigurationManager clusterCfgMgr) {
+    public DistributedConfigurationUpdater(ClusterManagementGroupManager cmgMgr, ConfigurationPresentation<String> presentation) {
         this.cmgMgr = cmgMgr;
-        this.clusterCfgMgr = clusterCfgMgr;
+        this.presentation = presentation;
     }
 
     @Override
     public void start() {
-        HoconPresentation presentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
         cmgMgr.clusterConfigurationToUpdate().thenAccept(action -> {
             if (action.configuration() != null) {
                 presentation.update(action.configuration())
-                        .handle((v, e) -> {
+                        .whenComplete((v, e) -> {
                             if (e != null) {
                                 LOG.error("Failed to update the distributed configuration", e);
+                                action.result().completeExceptionally(e);
+                            } else {
+                                LOG.info("Successfully updated the distributed configuration");
+                                action.result().complete(v);
                             }
-                            return action.nextAction();
-                        })
-                        .thenApply(v -> v);
+                        });
             }
         });
     }
