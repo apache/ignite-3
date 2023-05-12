@@ -991,7 +991,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commitTimestamp())
                     .thenCompose(validationResult -> {
                         return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId)
-                                .thenCompose(result -> failureIfValidationFailed(validationResult));
+                                .thenAccept(unused -> throwIfValidationFailed(validationResult));
                     });
         } else {
             // Aborting.
@@ -999,13 +999,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static CompletableFuture<Void> failureIfValidationFailed(ForwardValidationResult validationResult) {
-        if (validationResult.isSuccessful()) {
-            return completedFuture(null);
-        } else {
-            return failedFuture(new IncompatibleSchemaAbortException("Commit failed because schema "
+    private static void throwIfValidationFailed(ForwardValidationResult validationResult) {
+        if (!validationResult.isSuccessful()) {
+            throw new IncompatibleSchemaAbortException("Commit failed because schema "
                     + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId()));
+                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
         }
     }
 
