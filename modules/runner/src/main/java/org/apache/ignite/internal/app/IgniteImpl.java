@@ -211,7 +211,6 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    // TODO: IGNITE-18990 Integrate PlacementDriverManager into IgniteImpl
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
@@ -421,7 +420,6 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        // TODO: IGNITE-18990 Integrate PlacementDriverManager into IgniteImpl
         placementDriverMgr = new PlacementDriverManager(
                 metaStorageMgr,
                 vaultMgr,
@@ -685,7 +683,6 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
                                     clusterCfgMgr,
-                                    // TODO: IGNITE-18990 Integrate PlacementDriverManager into IgniteImpl
                                     placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
