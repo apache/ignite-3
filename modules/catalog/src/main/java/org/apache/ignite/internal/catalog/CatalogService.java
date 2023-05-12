@@ -37,15 +37,6 @@ import org.apache.ignite.internal.manager.EventListener;
 public interface CatalogService {
     String PUBLIC = "PUBLIC";
 
-    //TODO: IGNITE-19082 Drop this stuff when all versioned schema stuff will be moved to Catalog.
-    @Deprecated(forRemoval = true)
-    String IGNITE_USE_CATALOG_PROPERTY = "IGNITE_USE_CATALOG";
-
-    @Deprecated(forRemoval = true)
-    static boolean useCatalogService() {
-        return Boolean.getBoolean(IGNITE_USE_CATALOG_PROPERTY);
-    }
-
     TableDescriptor table(String tableName, long timestamp);
 
     TableDescriptor table(int tableId, long timestamp);

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
@@ -39,6 +40,8 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -51,6 +54,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -176,7 +180,21 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            return List.of(
+                    new DropTableEntry(table.id())
+            );
+        });
     }
 
     /** {@inheritDoc} */
@@ -262,6 +280,27 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_CREATE,
                             new CreateTableEventParameters(version, ((NewTableEntry) entry).descriptor())
+                    ));
+
+                } else if (entry instanceof DropTableEntry) {
+                    int tableId = ((DropTableEntry) entry).tableId();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(TableDescriptor[]::new),
+                                    schema.indexes()
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.TABLE_DROP,
+                            new DropTableEventParameters(version, tableId)
                     ));
 
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {

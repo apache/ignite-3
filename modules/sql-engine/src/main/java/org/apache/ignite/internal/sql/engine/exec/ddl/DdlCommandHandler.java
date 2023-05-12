@@ -297,7 +297,7 @@ public class DdlCommandHandler {
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
-    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
+    protected static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
         return (val, err) -> {
             if (err == null) {
                 return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;

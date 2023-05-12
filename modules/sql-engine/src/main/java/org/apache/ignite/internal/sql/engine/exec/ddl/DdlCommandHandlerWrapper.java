@@ -24,11 +24,15 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 
 /**
  * Wrapper for DDL command handler passes DDL commands to CatalogService.
+ * TODO: IGNITE-19082 Drop this class when all versioned schema stuff will be moved to Catalog.
  */
 public class DdlCommandHandlerWrapper extends DdlCommandHandler {
 
@@ -54,8 +58,14 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
         if (cmd instanceof CreateTableCommand) {
             return super.handle(cmd)
-                    .thenCompose(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd)))
-                    .thenApply(ignore -> Boolean.TRUE);
+                    .thenCompose(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
+                            .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class))
+                    );
+        } else if (cmd instanceof DropTableCommand) {
+            return super.handle(cmd)
+                    .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
+                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
+                    );
         }
 
         return super.handle(cmd);

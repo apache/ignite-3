@@ -46,7 +46,6 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
@@ -67,7 +66,6 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
-import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -250,9 +248,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = CatalogService.useCatalogService()
-                ? new DdlCommandHandlerWrapper(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager)
-                : new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        var ddlCommandHandler = new DdlCommandHandlerWrapper(
+                distributionZoneManager,
+                tableManager,
+                indexManager,
+                dataStorageManager,
+                catalogManager
+        );
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
