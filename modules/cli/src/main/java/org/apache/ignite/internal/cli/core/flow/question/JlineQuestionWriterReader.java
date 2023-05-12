@@ -17,43 +17,29 @@
 
 package org.apache.ignite.internal.cli.core.flow.question;
 
-import java.util.function.Consumer;
 import org.apache.ignite.internal.cli.core.flow.FlowInterruptException;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.UserInterruptException;
+import org.jline.reader.impl.SimpleMaskingCallback;
 
 /**
  * Implementation of {@link QuestionWriterReader} based on {@link LineReader}.
  */
 public class JlineQuestionWriterReader implements QuestionWriterReader {
     private final LineReader reader;
-    private final Consumer<Boolean> widgetsEnabler;
-
-    public JlineQuestionWriterReader(LineReader reader, Consumer<Boolean> widgetsEnabler) {
-        this.reader = reader;
-        this.widgetsEnabler = widgetsEnabler;
-    }
 
     public JlineQuestionWriterReader(LineReader reader) {
-        this(reader, enable -> {});
+        this.reader = reader;
     }
 
     /** {@inheritDoc} */
     @Override
-    public String readAnswer(String question) {
-        widgetsEnabler.accept(false);
-        reader.setVariable(LineReader.DISABLE_HISTORY, true);
-        String s = readLine(question);
-        reader.setVariable(LineReader.DISABLE_HISTORY, false);
-        widgetsEnabler.accept(true);
-        return s;
-    }
-
-    private String readLine(String question) {
+    public String readAnswer(String question, boolean maskInput) {
         try {
-            return reader.readLine(question, null, (MaskingCallback) null, null);
+            MaskingCallback callback = maskInput ? new SimpleMaskingCallback('*') : null;
+            return reader.readLine(question, null, callback, null);
         } catch (UserInterruptException /* Ctrl-C pressed */ | EndOfFileException /* Ctrl-D pressed */ ignored) {
             throw new FlowInterruptException();
         }

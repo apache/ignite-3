@@ -21,13 +21,13 @@ package org.apache.ignite.internal.cli.core.flow.question;
  * Factory of {@link QuestionAsker}.
  */
 public class QuestionAskerFactory {
-    private static volatile QuestionWriterReader questionWriterReader;
+    private static volatile QuestionWriterReaderFactory writerReaderFactory;
 
     public static QuestionAsker newQuestionAsker() {
-        return new QuestionAsker(questionWriterReader);
+        return new QuestionAsker(writerReaderFactory);
     }
 
-    public static void setReadWriter(QuestionWriterReader questionWriterReader) {
-        QuestionAskerFactory.questionWriterReader = questionWriterReader;
+    public static void setWriterReaderFactory(QuestionWriterReaderFactory writerReaderFactory) {
+        QuestionAskerFactory.writerReaderFactory = writerReaderFactory;
     }
 }
