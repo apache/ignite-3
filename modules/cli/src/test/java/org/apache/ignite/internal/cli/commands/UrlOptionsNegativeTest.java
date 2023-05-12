@@ -45,7 +45,6 @@ import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopology
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateCommand;
@@ -66,9 +65,7 @@ import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
 import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
-import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -100,14 +97,10 @@ public class UrlOptionsNegativeTest {
     @Inject
     TestConfigManagerProvider configManagerProvider;
 
-    @Inject
-    NodeNameRegistry nodeNameRegistry;
-
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
         MicronautFactory factory = new MicronautFactory(context);
-        cmd = new CommandLine(cmdClass, factory)
-                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd = new CommandLine(cmdClass, factory);
         CommandLineContextProvider.setCmd(cmd);
         sout = new StringWriter();
         serr = new StringWriter();

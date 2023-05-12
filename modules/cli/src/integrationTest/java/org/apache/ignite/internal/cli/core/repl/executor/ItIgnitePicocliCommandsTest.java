@@ -44,6 +44,8 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
 import org.jline.reader.LineReader;
@@ -64,6 +66,12 @@ import org.mockito.Mockito;
 public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
+
+    @Inject
+    private NodeNameRegistry nodeNameRegistry;
+
+    @Inject
+    private JdbcUrlRegistry jdbcUrlRegistry;
 
     @Inject
     DynamicCompleterRegistry dynamicCompleterRegistry;

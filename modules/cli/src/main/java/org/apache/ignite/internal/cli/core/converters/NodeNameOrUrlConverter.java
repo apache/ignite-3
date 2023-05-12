@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.converters;
 
+import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
@@ -26,6 +27,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.TypeConversionException;
 
 /** Converter for {@link NodeNameOrUrl}. */
+@Singleton
 public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNameOrUrl> {
 
     private static final Pattern URL_PATTERN = Pattern.compile("^.*[/:].*");
@@ -36,9 +38,9 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
-    private static URL stringToUrl(String str) {
+    private static String validateUrl(String str) {
         try {
-            return new URL(str);
+            return new URL(str).toString();
         } catch (MalformedURLException e) {
             throw new TypeConversionException("Invalid URL '" + str + "' (" + e.getMessage() + ")");
         }
@@ -48,9 +50,9 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
     public NodeNameOrUrl convert(String input) throws Exception {
         boolean isUrl = URL_PATTERN.matcher(input).matches();
         if (isUrl) {
-            return new NodeNameOrUrl(stringToUrl(input));
+            return new NodeNameOrUrl(validateUrl(input));
         } else {
-            return new NodeNameOrUrl(stringToUrl(findNodeUrlByNodeName(input)));
+            return new NodeNameOrUrl(validateUrl(findNodeUrlByNodeName(input)));
         }
     }
 

@@ -17,17 +17,15 @@
 
 package org.apache.ignite.internal.cli.commands.node;
 
-import java.net.URL;
-
 /** Node URL. */
 public class NodeNameOrUrl {
-    private final URL nodeUrl;
+    private final String nodeUrl;
 
-    public NodeNameOrUrl(URL nodeUrl) {
+    public NodeNameOrUrl(String nodeUrl) {
         this.nodeUrl = nodeUrl;
     }
 
     public String stringUrl() {
-        return nodeUrl.toString();
+        return nodeUrl;
     }
 }

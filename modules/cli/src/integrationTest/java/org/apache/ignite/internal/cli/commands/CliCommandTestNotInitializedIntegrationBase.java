@@ -27,13 +27,9 @@ import java.io.StringWriter;
 import org.apache.ignite.internal.cli.CliIntegrationTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
-import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -58,12 +54,6 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     @Inject
     private ApplicationContext context;
 
-    @Inject
-    protected NodeNameRegistry nodeNameRegistry;
-
-    @Inject
-    protected JdbcUrlRegistry jdbcUrlRegistry;
-
     private CommandLine cmd;
 
     private StringWriter sout;
@@ -86,8 +76,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
-                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
         resetOutput();
         CommandLineContextProvider.setCmd(cmd);
