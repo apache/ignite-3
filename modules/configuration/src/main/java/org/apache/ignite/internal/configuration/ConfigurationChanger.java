@@ -275,27 +275,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         addDefaults(superRoot);
 
         // Validate the restored configuration.
-        validateConfiguration(defaultConfiguration(), superRoot);
+        validateConfiguration(superRoot, superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
         storage.registerConfigurationListener(configurationStorageListener());
-    }
-
-    /**
-     * Creates an empty configuration with defaults.
-     *
-     * @return Default configuration.
-     */
-    private SuperRoot defaultConfiguration() {
-        SuperRoot superRoot = new SuperRoot(rootCreator());
-        for (RootKey<?, ?> rootKey : rootKeys.values()) {
-            InnerNode rootNode = createRootNode(rootKey);
-
-            superRoot.addRoot(rootKey, rootNode);
-        }
-        addDefaults(superRoot);
-        return superRoot;
     }
 
     /**
