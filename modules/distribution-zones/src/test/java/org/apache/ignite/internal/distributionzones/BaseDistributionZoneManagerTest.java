@@ -75,10 +75,6 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     protected VaultManager vaultMgr;
 
-    private ConfigurationStorage cfgStorage;
-
-    private ConfigurationManager cfgMgr;
-
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
@@ -93,9 +89,9 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         components.add(metaStorageManager);
 
-        cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultMgr);
+        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultMgr);
 
-        cfgMgr =  new ConfigurationManager(
+        ConfigurationManager cfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 Set.of(),
                 cfgStorage,
@@ -103,9 +99,9 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
                 List.of(TestPersistStorageConfigurationSchema.class)
         );
 
-        ConfigurationRegistry registry = cfgMgr.configurationRegistry();
+        components.add(cfgMgr);
 
-        components.add(registry);
+        ConfigurationRegistry registry = cfgMgr.configurationRegistry();
 
         clusterStateStorage = new TestClusterStateStorage();
 

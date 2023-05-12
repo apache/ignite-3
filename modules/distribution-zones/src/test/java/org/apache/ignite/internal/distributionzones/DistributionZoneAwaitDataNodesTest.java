@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -73,6 +75,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneManagerTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneAwaitDataNodesTest.class);
 
+    private static final String ZONE_NAME_0 = "zone0";
+
+    private static final String ZONE_NAME_1 = "zone1";
+
+    private static final String ZONE_NAME_2 = "zone2";
+
     /**
      * This test invokes {@link DistributionZoneManager#topologyVersionedDataNodes(int, long)} with default and non-default zone id and
      * different logical topology versions. Simulates new logical topology with new nodes and with removed nodes. Check that data nodes
@@ -83,23 +91,20 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
     void testSeveralScaleUpAndSeveralScaleDownThenScaleUpAndScaleDown() throws Exception {
         startZoneManager();
 
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone0")
+        int zoneId0 = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_0)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone1")
+        int zoneId1 = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
-
-        int zoneId0 = distributionZoneManager.getZoneId("zone0");
-        int zoneId1 = distributionZoneManager.getZoneId("zone1");
 
         LOG.info("Topology with added nodes.");
 
@@ -210,15 +215,13 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone1")
+        int zoneId = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
-
-        int zoneId = distributionZoneManager.getZoneId("zone1");
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 1);
 
@@ -250,33 +253,29 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone0")
+        int zoneId0 = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_0)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone1")
+        int zoneId1 = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone2")
+        int zoneId2 = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_2)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
-
-        int zoneId0 = distributionZoneManager.getZoneId("zone0");
-        int zoneId1 = distributionZoneManager.getZoneId("zone1");
-        int zoneId2 = distributionZoneManager.getZoneId("zone2");
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId1, 1);
 
@@ -296,7 +295,7 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         Set<String> nodes1 = Set.of("node0");
 
-        distributionZoneManager.alterZone("zone1", new DistributionZoneConfigurationParameters.Builder("zone1")
+        distributionZoneManager.alterZone(ZONE_NAME_1, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build())
                 .get(3, SECONDS);
 
@@ -327,15 +326,13 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
                         .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build())
                 .get(3, SECONDS);
 
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder("zone1")
+        int zoneId = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
-
-        int zoneId = distributionZoneManager.getZoneId("zone1");
 
         CompletableFuture<Set<String>> dataNodesFut = distributionZoneManager.topologyVersionedDataNodes(zoneId, 1);
 
@@ -355,27 +352,15 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
     void testRemoveZoneWhileAwaitingDataNodes() throws Exception {
         startZoneManager();
 
-        String zoneName = "zone0";
-
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(zoneName)
+        int zoneId = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_0)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                                 .build()
                 )
                 .get(3, SECONDS);
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
-
         CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 5);
-
-        setLogicalTopologyInMetaStorage(Set.of("node0", "node1"), 100);
-
-        assertFalse(dataNodesFut0.isDone());
-
-        assertEquals(Set.of("node0", "node1"), dataNodesFut0.get(3, SECONDS));
-
-        CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 106);
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -384,17 +369,43 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
             if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
                 //Drop the zone while dataNodesFut1 is awaiting a data nodes update.
-                distributionZoneManager.dropZone(zoneName).get();
+                assertThat(distributionZoneManager.dropZone(ZONE_NAME_0), willSucceedIn(3, SECONDS));
             }
 
             return invocation.callRealMethod();
         }).when(keyValueStorage).invoke(any(), any());
 
-        setLogicalTopologyInMetaStorage(Set.of("node0", "node2"), 200);
+        setLogicalTopologyInMetaStorage(Set.of("node0"), 200);
 
-        assertFalse(dataNodesFut1.isDone());
+        assertFalse(dataNodesFut0.isDone());
 
-        assertThrowsWithCause(() -> dataNodesFut1.get(3, SECONDS), DistributionZoneWasRemovedException.class);
+        assertThrowsWithCause(() -> dataNodesFut0.get(3, SECONDS), DistributionZoneWasRemovedException.class);
+    }
+
+    /**
+     * Test checks that data nodes futures are completed exceptionally if the zone was removed while data nodes awaiting.
+     */
+    @Test
+    void testRemoveZoneWhileAwaitingTopologyVersion() throws Exception {
+        startZoneManager();
+
+        int zoneId = distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_0)
+                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                                .build()
+                )
+                .get(3, SECONDS);
+
+        CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.topologyVersionedDataNodes(zoneId, 5);
+
+        assertThat(distributionZoneManager.dropZone(ZONE_NAME_0), willSucceedIn(3, SECONDS));
+
+        setLogicalTopologyInMetaStorage(Set.of("node0"), 200);
+
+        assertFalse(dataNodesFut0.isDone());
+
+        assertThrowsWithCause(() -> dataNodesFut0.get(3, SECONDS), DistributionZoneNotFoundException.class);
     }
 
     /**
