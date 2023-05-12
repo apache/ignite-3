@@ -387,16 +387,15 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-            raftServiceAfterJoin().thenCompose(service ->
-                    service.readClusterState()
-                            .thenAccept(state -> {
-                                LOG.error("READ CLUSTER STATE");
-                                updateDistributedConfigurationActionFuture.complete(
-                                        new UpdateDistributedConfigurationAction(
-                                                state.clusterConfigurationToApply(),
-                                                (result) -> removeClusterConfigFromClusterState(result, service))
-                                );
-                            }));
+        raftServiceAfterJoin().thenCompose(service ->
+                service.readClusterState()
+                        .thenAccept(state -> {
+                            updateDistributedConfigurationActionFuture.complete(
+                                    new UpdateDistributedConfigurationAction(
+                                            state.clusterConfigurationToApply(),
+                                            (result) -> removeClusterConfigFromClusterState(result, service))
+                            );
+                        }));
     }
 
     private CompletableFuture<Void> removeClusterConfigFromClusterState(
@@ -417,15 +416,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                     .clusterTag(clusterTag)
                                     .build();
                         })
-                .thenCompose(state -> {
-                    LOG.info("Removing cluster configuration from cluster state");
-                    return service.updateClusterState(state);
-                })
+                .thenCompose(service::updateClusterState)
                 .whenComplete((v2, e2) -> {
                     if (e2 != null) {
                         LOG.warn("Error when removing cluster configuration", e2);
                     } else {
-                        LOG.info("Removed cluster configuration from cluster state");
+                        LOG.info("Configuration is removed from cluster state");
                     }
                 });
     }

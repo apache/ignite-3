@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -355,7 +356,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     }
 
     @Test
-    void testClusterConfigurationIsApplied(TestInfo testInfo) throws Exception {
+    void testClusterConfigurationIsRemovedFromClusterStateAfterUpdating(TestInfo testInfo) throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
         startCluster(3, testInfo);
 
@@ -365,16 +366,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         String clusterConfiguration = "security.authentication.enabled:true";
         initCluster(cmgNodes, cmgNodes, clusterConfiguration);
 
-        // Start a new node, but do not send the JoinReadyCommand.
-        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
-
-        node.startComponents();
-
-        assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
-
-        // Find the CMG leader and stop it
+        // Find the CMG leader and stop it.
         MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
 
+        // Read cluster configuration from the cluster state and remove it.
         UpdateDistributedConfigurationAction configurationAction = leaderNode.clusterManager()
                 .clusterConfigurationToUpdate()
                 .get();
@@ -382,23 +377,21 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(configurationAction.configuration(), is(clusterConfiguration));
         configurationAction.nextAction().apply(CompletableFuture.completedFuture(null)).join();
 
-        System.out.println("STOP THE LEADER");
+        // Stop the cluster leader.
         stopNodes(List.of(leaderNode));
-
         cluster.remove(leaderNode);
 
+        // Wait for a new leader to be elected.
         Awaitility.await().until(() -> findLeaderNode(cluster).isPresent());
 
-        // Find the CMG leader and stop it
+        // Find the CMG leader and stop it.
         MockNode newLeaderNode = findLeaderNode(cluster).orElseThrow();
 
-        UpdateDistributedConfigurationAction action = newLeaderNode.clusterManager()
+        // Check action doesn't have configuration.
+        UpdateDistributedConfigurationAction emptyAction = newLeaderNode.clusterManager()
                 .clusterConfigurationToUpdate().get();
 
-        assertThat(action.configuration(), is(null));
-
-        // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
-        assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
+        assertThat(emptyAction.configuration(), nullValue());
     }
 
     @Test
@@ -466,14 +459,14 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     private Optional<MockNode> findLeaderNode(List<MockNode> cluster) {
         return cluster.stream()
-              .filter(n -> {
+                .filter(n -> {
                     CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
 
                     assertThat(isLeader, willCompleteSuccessfully());
 
                     return isLeader.join();
                 })
-              .findAny();
+                .findAny();
     }
 
     private List<ClusterNode> currentPhysicalTopology() {

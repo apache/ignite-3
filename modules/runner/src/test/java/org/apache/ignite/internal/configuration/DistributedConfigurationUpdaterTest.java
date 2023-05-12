@@ -19,8 +19,9 @@ package org.apache.ignite.internal.configuration;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,6 +47,7 @@ class DistributedConfigurationUpdaterTest {
     @Test
     public void nextActionIsCompletedAfterUpdatingConfiguration() {
 
+        // Set up mocks.
         when(presentation.update(anyString())).thenReturn(CompletableFuture.completedFuture(null));
 
         CompletableFuture<Void> nextAction = new CompletableFuture<>();
@@ -58,6 +60,7 @@ class DistributedConfigurationUpdaterTest {
         when(cmgMgr.clusterConfigurationToUpdate())
                 .thenReturn(CompletableFuture.completedFuture(updateDistributedConfigurationAction));
 
+        // Run updater.
         DistributedConfigurationUpdater distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
                 presentation
@@ -65,10 +68,40 @@ class DistributedConfigurationUpdaterTest {
 
         distributedConfigurationUpdater.start();
 
+        // Verify that configuration was updated.
         verify(presentation, times(1)).update(configuration);
+
+        // Verify that next action is completed.
         nextAction.join();
         assertThat(nextAction.isDone(), is(true));
-
     }
 
+    @Test
+    public void nextActionIsCompletedIfConfigurationNull() {
+
+        // Set up mocks.
+        CompletableFuture<Void> nextAction = new CompletableFuture<>();
+        UpdateDistributedConfigurationAction updateDistributedConfigurationAction =
+                new UpdateDistributedConfigurationAction(
+                        null,
+                        (result) -> result.whenComplete((v, e) -> nextAction.complete(null)));
+
+        when(cmgMgr.clusterConfigurationToUpdate())
+                .thenReturn(CompletableFuture.completedFuture(updateDistributedConfigurationAction));
+
+        // Run updater.
+        DistributedConfigurationUpdater distributedConfigurationUpdater = new DistributedConfigurationUpdater(
+                cmgMgr,
+                presentation
+        );
+
+        distributedConfigurationUpdater.start();
+
+        // Verify that configuration wasn't updated.
+        verify(presentation, never()).update(any());
+
+        // Verify that next action is completed.
+        nextAction.join();
+        assertThat(nextAction.isDone(), is(true));
+    }
 }
