@@ -17,16 +17,13 @@
 
 package org.apache.ignite.internal.cli.core.flow.question;
 
-/**
- * Question writer and reader interface.
- */
-public interface QuestionWriterReader {
+/** Factory for creating instances of {@link QuestionWriterReader}. */
+public interface QuestionWriterReaderFactory {
     /**
-     * Write question to output and read answer from input.
+     * Creates an instance of {@link QuestionWriterReader}.
      *
-     * @param question Question to ask.
-     * @param maskInput If {@code true}, user input will be masked with asterisks.
-     * @return user answer.
+     * @param completeFilePaths If {@code true}, this instance will complete input as file paths.
+     * @return Question reader.
      */
-    String readAnswer(String question, boolean maskInput);
+    QuestionWriterReader createWriterReader(boolean completeFilePaths);
 }
