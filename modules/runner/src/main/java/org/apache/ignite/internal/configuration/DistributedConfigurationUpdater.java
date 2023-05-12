@@ -19,9 +19,17 @@ package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
+/**
+ * Updater is responsible for applying changes to the cluster configuration when it's ready.
+ */
 public class DistributedConfigurationUpdater implements IgniteComponent {
+
+    private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationUpdater.class);
+
     private final ClusterManagementGroupManager cmgMgr;
 
     private final ConfigurationManager clusterCfgMgr;
@@ -35,9 +43,15 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     public void start() {
         HoconPresentation presentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
         cmgMgr.clusterConfigurationToUpdate().thenAccept(action -> {
-            if (action.currentAction() != null) {
-                presentation.update(action.currentAction())
-                        .thenApply(v -> action.nextAction());
+            if (action.configuration() != null) {
+                presentation.update(action.configuration())
+                        .handle((v, e) -> {
+                            if (e != null) {
+                                LOG.error("Failed to update the distributed configuration", e);
+                            }
+                            return action.nextAction();
+                        })
+                        .thenApply(v -> v);
             }
         });
     }

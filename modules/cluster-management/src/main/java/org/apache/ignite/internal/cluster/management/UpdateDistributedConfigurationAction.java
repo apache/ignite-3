@@ -20,23 +20,48 @@ package org.apache.ignite.internal.cluster.management;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
-public class UpdateDistributedConfigurationAction implements Action<String, CompletableFuture<Void>> {
+/**
+ * Composite action to update the distributed configuration.
+ * Contains {@link #configuration()} that should be applied to the distributed configuration
+ * and {@link #nextAction()} that should be performed after the update.
+ */
+public class UpdateDistributedConfigurationAction {
 
-    private final String cfgToUpdate;
+    /**
+     * Configuration that should be applied.
+     */
+    private final String configuration;
 
+    /**
+     * The next action to be performed.
+     */
     private final CompletableFuture<Void> nextAction;
 
-    public UpdateDistributedConfigurationAction(@Nullable String cfgToUpdate, CompletableFuture<Void> nextAction) {
-        this.cfgToUpdate = cfgToUpdate;
+    /**
+     * Constructor.
+     *
+     * @param configuration Configuration that should be applied.
+     * @param nextAction The next action to be performed.
+     */
+    public UpdateDistributedConfigurationAction(@Nullable String configuration, CompletableFuture<Void> nextAction) {
+        this.configuration = configuration;
         this.nextAction = nextAction;
     }
 
-    @Override
-    public String currentAction() {
-        return cfgToUpdate;
+    /**
+     * Returns the configuration that should be applied.
+     *
+     * @return Configuration that should be applied.
+     */
+    public String configuration() {
+        return configuration;
     }
 
-    @Override
+    /**
+     * Returns the next action to be performed.
+     *
+     * @return The next action to be performed.
+     */
     public CompletableFuture<Void> nextAction() {
         return nextAction;
     }

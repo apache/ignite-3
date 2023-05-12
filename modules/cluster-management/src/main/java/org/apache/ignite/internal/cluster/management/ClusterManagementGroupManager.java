@@ -708,8 +708,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
-        // Fail the future to unblock dependent operations
+        // Fail the futures to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
+        updateDistributedConfigurationActionFuture.completeExceptionally(new NodeStoppingException());
     }
 
     /**
