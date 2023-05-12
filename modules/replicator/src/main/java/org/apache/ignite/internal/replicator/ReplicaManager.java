@@ -425,7 +425,9 @@ public class ReplicaManager implements IgniteComponent {
                     + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
 
         for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
-            replicaFuture.completeExceptionally(new NodeStoppingException());
+            if (!replicaFuture.isDone()) {
+                replicaFuture.completeExceptionally(new NodeStoppingException());
+            }
         }
     }
 
