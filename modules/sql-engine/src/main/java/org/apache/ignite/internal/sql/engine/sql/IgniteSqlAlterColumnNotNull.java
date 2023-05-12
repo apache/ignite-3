@@ -39,7 +39,7 @@ public class IgniteSqlAlterColumnNotNull extends IgniteSqlAlterColumn {
     public IgniteSqlAlterColumnNotNull(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier colName, boolean notNull) {
         super(pos, ifExists, tblName);
 
-        this.columnName = Objects.requireNonNull(colName, "columnName");
+        this.columnName = Objects.requireNonNull(colName, "colName");
         this.notNull = notNull;
     }
 

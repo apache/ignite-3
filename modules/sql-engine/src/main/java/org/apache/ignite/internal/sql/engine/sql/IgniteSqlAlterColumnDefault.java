@@ -40,7 +40,7 @@ public class IgniteSqlAlterColumnDefault extends IgniteSqlAlterColumn {
     public IgniteSqlAlterColumnDefault(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier colName, SqlNode dflt) {
         super(pos, ifExists, tblName);
 
-        this.columnName = Objects.requireNonNull(colName, "columnName");
+        this.columnName = Objects.requireNonNull(colName, "colName");
         this.dflt = dflt;
     }
 

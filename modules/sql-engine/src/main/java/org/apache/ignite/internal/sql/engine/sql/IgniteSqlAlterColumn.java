@@ -25,17 +25,17 @@ import org.apache.calcite.sql.parser.SqlParserPos;
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN} statement.
  */
 public abstract class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
+    /** Constructor. */
+    IgniteSqlAlterColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName) {
+        super(pos, ifExists, tblName);
+    }
+
     /**
      * Gets column name.
      *
      * @return Column name.
      */
     public abstract SqlIdentifier columnName();
-
-    /** Constructor. */
-    public IgniteSqlAlterColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName) {
-        super(pos, ifExists, tblName);
-    }
 
     /** {@inheritDoc} */
     @Override protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
