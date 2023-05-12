@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
@@ -372,7 +373,13 @@ public class ClientTableCommon {
      * @return Client type code.
      */
     public static ColumnType getColumnType(NativeTypeSpec spec) {
-        return spec.asColumnType();
+        ColumnType columnType = spec.asColumnTypeOrNull();
+
+        if (columnType == null) {
+            throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
+        }
+
+        return columnType;
     }
 
     /**

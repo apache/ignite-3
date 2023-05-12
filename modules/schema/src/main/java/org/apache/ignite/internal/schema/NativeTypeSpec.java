@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -28,8 +26,10 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for storage built-in data types definition. The class contains predefined values for fixed-sized types and some of the
@@ -365,6 +365,22 @@ public enum NativeTypeSpec {
      * @return Client type code.
      */
     public ColumnType asColumnType() {
+        ColumnType columnType = asColumnTypeOrNull();
+
+        if (columnType == null) {
+            throw new IgniteException(Common.UNEXPECTED_ERR, "Unsupported native type: " + this);
+        }
+
+        return columnType;
+    }
+
+    /**
+     * Gets client type corresponding to this server type.
+     *
+     * @return Client type code.
+     */
+    @Nullable
+    public ColumnType asColumnTypeOrNull() {
         switch (this) {
             case INT8:
                 return ColumnType.INT8;
@@ -415,7 +431,7 @@ public enum NativeTypeSpec {
                 return ColumnType.TIMESTAMP;
 
             default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + this);
+                return null;
         }
     }
 
