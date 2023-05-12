@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
@@ -131,9 +132,9 @@ public class FullTableSchema {
     }
 
     private static <T> List<T> subtractKeyed(Map<String, T> minuend, Map<String, T> subtrahend) {
-        return minuend.keySet().stream()
-                .filter(name -> !subtrahend.containsKey(name))
-                .map(minuend::get)
+        return minuend.entrySet().stream()
+                .filter(entry -> !subtrahend.containsKey(entry.getKey()))
+                .map(Entry::getValue)
                 .collect(toList());
     }
 
