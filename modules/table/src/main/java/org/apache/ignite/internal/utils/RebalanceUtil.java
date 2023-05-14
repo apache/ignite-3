@@ -150,6 +150,12 @@ public class RebalanceUtil {
         return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
+    public static UUID extractTableId2(byte[] key, String prefix) {
+        String strKey = new String(key, StandardCharsets.UTF_8);
+
+        return UUID.fromString(strKey.substring(prefix.length(), strKey.length()));
+    }
+
     /**
      * Extract partition number from the rebalance key of partition.
      *

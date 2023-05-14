@@ -34,13 +34,11 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.union;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -58,7 +56,6 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -373,13 +370,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             // All conditions combined with AND operator.
             Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-            tblConfiguration.change(ch -> {
-                List<Set<Assignment>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-                assignments.set(partNum, stable);
-                ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-            }).get(10, TimeUnit.SECONDS);
-
             Update successCase;
             Update failCase;
 
@@ -486,7 +476,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
 
             rebalanceAttempts.set(0);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
                     e, tblConfiguration.name(), partNum);
