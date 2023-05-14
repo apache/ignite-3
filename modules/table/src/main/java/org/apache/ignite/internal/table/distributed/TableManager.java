@@ -563,12 +563,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
+            int partitions =
+                    getZoneById(distributionZonesConfiguration, ctx.newValue().zoneId()).value().partitions();
+
             dropTableLocally(
                     ctx.storageRevision(),
                     ctx.oldValue().name(),
                     ((ExtendedTableView) ctx.oldValue()).id(),
-                    ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
-            );
+                    partitions);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1195,12 +1197,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param name Table name.
      * @param tblId Table id.
-     * @param assignment Affinity assignment.
+     * @param partitions Number of partitions.
      */
-    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<Set<ClusterNode>> assignment) {
+    private void dropTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
         try {
-            int partitions = assignment.size();
-
             CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
 
             for (int p = 0; p < partitions; p++) {

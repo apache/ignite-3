@@ -32,13 +32,6 @@ public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
     @InternalId
     public UUID id;
 
-    /**
-     * Serialized version of an affinity assignments. Currently, configuration doesn't support neither collections nor array of arrays, so
-     * that serialization was chosen.
-     */
-    @Value
-    public byte[] assignments;
-
     /** Current schema id. Monotonically increasing number. */
     @Value
     public int schemaId;

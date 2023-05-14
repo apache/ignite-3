@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +36,9 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -73,6 +76,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -481,10 +485,23 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 extConfCh.changeZoneId(zoneId);
 
                 tblIdRef.set(extConfCh.id());
-
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
             });
-        }).get();
+                }).thenCompose(v -> {
+                    Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
+
+                    for (int i = 0; i < assignments.size(); i++) {
+                        partitionAssignments.put(
+                                stablePartAssignmentsKey(
+                                        new TablePartitionId(tblIdRef.get(), i)),
+                                ByteUtils.toBytes(assignments.get(i)));
+
+                    }
+
+                    // TODO: KKK why putAll is not a part of the public interface?
+                    return metaStorageManager.putAll(partitionAssignments);
+
+                })
+                .get();
 
         var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
 

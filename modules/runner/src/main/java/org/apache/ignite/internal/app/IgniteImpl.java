@@ -207,7 +207,8 @@ public class IgniteImpl implements Ignite {
     private final Loza raftMgr;
 
     /** Meta storage manager. */
-    private final MetaStorageManager metaStorageMgr;
+    // TODO: KKK dirty hack for test
+    public final MetaStorageManager metaStorageMgr;
 
     // TODO: IGNITE-18856 Switch primary replica calls from Raft leader to primary replica
     // /** Placement driver manager. */

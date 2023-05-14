@@ -381,8 +381,8 @@ public class RebalanceUtil {
         return op1.stream().filter(op2::contains).collect(Collectors.toSet());
     }
 
-    public static CompletableFuture<Set<Assignment>> partitionAssignments(MetaStorageManager metaStorageManager, TablePartitionId partId) {
-        return metaStorageManager.get(pendingPartAssignmentsKey(partId))
+    public static CompletableFuture<Set<Assignment>> partitionAssignments(MetaStorageManager metaStorageManager, UUID tableId, int partNum) {
+        return metaStorageManager.get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partNum)))
                 .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
     }
 

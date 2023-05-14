@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -67,6 +69,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -571,7 +574,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     private TablePartitionId createTableAssignment() throws Exception {
         AtomicReference<UUID> tblIdRef = new AtomicReference<>();
 
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
+        final List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
 
         int zoneId = createZone();
 
@@ -581,10 +584,23 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                 extConfCh.changeZoneId(zoneId);
 
                 tblIdRef.set(extConfCh.id());
-
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
             });
-        }).get();
+        }).thenCompose(v -> {
+                    Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
+
+                    for (int i = 0; i < assignments.size(); i++) {
+                        partitionAssignments.put(
+                                stablePartAssignmentsKey(
+                                        new TablePartitionId(tblIdRef.get(), i)),
+                                ByteUtils.toBytes(assignments.get(i)));
+
+                    }
+
+                    // TODO: KKK why putAll is not a part of the public interface?
+                    return metaStorageManager.putAll(partitionAssignments);
+
+                })
+                .get();
 
         var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
 

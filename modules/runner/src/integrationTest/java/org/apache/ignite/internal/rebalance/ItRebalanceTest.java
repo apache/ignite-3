@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -176,12 +177,13 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                         (ExtendedTableConfiguration) cluster.node(i)
                                 .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
 
-                byte[] assignmentsBytes = table.assignments().value();
+                Set<Assignment> rawAssignments =
+                        partitionAssignments(cluster.node(i).metaStorageMgr, table.id().value(), 0).join();
 
                 Set<String> assignments;
 
-                if (assignmentsBytes != null) {
-                    assignments = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0)
+                if (rawAssignments != null) {
+                    assignments = rawAssignments
                             .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
                 } else {
                     assignments = Collections.emptySet();
