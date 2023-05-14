@@ -394,17 +394,17 @@ public class RebalanceUtil {
             partitionKeysToPartitionNumb.put(pendingPartAssignmentsKey(new TablePartitionId(tableId, i)), partNum);
         }
 
-        List<Set<Assignment>> result = new ArrayList<>(partNum);
 
         // TODO: KKK what if partition assignments are not in the metastorage yet? is it even possible?
         return metaStorageManager.getAll(partitionKeysToPartitionNumb.keySet())
                 .thenApply(entries -> {
+                    List<Set<Assignment>> result = new ArrayList<>(partNum);
                     for (var entry : entries.entrySet()) {
                         result.add(
                                 partitionKeysToPartitionNumb.get(entry.getKey()),
                                 ByteUtils.fromBytes(entry.getValue().value()));
                     }
+                    return result;
                 });
-
     }
 }
