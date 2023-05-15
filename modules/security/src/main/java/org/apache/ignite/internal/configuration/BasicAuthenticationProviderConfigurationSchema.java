@@ -30,7 +30,6 @@ public class BasicAuthenticationProviderConfigurationSchema extends Authenticati
     public String username;
 
     /** Password. */
-
     @Secret
     @Value
     public String password;
