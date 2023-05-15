@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
@@ -162,8 +163,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var version = buf.GetReader().ReadInt32();
 
-            // TODO: Check if task is failed.
-            return _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+            return GetCachedSchemaAsync(version);
         }
 
         /// <summary>
@@ -175,8 +175,7 @@ namespace Apache.Ignite.Internal.Table
             // _latestSchemaVersion can be -1 (unknown) or a valid version.
             // In case of unknown version, we request latest from the server and cache it with -1 key
             // to avoid duplicate requests for latest schema.
-            // TODO: Check if task is failed.
-            return _schemas.GetOrAdd(_latestSchemaVersion, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+            return GetCachedSchemaAsync(_latestSchemaVersion);
         }
 
         /// <summary>
@@ -204,6 +203,20 @@ namespace Apache.Ignite.Internal.Table
             var nodeId = assignment[partition];
 
             return PreferredNode.FromId(nodeId);
+        }
+
+        private Task<Schema> GetCachedSchemaAsync(int version)
+        {
+            // TODO: Check if task is failed.
+            var task = _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+
+            if (task.IsFaulted)
+            {
+                _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+                return GetCachedSchemaAsync(version);
+            }
+
+            return task;
         }
 
         private async ValueTask<string[]?> GetPartitionAssignmentAsync()
