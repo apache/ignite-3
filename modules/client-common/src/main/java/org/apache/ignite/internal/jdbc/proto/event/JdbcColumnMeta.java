@@ -142,8 +142,8 @@ public class JdbcColumnMeta extends Response {
      * @param scale        Column scale.
      * @param nullable     Nullable flag.
      */
-    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, int dataType, String dataTypeName, String javaTypeName, int precision, int scale,
-            boolean nullable) {
+    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, int dataType, String dataTypeName,
+            String javaTypeName, int precision, int scale, boolean nullable) {
         this.label = label;
         this.schemaName = schemaName;
         this.tblName = tblName;
