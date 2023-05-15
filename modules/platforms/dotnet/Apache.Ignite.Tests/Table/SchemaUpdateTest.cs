@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
+using Internal.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -47,8 +49,14 @@ public class SchemaUpdateTest
         var task2 = view.UpsertAsync(null, new IgniteTuple { ["id"] = 2 });
 
         await Task.WhenAll(task1, task2);
-
         Assert.AreEqual(1, server.ClientOps.Count(x => x == ClientOp.SchemasGet), string.Join(", ", server.ClientOps));
+
+        var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
+
+        // Same schema is cached as "Unknown latest" (-1) and specific version (1).
+        CollectionAssert.AreEquivalent(new[] { -1, 1 }, schemas.Keys);
+        Assert.AreEqual(1, schemas[-1].GetAwaiter().GetResult().Version);
+        Assert.AreEqual(1, schemas[1].GetAwaiter().GetResult().Version);
     }
 
     [Test]
