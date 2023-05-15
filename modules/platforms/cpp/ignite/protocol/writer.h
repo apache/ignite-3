@@ -101,8 +101,8 @@ public:
      */
     void write(uuid value) {
         std::byte data[16];
-        bytes::store<endian::LITTLE, std::int64_t>(&data[0], value.getMostSignificantBits());
-        bytes::store<endian::LITTLE, std::int64_t>(&data[8], value.getLeastSignificantBits());
+        bytes::store<endian::LITTLE, std::int64_t>(&data[0], value.get_most_significant_bits());
+        bytes::store<endian::LITTLE, std::int64_t>(&data[8], value.get_least_significant_bits());
 
         msgpack_pack_ext_with_body(m_packer.get(), &data, 16, std::int8_t(extension_type::UUID));
     }

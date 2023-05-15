@@ -47,7 +47,7 @@ struct end_point {
     [[nodiscard]] std::string to_string() const { return host + ":" + std::to_string(port); }
 
     /**
-     * Compare to another instance.
+     * compare to another instance.
      *
      * @param other Another instance.
      * @return Negative value if less, positive if larger and zero, if equals

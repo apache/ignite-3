@@ -34,6 +34,9 @@ struct bytes_view : std::basic_string_view<std::byte> {
     constexpr bytes_view(const std::byte *data, std::size_t size) noexcept
         : base_type(data, size) {}
 
+    constexpr bytes_view(const void *data, std::size_t size) noexcept
+        : base_type(static_cast<const std::byte*>(data), size) {}
+
     constexpr bytes_view(const base_type &v) noexcept // NOLINT(google-explicit-constructor)
         : base_type(v.data(), v.size()) {}
 

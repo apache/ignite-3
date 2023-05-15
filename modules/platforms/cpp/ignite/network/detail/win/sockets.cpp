@@ -44,7 +44,7 @@ std::string get_socket_error_message(HRESULT error) {
         FORMAT_MESSAGE_FROM_SYSTEM
             // allocate buffer on local heap for error text
             | FORMAT_MESSAGE_ALLOCATE_BUFFER
-            // We're not passing insertion parameters
+            // We're not passing insertion m_parameters
             | FORMAT_MESSAGE_IGNORE_INSERTS,
         // unused with FORMAT_MESSAGE_FROM_SYSTEM
         NULL, error, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
