@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table
     using System;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -159,6 +160,7 @@ namespace Apache.Ignite.Internal.Table
         {
             var ver = buf.GetReader().ReadInt32();
 
+            // TODO: Check if task is failed.
             return _schemas.GetOrAdd(ver, static (v, tbl) => tbl.LoadSchemaAsync(v), this);
         }
 
@@ -172,10 +174,14 @@ namespace Apache.Ignite.Internal.Table
 
             if (latestSchemaVersion >= 0)
             {
+                // TODO: Check if task is failed.
                 return _schemas[latestSchemaVersion];
             }
 
-            return LoadSchemaAsync(version: null);
+            // TODO: There is a race here - we can still load schema twice?
+            // We haven't loaded any schema yet, but if there is any pending task - return it.
+            return _schemas.Values.FirstOrDefault() ??
+                   LoadSchemaAsync(version: null);
         }
 
         /// <summary>
@@ -333,7 +339,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = new Schema(schemaVersion, keyColumnCount, columns);
-            _schemas.GetOrAdd(schemaVersion, static (_, s) => Task.FromResult(s), schema);
+            _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)
             {

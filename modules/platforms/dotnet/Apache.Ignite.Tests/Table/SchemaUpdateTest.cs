@@ -58,4 +58,11 @@ public class SchemaUpdateTest
             },
             server.ClientOps);
     }
+
+    [Test]
+    public async Task TestFailedSchemaLoadTaskIsRetried()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
 }
