@@ -326,6 +326,7 @@ public class TableImpl implements Table {
                 indexId,
                 partitionId -> new SortedIndexLocker(
                         indexId,
+                        partitionId,
                         lockManager,
                         tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
                         searchRowResolver
