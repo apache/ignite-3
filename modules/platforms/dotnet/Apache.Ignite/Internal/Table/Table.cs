@@ -175,7 +175,7 @@ namespace Apache.Ignite.Internal.Table
                 return _schemas[latestSchemaVersion];
             }
 
-            return LoadSchemaAsync(null);
+            return LoadSchemaAsync(version: null);
         }
 
         /// <summary>
