@@ -311,7 +311,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone with the given {@code name} asynchronously.
      *
      * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation. Future can be completed with:
+     * @return Future with the id of the zone. Future can be completed with:
      *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists,
      *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
      *      {@link IllegalArgumentException} if distribution zone configuration is null
