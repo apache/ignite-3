@@ -62,7 +62,7 @@ public class SchemaUpdateTest
     [Test]
     public async Task TestFailedSchemaLoadTaskIsRetried()
     {
-        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.SchemasGet, RequestCount: < 5 })
+        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.SchemasGet, RequestCount: < 3 })
         {
             OperationDelay = TimeSpan.FromMilliseconds(100)
         };
@@ -73,10 +73,14 @@ public class SchemaUpdateTest
         };
 
         using var client = await server.ConnectClientAsync(cfg);
+
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
-        await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 });
 
-        Assert.Fail("TODO");
+        // First operation fails because server drops connection.
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 }));
+
+        // Second operation should not reuse failed task and create a new one, which will succeed.
+        await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 });
     }
 }
