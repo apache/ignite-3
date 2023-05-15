@@ -461,13 +461,12 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public void testGetAllPrimaryKeys() throws Exception {
         ResultSet rs = conn.getMetaData().getPrimaryKeys(null, null, null);
 
-        Set<String> expectedPks = new HashSet<>(Arrays.asList(
+        List<String> expectedPks = Arrays.asList(
                 "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
-                "PUBLIC.PERSON.PK_PERSON.ORGID",
-                "PUBLIC.UUIDS.PK_UUIDS.ID"
-        ));
+                "PUBLIC.PERSON.PK_PERSON.ORGID"
+        );
 
-        Set<String> actualPks = new HashSet<>(expectedPks.size());
+        List<String> actualPks = new ArrayList<>(expectedPks.size());
 
         while (rs.next()) {
             actualPks.add(rs.getString("TABLE_SCHEM")
