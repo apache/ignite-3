@@ -30,7 +30,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.version.UnitVersion;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.reactivestreams.Publisher;
 
@@ -53,7 +53,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<Void> undeploy(String unitId, String unitVersion) {
+    public CompletableFuture<Boolean> undeploy(String unitId, String unitVersion) {
         return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
     }
 
@@ -88,11 +88,10 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @return Unit status DTO.
      */
     private static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
-        Map<String, DeploymentInfo> versionToDeploymentStatus = new HashMap<>();
+        Map<String, DeploymentStatus> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = status.versions();
         for (Version version : versions) {
-            DeploymentInfo info = new DeploymentInfo(status.status(version), status.consistentIds(version));
-            versionToDeploymentStatus.put(version.render(), info);
+            versionToDeploymentStatus.put(version.render(), status.status(version));
         }
         return new UnitStatus(status.id(), versionToDeploymentStatus);
     }

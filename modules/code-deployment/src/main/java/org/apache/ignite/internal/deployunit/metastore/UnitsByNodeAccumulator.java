@@ -17,46 +17,45 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import java.util.Objects;
 import org.apache.ignite.internal.deployunit.UnitMeta;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
+import org.apache.ignite.internal.deployunit.metastore.key.UnitKey;
 import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Units accumulator with filtering mechanism.
+ * Units id accumulator for by node deployment.
  */
-public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatus>> {
-    private final Map<String, UnitStatusBuilder> map = new HashMap<>();
+public class UnitsByNodeAccumulator implements Accumulator<Entry, List<String>> {
+    private final String consistentId;
 
-    private final Predicate<UnitMeta> filter;
+    private final List<String> result = new ArrayList<>();
 
-    public UnitsAccumulator() {
-        this(t -> true);
-    }
-
-    public UnitsAccumulator(Predicate<UnitMeta> filter) {
-        this.filter = filter;
+    public UnitsByNodeAccumulator(String consistentId) {
+        this.consistentId = consistentId;
     }
 
     @Override
     public void accumulate(Entry item) {
-        UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
-        if (filter.test(meta)) {
-            map.computeIfAbsent(meta.id(), UnitStatus::builder)
-                    .append(meta.version(), meta.status()).build();
+        byte[] key = item.key();
+        byte[] value = item.value();
+        String nodeId = UnitKey.extractNodeId(key);
+
+        if (Objects.equals(nodeId, consistentId)) {
+            UnitMeta meta = UnitMetaSerializer.deserialize(value);
+            if (meta.status() == DeploymentStatus.DEPLOYED) {
+                result.add(meta.id());
+            }
         }
     }
 
     @Override
-    public List<UnitStatus> get() throws AccumulateException {
-        return map.values().stream().map(UnitStatusBuilder::build).collect(Collectors.toList());
+    public List<String> get() throws AccumulateException {
+        return result;
     }
 }

@@ -514,7 +514,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Void'
+                type: boolean
         "404":
           description: Unit with provided identifier and version does not exist.
           content:
@@ -759,27 +759,9 @@ components:
           type: string
           description: Unique cluster name.
       description: Unique tag that identifies the cluster.
-    DeploymentInfo:
-      required:
-      - consistentIds
-      - status
-      type: object
-      properties:
-        status:
-          allOf:
-          - $ref: '#/components/schemas/DeploymentStatus'
-          - type: object
-            description: Current unit status.
-        consistentIds:
-          type: array
-          items:
-            type: string
-            description: Map from unit version to node consistent id where unit is
-              deployed.
-      description: Rest representation of class with deployment unit information.
     DeploymentStatus:
       type: string
-      description: Current unit status.
+      description: Status of deployment process.
       enum:
       - UPLOADING
       - DEPLOYED
@@ -942,16 +924,16 @@ components:
     UnitStatus:
       required:
       - id
-      - versionToDeploymentInfo
+      - versionToStatus
       type: object
       properties:
         id:
           type: string
           description: Unit identifier.
-        versionToDeploymentInfo:
+        versionToStatus:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/DeploymentInfo'
+            $ref: '#/components/schemas/DeploymentStatus'
           description: Map from unit version to unit deployment status.
       description: Unit status.
     Void:

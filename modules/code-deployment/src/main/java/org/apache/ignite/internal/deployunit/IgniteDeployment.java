@@ -60,7 +60,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @return Future completed when unit will be undeployed.
      *      In case when specified unit not exist future will be failed.
      */
-    CompletableFuture<Void> undeployAsync(String id, Version version);
+    CompletableFuture<Boolean> undeployAsync(String id, Version version);
 
     /**
      * Lists all deployed units.

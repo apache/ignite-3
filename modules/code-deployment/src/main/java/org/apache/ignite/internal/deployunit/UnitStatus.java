@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
@@ -38,7 +37,7 @@ public class UnitStatus {
     /**
      * Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    private final Map<Version, DeploymentInfo> versionToDeploymentInfo;
+    private final Map<Version, DeploymentStatus> versionToStatus;
 
     /**
      * Constructor.
@@ -48,9 +47,9 @@ public class UnitStatus {
      *      of nodes consistent ids where unit deployed.
      */
     private UnitStatus(String id,
-            Map<Version, DeploymentInfo> versionToConsistentIds) {
+            Map<Version, DeploymentStatus> versionToConsistentIds) {
         this.id = id;
-        this.versionToDeploymentInfo = Collections.unmodifiableMap(versionToConsistentIds);
+        this.versionToStatus = Collections.unmodifiableMap(versionToConsistentIds);
     }
 
     /**
@@ -68,21 +67,11 @@ public class UnitStatus {
      * @return unit version.
      */
     public Set<Version> versions() {
-        return Collections.unmodifiableSet(versionToDeploymentInfo.keySet());
-    }
-
-    /**
-     * Returns consistent ids of nodes for provided version.
-     *
-     * @param version Unit version.
-     * @return consistent ids of nodes for provided version.
-     */
-    public List<String> consistentIds(Version version) {
-        return Collections.unmodifiableList(versionToDeploymentInfo.get(version).consistentIds());
+        return Collections.unmodifiableSet(versionToStatus.keySet());
     }
 
     public DeploymentStatus status(Version version) {
-        return versionToDeploymentInfo.get(version).status();
+        return versionToStatus.get(version);
     }
 
     /**
@@ -107,20 +96,20 @@ public class UnitStatus {
             return false;
         }
         UnitStatus that = (UnitStatus) o;
-        return Objects.equals(id, that.id) && Objects.equals(versionToDeploymentInfo, that.versionToDeploymentInfo);
+        return Objects.equals(id, that.id) && Objects.equals(versionToStatus, that.versionToStatus);
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(id, versionToDeploymentInfo);
+        return Objects.hash(id, versionToStatus);
     }
 
     @Override
     public String toString() {
         return "UnitStatus{"
                 + "id='" + id + '\''
-                + ", versionToDeploymentInfo=" + versionToDeploymentInfo
+                + ", versionToStatus=" + versionToStatus
                 + '}';
     }
 
@@ -130,7 +119,7 @@ public class UnitStatus {
     public static class UnitStatusBuilder {
 
         private final String id;
-        private final Map<Version, DeploymentInfo> versionToInfo = new HashMap<>();
+        private final Map<Version, DeploymentStatus> versionToStatus = new ConcurrentHashMap<>();
 
         /**
          * Constructor.
@@ -148,8 +137,8 @@ public class UnitStatus {
          * @param deploymentInfo Node consistent ids.
          * @return {@code this} builder for use in a chained invocation.
          */
-        public UnitStatusBuilder append(Version version, DeploymentInfo deploymentInfo) {
-            versionToInfo.put(version, deploymentInfo);
+        public UnitStatusBuilder append(Version version, DeploymentStatus deploymentInfo) {
+            versionToStatus.put(version, deploymentInfo);
             return this;
         }
 
@@ -159,7 +148,7 @@ public class UnitStatus {
          * @return {@link UnitStatus} instance.
          */
         public UnitStatus build() {
-            return new UnitStatus(id, versionToInfo);
+            return new UnitStatus(id, versionToStatus);
         }
     }
 }

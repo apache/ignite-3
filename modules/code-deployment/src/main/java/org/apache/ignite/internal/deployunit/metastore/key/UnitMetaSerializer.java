@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.key;
+package org.apache.ignite.internal.deployunit.metastore.key;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.UnitMeta;
@@ -54,9 +52,7 @@ public final class UnitMetaSerializer {
 
         appendWithEncoding(sb, meta.id());
         appendWithEncoding(sb, meta.version().render());
-        appendWithEncoding(sb, meta.fileNames());
         appendWithEncoding(sb, meta.status().name());
-        appendWithEncoding(sb, meta.consistentIdLocation());
 
         return sb.toString().getBytes(UTF_8);
     }
@@ -73,13 +69,10 @@ public final class UnitMetaSerializer {
 
         String id = decode(split[0]);
         String version = decode(split[1]);
-        List<String> fileNames = deserializeList(split[2]);
 
-        DeploymentStatus status = DeploymentStatus.valueOf(decode(split[3]));
+        DeploymentStatus status = DeploymentStatus.valueOf(decode(split[2]));
 
-        List<String> ids = deserializeList(split[4]);
-
-        return new UnitMeta(id, Version.parseVersion(version), fileNames, status, ids);
+        return new UnitMeta(id, Version.parseVersion(version), status);
     }
 
     private static void appendWithEncoding(StringBuilder sb, String content) {
@@ -91,16 +84,6 @@ public final class UnitMetaSerializer {
                 .map(UnitMetaSerializer::encode)
                 .collect(Collectors.joining(LIST_SEPARATOR));
         sb.append(list).append(SEPARATOR);
-    }
-
-    private static List<String> deserializeList(String data) {
-        if (data.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        return Arrays.stream(data.split(LIST_SEPARATOR))
-                .map(UnitMetaSerializer::decode)
-                .collect(Collectors.toList());
     }
 
     private static String encode(String s) {

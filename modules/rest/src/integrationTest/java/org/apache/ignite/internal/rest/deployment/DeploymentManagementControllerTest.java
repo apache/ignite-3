@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.deployment;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
@@ -27,7 +28,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -106,8 +106,8 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
         assertThat(status.id(), is(id));
-        assertThat(status.versionToDeploymentInfo().keySet(), equalTo(Set.of(version)));
-        assertThat(status.versionToDeploymentInfo().get(version).consistentIds(), hasItem(CLUSTER_NODE_NAMES.get(0)));
+        assertThat(status.versionToStatus().keySet(), equalTo(Set.of(version)));
+        assertThat(status.versionToStatus().get(version), equalTo(DEPLOYED));
     }
 
     @Test

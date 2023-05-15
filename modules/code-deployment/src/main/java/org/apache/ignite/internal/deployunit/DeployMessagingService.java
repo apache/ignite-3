@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
@@ -114,10 +110,11 @@ public class DeployMessagingService {
      * @param unitContent Deployment unit file names and content.
      * @return Future with deployment result.
      */
-    public CompletableFuture<List<CompletableFuture<String>>> startDeployAsyncToCmg(
+    public CompletableFuture<Boolean> startDeployAsyncToNode(
             String id,
             Version version,
-            Map<String, byte[]> unitContent
+            Map<String, byte[]> unitContent,
+            String node
     ) {
         DeployUnitRequest request = DeployUnitRequestImpl.builder()
                 .id(id)
@@ -125,15 +122,7 @@ public class DeployMessagingService {
                 .unitContent(unitContent)
                 .build();
 
-        return cmgManager.cmgNodes().thenApply(nodes -> deploy(nodes, request));
-    }
-
-    private List<CompletableFuture<String>> deploy(Set<String> nodes, DeployUnitRequest request) {
-        return nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
-                .filter(Objects::nonNull)
-                .map(node -> requestDeploy(node, request)
-                        .thenApply(deployed -> deployed ? node.name() : null))
-                .collect(Collectors.toList());
+        return requestDeploy(clusterService.topologyService().getByConsistentId(node), request);
     }
 
     /**

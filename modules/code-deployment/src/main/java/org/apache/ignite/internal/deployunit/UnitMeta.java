@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
@@ -37,34 +35,21 @@ public class UnitMeta {
     private final Version version;
 
     /**
-     * Unit file names.
-     */
-    private final List<String> fileNames;
-
-    /**
      * Deployment status.
      */
     private DeploymentStatus status;
-
-    /**
-     * Consistent ids of nodes with.
-     */
-    private final List<String> consistentIdLocation = new ArrayList<>();
 
     /**
      * Constructor.
      *
      * @param id Unit identifier.
      * @param version Unit version.
-     * @param fileNames Unit file names.
-     * @param consistentIdLocation Consistent ids of nodes where unit deployed.
+     * @param status Unit status.
      */
-    public UnitMeta(String id, Version version, List<String> fileNames, DeploymentStatus status, List<String> consistentIdLocation) {
+    public UnitMeta(String id, Version version, DeploymentStatus status) {
         this.id = id;
         this.version = version;
-        this.fileNames = fileNames;
         this.status = status;
-        this.consistentIdLocation.addAll(consistentIdLocation);
     }
 
     /**
@@ -83,33 +68,6 @@ public class UnitMeta {
      */
     public Version version() {
         return version;
-    }
-
-    /**
-     * Returns name of deployment unit.
-     *
-     * @return name of deployment unit.
-     */
-    public List<String> fileNames() {
-        return fileNames;
-    }
-
-    /**
-     * Returns list of nodes consistent id where deployment unit deployed.
-     *
-     * @return List of nodes consistent id where deployment unit deployed.
-     */
-    public List<String> consistentIdLocation() {
-        return consistentIdLocation;
-    }
-
-    /**
-     * Register node as deployment unit holder.
-     *
-     * @param id Consistent identifier of node.
-     */
-    public void addConsistentId(String id) {
-        consistentIdLocation.add(id);
     }
 
     public DeploymentStatus status() {
@@ -131,28 +89,15 @@ public class UnitMeta {
 
         UnitMeta meta = (UnitMeta) o;
 
-        if (id != null ? !id.equals(meta.id) : meta.id != null) {
-            return false;
-        }
-        if (version != null ? !version.equals(meta.version) : meta.version != null) {
-            return false;
-        }
-        if (fileNames != null ? !fileNames.equals(meta.fileNames) : meta.fileNames != null) {
-            return false;
-        }
-        if (status != meta.status) {
-            return false;
-        }
-        return consistentIdLocation.equals(meta.consistentIdLocation);
+        return (id != null ? id.equals(meta.id) : meta.id == null)
+                && (version != null ? version.equals(meta.version) : meta.version == null);
     }
 
     @Override
     public int hashCode() {
         int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (version != null ? version.hashCode() : 0);
-        result = 31 * result + (fileNames != null ? fileNames.hashCode() : 0);
         result = 31 * result + (status != null ? status.hashCode() : 0);
-        result = 31 * result + consistentIdLocation.hashCode();
         return result;
     }
 
@@ -161,9 +106,7 @@ public class UnitMeta {
         return "UnitMeta{"
                 + "id='" + id + '\''
                 + ", version=" + version
-                + ", fileNames=" + String.join(", ", fileNames)
                 + ", status=" + status
-                + ", consistentIdLocation=" + String.join(", ", consistentIdLocation)
                 + '}';
     }
 }

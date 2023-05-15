@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import org.apache.ignite.internal.deployunit.DeploymentInfo;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
-import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
@@ -30,7 +29,7 @@ import org.apache.ignite.internal.util.subscription.Accumulator;
 /**
  * Unit status accumulator.
  */
-public class UnitStatusAccumulator implements Accumulator<Entry, UnitStatus> {
+public class ClusterStatusAccumulator implements Accumulator<Entry, UnitStatus> {
     private final String id;
 
     private UnitStatusBuilder builder;
@@ -40,7 +39,7 @@ public class UnitStatusAccumulator implements Accumulator<Entry, UnitStatus> {
      *
      * @param id Identifier of required unit.
      */
-    public UnitStatusAccumulator(String id) {
+    public ClusterStatusAccumulator(String id) {
         this.id = id;
     }
 
@@ -50,11 +49,7 @@ public class UnitStatusAccumulator implements Accumulator<Entry, UnitStatus> {
             builder = UnitStatus.builder(id);
         }
         UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
-        builder.append(meta.version(),
-                DeploymentInfo.builder()
-                        .status(meta.status())
-                        .addConsistentIds(meta.consistentIdLocation()).build()
-        );
+        builder.append(meta.version(), meta.status()).build();
     }
 
     @Override

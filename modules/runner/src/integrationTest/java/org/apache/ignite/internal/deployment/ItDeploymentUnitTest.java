@@ -45,7 +45,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.deployunit.DeploymentInfo;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatus;
@@ -216,13 +215,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<List<UnitStatus>> nodes = node.deployment().findUnitByConsistentIdAsync(node.name());
         assertThat(nodes, willBe(Collections.singletonList(
                         UnitStatus.builder(id)
-                                .append(unit.version,
-                                        DeploymentInfo.builder()
-                                                .status(DEPLOYED)
-                                                .addConsistentId(unit.deployedNode.name())
-                                                .addConsistentId(cmg.name())
-                                                .build()
-                                ).build()
+                                .append(unit.version, DEPLOYED).build()
                         )
                 )
         );
@@ -230,13 +223,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         nodes = node.deployment().findUnitByConsistentIdAsync(cmg.name());
         assertThat(nodes, willBe(Collections.singletonList(
                         UnitStatus.builder(id)
-                                .append(unit.version,
-                                        DeploymentInfo.builder()
-                                                .status(DEPLOYED)
-                                                .addConsistentId(unit.deployedNode.name())
-                                                .addConsistentId(cmg.name())
-                                                .build()
-                                ).build()
+                                .append(unit.version, DEPLOYED).build()
                 )
         ));
 
@@ -261,17 +248,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private UnitStatus buildStatus(String id, Unit... units) {
-        IgniteImpl cmg = cluster.node(0);
-
         UnitStatusBuilder builder = UnitStatus.builder(id);
         for (Unit unit : units) {
-            builder.append(unit.version,
-                    DeploymentInfo.builder()
-                            .status(DEPLOYED)
-                            .addConsistentId(unit.deployedNode.name())
-                            .addConsistentId(cmg.name())
-                            .build()
-            );
+            builder.append(unit.version, DEPLOYED);
         }
 
         return builder.build();
@@ -385,7 +364,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
             this.files = files;
         }
 
-        CompletableFuture<Void> undeployAsync() {
+        CompletableFuture<Boolean> undeployAsync() {
             return deployedNode.deployment().undeployAsync(id, version);
         }
 

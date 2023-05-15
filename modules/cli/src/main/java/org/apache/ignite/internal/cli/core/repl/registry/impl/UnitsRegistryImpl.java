@@ -56,7 +56,7 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
             lastKnownUrl.set(url);
             CallOutput<List<UnitStatusRecord>> output = call.execute(new UrlCallInput(url));
             if (!output.hasError() && !output.isEmpty()) {
-                output.body().forEach(record -> idToVersions.put(record.id(), record.versionToDeploymentInfo().keySet()));
+                output.body().forEach(record -> idToVersions.put(record.id(), record.versionToStatus().keySet()));
             }
         } catch (Exception ignored) {
             // no-op
