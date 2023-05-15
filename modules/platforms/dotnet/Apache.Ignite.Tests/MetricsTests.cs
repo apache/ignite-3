@@ -189,7 +189,7 @@ public class MetricsTests
     [Test]
     public async Task TestRequestsRetried()
     {
-        using var server = new FakeServer(shouldDropConnection: idx => idx is > 1 and < 5);
+        using var server = new FakeServer(shouldDropConnection: (idx, _) => idx is > 1 and < 5);
         using var client = await server.ConnectClientAsync();
 
         await client.Tables.GetTablesAsync();

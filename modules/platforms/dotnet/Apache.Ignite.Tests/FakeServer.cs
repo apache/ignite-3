@@ -58,7 +58,7 @@ namespace Apache.Ignite.Tests
 
         private readonly CancellationTokenSource _cts = new();
 
-        private readonly Func<int, bool> _shouldDropConnection;
+        private readonly Func<int, ClientOp, bool> _shouldDropConnection;
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
 
@@ -70,12 +70,18 @@ namespace Apache.Ignite.Tests
 
         private volatile bool _dropNewConnections;
 
-        public FakeServer(
-            Func<int, bool>? shouldDropConnection = null,
+        public FakeServer(bool disableOpsTracking)
+            : this(null, disableOpsTracking: disableOpsTracking)
+        {
+            // No-op.
+        }
+
+        internal FakeServer(
+            Func<int, ClientOp, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
             bool disableOpsTracking = false)
         {
-            _shouldDropConnection = shouldDropConnection ?? (_ => false);
+            _shouldDropConnection = shouldDropConnection ?? ((_, _) => false);
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _listener.NoDelay = true;
 
@@ -491,14 +497,14 @@ namespace Apache.Ignite.Tests
                         Thread.Sleep(OperationDelay);
                     }
 
-                    if (_shouldDropConnection(++requestCount))
-                    {
-                        break;
-                    }
-
                     var reader = new MsgPackReader(msg.AsMemory().Span);
                     var opCode = (ClientOp)reader.ReadInt32();
                     var requestId = reader.ReadInt64();
+
+                    if (_shouldDropConnection(++requestCount, opCode))
+                    {
+                        break;
+                    }
 
                     _ops?.Enqueue(opCode);
 

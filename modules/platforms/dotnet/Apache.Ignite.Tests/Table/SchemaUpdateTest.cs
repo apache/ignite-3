@@ -62,7 +62,21 @@ public class SchemaUpdateTest
     [Test]
     public async Task TestFailedSchemaLoadTaskIsRetried()
     {
-        await Task.Delay(1);
+        using var server = new FakeServer(shouldDropConnection: (idx, op) => op == ClientOp.SchemasGet && idx < 5)
+        {
+            OperationDelay = TimeSpan.FromMilliseconds(100)
+        };
+
+        var cfg = new IgniteClientConfiguration
+        {
+            RetryPolicy = new RetryNonePolicy()
+        };
+
+        using var client = await server.ConnectClientAsync(cfg);
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        var view = table!.RecordBinaryView;
+        await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 });
+
         Assert.Fail("TODO");
     }
 }

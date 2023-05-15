@@ -38,7 +38,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = new RetryLimitPolicy { RetryLimit = 1 }
             };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (int i = 0; i < IterCount; i++)
@@ -52,7 +52,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration { RetryPolicy = new RetryLimitPolicy() };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
@@ -65,7 +65,7 @@ namespace Apache.Ignite.Tests
             var testRetryPolicy = new TestRetryPolicy();
             var cfg = new IgniteClientConfiguration { RetryPolicy = testRetryPolicy };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             var tx = await client.Transactions.BeginAsync();
@@ -82,7 +82,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = new TestRetryPolicy { RetryLimit = 5 }
             };
 
-            using var server = new FakeServer(reqId => reqId > 1);
+            using var server = new FakeServer((reqId, _) => reqId > 1);
             using var client = await server.ConnectClientAsync(cfg);
 
             await client.Tables.GetTablesAsync();
@@ -94,7 +94,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFailoverWithRetryPolicyThrowsOnDefaultRetryLimitExceeded()
         {
-            using var server = new FakeServer(reqId => reqId > 1);
+            using var server = new FakeServer((reqId, _) => reqId > 1);
             using var client = await server.ConnectClientAsync();
 
             await client.Tables.GetTablesAsync();
@@ -114,7 +114,7 @@ namespace Apache.Ignite.Tests
                 }
             };
 
-            using var server = new FakeServer(reqId => reqId % 30 != 0);
+            using var server = new FakeServer((reqId, _) => reqId % 30 != 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (var i = 0; i < IterCount; i++)
@@ -126,7 +126,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestRetryPolicyIsDisabledByDefault()
         {
-            using var server = new FakeServer(reqId => reqId > 1);
+            using var server = new FakeServer((reqId, _) => reqId > 1);
             using var client = await server.ConnectClientAsync();
 
             await client.Tables.GetTablesAsync();
@@ -142,7 +142,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = null!
             };
 
-            using var server = new FakeServer(reqId => reqId > 1);
+            using var server = new FakeServer((reqId, _) => reqId > 1);
             using var client = await server.ConnectClientAsync(cfg);
 
             await client.Tables.GetTablesAsync();
@@ -160,7 +160,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = testRetryPolicy
             };
 
-            using var server = new FakeServer(reqId => reqId % 3 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 3 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (var i = 0; i < IterCount; i++)
@@ -188,7 +188,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = testRetryPolicy
             };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             await client.Tables.GetTablesAsync();
@@ -205,7 +205,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = new TestRetryPolicy { RetryLimit = 1 }
             };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (int i = 0; i < IterCount; i++)
@@ -224,7 +224,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = new TestRetryPolicy()
             };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
             var tx = await client.Transactions.BeginAsync();
 
@@ -242,7 +242,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = new TestRetryPolicy { RetryLimit = 1 }
             };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (int i = 0; i < IterCount; i++)
@@ -260,7 +260,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = new RetryReadPolicy()
             };
 
-            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var server = new FakeServer((reqId, _) => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
