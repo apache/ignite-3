@@ -54,7 +54,10 @@ public class ItNodeBootstrapConfigurationTest {
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir)
         );
         assertThat(igniteException.getCause(), is(instanceOf(NodeConfigParseException.class)));
-        assertThat(igniteException.getCause().getMessage(), containsString("Failed to parse config content from file "));
+        assertThat(
+                igniteException.getCause().getMessage(),
+                containsString("Failed to parse config content from file " + workDir + "/ignite-config.conf")
+        );
     }
 
     @Test
