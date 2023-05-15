@@ -45,7 +45,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly Sql _sql;
 
         /** Schemas. */
-        private readonly ConcurrentDictionary<int, Schema> _schemas = new();
+        private readonly ConcurrentDictionary<int, Task<Schema>> _schemas = new();
 
         /** Cached record views. */
         private readonly ConcurrentDictionary<Type, object> _recordViews = new();
@@ -155,23 +155,18 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <returns>Schema or null.</returns>
-        internal async ValueTask<Schema> ReadSchemaAsync(PooledBuffer buf)
+        internal Task<Schema> ReadSchemaAsync(PooledBuffer buf)
         {
             var ver = buf.GetReader().ReadInt32();
 
-            if (_schemas.TryGetValue(ver, out var res))
-            {
-                return res;
-            }
-
-            return await LoadSchemaAsync(ver).ConfigureAwait(false);
+            return _schemas.GetOrAdd(ver, static (v, tbl) => tbl.LoadSchemaAsync(v), this);
         }
 
         /// <summary>
         /// Gets the latest schema.
         /// </summary>
         /// <returns>Schema.</returns>
-        internal async ValueTask<Schema> GetLatestSchemaAsync()
+        internal Task<Schema> GetLatestSchemaAsync()
         {
             var latestSchemaVersion = _latestSchemaVersion;
 
@@ -180,7 +175,7 @@ namespace Apache.Ignite.Internal.Table
                 return _schemas[latestSchemaVersion];
             }
 
-            return await LoadSchemaAsync(null).ConfigureAwait(false);
+            return LoadSchemaAsync(null);
         }
 
         /// <summary>
@@ -338,8 +333,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = new Schema(schemaVersion, keyColumnCount, columns);
-
-            _schemas[schemaVersion] = schema;
+            _schemas.GetOrAdd(schemaVersion, static (_, s) => Task.FromResult(s), schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)
             {
