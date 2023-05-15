@@ -82,8 +82,8 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestClientRetriesComputeJobOnPrimaryAndDefaultNodes()
         {
-            using var server1 = new FakeServer(shouldDropConnection: (cnt, _) => cnt % 2 == 0, nodeName: "s1");
-            using var server2 = new FakeServer(shouldDropConnection: (cnt, _) => cnt % 2 == 0, nodeName: "s2");
+            using var server1 = new FakeServer(shouldDropConnection: ctx => ctx.RequestCount % 2 == 0, nodeName: "s1");
+            using var server2 = new FakeServer(shouldDropConnection: ctx => ctx.RequestCount % 2 == 0, nodeName: "s2");
 
             var clientCfg = new IgniteClientConfiguration
             {

@@ -62,7 +62,7 @@ public class SchemaUpdateTest
     [Test]
     public async Task TestFailedSchemaLoadTaskIsRetried()
     {
-        using var server = new FakeServer(shouldDropConnection: (idx, op) => op == ClientOp.SchemasGet && idx < 5)
+        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.SchemasGet, RequestCount: < 5 })
         {
             OperationDelay = TimeSpan.FromMilliseconds(100)
         };
