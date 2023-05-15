@@ -1081,7 +1081,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    public CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId) {
+    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId) {
         LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
