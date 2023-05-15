@@ -63,7 +63,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
 
         /** */
-        private volatile int _latestSchemaVersion = -1;
+        private volatile int _latestSchemaVersion = UnknownSchemaVersion;
 
         /** */
         private volatile int _partitionAssignmentVersion = -1;
@@ -160,10 +160,10 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Schema or null.</returns>
         internal Task<Schema> ReadSchemaAsync(PooledBuffer buf)
         {
-            var ver = buf.GetReader().ReadInt32();
+            var version = buf.GetReader().ReadInt32();
 
             // TODO: Check if task is failed.
-            return _schemas.GetOrAdd(ver, static (v, tbl) => tbl.LoadSchemaAsync(v), this);
+            return _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         /// <summary>
@@ -172,16 +172,11 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Schema.</returns>
         internal Task<Schema> GetLatestSchemaAsync()
         {
-            var latestSchemaVersion = _latestSchemaVersion;
-
-            if (latestSchemaVersion >= 0)
-            {
-                // TODO: Check if task is failed.
-                return _schemas[latestSchemaVersion];
-            }
-
+            // _latestSchemaVersion can be -1 (unknown) or a valid version.
+            // In case of unknown version, we request latest from the server and cache it with -1 key
+            // to avoid duplicate requests for latest schema.
             // TODO: Check if task is failed.
-            return _schemas.GetOrAdd(UnknownSchemaVersion, static (v, tbl) => tbl.LoadSchemaAsync(v), this);
+            return _schemas.GetOrAdd(_latestSchemaVersion, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         /// <summary>
@@ -252,7 +247,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="version">Version.</param>
         /// <returns>Schema.</returns>
-        private async Task<Schema> LoadSchemaAsync(int? version)
+        private async Task<Schema> LoadSchemaAsync(int version)
         {
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -265,14 +260,14 @@ namespace Apache.Ignite.Internal.Table
                 var w = writer.MessageWriter;
                 w.Write(Id);
 
-                if (version == null)
+                if (version == UnknownSchemaVersion)
                 {
                     w.WriteNil();
                 }
                 else
                 {
                     w.WriteArrayHeader(1);
-                    w.Write(version.Value);
+                    w.Write(version);
                 }
             }
 
