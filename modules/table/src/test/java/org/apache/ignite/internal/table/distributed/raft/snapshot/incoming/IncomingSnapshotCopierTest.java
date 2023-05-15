@@ -59,7 +59,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -88,7 +88,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -318,7 +317,7 @@ public class IncomingSnapshotCopierTest {
     ) {
         assertEquals(0, rowIds.size() % 2, "size=" + rowIds.size());
 
-        storage.runConsistently(() -> {
+        storage.runConsistently(locker -> {
             for (int i = 0; i < rowIds.size(); i++) {
                 if (i % 2 == 0) {
                     // Writes committed version.
@@ -365,12 +364,13 @@ public class IncomingSnapshotCopierTest {
             Collections.reverse(readResults);
 
             List<ByteBuffer> rowVersions = new ArrayList<>();
-            List<HybridTimestamp> timestamps = new ArrayList<>();
+            long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
             UUID commitTableId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
+            int j = 0;
             for (ReadResult readResult : readResults) {
                 rowVersions.add(readResult.binaryRow().byteBuffer());
 
@@ -379,7 +379,7 @@ public class IncomingSnapshotCopierTest {
                     commitTableId = readResult.commitTableId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
-                    timestamps.add(readResult.commitTimestamp());
+                    timestamps[j++] = readResult.commitTimestamp().longValue();
                 }
             }
 

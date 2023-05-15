@@ -36,7 +36,22 @@ public class MetricsTests
     public void SetUp() => _listener = new Listener();
 
     [TearDown]
-    public void TearDown() => _listener.Dispose();
+    public void TearDown()
+    {
+        // ReSharper disable AccessToDisposedClosure
+        TestUtils.WaitForCondition(
+            () => _listener.GetMetric("requests-active") == 0,
+            3000,
+            () => "requests-active: " + _listener.GetMetric("requests-active"));
+
+        TestUtils.WaitForCondition(
+            () => _listener.GetMetric("connections-active") == 0,
+            3000,
+            () => "connections-active: " + _listener.GetMetric("connections-active"));
+
+        // ReSharper restore AccessToDisposedClosure
+        _listener.Dispose();
+    }
 
     [Test]
     public async Task TestConnectionsMetrics()
@@ -82,7 +97,7 @@ public class MetricsTests
     public async Task TestConnectionsLost()
     {
         using var server = new FakeServer();
-        using var client = await server.ConnectClientAsync();
+        using var client = await server.ConnectClientAsync(GetConfig());
 
         Assert.AreEqual(0, _listener.GetMetric("connections-lost"));
         Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
@@ -174,7 +189,7 @@ public class MetricsTests
     [Test]
     public async Task TestRequestsRetried()
     {
-        using var server = new FakeServer(shouldDropConnection: idx => idx is > 1 and < 5);
+        using var server = new FakeServer(shouldDropConnection: ctx => ctx.RequestCount is > 1 and < 5);
         using var client = await server.ConnectClientAsync();
 
         await client.Tables.GetTablesAsync();
@@ -184,11 +199,19 @@ public class MetricsTests
         Assert.AreEqual(3, _listener.GetMetric("requests-retried"));
     }
 
+    private static IgniteClientConfiguration GetConfig() =>
+        new()
+        {
+            SocketTimeout = TimeSpan.FromMilliseconds(100),
+            RetryPolicy = new RetryNonePolicy()
+        };
+
     private static IgniteClientConfiguration GetConfigWithDelay() =>
         new()
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),
-            SocketTimeout = TimeSpan.FromMilliseconds(50)
+            SocketTimeout = TimeSpan.FromMilliseconds(50),
+            RetryPolicy = new RetryNonePolicy()
         };
 
     private sealed class Listener : IDisposable

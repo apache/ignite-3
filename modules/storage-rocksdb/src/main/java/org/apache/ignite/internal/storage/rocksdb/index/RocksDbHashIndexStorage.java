@@ -37,8 +37,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.HashUtils;
 import org.rocksdb.ReadOptions;
@@ -79,16 +79,16 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
      *
      * @param descriptor Index descriptor.
      * @param indexCf Column family that stores the index data.
-     * @param partitionStorage Partition storage of the partition that is being indexed (needed for consistency guarantees).
+     * @param helper Partition data helper.
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbHashIndexStorage(
             HashIndexDescriptor descriptor,
             ColumnFamily indexCf,
-            RocksDbMvPartitionStorage partitionStorage,
+            PartitionDataHelper helper,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(descriptor.id(), partitionStorage, indexMetaStorage);
+        super(descriptor.id(), helper, indexMetaStorage);
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;
@@ -99,7 +99,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
                 .order(KEY_BYTE_ORDER)
                 .putLong(indexId.getMostSignificantBits())
                 .putLong(indexId.getLeastSignificantBits())
-                .putShort((short) partitionStorage.partitionId())
+                .putShort((short) helper.partitionId())
                 .array();
     }
 
@@ -132,7 +132,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
                     long mostSignificantBits = bytesToLong(key, key.length - Long.BYTES * 2);
                     long leastSignificantBits = bytesToLong(key, key.length - Long.BYTES);
 
-                    return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
+                    return new RowId(helper.partitionId(), mostSignificantBits, leastSignificantBits);
                 }
 
                 @Override
@@ -167,7 +167,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     public void put(IndexRow row) {
         busy(() -> {
             try {
-                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
                 writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
 
@@ -184,7 +184,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
                 writeBatch.delete(indexCf.handle(), rocksKey(row));
 

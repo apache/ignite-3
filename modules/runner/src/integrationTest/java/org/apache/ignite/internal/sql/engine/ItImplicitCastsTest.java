@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -92,7 +93,7 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Stream<ColumnPair> columnPairs() {
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory();
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
         List<ColumnPair> columnPairs = new ArrayList<>();
 
         columnPairs.add(new ColumnPair(typeFactory.createSqlType(SqlTypeName.INTEGER), typeFactory.createSqlType(SqlTypeName.FLOAT)));

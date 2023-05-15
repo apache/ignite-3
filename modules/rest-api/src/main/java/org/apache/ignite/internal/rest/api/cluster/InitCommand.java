@@ -26,7 +26,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfig;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,8 +43,8 @@ public class InitCommand {
     @Schema(description = "The name of the cluster.")
     private final String clusterName;
 
-    @Schema(description = "Authentication configuration.")
-    private final AuthenticationConfig authenticationConfig;
+    @Schema(description = "Cluster configuration in HOCON format.")
+    private final String clusterConfiguration;
 
     /**
      * Constructor.
@@ -55,7 +54,7 @@ public class InitCommand {
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
             @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
             @JsonProperty("clusterName") String clusterName,
-            @JsonProperty("authenticationConfig") AuthenticationConfig authenticationConfig
+            @JsonProperty("clusterConfiguration") String clusterConfiguration
     ) {
         Objects.requireNonNull(metaStorageNodes);
         Objects.requireNonNull(clusterName);
@@ -79,7 +78,7 @@ public class InitCommand {
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
         this.clusterName = clusterName;
-        this.authenticationConfig = authenticationConfig;
+        this.clusterConfiguration = clusterConfiguration;
     }
 
     @JsonGetter("metaStorageNodes")
@@ -97,9 +96,9 @@ public class InitCommand {
         return clusterName;
     }
 
-    @JsonGetter("authenticationConfig")
-    public AuthenticationConfig authenticationConfig() {
-        return authenticationConfig;
+    @JsonGetter("clusterConfiguration")
+    public String clusterConfiguration() {
+        return clusterConfiguration;
     }
 
     @Override
@@ -108,7 +107,7 @@ public class InitCommand {
                 + "metaStorageNodes=" + metaStorageNodes
                 + ", cmgNodes=" + cmgNodes
                 + ", clusterName='" + clusterName + '\''
-                + ", authenticationConfig='" + authenticationConfig + '\''
+                + ", clusterConfiguration='" + clusterConfiguration + '\''
                 + '}';
     }
 }

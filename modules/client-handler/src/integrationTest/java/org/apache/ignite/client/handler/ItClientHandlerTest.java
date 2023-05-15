@@ -334,8 +334,7 @@ public class ItClientHandlerTest {
             change.changeProviders().create("basic", authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                         .changeUsername(username)
-                        .changePassword(password)
-                        .changeName("basic");
+                        .changePassword(password);
             });
         }).join();
     }

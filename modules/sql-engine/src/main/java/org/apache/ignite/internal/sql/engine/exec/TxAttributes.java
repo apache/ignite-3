@@ -21,7 +21,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +38,7 @@ public class TxAttributes implements Serializable {
     private final UUID id;
     private final boolean readOnly;
     private final @Nullable HybridTimestamp readTimestamp;
-    private final @Nullable ReplicationGroupId commitPartition;
+    private final @Nullable TablePartitionId commitPartition;
 
     /**
      * Derives transactional attributes from the given transaction.
@@ -74,7 +74,7 @@ public class TxAttributes implements Serializable {
 
     private TxAttributes(
             UUID id,
-            @Nullable ReplicationGroupId commitPartitionId
+            @Nullable TablePartitionId commitPartitionId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.commitPartition = commitPartitionId;
@@ -91,7 +91,7 @@ public class TxAttributes implements Serializable {
      *
      * @return An identifier of commit partition, or {@code null} if commit partition was not yet assigned.
      */
-    public @Nullable ReplicationGroupId commitPartition() {
+    public @Nullable TablePartitionId commitPartition() {
         return commitPartition;
     }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -34,7 +35,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -164,11 +166,11 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public CompletableFuture<Void> finish(
-            ReplicationGroupId commitPartition,
+            TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
@@ -180,7 +182,7 @@ public class TxManagerImpl implements TxManager {
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
-                .commitTimestamp(commitTimestamp)
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .term(term)
                 .build();
 
@@ -192,23 +194,23 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds,
+            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
             UUID txId,
             boolean commit,
-            HybridTimestamp commitTimestamp
+            @Nullable HybridTimestamp commitTimestamp
     ) {
-        var cleanupFutures = new CompletableFuture[replicationGroupIds.size()];
+        var cleanupFutures = new CompletableFuture[tablePartitionIds.size()];
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17582 Grouping replica requests.
-        for (int i = 0; i < replicationGroupIds.size(); i++) {
+        for (int i = 0; i < tablePartitionIds.size(); i++) {
             cleanupFutures[i] = replicaService.invoke(
                     recipientNode,
                     FACTORY.txCleanupReplicaRequest()
-                            .groupId(replicationGroupIds.get(i).get1())
+                            .groupId(tablePartitionIds.get(i).get1())
                             .txId(txId)
                             .commit(commit)
-                            .commitTimestamp(commitTimestamp)
-                            .term(replicationGroupIds.get(i).get2())
+                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                            .term(tablePartitionIds.get(i).get2())
                             .build()
             );
         }

@@ -49,7 +49,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
@@ -57,11 +57,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     // We are using thread local here b/c TypeCoercion is expected to be stateless.
     private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
 
-    private final IgniteCustomTypeCoercionRules typeCoercionRules;
+    private final IgniteTypeFactory typeFactory;
 
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);
-        this.typeCoercionRules = ((IgniteTypeFactory) typeFactory).getCustomTypeCoercionRules();
+        this.typeFactory = (IgniteTypeFactory) typeFactory;
     }
 
     /** {@inheritDoc} **/
@@ -142,16 +142,22 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     /** {@inheritDoc} */
     @Override
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
-        if (SqlTypeUtil.isInterval(toType)) {
-            RelDataType fromType = validator.deriveType(scope, node);
+        RelDataType fromType = validator.deriveType(scope, node);
 
+        return needToCast(fromType, toType);
+    }
+
+    /**
+     * Checks whether {@code CAST} operation can be used to convert {@code fromType} to {@code toType}.
+     * This method returns {@code false} if type are the same.
+     */
+    public boolean needToCast(RelDataType fromType, RelDataType toType) {
+        if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.
                 return fromType.getSqlTypeName().getFamily() != toType.getSqlTypeName().getFamily();
             }
         } else if (SqlTypeUtil.isIntType(toType)) {
-            RelDataType fromType = validator.deriveType(scope, node);
-
             if (fromType == null) {
                 return false;
             }
@@ -159,18 +165,67 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
                 return true;
             }
-        } else if (toType.getSqlTypeName() == SqlTypeName.ANY) {
-            RelDataType fromType = validator.deriveType(scope, node);
+        } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+            IgniteCustomTypeCoercionRules typeCoercionRules = typeFactory.getCustomTypeCoercionRules();
 
             // IgniteCustomType: whether we need implicit cast from one type to another.
-            // We can get toType = ANY in e1, at least in case where e1 is part of CASE <e1> WHERE ... END expression.
+            // We can get toType to be a custom data type in case where e1 is part of CASE <e1> WHERE ... END expression.
+            // We can get fromType to be a custom data type in SELECT e1 UNION SELECT e2
             if (toType instanceof IgniteCustomType) {
                 IgniteCustomType to = (IgniteCustomType) toType;
                 return typeCoercionRules.needToCast(fromType, to);
+            } else if (fromType instanceof IgniteCustomType) {
+                IgniteCustomType from = (IgniteCustomType) fromType;
+                return typeCoercionRules.needToCast(toType, from);
             }
+            // When both types are custom data types, do nothing.
+        }
+        ///////////////////////////////////////////////////////////////////////
+        // CALCITE SOURCE: AbstractTypeCoercionImpl::needToCast
+        //\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
+
+        // This depends on the fact that type validate happens before coercion.
+        // We do not have inferred type for some node, i.e. LOCALTIME.
+        if (fromType == null) {
+            return false;
         }
 
-        return super.needToCast(scope, node, toType);
+        // This prevents that we cast a JavaType to normal RelDataType.
+        if (fromType instanceof RelDataTypeFactoryImpl.JavaType
+                && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
+            return false;
+        }
+
+        // Do not make a cast when we don't know specific type (ANY) of the origin node.
+        if (toType.getSqlTypeName() == SqlTypeName.ANY
+                || fromType.getSqlTypeName() == SqlTypeName.ANY) {
+            return false;
+        }
+
+        // No need to cast between char and varchar.
+        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+            return false;
+        }
+
+        // No need to cast if the source type precedence list
+        // contains target type. i.e. do not cast from
+        // tinyint to int or int to bigint.
+        if (fromType.getPrecedenceList().containsType(toType)
+                && SqlTypeUtil.isIntType(fromType)
+                && SqlTypeUtil.isIntType(toType)) {
+            return false;
+        }
+
+        // Implicit type coercion does not handle nullability.
+        if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
+            return false;
+        }
+        // Should keep sync with rules in SqlTypeCoercionRule.
+        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
+        return true;
+        //\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/
+        // CALCITE SOURCE: AbstractTypeCoercionImpl::needToCast
+        ///////////////////////////////////////////////////////////////////////
     }
 
     // The method is fully copy from parent class with cutted operand check to SqlDynamicParam, which not supported
@@ -314,6 +369,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     }
 
     private @Nullable RelDataType tryCustomTypeCoercionRules(RelDataType from, IgniteCustomType to) {
+        IgniteCustomTypeCoercionRules typeCoercionRules = typeFactory.getCustomTypeCoercionRules();
         if (typeCoercionRules.needToCast(from, to)) {
             return to;
         } else {

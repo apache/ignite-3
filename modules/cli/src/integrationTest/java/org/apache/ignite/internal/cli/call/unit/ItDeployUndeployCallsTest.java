@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport
 import static org.apache.ignite.internal.cli.call.unit.DeployUndeployTestSupport.tracker;
 import static org.apache.ignite.rest.client.model.DeploymentStatus.DEPLOYED;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import jakarta.inject.Inject;
 import java.io.FileNotFoundException;
@@ -34,12 +35,10 @@ import org.apache.ignite.internal.cli.core.exception.UnitAlreadyExistsException;
 import org.apache.ignite.internal.cli.core.exception.UnitNotFoundException;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for the deployment lifecycle: deploy, list, check status, undeploy. */
-@Disabled("IGNITE-19139")
 public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBase {
 
     @Inject
@@ -96,7 +95,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         List<UnitStatusRecord> unisStatuses = listUnitCall.execute(urlInput).body();
         assertThat(unisStatuses.size()).isEqualTo(1);
         // And status is not empty
-        assertThat(unitStatusCall.execute(statusInput("test.id"))).isNotNull();
+        await().untilAsserted(() -> assertThat(unitStatusCall.execute(statusInput("test.id"))).isNotNull());
 
         // When undeploy unit
         CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("test.id", "1.0.0"));
@@ -104,7 +103,7 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         assertThat(undeployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
 
         // Then list is empty
-        assertThat(listUnitCall.execute(urlInput).isEmpty()).isTrue();
+        await().untilAsserted(() -> assertThat(listUnitCall.execute(urlInput).isEmpty()).isTrue());
     }
 
     @Test
@@ -171,6 +170,14 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         var err = (UnitAlreadyExistsException) output.errorCause();
         assertThat(err.unitId()).isEqualTo("test.id");
         assertThat(err.version()).isEqualTo("1.0.0");
+
+        // Cleanup
+        CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("test.id", "1.0.0"));
+        assertThat(undeployOutput.hasError()).isFalse();
+        assertThat(undeployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
+
+        // Wait for cleanup
+        await().untilAsserted(() -> assertThat(listUnitCall.execute(urlInput).isEmpty()).isTrue());
     }
 
     @Test
@@ -201,14 +208,16 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         assertThat(deployOutput.hasError()).isFalse();
         assertThat(deployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
         // And list is not empty
-        List<UnitStatusRecord> unisStatuses = listUnitCall.execute(urlInput).body();
-        assertThat(unisStatuses.size()).isEqualTo(1);
-        assertThat(unisStatuses.get(0).versionToDeploymentInfo().size()).isEqualTo(1);
-        assertThat(unisStatuses.get(0).versionToDeploymentInfo().get("1.1.0"))
-                .isNotNull()
-                .matches(deploymentInfo -> deploymentInfo.getStatus() == DEPLOYED);
+        await().untilAsserted(() -> {
+            List<UnitStatusRecord> unisStatuses = listUnitCall.execute(urlInput).body();
+            assertThat(unisStatuses.size()).isEqualTo(1);
+            assertThat(unisStatuses.get(0).versionToDeploymentInfo().size()).isEqualTo(1);
+            assertThat(unisStatuses.get(0).versionToDeploymentInfo().get("1.1.0"))
+                    .isNotNull()
+                    .matches(deploymentInfo -> deploymentInfo.getStatus() == DEPLOYED);
 
-        // And status is not empty
-        assertThat(unitStatusCall.execute(statusInput("test.id"))).isNotNull();
+            // And status is not empty
+            assertThat(unitStatusCall.execute(statusInput("test.id"))).isNotNull();
+        });
     }
 }

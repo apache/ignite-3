@@ -36,6 +36,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,6 +49,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptListener;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
@@ -117,8 +120,8 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -132,7 +135,7 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractPlannerTest extends IgniteAbstractTest {
-    protected static final IgniteTypeFactory TYPE_FACTORY = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+    protected static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
     protected static final int DEFAULT_TBL_SIZE = 500_000;
 
@@ -323,8 +326,22 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     /**
      * Optimize the specified query and build query physical plan for a test.
      */
-    protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
-        return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
+    protected IgniteRel physicalPlan(
+            String sql,
+            IgniteSchema publicSchema,
+            String... disabledRules) throws Exception {
+        return physicalPlan(sql, publicSchema, null, disabledRules);
+    }
+
+    /**
+     * Optimize the specified query and build query physical plan for a test.
+     */
+    protected IgniteRel physicalPlan(
+            String sql,
+            IgniteSchema publicSchema,
+            @Nullable RelOptListener listener,
+            String... disabledRules) throws Exception {
+        return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), listener, disabledRules);
     }
 
     protected IgniteRel physicalPlan(
@@ -332,15 +349,25 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
             List<Object> params,
+            @Nullable RelOptListener listener,
             String... disabledRules
     ) throws Exception {
-        return physicalPlan(plannerCtx(sql, schemas, hintStrategies, params, disabledRules));
+        PlanningContext planningContext = plannerCtx(sql, schemas, hintStrategies, params, disabledRules);
+        return physicalPlan(planningContext, listener);
     }
 
     protected IgniteRel physicalPlan(PlanningContext ctx) throws Exception {
+        return physicalPlan(ctx, null);
+    }
+
+    protected IgniteRel physicalPlan(PlanningContext ctx, @Nullable RelOptListener listener) throws Exception {
         try (IgnitePlanner planner = ctx.planner()) {
             assertNotNull(planner);
             assertNotNull(ctx.query());
+
+            if (listener != null) {
+                planner.addListener(listener);
+            }
 
             return physicalPlan(planner, ctx.query());
         }
@@ -523,7 +550,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             List<Object> params,
             String... disabledRules
     ) throws Exception {
-        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, disabledRules);
+        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);
 
         checkSplitAndSerialization(plan, schemas);
 
@@ -1317,5 +1344,49 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     Predicate<SearchBounds> empty() {
         return Objects::isNull;
+    }
+
+    /**
+     * Wrapper for RelOptListener with empty realization for each of their methods. Good choice in case you need implement just one or few
+     * methods for listener.
+     */
+    static class NoopRelOptListener implements RelOptListener {
+
+        @Override
+        public void relEquivalenceFound(RelEquivalenceEvent event) {}
+
+        @Override
+        public void ruleAttempted(RuleAttemptedEvent event) {}
+
+        @Override
+        public void ruleProductionSucceeded(RuleProductionEvent event) {}
+
+        @Override
+        public void relDiscarded(RelDiscardedEvent event) {}
+
+        @Override
+        public void relChosen(RelChosenEvent event) {}
+    }
+
+    /**
+     * Listener which keeps information about attempts of applying optimization rules.
+     */
+    public class RuleAttemptListener extends NoopRelOptListener {
+        Set<RelOptRule> attemptedRules = new HashSet<>();
+
+        @Override
+        public void ruleAttempted(RuleAttemptedEvent event) {
+            if (event.isBefore()) {
+                attemptedRules.add(event.getRuleCall().getRule());
+            }
+        }
+
+        public boolean isApplied(RelOptRule rule) {
+            return attemptedRules.stream().anyMatch(r -> rule.toString().equals(r.toString()));
+        }
+
+        public void reset() {
+            attemptedRules.clear();
+        }
     }
 }

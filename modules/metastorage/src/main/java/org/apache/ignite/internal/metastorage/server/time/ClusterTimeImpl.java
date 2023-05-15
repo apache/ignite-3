@@ -36,7 +36,7 @@ public class ClusterTimeImpl implements ClusterTime {
 
     private final HybridClock clock;
 
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /**
      * Constructor.
@@ -100,6 +100,11 @@ public class ClusterTimeImpl implements ClusterTime {
     }
 
     @Override
+    public long nowLong() {
+        return clock.nowLong();
+    }
+
+    @Override
     public CompletableFuture<Void> waitFor(HybridTimestamp time) {
         return safeTime.waitFor(time);
     }
@@ -110,7 +115,7 @@ public class ClusterTimeImpl implements ClusterTime {
      * @param newValue New safe time value.
      */
     public void updateSafeTime(HybridTimestamp newValue) {
-        this.safeTime.update(newValue);
+        this.safeTime.update(newValue, null);
     }
 
     /**

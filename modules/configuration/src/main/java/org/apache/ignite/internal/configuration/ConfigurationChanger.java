@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.to
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -174,14 +175,14 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         node.traverseChildren(new ConfigurationVisitor<>() {
             @Override
-            public @Nullable Object visitInnerNode(String key, InnerNode node) {
+            public @Nullable Object visitInnerNode(Field field, String key, InnerNode node) {
                 makeImmutable(node);
 
                 return null;
             }
 
             @Override
-            public @Nullable Object visitNamedListNode(String key, NamedListNode<?> node) {
+            public @Nullable Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 if (node.makeImmutable()) {
                     for (String namedListKey : node.namedListKeys()) {
                         makeImmutable(node.getInnerNode(namedListKey));

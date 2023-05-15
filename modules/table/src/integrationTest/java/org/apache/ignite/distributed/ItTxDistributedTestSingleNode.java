@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -44,6 +46,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -81,6 +85,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -88,10 +93,10 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.table.impl.DummySchemas;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -123,7 +128,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Distributed transaction test using a single partition table.
@@ -298,8 +302,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             raftServers.put(node.name(), raftSrv);
 
+            var cmgManager = mock(ClusterManagementGroupManager.class);
+
+            // This test is run without Meta storage.
+            when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
+
             ReplicaManager replicaMgr = new ReplicaManager(
                     cluster.get(i),
+                    cmgManager,
                     clock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
@@ -359,8 +369,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 1,
                 consistentIdToNode,
                 clientTxManager,
-                Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxStateTableStorage.class),
+                mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
@@ -372,8 +382,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 1,
                 consistentIdToNode,
                 clientTxManager,
-                Mockito.mock(MvTableStorage.class),
-                Mockito.mock(TxStateTableStorage.class),
+                mock(MvTableStorage.class),
+                mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
@@ -437,9 +447,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
-                PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
-                PendingComparableValuesTracker<Long> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
 
@@ -447,7 +457,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         partId,
                         partitionDataStorage,
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
-                        dsCfg
+                        dsCfg,
+                        safeTime,
+                        mock(LowWatermark.class)
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -492,6 +504,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 txStateStorage,
                                                 placementDriver,
                                                 storageUpdateHandler,
+                                                new DummySchemas(schemaManager),
                                                 peer -> assignment.equals(peer.consistentId()),
                                                 completedFuture(schemaManager)
                                         ),

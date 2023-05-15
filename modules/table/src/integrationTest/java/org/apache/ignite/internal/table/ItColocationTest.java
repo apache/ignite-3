@@ -60,6 +60,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -79,7 +80,6 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -144,11 +144,11 @@ public class ItColocationTest {
         ) {
             @Override
             public CompletableFuture<Void> finish(
-                    ReplicationGroupId commitPartition,
+                    TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
+                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
                     UUID txId) {
                 return completedFuture(null);
             }

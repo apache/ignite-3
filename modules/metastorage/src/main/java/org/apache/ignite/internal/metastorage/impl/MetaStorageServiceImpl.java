@@ -39,7 +39,6 @@ import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.HybridTimestampMessage;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -130,7 +129,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         PutCommand putCommand = context.commandsFactory().putCommand()
                 .key(key.bytes())
                 .value(value)
-                .initiatorTime(hybridTimestamp(clusterTime.now()))
+                .initiatorTimeLong(clusterTime.nowLong())
                 .build();
 
         return context.raftService().run(putCommand);
@@ -141,7 +140,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         GetAndPutCommand getAndPutCommand = context.commandsFactory().getAndPutCommand()
                 .key(key.bytes())
                 .value(value)
-                .initiatorTime(hybridTimestamp(clusterTime.now()))
+                .initiatorTimeLong(clusterTime.nowLong())
                 .build();
 
         return context.raftService().run(getAndPutCommand);
@@ -165,7 +164,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(key.bytes())
-                .initiatorTime(hybridTimestamp(clusterTime.now())).build();
+                .initiatorTimeLong(clusterTime.nowLong()).build();
 
         return context.raftService().run(removeCommand);
     }
@@ -173,7 +172,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Entry> getAndRemove(ByteArray key) {
         GetAndRemoveCommand getAndRemoveCommand = context.commandsFactory().getAndRemoveCommand().key(key.bytes())
-                .initiatorTime(hybridTimestamp(clusterTime.now())).build();
+                .initiatorTimeLong(clusterTime.nowLong()).build();
 
         return context.raftService().run(getAndRemoveCommand);
     }
@@ -208,7 +207,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .condition(condition)
                 .success(success)
                 .failure(failure)
-                .initiatorTime(hybridTimestamp(clusterTime.now()))
+                .initiatorTimeLong(clusterTime.nowLong())
                 .build();
 
         return context.raftService().run(invokeCommand);
@@ -218,7 +217,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
-                .initiatorTime(hybridTimestamp(clusterTime.now()))
+                .initiatorTimeLong(clusterTime.nowLong())
                 .build();
 
         return context.raftService().run(multiInvokeCommand);
@@ -280,13 +279,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Void> syncTime(HybridTimestamp safeTime) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
-                .safeTime(hybridTimestamp(safeTime))
+                .safeTimeLong(safeTime.longValue())
                 .build();
 
         return context.raftService().run(syncTimeCommand);
     }
 
-    // TODO: IGNITE-14734 Implement.
+    // TODO: IGNITE-19417 Implement.
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();
@@ -339,7 +338,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return commandsFactory.putAllCommand()
                 .keys(keys)
                 .values(values)
-                .initiatorTime(hybridTimestamp(ts))
+                .initiatorTimeLong(ts.longValue())
                 .build();
     }
 
@@ -366,7 +365,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return commandsFactory.getAndPutAllCommand()
                 .keys(keys)
                 .values(values)
-                .initiatorTime(hybridTimestamp(ts))
+                .initiatorTimeLong(ts.longValue())
                 .build();
     }
 
@@ -385,7 +384,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             keysList.add(key.bytes());
         }
 
-        return commandsFactory.getAndRemoveAllCommand().keys(keysList).initiatorTime(hybridTimestamp(ts)).build();
+        return commandsFactory.getAndRemoveAllCommand().keys(keysList).initiatorTimeLong(ts.longValue()).build();
     }
 
     /**
@@ -402,10 +401,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             list.add(key.bytes());
         }
 
-        return commandsFactory.removeAllCommand().keys(list).initiatorTime(hybridTimestamp(ts)).build();
-    }
-
-    private HybridTimestampMessage hybridTimestamp(HybridTimestamp ts) {
-        return context.commandsFactory().hybridTimestampMessage().physical(ts.getPhysical()).logical(ts.getLogical()).build();
+        return commandsFactory.removeAllCommand().keys(list).initiatorTimeLong(ts.longValue()).build();
     }
 }

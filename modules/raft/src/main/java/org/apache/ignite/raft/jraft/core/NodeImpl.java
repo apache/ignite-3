@@ -2162,7 +2162,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
                 }
 
                 return rb.build();
@@ -2183,7 +2183,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(request.term() + 1);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
                 }
 
                 return rb.build();
@@ -2216,7 +2216,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .lastLogIndex(lastLogIndex);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
                 }
 
                 return rb.build();
@@ -2230,7 +2230,7 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
                 if (request.timestamp() != null) {
-                    respBuilder.timestamp(clock.update(request.timestamp()));
+                    respBuilder.timestampLong(clock.update(request.timestamp()).longValue());
                 }
                 doUnlock = false;
                 this.writeLock.unlock();

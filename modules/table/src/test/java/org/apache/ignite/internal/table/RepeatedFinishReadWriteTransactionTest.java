@@ -36,8 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +52,8 @@ import org.junit.jupiter.api.Test;
  * Tests repeated commit/rollback operations.
  */
 public class RepeatedFinishReadWriteTransactionTest {
+    private final ClusterNode clusterNode = new ClusterNode("test", "test", new NetworkAddress("test", 1000));
+
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
@@ -63,7 +65,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
 
-        tx.enlist(partId, new IgniteBiTuple<>(null, null));
+        tx.enlist(partId, new IgniteBiTuple<>(clusterNode, 1L));
 
         tx.assignCommitPartition(partId);
 
@@ -109,7 +111,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
 
-        tx.enlist(partId, new IgniteBiTuple<>(null, null));
+        tx.enlist(partId, new IgniteBiTuple<>(clusterNode, 1L));
 
         tx.assignCommitPartition(partId);
 
@@ -250,8 +252,8 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public CompletableFuture<Void> finish(ReplicationGroupId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
-                Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups, UUID txId) {
+        public CompletableFuture<Void> finish(TablePartitionId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
+                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups, UUID txId) {
             txFinishStartedLatch.countDown();
 
             try {
@@ -265,8 +267,8 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         @Override
         public CompletableFuture<Void> cleanup(ClusterNode recipientNode,
-                List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds, UUID txId, boolean commit,
-                HybridTimestamp commitTimestamp) {
+                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds, UUID txId, boolean commit,
+                @Nullable HybridTimestamp commitTimestamp) {
             return null;
         }
 

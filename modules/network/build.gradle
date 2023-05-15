@@ -29,6 +29,7 @@ dependencies {
 
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-vault')
     implementation libs.jetbrains.annotations
     implementation libs.scalecube.cluster
     implementation libs.fastutil.core
@@ -71,6 +72,7 @@ dependencies {
     testFixturesImplementation libs.classgraph
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
+    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 

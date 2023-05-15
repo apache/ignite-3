@@ -18,7 +18,6 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -70,6 +70,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -79,7 +80,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -236,7 +236,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
-                        .safeTime(hybridTimestamp(hybridClock.now()))
+                        .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 return service.run(cmd);
@@ -246,9 +246,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 FinishTxCommand cmd = msgFactory.finishTxCommand()
                         .txId(req0.txId())
                         .commit(req0.commit())
-                        .commitTimestamp(hybridTimestamp(req0.commitTimestamp()))
+                        .commitTimestampLong(req0.commitTimestampLong())
                         .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0))))
-                        .safeTime(hybridTimestamp(hybridClock.now()))
+                        .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 return service.run(cmd)
@@ -256,8 +256,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             TxCleanupCommand cleanupCmd = msgFactory.txCleanupCommand()
                                     .txId(req0.txId())
                                     .commit(req0.commit())
-                                    .commitTimestamp(hybridTimestamp(req0.commitTimestamp()))
-                                    .safeTime(hybridTimestamp(hybridClock.now()))
+                                    .commitTimestampLong(req0.commitTimestampLong())
+                                    .safeTimeLong(hybridClock.nowLong())
                                     .build();
 
                             return service.run(cleanupCmd);
@@ -377,18 +377,24 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
+                    PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
+                            new HybridTimestamp(1, 0)
+                    );
+
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
                             DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
-                            zoneCfg.dataStorage()
+                            zoneCfg.dataStorage(),
+                            safeTime,
+                            mock(LowWatermark.class)
                     );
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
-                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0)),
+                            safeTime,
                             new PendingComparableValuesTracker<>(0L)
                     );
 

@@ -35,12 +35,13 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.TestOnly;
@@ -194,8 +195,8 @@ public class MvGc implements ManuallyCloseable {
     }
 
     private void scheduleGcForStorage(TablePartitionId tablePartitionId) {
-        executor.submit(() -> inBusyLock(() -> {
-            CompletableFuture<Void> future = new CompletableFuture<>();
+        inBusyLock(() -> {
+            CompletableFuture<Void> currentGcFuture = new CompletableFuture<>();
 
             GcStorageHandler storageHandler = storageHandlerByPartitionId.compute(tablePartitionId, (tablePartId, gcStorageHandler) -> {
                 if (gcStorageHandler == null) {
@@ -206,7 +207,7 @@ public class MvGc implements ManuallyCloseable {
                 CompletableFuture<Void> inProgressFuture = gcStorageHandler.gcInProgressFuture.get();
 
                 if (inProgressFuture == null || inProgressFuture.isDone()) {
-                    boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(inProgressFuture, future);
+                    boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(inProgressFuture, currentGcFuture);
 
                     assert casResult : tablePartId;
                 } else {
@@ -221,35 +222,63 @@ public class MvGc implements ManuallyCloseable {
                 return;
             }
 
-            if (storageHandler.gcInProgressFuture.get() != future) {
+            if (storageHandler.gcInProgressFuture.get() != currentGcFuture) {
                 // Someone in parallel is already collecting garbage, we will try once again after completion of gcInProgressFuture.
                 return;
             }
 
             try {
-                for (int i = 0; i < GC_BATCH_SIZE; i++) {
-                    HybridTimestamp lowWatermark = lowWatermarkReference.get();
+                HybridTimestamp lowWatermark = lowWatermarkReference.get();
 
-                    assert lowWatermark != null : tablePartitionId;
+                assert lowWatermark != null : tablePartitionId;
 
-                    // If storage has been deleted or there is no garbage, then for now we will stop collecting garbage for this storage.
-                    if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
-                            || !storageHandler.storageUpdateHandler.vacuum(lowWatermark)) {
-                        return;
-                    }
+                // If the storage has been deleted, then garbage collection is no longer necessary.
+                if (!storageHandlerByPartitionId.containsKey(tablePartitionId)) {
+                    currentGcFuture.complete(null);
+
+                    return;
                 }
+
+                StorageUpdateHandler storageUpdateHandler = storageHandler.storageUpdateHandler;
+
+                // We can only start garbage collection when the partition safe time is reached.
+                storageUpdateHandler.getSafeTimeTracker()
+                        .waitFor(lowWatermark)
+                        .thenApplyAsync(unused -> {
+                            for (int i = 0; i < GC_BATCH_SIZE; i++) {
+                                // If the storage has been deleted or there is no garbage, then we will stop.
+                                if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
+                                        || !storageUpdateHandler.vacuum(lowWatermark)) {
+                                    return false;
+                                }
+                            }
+
+                            return true;
+                        }, executor)
+                        .whenComplete((isGarbageLeft, throwable) -> {
+                            if (throwable != null) {
+                                if (throwable instanceof TrackerClosedException
+                                        || throwable.getCause() instanceof TrackerClosedException) {
+                                    currentGcFuture.complete(null);
+                                } else {
+                                    currentGcFuture.completeExceptionally(throwable);
+                                }
+
+                                return;
+                            }
+
+                            currentGcFuture.complete(null);
+
+                            // If there is garbage left and the storage has not been deleted, then we will schedule the next garbage
+                            // collection.
+                            if (isGarbageLeft && storageHandlerByPartitionId.containsKey(tablePartitionId)) {
+                                scheduleGcForStorage(tablePartitionId);
+                            }
+                        });
             } catch (Throwable t) {
-                future.completeExceptionally(t);
-
-                return;
-            } finally {
-                if (!future.isCompletedExceptionally()) {
-                    future.complete(null);
-                }
+                currentGcFuture.completeExceptionally(t);
             }
-
-            scheduleGcForStorage(tablePartitionId);
-        }));
+        });
     }
 
     private <T> T inBusyLock(Supplier<T> supplier) {

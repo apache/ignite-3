@@ -38,16 +38,33 @@ protected:
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
         client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
-
-        auto res = client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
-
-        if (!res.was_applied()) {
-            client.get_sql().execute(nullptr, {"DELETE FROM TEST"}, {});
-        }
+        client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         for (std::int32_t i = 0; i < 10; ++i) {
             client.get_sql().execute(nullptr, {"INSERT INTO TEST VALUES (?, ?)"}, {i, "s-" + std::to_string(i)});
         }
+
+        client.get_sql().execute(nullptr,
+            {"INSERT INTO TBL_ALL_COLUMNS_SQL VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
+            {std::int64_t(42),
+                std::string("test"),
+                std::int8_t(1),
+                std::int16_t(2),
+                std::int32_t(3),
+                std::int64_t(4),
+                .5f,
+                .6,
+                uuid(0x123e4567e89b12d3, 0x7456426614174000),
+                ignite_date(2023, 2, 7),
+                ignite_time(17, 4, 12, 3543634),
+                ignite_time(17, 4, 12, 3543634),
+                ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879}),
+                ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879}),
+                ignite_timestamp(3875238472, 248760634),
+                ignite_timestamp(3875238472, 248760634),
+                std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)},
+                big_decimal(123456789098765)}
+        );
     }
 
     static void TearDownTestSuite() {
@@ -55,6 +72,7 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
+        client.get_sql().execute(nullptr, {"DELETE FROM TBL_ALL_COLUMNS_SQL"}, {});
         client.get_sql().execute(nullptr, {"DROP TABLE TEST"}, {});
         client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TestDdlDml"}, {});
     }
@@ -339,4 +357,61 @@ TEST_F(sql_test, decimal_literal) {
     auto value_str = ss.str();
 
     EXPECT_EQ("12345.6789", value_str);
+}
+
+TEST_F(sql_test, all_type_arguments) {
+    auto result_set = m_client.get_sql().execute(nullptr,
+        {"select str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",time2,"
+         "\"DATETIME\",datetime2,timestamp,timestamp2,blob,decimal from TBL_ALL_COLUMNS_SQL"}, {});
+
+    EXPECT_TRUE(result_set.has_rowset());
+
+    auto row = result_set.current_page().front();
+    EXPECT_EQ(row.get(0).get<std::string>(), "test");
+    EXPECT_EQ(row.get(1).get<std::int8_t>(), 1);
+    EXPECT_EQ(row.get(2).get<std::int16_t>(), 2);
+    EXPECT_EQ(row.get(3).get<std::int32_t>(), 3);
+    EXPECT_EQ(row.get(4).get<std::int64_t>(), 4);
+    EXPECT_FLOAT_EQ(row.get(5).get<float>(), 0.5f);
+    EXPECT_DOUBLE_EQ(row.get(6).get<double>(), 0.6);
+    EXPECT_EQ(row.get(7).get<uuid>(), uuid(0x123e4567e89b12d3, 0x7456426614174000));
+    EXPECT_EQ(row.get(8).get<ignite_date>(), ignite_date(2023, 2, 7));
+    EXPECT_EQ(row.get(9).get<ignite_time>(), ignite_time(17, 4, 12, 3000000));
+    EXPECT_EQ(row.get(10).get<ignite_time>(), ignite_time(17, 4, 12, 3000000));
+    EXPECT_EQ(row.get(11).get<ignite_date_time>(), ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}));
+    EXPECT_EQ(row.get(12).get<ignite_date_time>(), ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}));
+    EXPECT_EQ(row.get(13).get<ignite_timestamp>(), ignite_timestamp(3875238472, 248000000));
+    EXPECT_EQ(row.get(14).get<ignite_timestamp>(), ignite_timestamp(3875238472, 248000000));
+    EXPECT_EQ(row.get(16).get<big_decimal>(), big_decimal(123456789098765));
+
+    auto blob = row.get(15).get<std::vector<std::byte>>();
+    EXPECT_EQ(blob[0], std::byte(1));
+    EXPECT_EQ(blob[1], std::byte(2));
+    EXPECT_EQ(blob[2], std::byte(42));
+}
+
+TEST_F(sql_test, uuid_literal) {
+    auto result_set = m_client.get_sql().execute(nullptr,
+        {"SELECT CAST('df6bbb13-f2d2-42b4-bef9-7ab8524a0704' AS UUID)"}, {});
+
+    EXPECT_TRUE(result_set.has_rowset());
+
+    auto value = result_set.current_page().front().get(0).get<uuid>();
+
+    std::stringstream ss;
+    ss << value;
+    auto value_str = ss.str();
+
+    EXPECT_EQ("df6bbb13-f2d2-42b4-bef9-7ab8524a0704", value_str);
+}
+
+TEST_F(sql_test, uuid_argument) {
+    uuid req{0x123e4567e89b12d3, 0x7456426614174000};
+    auto result_set = m_client.get_sql().execute(nullptr,
+        {"select MAX(UUID) from TBL_ALL_COLUMNS_SQL WHERE UUID = ?"}, {req});
+
+    EXPECT_TRUE(result_set.has_rowset());
+
+    auto value = result_set.current_page().front().get(0).get<uuid>();
+    EXPECT_EQ(req, value);
 }

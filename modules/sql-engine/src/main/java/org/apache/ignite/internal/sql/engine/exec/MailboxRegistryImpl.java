@@ -17,23 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
-import org.apache.ignite.internal.sql.engine.exec.rel.Mailbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * MailboxRegistryImpl.
@@ -41,8 +35,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandler {
     private static final IgniteLogger LOG = Loggers.forClass(MailboxRegistryImpl.class);
-
-    private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
 
     private final Map<MailboxKey, CompletableFuture<Outbox<?>>> locals;
 
@@ -122,29 +114,6 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     @Override
     public Inbox<?> inbox(UUID qryId, long exchangeId) {
         return remotes.get(new MailboxKey(qryId, exchangeId));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<Inbox<?>> inboxes(@Nullable UUID qryId, long fragmentId, long exchangeId) {
-        return remotes.values().stream()
-                .filter(makeFilter(qryId, fragmentId, exchangeId))
-                .collect(Collectors.toList());
-    }
-
-    private static Predicate<Mailbox<?>> makeFilter(@Nullable UUID qryId, long fragmentId, long exchangeId) {
-        Predicate<Mailbox<?>> filter = ALWAYS_TRUE;
-        if (qryId != null) {
-            filter = filter.and(mailbox -> Objects.equals(mailbox.queryId(), qryId));
-        }
-        if (fragmentId != -1) {
-            filter = filter.and(mailbox -> mailbox.fragmentId() == fragmentId);
-        }
-        if (exchangeId != -1) {
-            filter = filter.and(mailbox -> mailbox.exchangeId() == exchangeId);
-        }
-
-        return filter;
     }
 
     /** {@inheritDoc} */

@@ -454,12 +454,12 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partitionId Partition ID.
      */
-    @Nullable PendingComparableValuesTracker<HybridTimestamp> getPartitionSafeTimeTracker(int partitionId);
+    @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId);
 
     /**
      * Returns the partition storage index tracker, {@code null} means not added.
      *
      * @param partitionId Partition ID.
      */
-    @Nullable PendingComparableValuesTracker<Long> getPartitionStorageIndexTracker(int partitionId);
+    @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 }

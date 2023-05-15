@@ -23,7 +23,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** SSL configuration builder. */
 public class SslConfigurationBuilder {
-    private static final String DEFAULT_KEYSTORE_TYPE = "PKCS12";
 
     private boolean enabled = false;
 
@@ -35,13 +34,9 @@ public class SslConfigurationBuilder {
 
     private @Nullable String keyStorePassword;
 
-    private String keyStoreType = DEFAULT_KEYSTORE_TYPE;
-
     private @Nullable String trustStorePath;
 
     private @Nullable String trustStorePassword;
-
-    private String trustStoreType = DEFAULT_KEYSTORE_TYPE;
 
     /** Enabled/disabled setter. */
     public SslConfigurationBuilder enabled(boolean enabled) {
@@ -78,17 +73,6 @@ public class SslConfigurationBuilder {
         return this;
     }
 
-    /** Keystore type setter. If set to {@code null} then the default PKCS12 type is used. */
-    public SslConfigurationBuilder keyStoreType(@Nullable String keyStoreType) {
-        if (keyStoreType == null) {
-            this.keyStoreType = DEFAULT_KEYSTORE_TYPE;
-            return this;
-        }
-
-        this.keyStoreType = keyStoreType;
-        return this;
-    }
-
     /** Truststore path setter. */
     public SslConfigurationBuilder trustStorePath(@Nullable String trustStorePath) {
         this.trustStorePath = trustStorePath;
@@ -101,23 +85,12 @@ public class SslConfigurationBuilder {
         return this;
     }
 
-    /** Truststore type setter. If set to {@code null} then the default PKCS12 type is used. */
-    public SslConfigurationBuilder trustStoreType(@Nullable String trustStoreType) {
-        if (trustStoreType == null) {
-            this.trustStoreType = DEFAULT_KEYSTORE_TYPE;
-            return this;
-        }
-
-        this.trustStoreType = trustStoreType;
-        return this;
-    }
-
     /** Build SslConfiguration instance. */
     public SslConfiguration build() {
         return new SslConfigurationImpl(
                 enabled, clientAuth, ciphers,
-                keyStorePath, keyStorePassword, keyStoreType,
-                trustStorePath, trustStorePassword, trustStoreType
+                keyStorePath, keyStorePassword,
+                trustStorePath, trustStorePassword
         );
     }
 }

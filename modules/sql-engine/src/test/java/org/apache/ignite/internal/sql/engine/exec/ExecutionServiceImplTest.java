@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
@@ -38,9 +39,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -63,7 +67,9 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
+import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
@@ -73,7 +79,7 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
+import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -96,7 +102,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -129,6 +134,8 @@ public class ExecutionServiceImplTest {
 
     private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, -1);
 
+    private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
+
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
@@ -146,6 +153,12 @@ public class ExecutionServiceImplTest {
     @AfterEach
     public void tearDown() throws Exception {
         prepareService.stop();
+
+        for (CapturingMailboxRegistry mailbox : mailboxes) {
+            assertTrue(waitForCondition(mailbox::empty, TIMEOUT_IN_MS));
+        }
+
+        mailboxes.clear();
     }
 
     /**
@@ -233,19 +246,17 @@ public class ExecutionServiceImplTest {
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
-                try {
-                    testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
-                            .queryId(((QueryStartRequest) msg).queryId())
-                            .fragmentId(((QueryStartRequest) msg).fragmentId())
-                            .error(expectedEx)
-                            .build()
-                    );
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
-                }
+                testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(((QueryStartRequest) msg).queryId())
+                        .fragmentId(((QueryStartRequest) msg).fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
             } else {
                 original.onMessage(nodeName, msg);
             }
+
+            return CompletableFuture.completedFuture(null);
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
@@ -326,8 +337,8 @@ public class ExecutionServiceImplTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(RemoteException.class, ex.getCause());
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause().getCause());
+            assertInstanceOf(RemoteFragmentExecutionException.class, ex.getCause());
+            assertNull(ex.getCause().getCause());
 
             return null;
         }));
@@ -416,10 +427,12 @@ public class ExecutionServiceImplTest {
 
                     original.onMessage(senderNodeName, msg);
                 });
+
+                return CompletableFuture.completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                throw new IgniteInternalException(Sql.MESSAGE_SEND_ERR,
-                        "Connection refused to " + node.nodeName + ", message " + msg);
+                return CompletableFuture.failedFuture(new IgniteInternalException(Sql.INTERNAL_ERR,
+                        "Connection refused to " + node.nodeName + ", message " + msg));
             }
         }));
 
@@ -427,7 +440,7 @@ public class ExecutionServiceImplTest {
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Connection refused to ")), 10, TimeUnit.SECONDS));
+        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Unable to send fragment")), 10, TimeUnit.SECONDS));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();
@@ -455,7 +468,8 @@ public class ExecutionServiceImplTest {
         node.dataset(dataPerNode.get(nodeName));
 
         var messageService = node.messageService();
-        var mailboxRegistry = new MailboxRegistryImpl();
+        var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
+        mailboxes.add(mailboxRegistry);
 
         var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
 
@@ -485,7 +499,6 @@ public class ExecutionServiceImplTest {
                 mock(DdlCommandHandler.class),
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
-                exchangeService,
                 ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
         );
 
@@ -538,7 +551,6 @@ public class ExecutionServiceImplTest {
         class TestNode {
             private final Map<Short, MessageListener> msgListeners = new ConcurrentHashMap<>();
             private final Queue<RunnableX> pending = new LinkedBlockingQueue<>();
-            private volatile boolean dead = false;
             private volatile List<Object[]> dataset = List.of();
             private volatile MessageInterceptor interceptor = null;
 
@@ -550,14 +562,6 @@ public class ExecutionServiceImplTest {
             public TestNode(String nodeName, QueryTaskExecutor taskExecutor) {
                 this.nodeName = nodeName;
                 this.taskExecutor = taskExecutor;
-            }
-
-            public void dead(boolean dead) {
-                this.dead = dead;
-            }
-
-            public boolean dead() {
-                return dead;
             }
 
             public void dataset(List<Object[]> dataset) {
@@ -597,16 +601,10 @@ public class ExecutionServiceImplTest {
                 return new MessageService() {
                     /** {@inheritDoc} */
                     @Override
-                    public void send(String nodeName, NetworkMessage msg) {
+                    public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
                         TestNode node = nodes.get(nodeName);
 
-                        node.onReceive(TestNode.this.nodeName, msg);
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public boolean alive(String nodeName) {
-                        return !nodes.get(nodeName).dead();
+                        return node.onReceive(TestNode.this.nodeName, msg);
                     }
 
                     /** {@inheritDoc} */
@@ -665,7 +663,7 @@ public class ExecutionServiceImplTest {
                 };
             }
 
-            private void onReceive(String senderNodeName, NetworkMessage message) {
+            private CompletableFuture<Void> onReceive(String senderNodeName, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
                     MessageListener listener = msgListeners.get(msg.messageType());
 
@@ -685,15 +683,18 @@ public class ExecutionServiceImplTest {
                 MessageInterceptor interceptor = this.interceptor;
 
                 if (interceptor != null) {
-                    interceptor.intercept(senderNodeName, message, original);
-                } else {
-                    original.onMessage(senderNodeName, message);
+                    return interceptor.intercept(senderNodeName, message, original);
                 }
+
+                original.onMessage(senderNodeName, message);
+
+                return CompletableFuture.completedFuture(null);
             }
         }
 
+        @FunctionalInterface
         interface MessageInterceptor {
-            void intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
+            CompletableFuture<Void> intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
         }
     }
 
@@ -741,5 +742,68 @@ public class ExecutionServiceImplTest {
                 return super.colocationGroup(ctx);
             }
         };
+    }
+
+    private static class CapturingMailboxRegistry implements MailboxRegistry {
+        private final MailboxRegistry delegate;
+
+        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        CapturingMailboxRegistry(MailboxRegistry delegate) {
+            this.delegate = delegate;
+        }
+
+        boolean empty() {
+            return inboxes.isEmpty() && outboxes.isEmpty();
+        }
+
+        @Override
+        public void start() {
+            delegate.start();
+        }
+
+        @Override
+        public void stop() throws Exception {
+            delegate.stop();
+        }
+
+        @Override
+        public void register(Inbox<?> inbox) {
+            delegate.register(inbox);
+
+            inboxes.add(inbox);
+        }
+
+        @Override
+        public void register(Outbox<?> outbox) {
+            delegate.register(outbox);
+
+            outboxes.add(outbox);
+        }
+
+        @Override
+        public void unregister(Inbox<?> inbox) {
+            delegate.unregister(inbox);
+
+            inboxes.remove(inbox);
+        }
+
+        @Override
+        public void unregister(Outbox<?> outbox) {
+            delegate.unregister(outbox);
+
+            outboxes.remove(outbox);
+        }
+
+        @Override
+        public CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId) {
+            return delegate.outbox(qryId, exchangeId);
+        }
+
+        @Override
+        public Inbox<?> inbox(UUID qryId, long exchangeId) {
+            return delegate.inbox(qryId, exchangeId);
+        }
     }
 }

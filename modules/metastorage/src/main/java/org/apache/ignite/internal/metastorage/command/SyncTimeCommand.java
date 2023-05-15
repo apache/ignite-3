@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -26,5 +29,10 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
 public interface SyncTimeCommand extends WriteCommand {
     /** New safe time. */
-    HybridTimestampMessage safeTime();
+    long safeTimeLong();
+
+    /** New safe time. */
+    default HybridTimestamp safeTime() {
+        return hybridTimestamp(safeTimeLong());
+    }
 }

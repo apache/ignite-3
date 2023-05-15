@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,11 +42,9 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -137,48 +136,6 @@ public class TypeUtils {
         }
 
         return builder.build();
-    }
-
-    /**
-     * NeedCast.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static boolean needCast(RelDataTypeFactory factory, RelDataType fromType, RelDataType toType) {
-        // This prevents that we cast a JavaType to normal RelDataType.
-        if (fromType instanceof RelDataTypeFactoryImpl.JavaType
-                && toType.getSqlTypeName() == fromType.getSqlTypeName()) {
-            return false;
-        }
-
-        // Do not make a cast when we don't know specific type (ANY) of the origin node.
-        if (toType.getSqlTypeName() == SqlTypeName.ANY
-                || fromType.getSqlTypeName() == SqlTypeName.ANY) {
-            return false;
-        }
-
-        // No need to cast between char and varchar.
-        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
-            return false;
-        }
-
-        // No need to cast if the source type precedence list
-        // contains target type. i.e. do not cast from
-        // tinyint to int or int to bigint.
-        if (fromType.getPrecedenceList().containsType(toType)
-                && SqlTypeUtil.isIntType(fromType)
-                && SqlTypeUtil.isIntType(toType)) {
-            return false;
-        }
-
-        // Implicit type coercion does not handle nullability.
-        if (SqlTypeUtil.equalSansNullability(factory, fromType, toType)) {
-            return false;
-        }
-
-        // Should keep sync with rules in SqlTypeCoercionRule.
-        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-
-        return true;
     }
 
     /**
@@ -299,7 +256,14 @@ public class TypeUtils {
         } else if (storageType == Period.class) {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
-            return new ByteString((byte[]) val);
+            if (val instanceof String) {
+                return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
+            } else if (val instanceof byte[]) {
+                return new ByteString((byte[]) val);
+            } else {
+                assert val instanceof ByteString : "Expected ByteString but got " + val + ", type=" + val.getClass().getTypeName();
+                return val;
+            }
         } else if (val instanceof Number && storageType != val.getClass()) {
             // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
             // runtime we should convert parameter value to expected type.

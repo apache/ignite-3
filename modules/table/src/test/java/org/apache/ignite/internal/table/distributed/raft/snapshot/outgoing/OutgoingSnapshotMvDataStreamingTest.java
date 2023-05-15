@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -27,8 +28,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -44,8 +43,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAcces
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,7 +103,7 @@ class OutgoingSnapshotMvDataStreamingTest {
                 clock.now()
         );
 
-        configurePartitionAccessToHaveExactlyOneRowWith(List.of(version1, version2));
+        configurePartitionAccessToHaveExactlyOneRowWith(List.of(version2, version1));
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
@@ -118,16 +115,16 @@ class OutgoingSnapshotMvDataStreamingTest {
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
-        assertThat(responseRow.timestamps(), is(equalTo(List.of(version1.commitTimestamp()))));
+        assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
 
         assertThat(responseRow.rowVersions(), hasSize(2));
-        assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{2}));
-        assertThat(responseRow.rowVersions().get(1).array(), is(new byte[]{1}));
+        assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{1}));
+        assertThat(responseRow.rowVersions().get(1).array(), is(new byte[]{2}));
     }
 
     private void configurePartitionAccessToHaveExactlyOneRowWith(List<ReadResult> versions) {
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(versions));
+        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(versions);
         lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
     }
 
@@ -160,7 +157,10 @@ class OutgoingSnapshotMvDataStreamingTest {
         SnapshotMvDataResponse.ResponseEntry responseRow = response.rows().get(0);
 
         //noinspection ConstantConditions
-        assertThat(responseRow.timestamps(), is(equalTo(List.of(version2.commitTimestamp(), version1.commitTimestamp()))));
+        assertThat(
+                responseRow.timestamps(),
+                is(equalTo(new long[] {version2.commitTimestamp().longValue(), version1.commitTimestamp().longValue()}))
+        );
 
         assertThat(responseRow.rowVersions(), hasSize(2));
         assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{2}));
@@ -173,9 +173,9 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version2 = ReadResult.createFromCommitted(rowId2, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1)));
+        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
         when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
-        when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(Cursor.fromIterable(List.of(version2)));
+        when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
         when(partitionAccess.closestRowId(rowId3)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
@@ -218,7 +218,7 @@ class OutgoingSnapshotMvDataStreamingTest {
                 clock.now()
         );
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version2, version1)));
+        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version2, version1));
 
         snapshot.acquireMvLock();
 
@@ -240,7 +240,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
-        assertThat(responseRow.timestamps(), is(equalTo(List.of(version1.commitTimestamp()))));
+        assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
 
         assertThat(responseRow.rowVersions(), hasSize(2));
         assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{1}));
@@ -256,7 +256,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
+        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
         snapshot.acquireMvLock();
 
@@ -278,7 +278,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
     @Test
     void doesNotEnqueueMissingRows() {
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(CursorUtils.emptyCursor());
+        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(emptyList());
 
         snapshot.acquireMvLock();
 
@@ -291,26 +291,6 @@ class OutgoingSnapshotMvDataStreamingTest {
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
         assertThat(response.rows(), is(empty()));
-    }
-
-    @Test
-    void closesVersionsCursor() {
-        @SuppressWarnings("unchecked")
-        Cursor<ReadResult> cursor = mock(Cursor.class);
-
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(cursor);
-
-        snapshot.acquireMvLock();
-
-        try {
-            snapshot.enqueueForSending(rowIdOutOfOrder);
-        } finally {
-            snapshot.releaseMvLock();
-        }
-
-        getMvDataResponse(Long.MAX_VALUE);
-
-        verify(cursor).close();
     }
 
     @Test
@@ -339,7 +319,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
-        assertThat(response.rows().get(0).timestamps(), is(empty()));
+        assertThat(response.rows().get(0).timestamps().length, is(0));
     }
 
     @Test
@@ -357,9 +337,9 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version2 = ReadResult.createFromCommitted(rowId2, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1)));
+        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1));
         lenient().when(partitionAccess.closestRowId(rowId1)).thenReturn(rowId1);
-        lenient().when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(Cursor.fromIterable(List.of(version2)));
+        lenient().when(partitionAccess.getAllRowVersions(rowId2)).thenReturn(List.of(version2));
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
 
@@ -371,7 +351,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version1 = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[]{1}), clock.now());
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version1)));
+        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version1));
 
         snapshot.acquireMvLock();
 
@@ -382,7 +362,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         }
 
         lenient().when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        lenient().when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version2)));
+        lenient().when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version2));
         lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(null);
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
@@ -396,7 +376,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1, version2)));
+        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
         lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
 
         SnapshotMvDataResponse response = getMvDataResponse(1);
@@ -421,7 +401,7 @@ class OutgoingSnapshotMvDataStreamingTest {
     void sendsRowsFromOutOfOrderQueueBiggerThanHint() {
         ReadResult version = ReadResult.createFromCommitted(rowIdOutOfOrder, new ByteBufferRow(new byte[1000]), clock.now());
 
-        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(Cursor.fromIterable(List.of(version)));
+        when(partitionAccess.getAllRowVersions(rowIdOutOfOrder)).thenReturn(List.of(version));
 
         snapshot.acquireMvLock();
 
@@ -457,7 +437,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1, version2)));
+        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
         lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
 
         getMvDataResponse(1);
@@ -477,7 +457,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         ReadResult version2 = ReadResult.createFromCommitted(rowId1, new ByteBufferRow(new byte[]{2}), clock.now());
 
         when(partitionAccess.closestRowId(lowestRowId)).thenReturn(rowId1);
-        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(Cursor.fromIterable(List.of(version1, version2)));
+        when(partitionAccess.getAllRowVersions(rowId1)).thenReturn(List.of(version1, version2));
         lenient().when(partitionAccess.closestRowId(rowId2)).thenReturn(rowId2);
 
         getMvDataResponse(1);

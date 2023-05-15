@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -66,7 +67,6 @@ import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.AuthenticationConfig;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
@@ -298,7 +298,6 @@ public class ItGeneratedRestClientTest {
                             .clusterName("cluster")
                             .metaStorageNodes(List.of(firstNodeName))
                             .cmgNodes(List.of())
-                            .authenticationConfig(new AuthenticationConfig().enabled(false))
             );
         });
     }
@@ -322,8 +321,7 @@ public class ItGeneratedRestClientTest {
                         new InitCommand()
                                 .clusterName("cluster")
                                 .metaStorageNodes(List.of("no-such-node"))
-                                .cmgNodes(List.of())
-                                .authenticationConfig(new AuthenticationConfig().enabled(false)))
+                                .cmgNodes(List.of()))
         );
 
         assertThat(thrown.getCode(), equalTo(400));
@@ -400,7 +398,7 @@ public class ItGeneratedRestClientTest {
         assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
 
         deploymentApi.undeployUnit("test.unit.id", "1.0.0");
-        assertThat(deploymentApi.units(), empty());
+        await().untilAsserted(() -> assertThat(deploymentApi.units(), empty()));
     }
 
     @Test
@@ -417,7 +415,7 @@ public class ItGeneratedRestClientTest {
         assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
     }
 
-    private File emptyFile() {
+    private static File emptyFile() {
         try {
             return Files.createTempFile(WORK_DIR, "empty", "file").toFile();
         } catch (IOException e) {

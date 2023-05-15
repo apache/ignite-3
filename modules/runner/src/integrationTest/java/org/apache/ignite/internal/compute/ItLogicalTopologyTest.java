@@ -23,8 +23,8 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -40,10 +40,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.intellij.lang.annotations.Language;
@@ -71,8 +71,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  },"
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: " + NODE_ATTRIBUTES
-            + "  },\n"
-            + "  cluster.failoverTimeout: 100\n"
+            + "  }\n"
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
@@ -237,7 +236,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void nodeReturnedToPhysicalTopologyReturnsToLogicalTopology() throws Exception {
+    void nodeReturnedToPhysicalTopologyDoesNotReturnToLogicalTopology() throws Exception {
         IgniteImpl entryNode = node(0);
 
         IgniteImpl secondIgnite = startNode(1);
@@ -257,7 +256,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         entryNode.stopDroppingMessages();
 
-        assertTrue(secondIgniteAppeared.await(10, TimeUnit.SECONDS), "Did not see second node coming back in time");
+        assertFalse(secondIgniteAppeared.await(3, TimeUnit.SECONDS), "Second node returned to logical topology");
     }
 
     private static void makeSecondNodeDisappearForFirstNode(IgniteImpl firstIgnite, IgniteImpl secondIgnite) throws InterruptedException {
@@ -279,23 +278,21 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void nodeDoesNotLeaveLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
+    void nodeLeavesLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
         IgniteImpl entryNode = node(0);
 
-        setInfiniteClusterFailoverTimeout(entryNode);
-
-        startNode(1);
+        IgniteImpl secondNode = startNode(1);
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
         // Knock the node out without allowing it to say good bye.
         cluster.simulateNetworkPartitionOf(1);
 
-        // 1 second is usually insufficient on my machine to get an event, even if it's produced. On the CI we
-        // should probably account for spurious delays due to other processes, hence 2 seconds.
-        Event event = events.poll(2, TimeUnit.SECONDS);
+        Event leaveEvent = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(event, is(nullValue()));
+        assertThat(leaveEvent, is(notNullValue()));
+        assertThat(leaveEvent.node.name(), is(secondNode.name()));
+        assertThat(leaveEvent.eventType, is(EventType.LEFT));
     }
 
     @Test
@@ -312,9 +309,6 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
                 entryNode.dropMessages((recipientConsistentId, message) -> validatedNode.name().equals(recipientConsistentId));
             }
         });
-
-        // Disable the failover timeout so that the CMG Raft group is immediately notified of a node leaving Physical Topology.
-        setZeroClusterFailoverTimeout(entryNode);
 
         cluster.startClusterNode(1);
 
@@ -336,17 +330,39 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private static void setInfiniteClusterFailoverTimeout(IgniteImpl node) throws Exception {
-        node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
-                .failoverTimeout()
-                .update(Long.MAX_VALUE)
-                .get(10, TimeUnit.SECONDS);
+    @Test
+    void nodeLeavesLogicalTopologyImmediatelyOnGracefulStop() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        disableNetworkFailureDetection(entryNode);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        stopNode(1);
+
+        Event leaveEvent = events.poll(10, TimeUnit.SECONDS);
+
+        assertThat(events, is(empty()));
+
+        assertThat(leaveEvent, is(notNullValue()));
+
+        assertThat(leaveEvent.eventType, is(EventType.LEFT));
+        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
     }
 
-    private static void setZeroClusterFailoverTimeout(IgniteImpl node) throws Exception {
-        node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
-                .failoverTimeout()
-                .update(0L)
+    /**
+     * Configures the given Ignite instance in a way that makes it impossible to notice (by itself) that another
+     * node has gone and is not reachable on the network anymore.
+     *
+     * @param node Ignite node to disable network failure detection at.
+     * @throws Exception If something goes wrong.
+     */
+    private static void disableNetworkFailureDetection(IgniteImpl node) throws Exception {
+        node.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY)
+                .membership()
+                .change(membershipChange -> membershipChange.changeFailurePingInterval(Integer.MAX_VALUE))
                 .get(10, TimeUnit.SECONDS);
     }
 

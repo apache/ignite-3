@@ -408,6 +408,16 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryTupleReader binaryTuple() {
+        if (tuple != null) {
+            return null;
+        }
+
+        if (noValueSet != null && !noValueSet.isEmpty()) {
+            // Can't expose binary tuple if there are unset values.
+            // On the server side, DefaultValueProvider is used to replace unset values with proper defaults.
+            return null;
+        }
+
         return binaryTuple;
     }
 

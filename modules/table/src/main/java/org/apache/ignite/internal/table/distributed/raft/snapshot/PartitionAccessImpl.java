@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static java.util.stream.Collectors.toList;
+
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -29,7 +33,6 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -106,8 +109,16 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public Cursor<ReadResult> getAllRowVersions(RowId rowId) {
-        return getMvPartitionStorage(partitionId()).scanVersions(rowId);
+    public List<ReadResult> getAllRowVersions(RowId rowId) {
+        MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
+
+        return mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
+            try (Cursor<ReadResult> cursor = mvPartitionStorage.scanVersions(rowId)) {
+                return cursor.stream().collect(toList());
+            }
+        });
     }
 
     @Override
@@ -121,7 +132,9 @@ public class PartitionAccessImpl implements PartitionAccess {
     public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
 
             storageUpdateHandler.addToIndexes(row, rowId);
@@ -134,7 +147,9 @@ public class PartitionAccessImpl implements PartitionAccess {
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
             storageUpdateHandler.addToIndexes(row, rowId);

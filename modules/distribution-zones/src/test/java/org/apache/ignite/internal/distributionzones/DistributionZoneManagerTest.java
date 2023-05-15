@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -157,7 +158,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone1, "Zone was not created.");
         assertEquals(ZONE_NAME, zone1.name().value(), "Zone name is wrong.");
-        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(IMMEDIATE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
         assertEquals(200, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
@@ -247,12 +248,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
-        assertNotNull(zone, "Zone was not created.");
-        assertEquals(zoneName, zone.name().value(), "Zone name is wrong.");
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
-
 
         distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
                         .dataNodesAutoAdjustScaleUp(200).dataNodesAutoAdjustScaleDown(300).build())
@@ -332,11 +327,20 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 )
                 .get(5, TimeUnit.SECONDS);
 
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1, "Zone was not renamed.");
+        assertEquals(ZONE_NAME, zone1.name().value(), "Zone was not renamed.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(100, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+
         distributionZoneManager.alterZone(ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
                 .get(5, TimeUnit.SECONDS);
 
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
                 .get(ZONE_NAME);
 
         DistributionZoneConfiguration zone2 = registry.getConfiguration(DistributionZonesConfiguration.KEY)

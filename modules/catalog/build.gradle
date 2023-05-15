@@ -27,10 +27,13 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-vault')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
     testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core

@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write replica request.
  */
-public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware {
+public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
+    @Nullable
     UUID transactionId();
 
     /**
@@ -34,7 +36,9 @@ public interface ReadWriteReplicaRequest extends ReplicaRequest, TimestampAware 
      *
      * @return Raft term.
      */
+    // TODO: IGNITE-19457 Maybe not nullable.
     @Deprecated
+    @Nullable
     @Marshallable
     Long term();
 }

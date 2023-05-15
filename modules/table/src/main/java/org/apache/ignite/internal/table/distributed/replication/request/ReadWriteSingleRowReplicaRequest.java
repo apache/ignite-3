@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write single-row replica request.
@@ -32,6 +33,8 @@ public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaReques
      *
      * @return Table partition id.
      */
+    // TODO: IGNITE-19457 Maybe not nullable.
+    @Nullable
     @Marshallable
     TablePartitionId commitPartitionId();
 }

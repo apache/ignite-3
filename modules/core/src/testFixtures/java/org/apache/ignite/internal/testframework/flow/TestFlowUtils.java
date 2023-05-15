@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.testframework.flow;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +24,9 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Function;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.subscription.ListAccumulator;
 
 /**
  * Utility methods for extracting data from {@link Publisher}s.
@@ -37,29 +38,7 @@ public class TestFlowUtils {
     public static <T> CompletableFuture<List<T>> subscribeToList(Publisher<T> publisher) {
         var resultFuture = new CompletableFuture<List<T>>();
 
-        publisher.subscribe(new Subscriber<>() {
-            private final List<T> items = new ArrayList<>();
-
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscription.request(Long.MAX_VALUE);
-            }
-
-            @Override
-            public void onNext(T item) {
-                items.add(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                resultFuture.completeExceptionally(throwable);
-            }
-
-            @Override
-            public void onComplete() {
-                resultFuture.complete(items);
-            }
-        });
+        publisher.subscribe(new ListAccumulator<T, T>(Function.identity()).toSubscriber(resultFuture));
 
         return resultFuture;
     }

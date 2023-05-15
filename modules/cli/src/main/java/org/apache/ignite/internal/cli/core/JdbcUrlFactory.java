@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTI
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CLIENT_AUTH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_SSL_ENABLED;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PATH;
 
@@ -74,9 +75,7 @@ public class JdbcUrlFactory {
         addIfSet(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");
         addIfSet(queryParams, JDBC_KEY_STORE_PASSWORD, "keyStorePassword");
         addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
-        if (!queryParams.isEmpty()) {
-            queryParams.add(0, "sslEnabled=true");
-        }
+        addSslEnabledIfNeeded(queryParams);
         addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthenticationUsername");
         addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthenticationPassword");
         if (!queryParams.isEmpty()) {
@@ -85,6 +84,15 @@ public class JdbcUrlFactory {
             return jdbcUrl + query;
         } else {
             return jdbcUrl;
+        }
+    }
+
+    private void addSslEnabledIfNeeded(List<String> queryParams) {
+        String sslEnabled = configManagerProvider.get().getCurrentProperty(JDBC_SSL_ENABLED.value());
+        if (sslEnabled != null) {
+            queryParams.add(0, "sslEnabled=" + sslEnabled);
+        } else if (!queryParams.isEmpty()) {
+            queryParams.add(0, "sslEnabled=true");
         }
     }
 

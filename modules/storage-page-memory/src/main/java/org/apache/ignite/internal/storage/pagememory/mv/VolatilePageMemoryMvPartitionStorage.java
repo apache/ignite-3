@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -95,15 +96,27 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
-            try {
-                return closure.execute();
-            } finally {
-                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
-            }
-        });
+        if (locker != null) {
+            return closure.execute(locker);
+        } else {
+            return busy(() -> {
+                throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+                LocalLocker locker0 = new LocalLocker(lockByRowId);
+
+                THREAD_LOCAL_LOCKER.set(locker0);
+
+                try {
+                    return closure.execute(locker0);
+                } finally {
+                    THREAD_LOCAL_LOCKER.set(null);
+
+                    locker0.unlockAll();
+                }
+            });
+        }
     }
 
     @Override

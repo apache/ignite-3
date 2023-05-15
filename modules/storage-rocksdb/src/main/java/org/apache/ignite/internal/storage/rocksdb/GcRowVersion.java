@@ -19,13 +19,14 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Row versions for garbage collection.
  */
-final class GcRowVersion {
+final class GcRowVersion implements GcEntry {
     @IgniteToStringInclude
     private final RowId rowId;
 
@@ -37,11 +38,13 @@ final class GcRowVersion {
         this.rowTimestamp = rowTimestamp;
     }
 
-    RowId getRowId() {
+    @Override
+    public RowId getRowId() {
         return rowId;
     }
 
-    HybridTimestamp getRowTimestamp() {
+    @Override
+    public HybridTimestamp getTimestamp() {
         return rowTimestamp;
     }
 

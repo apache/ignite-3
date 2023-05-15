@@ -49,7 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -77,7 +77,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.SqlException;
@@ -332,7 +331,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             List<RowT> rows
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+        TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
 
@@ -356,12 +355,12 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId((TablePartitionId) commitPartitionId)
+                    .commitPartitionId(commitPartitionId)
                     .binaryRows(partToRows.getValue())
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
-                    .timestamp(clock.now())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
@@ -377,7 +376,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             List<RowT> rows
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+        TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
 
@@ -403,12 +402,12 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId((TablePartitionId) commitPartitionId)
+                    .commitPartitionId(commitPartitionId)
                     .binaryRows(partToRows.getValue())
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
-                    .timestamp(clock.now())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
@@ -444,7 +443,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             List<RowT> rows
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        ReplicationGroupId commitPartitionId = txAttributes.commitPartition();
+        TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
 
@@ -468,12 +467,12 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId((TablePartitionId) commitPartitionId)
+                    .commitPartitionId(commitPartitionId)
                     .binaryRows(partToRows.getValue())
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)
-                    .timestamp(clock.now())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);

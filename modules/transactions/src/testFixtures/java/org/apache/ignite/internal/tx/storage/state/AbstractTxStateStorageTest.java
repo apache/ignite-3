@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
@@ -43,8 +44,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -59,6 +59,8 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest {
+    private final UUID tableId = UUID.randomUUID();
+
     protected TxStateTableStorage tableStorage;
 
     /**
@@ -116,20 +118,20 @@ public abstract class AbstractTxStateStorageTest {
         }
     }
 
-    private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(Integer::toString).map(TestReplicationGroupId::new).collect(toList());
+    private List<TablePartitionId> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c)
+                .mapToObj(partitionNumber -> new TablePartitionId(tableId, partitionNumber))
+                .collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
-        long physical = Math.abs(uuid.getMostSignificantBits());
+        long time = Math.abs(uuid.getMostSignificantBits());
 
-        if (physical == 0) {
-            physical++;
+        if (time <= 0) {
+            time = 1;
         }
 
-        int logical = Math.abs(Long.valueOf(uuid.getLeastSignificantBits()).intValue());
-
-        return new HybridTimestamp(physical, logical);
+        return hybridTimestamp(time);
     }
 
     @Test

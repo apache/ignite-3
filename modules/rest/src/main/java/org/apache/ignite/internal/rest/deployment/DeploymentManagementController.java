@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.version.UnitVersion;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentInfo;
@@ -48,17 +49,12 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, parseVersion(unitVersion), deploymentUnit));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, UnitVersion.parse(unitVersion), deploymentUnit));
     }
 
     @Override
     public CompletableFuture<Void> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
-    }
-
-    @Override
-    public CompletableFuture<Void> undeploy(String unitId) {
-        return deployment.undeployAsync(unitId);
+        return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
     }
 
     @Override
@@ -91,7 +87,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @param status Unit status.
      * @return Unit status DTO.
      */
-    public static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
+    private static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
         Map<String, DeploymentInfo> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = status.versions();
         for (Version version : versions) {
@@ -99,12 +95,5 @@ public class DeploymentManagementController implements DeploymentCodeApi {
             versionToDeploymentStatus.put(version.render(), info);
         }
         return new UnitStatus(status.id(), versionToDeploymentStatus);
-    }
-
-    private static Version parseVersion(String unitVersion) {
-        if (unitVersion == null || unitVersion.isBlank()) {
-            return Version.LATEST;
-        }
-        return Version.parseVersion(unitVersion);
     }
 }

@@ -20,12 +20,14 @@ package org.apache.ignite.raft;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test WriteCommand.
 */
 @Transferable(10)
 public interface TestWriteCommand extends WriteCommand {
+    @Nullable
     String value();
 
     static TestWriteCommand testWriteCommand() {

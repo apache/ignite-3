@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -29,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
@@ -38,9 +41,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -291,7 +295,7 @@ public class MvGcTest {
     void testClose() throws Exception {
         gc.close();
 
-        assertThrowsClosed(() -> gc.addStorage(createTablePartitionId(), mock(StorageUpdateHandler.class)));
+        assertThrowsClosed(() -> gc.addStorage(createTablePartitionId(), createStorageUpdateHandler()));
         assertThrowsClosed(() -> gc.removeStorage(createTablePartitionId()));
         assertThrowsClosed(() -> gc.updateLowWatermark(new HybridTimestamp(1, 1)));
 
@@ -335,12 +339,40 @@ public class MvGcTest {
         }
     }
 
+    @Test
+    void testInvokeVacuumOnlyAfterReachSafeTime() {
+        CompletableFuture<Void> invokeVacuumMethodFuture = new CompletableFuture<>();
+
+        HybridTimestamp lvm = new HybridTimestamp(10, 10);
+
+        StorageUpdateHandler storageUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lvm);
+
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+                HybridTimestamp.MIN_VALUE
+        ));
+
+        when(storageUpdateHandler.getSafeTimeTracker()).thenReturn(safeTimeTracker);
+
+        gc.addStorage(createTablePartitionId(), storageUpdateHandler);
+
+        // Let's update the low watermark and see that we didn't start the garbage collection because we didn't reach the safe time.
+        gc.updateLowWatermark(lvm);
+
+        assertThat(invokeVacuumMethodFuture, willTimeoutFast());
+        verify(safeTimeTracker).waitFor(lvm);
+
+        // Update the safe time to be equal to the low watermark and make sure the garbage collection starts.
+        safeTimeTracker.update(lvm, null);
+
+        assertThat(invokeVacuumMethodFuture, willSucceedFast());
+    }
+
     private TablePartitionId createTablePartitionId() {
         return new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
     }
 
     private StorageUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
-        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
 
         completeFutureOnVacuum(storageUpdateHandler, future, exp);
 
@@ -370,7 +402,7 @@ public class MvGcTest {
     }
 
     private StorageUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
-        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
 
         when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             latch.countDown();
@@ -382,7 +414,7 @@ public class MvGcTest {
     }
 
     private StorageUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
-        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
 
         when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             startFuture.complete(null);
@@ -402,7 +434,7 @@ public class MvGcTest {
     }
 
     private StorageUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
-        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
 
         when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             latch.countDown();
@@ -410,6 +442,14 @@ public class MvGcTest {
             // So that there is no processing of the next batch.
             return false;
         });
+
+        return storageUpdateHandler;
+    }
+
+    private static StorageUpdateHandler createStorageUpdateHandler() {
+        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+
+        when(storageUpdateHandler.getSafeTimeTracker()).thenReturn(new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE));
 
         return storageUpdateHandler;
     }

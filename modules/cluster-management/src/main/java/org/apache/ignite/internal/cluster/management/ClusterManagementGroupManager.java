@@ -25,7 +25,6 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
-import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
 import java.util.List;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
-import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
@@ -78,7 +76,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.security.AuthenticationConfig;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -138,20 +135,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Node's attributes configuration. */
     private final NodeAttributesConfiguration nodeAttributes;
 
-    /**
-     * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
-     *
-     * <p>Such join completion always happens during a start, and it is always the last step during the startup process,
-     * to make sure a node joins the cluster when it's fully ready.
-     *
-     * <p>We need this flag to make sure we handle automatic rejoins correctly. If a short network hiccup happens, CMG leader
-     * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When the network
-     * connectivity is restored, the node will appear in the physical topology, after which it will try to rejoin the cluster. If such
-     * 'rejoin' was carried out unconditionally, it could happen before the first join during startup, so a not-yet-ready node could join
-     * the cluster.
-     */
-    private volatile boolean attemptedCompleteJoinOnStart = false;
-
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -187,7 +170,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             Collection<String> cmgNodeNames,
             String clusterName
     ) throws NodeStoppingException {
-        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, disabled());
+        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, null);
     }
 
     /**
@@ -196,20 +179,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
      * @param clusterName Human-readable name of the cluster.
-     * @param authenticationConfig REST authentication configuration.
+     * @param clusterConfiguration Cluster configuration.
      */
     public void initCluster(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            AuthenticationConfig authenticationConfig
+            @Nullable String clusterConfiguration
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig).get();
+            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -363,7 +346,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag(msgFactory, msg.clusterName()))
-                .restAuthToApply(msg.restAuthToApply())
+                .clusterConfigurationToApply(msg.clusterConfigurationToApply())
                 .build();
     }
 
@@ -406,30 +389,28 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().thenCompose(this::pushAuthenticationConfigToCluster);
+        raftServiceAfterJoin().thenCompose(this::pushClusterConfigToCluster);
     }
 
-    private CompletableFuture<Void> pushAuthenticationConfigToCluster(CmgRaftService service) {
+    private CompletableFuture<Void> pushClusterConfigToCluster(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
                     if (state == null) {
-                        LOG.info("No CMG state found in the Raft storage");
+                        LOG.info("No CMG state found in the Raft service");
                         return completedFuture(null);
-                    } else if (state.restAuthToApply() == null) {
-                        // auth config has already been successfully pushed to the distributed configuration
-                        LOG.info("No REST auth configuration found in the Raft storage");
+                    } else if (state.clusterConfigurationToApply() == null) {
+                        // Config was applied or wasn't provided
+                        LOG.info("No cluster configuration found in the Raft service");
                         return completedFuture(null);
                     } else {
-                        //TODO https://issues.apache.org/jira/browse/IGNITE-19077
-                        LOG.info("REST auth configuration found in the Raft storage, going to apply it");
-                        Authentication restAuthToApply = state.restAuthToApply();
-                        return distributedConfigurationUpdater.updateRestAuthConfiguration(restAuthToApply)
-                                .thenCompose(unused -> removeAuthConfigFromClusterState(service));
+                        LOG.info("Cluster configuration is found in the Raft service, going to apply it");
+                        return distributedConfigurationUpdater.updateConfiguration(state.clusterConfigurationToApply())
+                                .thenCompose(unused -> removeClusterConfigFromClusterState(service));
                     }
                 });
     }
 
-    private CompletableFuture<Void> removeAuthConfigFromClusterState(CmgRaftService service) {
+    private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
                     Collection<String> cmgNodes = state.cmgNodes();
@@ -446,7 +427,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        LOG.warn("Error when removing REST auth configuration", e);
+                        LOG.warn("Error when removing cluster configuration", e);
                     }
                 });
     }
@@ -522,7 +503,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
                                 LOG.info("ClusterStateMessage received, but the CMG service is already started");
 
-                                return joinCluster(service, state.clusterTag());
+                                return completedFuture(service);
                             }
 
                             if (service == null) {
@@ -550,18 +531,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                             return initCmgRaftService(state);
                         })
-                        .thenCompose(Function.identity())
-                        .thenCompose(this::completeJoinIfTryingToRejoin);
+                        .thenCompose(Function.identity());
             }
-        }
-    }
-
-    private CompletableFuture<CmgRaftService> completeJoinIfTryingToRejoin(CmgRaftService cmgRaftService) {
-        if (attemptedCompleteJoinOnStart) {
-            return cmgRaftService.completeJoinCluster(mapNodeAttributes())
-                    .thenApply(unused -> cmgRaftService);
-        } else {
-            return completedFuture(cmgRaftService);
         }
     }
 
@@ -658,19 +629,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
             @Override
             public void onDisappeared(ClusterNode member) {
-                scheduleRemoveFromLogicalTopology(raftService, member);
+                raftService.removeFromCluster(Set.of(member));
             }
         };
-    }
-
-    private void scheduleRemoveFromLogicalTopology(CmgRaftService raftService, ClusterNode node) {
-        scheduledExecutor.schedule(() -> {
-            ClusterNode physicalTopologyNode = clusterService.topologyService().getByConsistentId(node.name());
-
-            if (physicalTopologyNode == null || !physicalTopologyNode.id().equals(node.id())) {
-                raftService.removeFromCluster(Set.of(node));
-            }
-        }, configuration.failoverTimeout().value(), TimeUnit.MILLISECONDS);
     }
 
     private void sendClusterState(CmgRaftService raftService, ClusterNode node) {
@@ -859,8 +820,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
-
-        attemptedCompleteJoinOnStart = true;
 
         try {
             return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(mapNodeAttributes()));

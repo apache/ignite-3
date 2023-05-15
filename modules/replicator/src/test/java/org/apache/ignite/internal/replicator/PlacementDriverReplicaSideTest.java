@@ -53,8 +53,7 @@ import org.junit.jupiter.api.Test;
  * Test for placement driver messages processing on replica side.
  */
 public class PlacementDriverReplicaSideTest {
-    private static final ReplicationGroupId GRP_ID = new ReplicationGroupId() {
-    };
+    private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
     private static final ClusterNode LOCAL_NODE = new ClusterNode("id0", "name0", new NetworkAddress("localhost", 1234));
     private static final ClusterNode ANOTHER_NODE = new ClusterNode("id1", "name`", new NetworkAddress("localhost", 2345));
@@ -65,7 +64,7 @@ public class PlacementDriverReplicaSideTest {
 
     private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
 
-    private PendingComparableValuesTracker<Long> storageIndexTracker;
+    private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     private AtomicLong indexOnLeader = new AtomicLong(0);
 
@@ -158,7 +157,7 @@ public class PlacementDriverReplicaSideTest {
     }
 
     private void updateIndex(long index) {
-        storageIndexTracker.update(index);
+        storageIndexTracker.update(index, null);
     }
 
     @Test

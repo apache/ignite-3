@@ -426,7 +426,6 @@ namespace Apache.Ignite.Internal.Table
         {
             var reader = buf.GetReader();
 
-            // TODO IGNITE-19242: Retrieve new schema when necessary.
             _ = reader.ReadInt32();
 
             return reader.ReadBoolean();

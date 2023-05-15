@@ -19,77 +19,61 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
+import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ExchangeService interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * The interface describes a minimal but sufficient set of methods to make
+ * the exchange of information between mailboxes work.
+ *
+ * @see MailboxRegistry
+ * @see Outbox
+ * @see Inbox
  */
 public interface ExchangeService extends LifecycleAware {
     /**
-     * Sends a batch of data to remote node.
+     * Asynchronously sends a batch of data to the specified node.
      *
-     * @param nodeName Target node consistent ID.
-     * @param qryId Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
-     * @param batchId Batch ID.
-     * @param last Last batch flag.
-     * @param rows Data rows.
+     * @param nodeName The name of the node to which the data will be sent.
+     * @param queryId The ID of the query to which the data belongs.
+     * @param fragmentId The ID of the fragment to which the data will be sent.
+     * @param exchangeId The ID of the exchange through which the data will be sent.
+     * @param batchId The ID of the batch to which the data belongs.
+     * @param last Indicates whether this is the last batch of data to be sent.
+     * @param rows The data to be sent.
+     * @param <RowT> The type of the rows int the batch.
+     * @return A {@link CompletableFuture future} representing the result of operation,
+     *      which completes when the data has been sent.
      */
-    <RowT> void sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId, boolean last,
-            List<RowT> rows) throws IgniteInternalCheckedException;
+    <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
+            List<RowT> rows);
 
     /**
-     * Requests batches from remote source.
+     * Asynchronously requests data from the specified node.
      *
-     * @param nodeName A consistent identifier of the node to request from.
-     * @param queryId An identifier of the query.
-     * @param fragmentId An identifier of the fragment to request from.
-     * @param exchangeId An identifier of the exchange to request from.
-     * @param amountOfBatches A count of batches to request.
-     * @param state A state to propagate to the remote source.
+     * @param nodeName The name of the node from which the data will be requested.
+     * @param queryId The ID of the query for which the data is being requested.
+     * @param fragmentId The ID of the fragment from which the data will be requested.
+     * @param exchangeId The ID of the exchange through which the data will be requested.
+     * @param amountOfBatches The number of batches of data to request.
+     * @param state The state to propagate to the remote node, or null if state is not changed or not required.
+     * @return A {@link CompletableFuture future} representing the result of operation,
+     *      which completes when the request message has been sent.
      */
-    void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
-            @Nullable SharedState state) throws IgniteInternalCheckedException;
+    CompletableFuture<Void> request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+            @Nullable SharedState state);
 
     /**
-     * Sends cancel request.
+     * Asynchronously sends an error message to the specified node.
      *
-     * @param nodeName Target node consistent ID.
-     * @param qryId Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
+     * @param nodeName The name of the node to which the error will be sent.
+     * @param queryId The ID of the query to which the error belongs.
+     * @param fragmentId The ID of the fragment to which the error belongs.
+     * @param error The error to send.
+     * @return A {@link CompletableFuture future} representing the result of operation,
+     *      which completes when the error message has been sent.
      */
-    void closeInbox(String nodeName, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException;
-
-    /**
-     * Sends cancel request.
-     *
-     * @param nodeName Target node consistent ID.
-     * @param qryId Query ID.
-     */
-    void closeQuery(String nodeName, UUID qryId) throws IgniteInternalCheckedException;
-
-    /**
-     * Send error.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param nodeName Target node consistent ID.
-     * @param qryId Query ID.
-     * @param fragmentId Source fragment ID.
-     * @param err Exception to send.
-     * @throws IgniteInternalCheckedException On error marshaling or send ErrorMessage.
-     */
-    void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException;
-
-    /**
-     * Alive.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param nodeName Target node consistent ID.
-     * @return {@code true} if node is alive, {@code false} otherwise.
-     */
-    boolean alive(String nodeName);
+    CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error);
 }

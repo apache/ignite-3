@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -68,7 +71,8 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -198,7 +202,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
-        lenient().doReturn(CompletableFuture.completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
@@ -265,7 +269,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -274,7 +279,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
         lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes, dsCfg);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                PART_ID,
+                partitionDataStorage,
+                indexes,
+                dsCfg,
+                safeTime,
+                mock(LowWatermark.class)
+        );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
@@ -294,8 +306,20 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
+                new Schemas() {
+                    @Override
+                    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
+                        return completedFuture(null);
+                    }
+
+                    @Override
+                    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding,
+                            HybridTimestamp toIncluding) {
+                        return List.of(new FullTableSchema(1, 1, List.of(), List.of()));
+                    }
+                },
                 peer -> true,
-                CompletableFuture.completedFuture(schemaManager)
+                completedFuture(schemaManager)
         );
 
         partitionListener = new PartitionListener(
@@ -315,16 +339,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * A process to update safe time periodically.
      */
     private static class SafeTimeUpdater implements Runnable {
-        PendingComparableValuesTracker<HybridTimestamp> safeTime;
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
-        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
             this.safeTime = safeTime;
         }
 
         @Override
         public void run() {
             while (true) {
-                safeTime.update(CLOCK.now());
+                safeTime.update(CLOCK.now(), null);
 
                 try {
                     Thread.sleep(1_000);
@@ -389,7 +413,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return CompletableFuture.completedFuture(mock(ClusterNode.class));
+        return completedFuture(mock(ClusterNode.class));
     }
 
     @Override

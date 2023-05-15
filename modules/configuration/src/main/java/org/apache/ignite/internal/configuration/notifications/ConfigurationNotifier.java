@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -128,7 +129,7 @@ public class ConfigurationNotifier {
         oldInnerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override
-            public Void visitLeafNode(String key, Serializable oldLeaf) {
+            public Void visitLeafNode(Field field, String key, Serializable oldLeaf) {
                 Serializable newLeaf = newInnerNode.traverseChild(key, leafNodeVisitor(), true);
 
                 if (newLeaf != oldLeaf) {
@@ -147,7 +148,7 @@ public class ConfigurationNotifier {
 
             /** {@inheritDoc} */
             @Override
-            public Void visitInnerNode(String key, InnerNode oldNode) {
+            public Void visitInnerNode(Field field, String key, InnerNode oldNode) {
                 InnerNode newNode = newInnerNode.traverseChild(key, innerNodeVisitor(), true);
 
                 DynamicConfiguration<InnerNode, ?> newConfig = dynamicConfig(config, key);
@@ -169,7 +170,7 @@ public class ConfigurationNotifier {
 
             /** {@inheritDoc} */
             @Override
-            public Void visitNamedListNode(String key, NamedListNode<?> oldNamedList) {
+            public Void visitNamedListNode(Field field, String key, NamedListNode<?> oldNamedList) {
                 NamedListNode<InnerNode> newNamedList =
                         (NamedListNode<InnerNode>) newInnerNode.traverseChild(key, namedListNodeVisitor(), true);
 
@@ -365,7 +366,7 @@ public class ConfigurationNotifier {
         innerNode.traverseChildren(new ConfigurationVisitor<Void>() {
             /** {@inheritDoc} */
             @Override
-            public Void visitLeafNode(String key, Serializable leaf) {
+            public Void visitLeafNode(Field field, String key, Serializable leaf) {
                 notifyPublicListeners(
                         listeners(dynamicProperty(config, key), ctx.notificationNum),
                         concat(viewReadOnly(
@@ -383,7 +384,7 @@ public class ConfigurationNotifier {
 
             /** {@inheritDoc} */
             @Override
-            public Void visitInnerNode(String key, InnerNode nestedInnerNode) {
+            public Void visitInnerNode(Field field, String key, InnerNode nestedInnerNode) {
                 DynamicConfiguration<InnerNode, ?> nestedNodeConfig = dynamicConfig(config, key);
 
                 ctx.addContainer(null, nestedInnerNode, null, null);
@@ -402,7 +403,7 @@ public class ConfigurationNotifier {
 
             /** {@inheritDoc} */
             @Override
-            public Void visitNamedListNode(String key, NamedListNode<?> newNamedList) {
+            public Void visitNamedListNode(Field field, String key, NamedListNode<?> newNamedList) {
                 notifyPublicListeners(
                         listeners(namedDynamicConfig(config, key), ctx.notificationNum),
                         concat(viewReadOnly(

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -59,6 +61,7 @@ public final class RpcRequests {
          *
          * @return String with error message.
          */
+        @Nullable
         String errorMsg();
 
         /**
@@ -66,7 +69,8 @@ public final class RpcRequests {
          *
          * @return String new leader id, null otherwise.
          */
-        @Nullable String leaderId();
+        @Nullable
+        String leaderId();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.SM_ERROR_RESPONSE)
@@ -168,15 +172,20 @@ public final class RpcRequests {
 
         long prevLogIndex();
 
+        @Nullable
         Collection<EntryMeta> entriesList();
 
         long committedIndex();
 
+        @Nullable
         @Marshallable
         ByteString data();
 
-        @Marshallable
-        HybridTimestamp timestamp();
+        long timestampLong();
+
+        default HybridTimestamp timestamp() {
+            return hybridTimestamp(timestampLong());
+        }
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
@@ -187,8 +196,11 @@ public final class RpcRequests {
 
         long lastLogIndex();
 
-        @Marshallable
-        HybridTimestamp timestamp();
+        long timestampLong();
+
+        default @Nullable HybridTimestamp timestamp() {
+            return nullableHybridTimestamp(timestampLong());
+        }
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_REQUEST)
@@ -218,11 +230,14 @@ public final class RpcRequests {
     public interface ReadIndexRequest extends Message {
         String groupId();
 
+        @Nullable
         String serverId();
 
+        @Nullable
         @Marshallable
         List<ByteString> entriesList();
 
+        @Nullable
         String peerId();
     }
 

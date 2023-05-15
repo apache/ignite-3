@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -56,8 +57,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -102,6 +102,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -179,7 +180,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final HybridClock hybridClock;
 
     /** Safe time. */
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Placement Driver. */
     private final PlacementDriver placementDriver;
@@ -203,6 +204,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     private final CompletableFuture<SchemaRegistry> schemaFut;
+
+    private final SchemaCompatValidator schemaCompatValidator;
 
     /**
      * The constructor.
@@ -236,10 +239,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
             Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             HybridClock hybridClock,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
             PlacementDriver placementDriver,
             StorageUpdateHandler storageUpdateHandler,
+            Schemas schemas,
             Function<Peer, Boolean> isLocalPeerChecker,
             CompletableFuture<SchemaRegistry> schemaFut
     ) {
@@ -264,6 +268,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
+
+        schemaCompatValidator = new SchemaCompatValidator(schemas);
     }
 
     @Override
@@ -552,7 +558,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
+        return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build());
     }
 
     /**
@@ -652,7 +658,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             while (batchRows.size() < batchCount && cursor.hasNext()) {
                 BinaryRow resolvedReadResult = resolveReadResult(cursor.next(), txId);
 
-                if (resolvedReadResult != null && resolvedReadResult.hasValue()) {
+                if (resolvedReadResult != null) {
                     batchRows.add(resolvedReadResult);
                 }
             }
@@ -964,6 +970,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes transaction finish request.
      * <ol>
      *     <li>Get commit timestamp from finish replica request.</li>
+     *     <li>If attempting a commit, validate commit (and, if not valid, switch to abort)</li>
      *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
      *     <li>Send cleanup requests to all enlisted primary replicas.</li>
      * </ol>
@@ -973,27 +980,51 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request) {
-        List<ReplicationGroupId> aggregatedGroupIds = request.groups().values().stream()
+        List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream)
                 .map(IgniteBiTuple::get1)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         UUID txId = request.txId();
 
-        boolean commit = request.commit();
+        if (request.commit()) {
+            return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commitTimestamp())
+                    .thenCompose(validationResult -> {
+                        return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId)
+                                .thenAccept(unused -> throwIfValidationFailed(validationResult));
+                    });
+        } else {
+            // Aborting.
+            return finishAndCleanup(request, false, aggregatedGroupIds, txId);
+        }
+    }
 
-        CompletableFuture<Object> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
+    private static void throwIfValidationFailed(ForwardValidationResult validationResult) {
+        if (!validationResult.isSuccessful()) {
+            throw new IncompatibleSchemaAbortException("Commit failed because schema "
+                    + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+        }
+    }
+
+    private CompletableFuture<Void> finishAndCleanup(
+            TxFinishReplicaRequest request,
+            boolean commit,
+            List<TablePartitionId> aggregatedGroupIds,
+            UUID txId
+    ) {
+        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
         AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
 
         request.groups().forEach(
-                (recipientNode, replicationGroupIds) ->
+                (recipientNode, tablePartitionIds) ->
                         cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = changeStateFuture.thenCompose(ignored ->
                                 txManager.cleanup(
                                         recipientNode,
-                                        replicationGroupIds,
+                                        tablePartitionIds,
                                         txId,
                                         commit,
                                         request.commitTimestamp()
@@ -1007,12 +1038,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Finishes a transaction.
      *
-     * @param aggregatedGroupIds Replication groups identifies which are enlisted in the transaction.
+     * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @return Future to wait of the finish.
      */
-    private CompletableFuture<Object> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {
+    private CompletableFuture<Object> finishTransaction(List<TablePartitionId> aggregatedGroupIds, UUID txId, boolean commit) {
         // TODO: IGNITE-17261 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
@@ -1024,12 +1055,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                 .txId(txId)
                 .commit(commit)
-                .safeTime(hybridTimestamp(currentTimestamp))
-                .tablePartitionIds(aggregatedGroupIds.stream()
-                        .map(rgId -> tablePartitionId((TablePartitionId) rgId)).collect(Collectors.toList()));
+                .safeTimeLong(currentTimestamp.longValue())
+                .tablePartitionIds(
+                        aggregatedGroupIds.stream()
+                                .map(PartitionReplicaListener::tablePartitionId)
+                                .collect(toList())
+                );
 
         if (commit) {
-            finishTxCmdBldr.commitTimestamp(hybridTimestamp(commitTimestamp));
+            finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
         }
 
         return raftClient.run(finishTxCmdBldr.build()).whenComplete((o, throwable) -> {
@@ -1094,13 +1128,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
-            HybridTimestampMessage timestampMsg = hybridTimestamp(request.commitTimestamp());
-
             TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
                     .txId(request.txId())
                     .commit(request.commit())
-                    .commitTimestamp(timestampMsg)
-                    .safeTime(hybridTimestamp(hybridClock.now()))
+                    .commitTimestampLong(request.commitTimestampLong())
+                    .safeTimeLong(hybridClock.nowLong())
                     .build();
 
             return raftClient
@@ -1157,7 +1189,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         for (RowId rowId : cursor) {
                             BinaryRow row = resolveReadResult(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId);
 
-                            if (row != null && row.hasValue()) {
+                            if (row != null) {
                                 return action.apply(rowId, row);
                             }
                         }
@@ -2117,13 +2149,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future with boolean value, indicating whether the transaction was committed before timestamp.
      */
     private CompletableFuture<Boolean> resolveTxState(
-            ReplicationGroupId commitGrpId,
+            TablePartitionId commitGrpId,
             UUID txId,
             HybridTimestamp timestamp
     ) {
+        requireNonNull(timestamp, "timestamp");
+
         return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
-                        .readTimestamp(timestamp)
+                        .readTimestampLong(timestamp.longValue())
                         .txId(txId)
                         .build())
                 .thenApply(txMeta -> {
@@ -2151,20 +2185,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Method to convert from {@link HybridTimestamp} object to NetworkMessage-based {@link HybridTimestampMessage} object.
-     *
-     * @param tmstmp {@link HybridTimestamp} object to convert to {@link HybridTimestampMessage}.
-     * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
-     */
-    public static @Nullable HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
-        return tmstmp != null ? REPLICA_MESSAGES_FACTORY.hybridTimestampMessage()
-                .physical(tmstmp.getPhysical())
-                .logical(tmstmp.getLogical())
-                .build()
-                : null;
-    }
-
-    /**
      * Method to construct {@link UpdateCommand} object.
      *
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
@@ -2173,12 +2193,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction ID.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, ByteBuffer rowBuf, UUID txId) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
-                .safeTime(hybridTimestamp(hybridClock.now()));
+                .safeTimeLong(hybridClock.nowLong());
 
         if (rowBuf != null) {
             bldr.rowBuffer(rowBuf);
@@ -2200,7 +2220,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowsToUpdate(rowsToUpdate)
                 .txId(txId)
-                .safeTime(hybridTimestamp(hybridClock.now()))
+                .safeTimeLong(hybridClock.nowLong())
                 .build();
     }
 

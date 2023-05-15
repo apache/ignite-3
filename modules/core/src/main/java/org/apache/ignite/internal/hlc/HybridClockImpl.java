@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static java.lang.Math.max;
+import static java.time.Clock.systemUTC;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.time.Clock;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -33,69 +37,64 @@ public class HybridClockImpl implements HybridClock {
 
     static {
         try {
-            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockImpl.class, "latestTime", HybridTimestamp.class);
+            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockImpl.class, "latestTime", long.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
     }
 
-    /** Latest timestamp. */
-    protected volatile HybridTimestamp latestTime;
+    private volatile long latestTime;
 
     /**
      * The constructor which initializes the latest time to current time by system clock.
      */
     public HybridClockImpl() {
-        this.latestTime = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), 0);
+        this.latestTime = currentTime();
     }
 
-    /**
-     * The constructor which initializes the latest time to some initial time.
-     *
-     * @param initialTime Initial time.
-     */
-    public HybridClockImpl(HybridTimestamp initialTime) {
-        this.latestTime = initialTime;
+    private static long currentTime() {
+        return systemUTC().instant().toEpochMilli() << LOGICAL_TIME_BITS_SIZE;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public HybridTimestamp now() {
+    public long nowLong() {
         while (true) {
-            long currentTimeMillis = Clock.systemUTC().instant().toEpochMilli();
+            long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
-            HybridTimestamp latestTime = this.latestTime;
+            long oldLatestTime = latestTime;
 
-            HybridTimestamp newLatestTime;
+            long newLatestTime = max(oldLatestTime + 1, now);
 
-            if (latestTime.getPhysical() >= currentTimeMillis) {
-                newLatestTime = latestTime.addTicks(1);
-            } else {
-                newLatestTime = new HybridTimestamp(currentTimeMillis, 0);
-            }
-
-            if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
                 return newLatestTime;
             }
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public HybridTimestamp now() {
+        return hybridTimestamp(nowLong());
+    }
+
+    /**
+     * Creates a timestamp for a received event.
+     *
+     * @param requestTime Timestamp from request.
+     * @return The hybrid timestamp.
+     */
     @Override
     public HybridTimestamp update(HybridTimestamp requestTime) {
         while (true) {
-            HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
+            long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
-            HybridTimestamp latestTime = this.latestTime;
+            long oldLatestTime = this.latestTime;
 
-            HybridTimestamp maxLatestTime = HybridTimestamp.max(now, requestTime, latestTime);
+            long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
-            HybridTimestamp newLatestTime = maxLatestTime.addTicks(1);
-
-            if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
-                return newLatestTime;
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
+                return hybridTimestamp(newLatestTime);
             }
         }
     }

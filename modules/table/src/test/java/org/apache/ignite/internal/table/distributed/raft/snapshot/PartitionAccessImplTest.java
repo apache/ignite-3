@@ -78,7 +78,7 @@ public class PartitionAccessImplTest {
         assertEquals(0, partitionAccess.minLastAppliedIndex());
         assertEquals(0, partitionAccess.maxLastAppliedIndex());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(10, 1);
             txStateStorage.lastApplied(5, 1);
 
@@ -88,7 +88,7 @@ public class PartitionAccessImplTest {
         assertEquals(5, partitionAccess.minLastAppliedIndex());
         assertEquals(10, partitionAccess.maxLastAppliedIndex());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(15, 2);
 
             txStateStorage.lastApplied(20, 2);
@@ -120,7 +120,7 @@ public class PartitionAccessImplTest {
         assertEquals(0, partitionAccess.minLastAppliedTerm());
         assertEquals(0, partitionAccess.maxLastAppliedTerm());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(1, 10);
             txStateStorage.lastApplied(1, 5);
 
@@ -130,7 +130,7 @@ public class PartitionAccessImplTest {
         assertEquals(5, partitionAccess.minLastAppliedTerm());
         assertEquals(10, partitionAccess.maxLastAppliedTerm());
 
-        mvPartitionStorage.runConsistently(() -> {
+        mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(2, 15);
 
             txStateStorage.lastApplied(2, 20);
