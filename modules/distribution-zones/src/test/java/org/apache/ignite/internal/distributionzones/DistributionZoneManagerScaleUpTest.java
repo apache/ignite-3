@@ -331,7 +331,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 (t1, t2) -> null
         );
 
-        // Assert that first task was run and event about adding node "D" with revision 2 was added
+        // Assert that first task was run and event about adding node "D" with revision {@code prerequisiteRevision + 1} was added
         // to the topologyAugmentationMap of the zone.
         assertTrue(
                 waitForCondition(
@@ -363,7 +363,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 (t1, t2) -> null
         );
 
-        // Assert that second task was run and event about adding node "E" with revision 3 was added
+        // Assert that second task was run and event about adding node "E" with revision {@code prerequisiteRevision + 2} was added
         // to the topologyAugmentationMap of the zone.
         assertTrue(
                 waitForCondition(
@@ -424,7 +424,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 }
         );
 
-        // Assert that first task was run and event about removing node "B" with revision 2 was added
+        // Assert that first task was run and event about removing node "B" with revision {@code prerequisiteRevision + 1} was added
         // to the topologyAugmentationMap of the zone.
         assertTrue(
                 waitForCondition(
@@ -456,7 +456,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 }
         );
 
-        // Assert that second task was run and event about removing node "C" with revision 3 was added
+        // Assert that second task was run and event about removing node "C" with revision {@code prerequisiteRevision + 2} was added
         // to the topologyAugmentationMap of the zone.
         assertTrue(
                 waitForCondition(
@@ -539,7 +539,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 (t1, t2) -> null
         );
 
-        // Assert that second task was run and event about adding node "E" with revision 3 was added
+        // Assert that second task was run and event about adding node "E" with revision {@code prerequisiteRevision + 2} was added
         // to the topologyAugmentationMap of the zone.
         assertTrue(
                 waitForCondition(
@@ -615,7 +615,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 }
         );
 
-        // Assert that second task was run and event about removing node "C" with revision 3 was added
+        // Assert that second task was run and event about removing node "C" with revision {@code prerequisiteRevision + 2} was added
         // to the topologyAugmentationMap of the zone.
         assertTrue(
                 waitForCondition(
