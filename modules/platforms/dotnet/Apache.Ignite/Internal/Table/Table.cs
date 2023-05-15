@@ -207,7 +207,7 @@ namespace Apache.Ignite.Internal.Table
 
         private Task<Schema> GetCachedSchemaAsync(int version)
         {
-            var task = _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+            var task = GetOrAdd();
 
             if (!task.IsFaulted)
             {
@@ -217,7 +217,9 @@ namespace Apache.Ignite.Internal.Table
             // Do not return failed task. Remove it from the cache and try again.
             _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
 
-            return _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
+            return GetOrAdd();
+
+            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         private async ValueTask<string[]?> GetPartitionAssignmentAsync()
