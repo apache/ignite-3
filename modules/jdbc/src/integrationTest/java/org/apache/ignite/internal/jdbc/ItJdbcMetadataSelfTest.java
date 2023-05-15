@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.jdbc;
+package org.apache.ignite.internal.jdbc;
 
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.NULL;
-import static java.sql.Types.OTHER;
-import static java.sql.Types.VARCHAR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -45,11 +40,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.sql.util.SqlTestUtils;
+import org.apache.ignite.jdbc.AbstractJdbcSelfTest;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -88,11 +86,11 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         assertEquals(2, meta.getColumnCount());
 
-        assertEquals(NULL, meta.getColumnType(1));
+        assertEquals(Types.NULL, meta.getColumnType(1));
         assertEquals("NULL", meta.getColumnTypeName(1));
         assertEquals("java.lang.Void", meta.getColumnClassName(1));
 
-        assertEquals(NULL, meta.getColumnType(2));
+        assertEquals(Types.NULL, meta.getColumnType(2));
         assertEquals("NULL", meta.getColumnTypeName(2));
         assertEquals("java.lang.Void", meta.getColumnClassName(2));
     }
@@ -115,19 +113,18 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals("Person".toUpperCase(), meta.getTableName(1).toUpperCase());
         assertEquals("name".toUpperCase(), meta.getColumnName(1).toUpperCase());
         assertEquals("name".toUpperCase(), meta.getColumnLabel(1).toUpperCase());
-        assertEquals(VARCHAR, meta.getColumnType(1));
+        assertEquals(Types.VARCHAR, meta.getColumnType(1));
         assertEquals("VARCHAR", meta.getColumnTypeName(1));
         assertEquals("java.lang.String", meta.getColumnClassName(1));
 
         assertEquals("Organization".toUpperCase(), meta.getTableName(2).toUpperCase());
         assertEquals("id".toUpperCase(), meta.getColumnName(2).toUpperCase());
         assertEquals("orgId".toUpperCase(), meta.getColumnLabel(2).toUpperCase());
-        assertEquals(INTEGER, meta.getColumnType(2));
+        assertEquals(Types.INTEGER, meta.getColumnType(2));
         assertEquals("INTEGER", meta.getColumnTypeName(2));
         assertEquals("java.lang.Integer", meta.getColumnClassName(2));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19462")
     @Test
     public void testDatabaseMetaDataColumns() throws Exception {
         createMetaTable();
@@ -135,12 +132,67 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try {
             DatabaseMetaData dbMeta = conn.getMetaData();
 
-            ResultSet columns = dbMeta.getColumns(null, "PUBLIC", "METATEST", null);
+            List<JdbcColumnMeta> columnsMeta = new ArrayList<>();
+            try (ResultSet rs = dbMeta.getColumns(null, "PUBLIC", "METATEST", null)) {
+                while (rs.next()) {
+                    JdbcColumnMeta meta = new JdbcColumnMeta(
+                            rs.getString("COLUMN_NAME"),
+                            rs.getString("TABLE_SCHEM"),
+                            rs.getString("TABLE_NAME"),
+                            rs.getString("COLUMN_NAME"),
+                            rs.getInt("DATA_TYPE"),
+                            rs.getString("TYPE_NAME"),
+                            dataTypeToJavaCls(rs.getInt("DATA_TYPE"), rs.getString("TYPE_NAME")),
+                            rs.getShort("COLUMN_SIZE"),
+                            rs.getShort("DECIMAL_DIGITS"),
+                            "YES".equals(rs.getString("IS_NULLABLE"))
+                    );
+                    columnsMeta.add(meta);
+                }
+            }
 
-            checkMeta(columns.getMetaData());
+            ResultSetMetaData rsMeta = new JdbcResultSetMetadata(columnsMeta);
+            checkMeta(rsMeta);
         } finally {
             stmt.execute("DROP TABLE METATEST;");
         }
+    }
+
+    private String dataTypeToJavaCls(int dataType, String typeName) {
+        switch (dataType) {
+            case Types.TINYINT:
+                return Byte.class.getName();
+            case Types.SMALLINT:
+                return Short.class.getName();
+            case Types.INTEGER:
+                return Integer.class.getName();
+            case Types.BIGINT:
+                return Long.class.getName();
+            case Types.REAL:
+                return Float.class.getName();
+            case Types.DOUBLE:
+                return Double.class.getName();
+            case Types.DECIMAL:
+                return BigDecimal.class.getName();
+            case Types.DATE:
+                return java.sql.Date.class.getName();
+            case Types.TIME:
+                return java.sql.Time.class.getName();
+            case Types.TIMESTAMP:
+                return java.sql.Timestamp.class.getName();
+            case Types.OTHER:
+                if (typeName.equals("UUID")) {
+                    return UUID.class.getName();
+                }
+                break;
+            case Types.VARCHAR:
+                return String.class.getName();
+            case Types.VARBINARY:
+                return byte[].class.getName();
+        }
+
+        fail("Not supported type " + dataType + " " + typeName);
+        return "UNSUPPORTED " + dataType + " " + typeName;
     }
 
     @Test
@@ -175,7 +227,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         checkMeta(meta, i++, "REAL_COL", Types.REAL, "REAL", Float.class);
         checkMeta(meta, i++, "DOUBLE_COL", Types.DOUBLE, "DOUBLE", Double.class);
         checkMeta(meta, i++, "DECIMAL_COL", Types.DECIMAL, "DECIMAL", BigDecimal.class);
-        checkMeta(meta, i++, "DATE_COL", DATE, "DATE", java.sql.Date.class);
+        checkMeta(meta, i++, "DATE_COL", Types.DATE, "DATE", java.sql.Date.class);
         checkMeta(meta, i++, "TIME_COL", Types.TIME, "TIME", java.sql.Time.class);
         checkMeta(meta, i++, "TIMESTAMP_COL", Types.TIMESTAMP, "TIMESTAMP", java.sql.Timestamp.class);
         checkMeta(meta, i++, "UUID_COL", Types.OTHER, "UUID", UUID.class);
@@ -283,15 +335,15 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assertTrue(names.remove(name));
 
             if ("ID".equals(name)) {
-                assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
                 assertEquals("INTEGER", rs.getString("TYPE_NAME"));
                 assertEquals(0, rs.getInt("NULLABLE"));
             } else if ("NAME".equals(name)) {
-                assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
+                assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
                 assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
             } else if ("BIGDATA".equals(name)) {
-                assertEquals(DECIMAL, rs.getInt("DATA_TYPE"));
+                assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"));
                 assertEquals("DECIMAL", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
                 assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
@@ -327,15 +379,15 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assertTrue(names.remove(name));
 
             if ("NAME".equals(name)) {
-                assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
+                assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
                 assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
             } else if ("AGE".equals(name)) {
-                assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
                 assertEquals("INTEGER", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
             } else if ("ORGID".equals(name)) {
-                assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
+                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
                 assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
                 assertEquals(0, rs.getInt("NULLABLE"));
 
@@ -492,11 +544,11 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
                 assertEquals(2, meta.getParameterCount());
 
-                assertEquals(VARCHAR, meta.getParameterType(1));
+                assertEquals(Types.VARCHAR, meta.getParameterType(1));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
 
-                assertEquals(INTEGER, meta.getParameterType(2));
+                assertEquals(Types.INTEGER, meta.getParameterType(2));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
             }
 
@@ -512,11 +564,11 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
                 assertEquals(2, meta.getParameterCount());
 
-                assertEquals(VARCHAR, meta.getParameterType(1));
+                assertEquals(Types.VARCHAR, meta.getParameterType(1));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
 
-                assertEquals(INTEGER, meta.getParameterType(2));
+                assertEquals(Types.INTEGER, meta.getParameterType(2));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
             }
 
@@ -534,18 +586,18 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
                 assertEquals(4, meta.getParameterCount());
 
-                assertEquals(VARCHAR, meta.getParameterType(1));
+                assertEquals(Types.VARCHAR, meta.getParameterType(1));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(1));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(1));
 
-                assertEquals(INTEGER, meta.getParameterType(2));
+                assertEquals(Types.INTEGER, meta.getParameterType(2));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(2));
 
-                assertEquals(VARCHAR, meta.getParameterType(3));
+                assertEquals(Types.VARCHAR, meta.getParameterType(3));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(3));
                 assertEquals(Integer.MAX_VALUE, meta.getPrecision(3));
 
-                assertEquals(INTEGER, meta.getParameterType(4));
+                assertEquals(Types.INTEGER, meta.getParameterType(4));
                 assertEquals(ParameterMetaData.parameterNullableUnknown, meta.isNullable(4));
             }
         }
@@ -572,40 +624,6 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public void testCatalogWithNotExistingName() throws SQLException {
         checkNoEntitiesFoundForCatalog("");
         checkNoEntitiesFoundForCatalog("NOT_EXISTING_CATALOG");
-    }
-
-    /**
-     * Test metadata for UUID type.
-     */
-    @Test
-    public void testUuidMetadata() throws SQLException {
-        try (Connection con = DriverManager.getConnection(URL)) {
-            try (Statement stmt = con.createStatement()) {
-                stmt.executeUpdate("CREATE TABLE UUIDS(id INT PRIMARY KEY, uuid_val UUID)");
-
-                // Result set metadata
-                try (ResultSet rs = stmt.executeQuery("SELECT uuid_val FROM UUIDS")) {
-                    ResultSetMetaData metaData = rs.getMetaData();
-                    assertEquals(OTHER, metaData.getColumnType(1));
-                    assertEquals("java.util.UUID", metaData.getColumnClassName(1));
-                }
-            }
-
-            DatabaseMetaData meta = conn.getMetaData();
-
-            // Catalog level metadata
-            try (ResultSet rs = meta.getColumns(null, "PUBLIC", "UUIDS", null)) {
-                while (rs.next()) {
-                    if ("UUID_VAL".equals(rs.getString("COLUMN_NAME"))) {
-                        assertEquals(OTHER, rs.getInt("DATA_TYPE"));
-                        // Javadoc for DatabaseMetaData::getColumns states:
-                        // 6. TYPE_NAME String => Data source dependent type name, for a UDT the type name is fully qualified
-                        assertEquals("UUID", rs.getString("TYPE_NAME"));
-                        assertEquals(1, rs.getInt("NULLABLE"));
-                    }
-                }
-            }
-        }
     }
 
     // IgniteCustomType: Add JDBC metadata test for your type.

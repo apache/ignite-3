@@ -125,14 +125,33 @@ public class JdbcColumnMeta extends Response {
      */
     public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, String javaTypeName, int precision, int scale,
             boolean nullable) {
+        this(label, schemaName, tblName, colName, type(javaTypeName), typeName(javaTypeName), javaTypeName, precision, scale, nullable);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param label        Column label.
+     * @param schemaName   Schema.
+     * @param tblName      Table.
+     * @param colName      Column.
+     * @param dataType     JDBC datatype id.
+     * @param dataTypeName JDBC datatype name.
+     * @param javaTypeName Java type name.
+     * @param precision    Column precision.
+     * @param scale        Column scale.
+     * @param nullable     Nullable flag.
+     */
+    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, int dataType, String dataTypeName, String javaTypeName, int precision, int scale,
+            boolean nullable) {
         this.label = label;
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
 
-        this.dataType = type(javaTypeName);
-        this.dataTypeName = typeName(javaTypeName);
+        this.dataType = dataType;
+        this.dataTypeName = dataTypeName;
         this.dataTypeCls = javaTypeName;
         this.precision = precision;
         this.scale = scale;

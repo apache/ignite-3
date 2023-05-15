@@ -63,7 +63,7 @@ public class JdbcMetadataCatalog {
     /** Comparator for {@link Column} by schema then table name then column order. */
     private static final Comparator<Pair<String, Column>> bySchemaThenTabNameThenColOrder
             = Comparator.comparing((Function<Pair<String, Column>, String>) Pair::getFirst)
-            .thenComparingInt(o -> o.getSecond().schemaIndex());
+            .thenComparingInt(o -> o.getSecond().columnOrder());
 
     /** Comparator for {@link JdbcTableMeta} by table type then schema then table name. */
     private static final Comparator<Table> byTblTypeThenSchemaThenTblName = Comparator.comparing(Table::name);
@@ -139,7 +139,6 @@ public class JdbcMetadataCatalog {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
-
 
         return tables.tablesAsync().thenApply(tablesList -> tablesList.stream()
                 .filter(t -> matches(DEFAULT_SCHEMA_NAME, schemaNameRegex))
