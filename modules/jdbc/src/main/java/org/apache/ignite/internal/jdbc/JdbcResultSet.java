@@ -2185,7 +2185,7 @@ public class JdbcResultSet implements ResultSet {
         colOrder = new HashMap<>(jdbcMeta.getColumnCount());
 
         for (int i = 0; i < jdbcMeta.getColumnCount(); ++i) {
-            String colName = jdbcMeta.getColumnLabel(i+1).toUpperCase();
+            String colName = jdbcMeta.getColumnLabel(i + 1).toUpperCase();
 
             if (!colOrder.containsKey(colName)) {
                 colOrder.put(colName, i);
