@@ -52,6 +52,8 @@ public class SchemaUpdateTest
             {
                 ClientOp.TableGet,
                 ClientOp.SchemasGet,
+                ClientOp.PartitionAssignmentGet,
+                ClientOp.TupleUpsert,
                 ClientOp.TupleUpsert
             },
             server.ClientOps);
