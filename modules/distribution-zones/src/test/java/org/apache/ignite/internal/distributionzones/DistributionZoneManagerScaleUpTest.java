@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -87,7 +88,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     private long prerequisiteRevision;
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     void testDataNodesPropagationAfterScaleUpTriggered() throws Exception {
         topology.putNode(NODE_1);
 
@@ -114,7 +114,13 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
+        topology.putNode(NODE_3);
+
+        Set<LogicalNode> clusterNodes3 = Set.of(NODE_1, NODE_2, NODE_3);
+
+        assertLogicalTopology(clusterNodes3, keyValueStorage);
+
+        assertDataNodesForZone(1, clusterNodes3.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
@@ -156,17 +162,17 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames, keyValueStorage);
 
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
+        ).get();
+
+        assertDataNodesForZone(1, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+
         topology.removeNodes(Set.of(NODE_2));
 
         Set<LogicalNode> clusterNodes2 = Set.of(NODE_1);
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
-
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
-        ).get();
-
-        assertZoneScaleDownChangeTriggerKey(5, 1, keyValueStorage);
 
         assertDataNodesForZone(1, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
     }
@@ -236,7 +242,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodesNames2, keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
         topology.putNode(NODE_1);
@@ -260,14 +265,20 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, clusterNodesNames2, keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
+        assertNotNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value(),
+                "zoneDataNodesKey must be not null.");
+        assertNotNull(keyValueStorage.get(zoneScaleUpChangeTriggerKey(1).bytes()).value(),
+                "zoneScaleUpChangeTriggerKey must be not null.");
+        assertNotNull(keyValueStorage.get(zoneScaleDownChangeTriggerKey(1).bytes()).value(),
+                "zoneScaleDownChangeTriggerKey must be not null.");
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
+        assertDataNodesForZone(1, null, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(null, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(null, 1, keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleDown() throws Exception {
         topology.putNode(NODE_1);
@@ -293,11 +304,18 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, clusterNodesNames2, keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
+        assertNotNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value(),
+                "zoneDataNodesKey must be not null.");
+        assertNotNull(keyValueStorage.get(zoneScaleUpChangeTriggerKey(1).bytes()).value(),
+                "zoneScaleUpChangeTriggerKey must be not null.");
+        assertNotNull(keyValueStorage.get(zoneScaleDownChangeTriggerKey(1).bytes()).value(),
+                "zoneScaleDownChangeTriggerKey must be not null.");
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 
-        assertNotEqualsDataNodesForZone(1, clusterNodesNames2);
+        assertDataNodesForZone(1, null, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(null, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(null, 1, keyValueStorage);
     }
 
     @Test
@@ -650,7 +668,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(3, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(3L, 1, keyValueStorage);
 
         topology.putNode(NODE_1);
 
@@ -659,7 +677,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testUpdateZoneScaleUpTriggersDataNodePropagation() throws Exception {
         startDistributionZoneManager();
@@ -672,7 +689,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(3L, 1, keyValueStorage);
 
         topology.putNode(NODE_1);
 
@@ -688,7 +705,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testUpdateZoneScaleDownTriggersDataNodePropagation() throws Exception {
         topology.putNode(NODE_1);
@@ -705,7 +721,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(4L, 1, keyValueStorage);
 
         topology.removeNodes(Set.of(NODE_1));
 
@@ -765,7 +781,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(3, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(3L, 1, keyValueStorage);
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
@@ -801,7 +817,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(4, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(4L, 1, keyValueStorage);
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
@@ -831,7 +847,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(3, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(3L, 1, keyValueStorage);
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -851,7 +867,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(100, 1, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(100L, 1, keyValueStorage);
 
         assertDataNodesForZone(1, Set.of(), keyValueStorage);
     }
@@ -872,7 +888,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(4, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(4L, 1, keyValueStorage);
 
         doAnswer(invocation -> {
             If iif = invocation.getArgument(0);
@@ -892,7 +908,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertDataNodesForZone(1, Set.of(NODE_1.name()), keyValueStorage);
 
-        assertZoneScaleDownChangeTriggerKey(100, 1, keyValueStorage);
+        assertZoneScaleDownChangeTriggerKey(100L, 1, keyValueStorage);
     }
 
     @Test
