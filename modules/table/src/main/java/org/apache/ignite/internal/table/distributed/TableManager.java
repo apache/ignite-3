@@ -566,7 +566,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             int partitions =
-                    getZoneById(distributionZonesConfiguration, ctx.newValue().zoneId()).value().partitions();
+                    getZoneById(distributionZonesConfiguration, ctx.oldValue().zoneId()).value().partitions();
 
             dropTableLocally(
                     ctx.storageRevision(),
