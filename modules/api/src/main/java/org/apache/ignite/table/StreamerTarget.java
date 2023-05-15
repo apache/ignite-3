@@ -22,14 +22,14 @@ import java.util.concurrent.Flow;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
-public interface StreamerTarget<R> {
+public interface StreamerTarget<T> {
     /**
      * Streams data into the table.
      *
      * @param publisher Producer.
      * @return Future that will be completed when the stream is finished.
      */
-    CompletableFuture<Void> streamData(Flow.Publisher<R> publisher, @Nullable DataStreamerOptions options);
+    CompletableFuture<Void> streamData(Flow.Publisher<T> publisher, @Nullable DataStreamerOptions options);
 
     /**
      * Streams data into the cluster with a receiver.
@@ -37,9 +37,16 @@ public interface StreamerTarget<R> {
      * @param publisher Producer.
      * @param keyAccessor Key accessor. Required to determine target node from the entry key.
      * @param receiver Stream receiver. Will be invoked on the target node.
+     * @param resultSubscriber Optional stream result subscriber. Will be invoked on the current client
+     * for every non-null result returned by the receiver.
      * @return Future that will be completed when the stream is finished.
-     * @param <T> Entry type.
+     * @param <S> Source data type.
+     * @param <R> Result item type.
      */
-    <T> CompletableFuture<Void> streamData(
-            Flow.Publisher<T> publisher, Function<T, R> keyAccessor, StreamReceiver<T> receiver, @Nullable DataStreamerOptions options);
+    <S, R> CompletableFuture<Void> streamData(
+            Flow.Publisher<T> publisher,
+            Function<S, T> keyAccessor,
+            StreamReceiver<T, R> receiver,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            @Nullable DataStreamerOptions options);
 }
