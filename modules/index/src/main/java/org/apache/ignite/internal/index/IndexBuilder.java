@@ -36,7 +36,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
@@ -74,18 +72,9 @@ class IndexBuilder {
     /** Tasks of building indexes by their ID. */
     private final Map<BuildIndexTaskId, BuildIndexTask> buildIndexTaskById = new ConcurrentHashMap<>();
 
-    /** Replica manager. */
-    private final ReplicaManager replicaManager;
-
-    IndexBuilder(
-            String nodeName,
-            IgniteSpinBusyLock busyLock,
-            ClusterService clusterService,
-            ReplicaManager replicaManager
-    ) {
+    IndexBuilder(String nodeName, IgniteSpinBusyLock busyLock, ClusterService clusterService) {
         this.busyLock = busyLock;
         this.clusterService = clusterService;
-        this.replicaManager = replicaManager;
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -111,14 +100,10 @@ class IndexBuilder {
      */
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
-            // Let's check if there is a node in the assignments for the partition.
-            if (!replicaManager.startedGroups().contains(new TablePartitionId(table.tableId(), partitionId))) {
-                continue;
-            }
-
             // TODO: IGNITE-19112 We only need to create the index store once
             table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id());
 
+            // TODO: IGNITE-19177 Add assignments check
             buildIndexTaskById.compute(
                     new BuildIndexTaskId(table.tableId(), tableIndexView.id(), partitionId),
                     (buildIndexTaskId, previousBuildIndexTask) -> {

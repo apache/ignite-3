@@ -409,7 +409,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 null
         );
 
-        var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc, replicaMgr);
+        var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
 
         CatalogManager catalogManager = new CatalogServiceImpl(
                 new UpdateLogImpl(metaStorageMgr, vault)

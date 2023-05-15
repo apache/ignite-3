@@ -83,7 +83,6 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
             );
         }
 
-        // Let's check the sql query.
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME.toUpperCase(), INDEX_NAME.toUpperCase()))
                 .returns(1, 1)
