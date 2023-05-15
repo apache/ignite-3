@@ -39,6 +39,9 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal sealed class Table : ITable
     {
+        /** Unknown schema version. */
+        private const int UnknownSchemaVersion = -1;
+
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
@@ -178,10 +181,8 @@ namespace Apache.Ignite.Internal.Table
                 return _schemas[latestSchemaVersion];
             }
 
-            // TODO: There is a race here - we can still load schema twice?
-            // We haven't loaded any schema yet, but if there is any pending task - return it.
-            return _schemas.Values.FirstOrDefault() ??
-                   LoadSchemaAsync(version: null);
+            // TODO: Check if task is failed.
+            return _schemas.GetOrAdd(UnknownSchemaVersion, static (v, tbl) => tbl.LoadSchemaAsync(v), this);
         }
 
         /// <summary>
