@@ -1452,6 +1452,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             }
 
+            System.out.println("Putting the following keys: " + partitionAssignments.keySet());
             // TODO: KKK why putAll is not a part of the public interface?
             return metaStorageMgr.putAll(partitionAssignments);
         }).exceptionally(t -> {

@@ -261,6 +261,8 @@ public class ItRebalanceDistributedTest {
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
         ));
 
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
+
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
@@ -523,6 +525,7 @@ public class ItRebalanceDistributedTest {
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
+        System.out.println("Trying to call waitPartitionAssignmentsSyncedToExpected");
         while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
             LockSupport.parkNanos(100_000_000);
         }

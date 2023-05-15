@@ -382,7 +382,9 @@ public class RebalanceUtil {
     }
 
     public static CompletableFuture<Set<Assignment>> partitionAssignments(MetaStorageManager metaStorageManager, UUID tableId, int partNum) {
-        return metaStorageManager.get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partNum)))
+        System.out.println("Receiving the partition assignments for partition " +
+                stablePartAssignmentsKey(new TablePartitionId(tableId, partNum)));
+        return metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partNum)))
                 .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
     }
 
@@ -391,10 +393,11 @@ public class RebalanceUtil {
         Map<ByteArray, Integer> partitionKeysToPartitionNumb = new HashMap<>();
 
         for (int i = 0; i < partNum; i++) {
-            partitionKeysToPartitionNumb.put(pendingPartAssignmentsKey(new TablePartitionId(tableId, i)), partNum);
+            partitionKeysToPartitionNumb.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
         }
 
 
+        System.out.println(partNum);
         // TODO: KKK what if partition assignments are not in the metastorage yet? is it even possible?
         return metaStorageManager.getAll(partitionKeysToPartitionNumb.keySet())
                 .thenApply(entries -> {
