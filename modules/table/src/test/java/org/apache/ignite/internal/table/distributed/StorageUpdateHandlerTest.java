@@ -42,6 +42,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -69,7 +69,7 @@ public class StorageUpdateHandlerTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
     ));
 
@@ -161,7 +161,7 @@ public class StorageUpdateHandlerTest {
         verify(partitionStorage, never()).pollForVacuum(any(HybridTimestamp.class));
 
         // Let's check that if lvm is greater than the safe time, then nothing will happen.
-        safeTimeTracker.update(new HybridTimestamp(10, 10));
+        safeTimeTracker.update(new HybridTimestamp(10, 10), null);
 
         lowWatermarkReference.set(new HybridTimestamp(11, 1));
 

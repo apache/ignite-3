@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -330,6 +331,35 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Gets a list of index configuration views for the specified table.
+     *
+     * @param tableName Table name.
+     * @return List of index configuration views.
+     */
+    public List<TableIndexView> indexConfigurations(String tableName) {
+        List<TableIndexView> res = new ArrayList<>();
+        UUID targetTableId = null;
+
+        for (TableIndexView cfg : tablesCfg.indexes().value()) {
+            if (targetTableId == null) {
+                TableConfiguration tbl = tablesCfg.tables().get(cfg.tableId());
+
+                if (tbl == null || !tableName.equals(tbl.name().value())) {
+                    continue;
+                }
+
+                targetTableId = cfg.tableId();
+            } else if (!targetTableId.equals(cfg.tableId())) {
+                continue;
+            }
+
+            res.add(cfg);
+        }
+
+        return res;
     }
 
     private void validateName(String indexName) {

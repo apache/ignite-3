@@ -47,7 +47,7 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
                     .metaStorageNodes(input.getMetaStorageNodes())
                     .cmgNodes(input.getCmgNodes())
                     .clusterName(input.getClusterName())
-                    .authenticationConfig(AuthenticationConfigConverter.toAuthenticationConfig(input.authenticationConfig()))
+                    .clusterConfiguration(input.clusterConfiguration())
             );
             return DefaultCallOutput.success("Cluster was initialized successfully");
         } catch (ApiException | IllegalArgumentException e) {

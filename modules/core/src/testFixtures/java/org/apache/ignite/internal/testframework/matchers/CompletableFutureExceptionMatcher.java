@@ -176,6 +176,13 @@ public class CompletableFutureExceptionMatcher extends TypeSafeMatcher<Completab
     /**
      * Creates a matcher that matches a future that completes with an exception of the provided type.
      */
+    public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls, String errorMessageFragment) {
+        return willThrow(cls, TIMEOUT_SECONDS, TimeUnit.SECONDS, errorMessageFragment);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes with an exception of the provided type.
+     */
     public static CompletableFutureExceptionMatcher willThrow(Class<? extends Exception> cls, int timeout, TimeUnit timeUnit) {
         return willThrow(is(instanceOf(cls)), timeout, timeUnit);
     }

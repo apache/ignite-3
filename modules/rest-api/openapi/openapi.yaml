@@ -667,42 +667,6 @@ paths:
                 $ref: '#/components/schemas/Problem'
 components:
   schemas:
-    AuthenticationConfig:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-          description: "If True, security is enabled. Otherwise it is not."
-        providers:
-          type: array
-          description: A list of authentication providers.
-          items:
-            $ref: '#/components/schemas/AuthenticationProviderConfig'
-      description: Authentication configuration.
-    AuthenticationProviderConfig:
-      type: object
-      description: Configuration for the authentication provider.
-      discriminator:
-        propertyName: type
-        mapping:
-          basic: '#/components/schemas/BasicAuthenticationProviderConfig'
-      oneOf:
-      - $ref: '#/components/schemas/BasicAuthenticationProviderConfig'
-    BasicAuthenticationProviderConfig:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Provider name.
-        username:
-          type: string
-          description: Username.
-        password:
-          type: string
-          description: Password.
-        type:
-          type: string
-      description: Configuration for basic authentication.
     ClusterNode:
       type: object
       properties:
@@ -801,11 +765,9 @@ components:
         clusterName:
           type: string
           description: The name of the cluster.
-        authenticationConfig:
-          allOf:
-          - $ref: '#/components/schemas/AuthenticationConfig'
-          - type: object
-            description: Authentication configuration.
+        clusterConfiguration:
+          type: string
+          description: Cluster configuration in HOCON format.
       description: Cluster initialization configuration.
     InvalidParam:
       type: object

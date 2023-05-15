@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,6 +33,9 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.rules.CoreRules;
+import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
+import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
+import org.apache.calcite.rel.rules.JoinCommuteRule;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -66,7 +70,8 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
                                 .build(), 1_000) {
 
-                    @Override public IgniteDistribution distribution() {
+                    @Override
+                    public IgniteDistribution distribution() {
                         return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 },
@@ -76,11 +81,45 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
                                 .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
                                 .build(), 10) {
 
-                    @Override public IgniteDistribution distribution() {
+                    @Override
+                    public IgniteDistribution distribution() {
                         return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
                     }
                 }
         );
+    }
+
+    @Test
+    public void testEnforceJoinOrderHint() throws Exception {
+        String sqlJoinCommuteWithNoHint = "SELECT COUNT(*) FROM SMALL s, HUGE h, HUGE h1 WHERE h.id = s.id and h1.id=s.id";
+        String sqlJoinCommuteWithHint =
+                "SELECT /*+ ENFORCE_JOIN_ORDER */ COUNT(*) FROM SMALL s, HUGE h, HUGE h1 WHERE h.id = s.id and h1.id=s.id";
+        String sqlJoinCommuteOuterWithNoHint = "SELECT COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
+        String sqlJoinCommuteOuterWithHint = "SELECT /*+ ENFORCE_JOIN_ORDER */ COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
+
+        JoinConditionPushRule joinConditionPushRule = JoinConditionPushRuleConfig.DEFAULT.toRule();
+        JoinCommuteRule joinCommuteRule = JoinCommuteRule.Config.DEFAULT.toRule();
+
+        RuleAttemptListener listener = new RuleAttemptListener();
+
+        physicalPlan(sqlJoinCommuteWithNoHint, publicSchema, listener);
+        assertTrue(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
+
+        listener.reset();
+        physicalPlan(sqlJoinCommuteOuterWithNoHint, publicSchema, listener);
+        assertTrue(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
+
+        listener.reset();
+        physicalPlan(sqlJoinCommuteWithHint, publicSchema, listener);
+        assertFalse(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
+
+        listener.reset();
+        physicalPlan(sqlJoinCommuteOuterWithHint, publicSchema, listener);
+        assertFalse(listener.isApplied(joinCommuteRule));
+        assertTrue(listener.isApplied(joinConditionPushRule));
     }
 
     @Test

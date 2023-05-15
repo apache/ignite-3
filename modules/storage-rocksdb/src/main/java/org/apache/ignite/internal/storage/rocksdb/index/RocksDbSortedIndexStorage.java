@@ -202,6 +202,8 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
             private byte @Nullable [] key;
 
+            private byte @Nullable [] peekedKey = BYTE_EMPTY_ARRAY;
+
             @Override
             public void close() {
                 try {
@@ -213,21 +215,13 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
             @Override
             public boolean hasNext() {
-                return busy(() -> {
-                    advanceIfNeeded();
-
-                    return hasNext;
-                });
+                return busy(this::advanceIfNeeded);
             }
 
             @Override
             public T next() {
                 return busy(() -> {
-                    advanceIfNeeded();
-
-                    boolean hasNext = this.hasNext;
-
-                    if (!hasNext) {
+                    if (!advanceIfNeeded()) {
                         throw new NoSuchElementException();
                     }
 
@@ -242,31 +236,19 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                 return busy(() -> {
                     throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbSortedIndexStorage.this::createStorageInfo);
 
-                    if (hasNext != null) {
-                        if (hasNext) {
-                            return mapper.apply(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
-                        }
+                    byte[] res = peek0();
 
-                        return null;
-                    }
-
-                    refreshAndPrepareRocksIterator();
-
-                    if (!it.isValid()) {
-                        RocksUtils.checkIterator(it);
-
+                    if (res == null) {
                         return null;
                     } else {
-                        return mapper.apply(ByteBuffer.wrap(it.key()).order(KEY_BYTE_ORDER));
+                        return mapper.apply(ByteBuffer.wrap(res).order(KEY_BYTE_ORDER));
                     }
                 });
             }
 
-            private void advanceIfNeeded() throws StorageException {
-                throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbSortedIndexStorage.this::createStorageInfo);
-
+            private byte @Nullable [] peek0() {
                 if (hasNext != null) {
-                    return;
+                    return key;
                 }
 
                 refreshAndPrepareRocksIterator();
@@ -274,12 +256,23 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                 if (!it.isValid()) {
                     RocksUtils.checkIterator(it);
 
-                    hasNext = false;
+                    peekedKey = null;
                 } else {
-                    key = it.key();
-
-                    hasNext = true;
+                    peekedKey = it.key();
                 }
+
+                return peekedKey;
+            }
+
+            private boolean advanceIfNeeded() throws StorageException {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbSortedIndexStorage.this::createStorageInfo);
+
+                //noinspection ArrayEquality
+                key = (peekedKey == BYTE_EMPTY_ARRAY) ? peek0() : peekedKey;
+                peekedKey = BYTE_EMPTY_ARRAY;
+
+                hasNext = key != null;
+                return hasNext;
             }
 
             private void refreshAndPrepareRocksIterator() {

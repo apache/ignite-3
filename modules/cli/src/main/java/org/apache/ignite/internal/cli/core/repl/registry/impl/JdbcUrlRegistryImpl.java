@@ -17,33 +17,27 @@
 
 package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-
 import jakarta.inject.Singleton;
-import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.PeriodicSessionTask;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link JdbcUrlRegistry}. */
 @Singleton
-public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventListener {
+public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, PeriodicSessionTask {
 
-    private static final IgniteLogger log = CliLoggers.forClass(JdbcUrlRegistryImpl.class);
+    private static final IgniteLogger LOG = CliLoggers.forClass(JdbcUrlRegistryImpl.class);
 
     private final NodeNameRegistry nodeNameRegistry;
 
@@ -53,8 +47,6 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
 
     private volatile Set<String> jdbcUrls = Set.of();
 
-    private ScheduledExecutorService executor;
-
     /** Constructor. */
     public JdbcUrlRegistryImpl(NodeNameRegistry nodeNameRegistry, ApiClientFactory clientFactory, JdbcUrlFactory jdbcUrlFactory) {
         this.nodeNameRegistry = nodeNameRegistry;
@@ -62,13 +54,18 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
         this.jdbcUrlFactory = jdbcUrlFactory;
     }
 
-    private void fetchJdbcUrls() {
+    @Override
+    public void update(SessionInfo sessionInfo) {
         jdbcUrls = nodeNameRegistry.urls()
                 .stream()
-                .map(URL::toString)
                 .map(this::fetchJdbcUrl)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public void onDisconnect() {
+        jdbcUrls = Set.of();
     }
 
     /** {@inheritDoc} */
@@ -77,32 +74,17 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
         return Set.copyOf(jdbcUrls);
     }
 
+    @Nullable
     private String fetchJdbcUrl(String nodeUrl) {
         try {
             return jdbcUrlFactory.constructJdbcUrl(fetchNodeConfiguration(nodeUrl), nodeUrl);
         } catch (ApiException e) {
-            log.warn("Couldn't fetch jdbc url of " + nodeUrl + " node: ", e);
+            LOG.warn("Couldn't fetch jdbc url of " + nodeUrl + " node: ", e);
             return null;
         }
     }
 
     private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
         return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
-    }
-
-    @Override
-    public synchronized void onConnect(SessionInfo sessionInfo) {
-        if (executor == null) {
-            executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("JdbcUrlRegistry", log));
-            executor.scheduleWithFixedDelay(this::fetchJdbcUrls, 0, 5, TimeUnit.SECONDS);
-        }
-    }
-
-    @Override
-    public synchronized void onDisconnect() {
-        if (executor != null) {
-            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
-            executor = null;
-        }
     }
 }

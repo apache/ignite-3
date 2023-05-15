@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -66,7 +67,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
     /** {@inheritDoc} */
     @Override
-    public Object visitLeafNode(String key, Serializable val) {
+    public Object visitLeafNode(Field field, String key, Serializable val) {
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
@@ -82,7 +83,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
     /** {@inheritDoc} */
     @Override
-    public Object visitInnerNode(String key, InnerNode node) {
+    public Object visitInnerNode(Field field, String key, InnerNode node) {
         if (skipEmptyValues && node == null) {
             return null;
         }
@@ -102,7 +103,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
     /** {@inheritDoc} */
     @Override
-    public Object visitNamedListNode(String key, NamedListNode<?> node) {
+    public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         if (skipEmptyValues && node.size() == 0) {
             return null;
         }
@@ -112,7 +113,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         deque.push(list);
 
         for (String subkey : node.namedListKeys()) {
-            node.getInnerNode(subkey).accept(subkey, this);
+            node.getInnerNode(subkey).accept(field, subkey, this);
 
             ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
         }

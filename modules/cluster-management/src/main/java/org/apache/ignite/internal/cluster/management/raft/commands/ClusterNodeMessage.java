@@ -24,6 +24,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ClusterNode} as a network message class.
@@ -42,5 +43,6 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
         return new ClusterNode(id(), name(), new NetworkAddress(host(), port()));
     }
 
+    @Nullable
     Map<String, String> nodeAttributes();
 }

@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -65,9 +66,9 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -283,14 +284,14 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-        Lease lease = ByteUtils.fromBytes(leaseFut.join().value());
+        Lease lease = fromBytes(leaseFut.join().value());
 
         assertNotNull(lease);
 
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             return lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0;
 
@@ -311,7 +312,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            Lease lease = ByteUtils.fromBytes(fut.join().value());
+            Lease lease = fromBytes(fut.join().value());
 
             return lease.getExpirationTime().compareTo(clock.now()) < 0;
 
@@ -324,7 +325,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            Lease lease = ByteUtils.fromBytes(fut.join().value());
+            Lease lease = fromBytes(fut.join().value());
 
             return lease.getExpirationTime().compareTo(clock.now()) > 0;
 
@@ -447,7 +448,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = ByteUtils.fromBytes(leaseEntry.value());
+                Lease lease = fromBytes(leaseEntry.value());
 
                 if (!waitAccept) {
                     leaseRef.set(lease);

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.network.annotations.Marshallable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Scan retrieve batch replica request.
@@ -40,6 +41,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return Index id.
      */
+    @Nullable
     UUID indexToUse();
 
     /**
@@ -47,6 +49,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return Key to search.
      */
+    @Nullable
     @Marshallable
     BinaryTuple exactKey();
 
@@ -56,6 +59,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return lower bound.
      */
+    @Nullable
     @Marshallable
     BinaryTuplePrefix lowerBound();
 
@@ -65,6 +69,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return upper bound.
      */
+    @Nullable
     @Marshallable
     BinaryTuplePrefix upperBound();
 
@@ -81,6 +86,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return Bitset to include columns.
      */
+    @Nullable
     @Marshallable
     BitSet columnsToInclude();
 }

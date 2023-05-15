@@ -37,6 +37,10 @@ Static code analysis (Roslyn-based) runs as part of the build and includes code 
 
 ## Release Procedure
 
+### Update Version
+
+Update version number in `version.json`.
+
 ### Build Binaries
 `dotnet publish Apache.Ignite --configuration Release --output release/bin`
 

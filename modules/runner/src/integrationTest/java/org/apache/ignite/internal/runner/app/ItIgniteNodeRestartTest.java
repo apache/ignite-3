@@ -61,6 +61,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -72,7 +73,6 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -184,9 +184,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
@@ -292,26 +289,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
 
-        ReplicaManager replicaMgr = new ReplicaManager(
-                clusterSvc,
-                hybridClock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
-        );
-
-        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var lockManager = new HeapLockManager();
-
-        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
-
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -323,6 +305,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 distributedConfigurationUpdater,
                 nodeAttributes
         );
+
+        ReplicaManager replicaMgr = new ReplicaManager(
+                clusterSvc,
+                cmgManager,
+                hybridClock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
+
+        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var lockManager = new HeapLockManager();
+
+        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
@@ -414,7 +411,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc, replicaMgr);
 
-        CatalogManager catalogManager = new CatalogServiceImpl(metaStorageMgr);
+        CatalogManager catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr, vault)
+        );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

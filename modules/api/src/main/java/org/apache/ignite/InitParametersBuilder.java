@@ -20,7 +20,6 @@ package org.apache.ignite;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.security.AuthenticationConfig;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {
@@ -28,7 +27,7 @@ public class InitParametersBuilder {
     private Collection<String> metaStorageNodeNames;
     private Collection<String> cmgNodeNames;
     private String clusterName;
-    private AuthenticationConfig authenticationConfig = AuthenticationConfig.disabled();
+    private String clusterConfiguration;
 
     /**
      * Sets name of the node that the initialization request will be sent to.
@@ -93,16 +92,13 @@ public class InitParametersBuilder {
     }
 
     /**
-     * Sets authentication configuration, that will be applied after initialization. If not set, the authentication will be disabled.
+     * Sets cluster configuration, that will be applied after initialization.
      *
-     * @param authenticationConfig Authentication configuration.
+     * @param clusterConfiguration Cluster configuration.
      * @return {@code this} for chaining.
      */
-    public InitParametersBuilder authenticationConfig(AuthenticationConfig authenticationConfig) {
-        if (authenticationConfig == null) {
-            throw new IllegalArgumentException("Authentication config cannot be null.");
-        }
-        this.authenticationConfig = authenticationConfig;
+    public InitParametersBuilder clusterConfiguration(String clusterConfiguration) {
+        this.clusterConfiguration = clusterConfiguration;
         return this;
     }
 
@@ -122,10 +118,7 @@ public class InitParametersBuilder {
         if (clusterName == null) {
             throw new IllegalStateException("Cluster name is not set.");
         }
-        if (authenticationConfig == null) {
-            throw new IllegalStateException("Authentication config is not set.");
-        }
 
-        return new InitParameters(destinationNodeName, metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig);
+        return new InitParameters(destinationNodeName, metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
     }
 }

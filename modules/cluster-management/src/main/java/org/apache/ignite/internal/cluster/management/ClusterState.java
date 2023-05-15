@@ -19,11 +19,11 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
 import java.util.Set;
-import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents the state of the CMG. It contains:
@@ -64,7 +64,8 @@ public interface ClusterState extends NetworkMessage, Serializable {
     }
 
     /**
-     * Returns a REST authentication configuration that should be applied.
+     * Returns a cluster configuration that should be applied.
      */
-    Authentication restAuthToApply();
+    @Nullable
+    String clusterConfigurationToApply();
 }

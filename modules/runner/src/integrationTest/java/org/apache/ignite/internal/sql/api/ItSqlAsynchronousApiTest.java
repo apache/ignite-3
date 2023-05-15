@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -166,6 +167,37 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "DROP INDEX TESt_iDX");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
+        checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+
+        checkError(
+                SqlException.class,
+                "Can`t delete column(s). Column VAL1 is used by indexes [TEST_IDX3].",
+                ses,
+                "ALTER TABLE TEST DROP COLUMN val1"
+        );
+
+        SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
+                () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
+        assertNotNull(ex);
+        assertEquals(DROP_IDX_COLUMN_CONSTRAINT_ERR, ex.code());
+
+        String msg = ex.getMessage();
+        String explainMsg = "Unexpected error message: " + msg;
+
+        assertTrue(msg.contains("Column VAL0 is used by indexes ["), explainMsg);
+        assertTrue(msg.contains("TEST_IDX1") && msg.contains("TEST_IDX2") && msg.contains("TEST_IDX3"), explainMsg);
+        assertTrue(msg.contains("Column VAL1 is used by indexes [TEST_IDX3]"), explainMsg);
+
+        checkError(
+                SqlException.class,
+                "Can`t delete column, belongs to primary key: [name=ID]",
+                ses,
+                "ALTER TABLE TEST DROP COLUMN id"
+        );
+
+        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        waitForIndexBuild("TEST", "TEST_IDX3");
+        checkDdl(true, ses, "DROP INDEX TESt_iDX3");
 
         // DROP COLUMNS
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");

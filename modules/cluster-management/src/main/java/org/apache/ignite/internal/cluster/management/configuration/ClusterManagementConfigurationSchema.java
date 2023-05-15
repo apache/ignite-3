@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.configuration;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -32,11 +31,4 @@ public class ClusterManagementConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     public long networkInvokeTimeout = 500;
-
-    /**
-     * Delay between a moment a node drops out from the physical topology and when it gets removed from the logical topology (ms).
-     */
-    @Value(hasDefault = true)
-    @Range(min = 0)
-    public long failoverTimeout = TimeUnit.SECONDS.toMillis(30);
 }

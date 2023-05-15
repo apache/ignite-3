@@ -23,8 +23,6 @@
         <Nullable>enable</Nullable>
         <AnalysisMode>All</AnalysisMode>
 
-        <Version>3.0.0-SNAPSHOT</Version>
-
         <Company>Apache Software Foundation</Company>
         <Authors>Apache Ignite</Authors>
         <Copyright>© Apache Software Foundation</Copyright>
@@ -49,6 +47,13 @@
 
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\Apache_Ignite_logo_128x128.png" Pack="true" PackagePath=""/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning">
+            <PrivateAssets>all</PrivateAssets>
+            <Version>3.6.128</Version>
+        </PackageReference>
     </ItemGroup>
 
 </Project>

@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 
 import jakarta.inject.Inject;
 import java.io.File;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -396,7 +395,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         await().until(() -> nodeNameRegistry.urls(), not(empty()));
 
         // Then
-        String[] expectedUrls = nodeNameRegistry.urls().stream().map(URL::toString).toArray(String[]::new);
+        String[] expectedUrls = nodeNameRegistry.urls().toArray(String[]::new);
         assertThat("For given parsed words: " + parsedLine.words(),
                 complete(parsedLine),
                 containsInAnyOrder(expectedUrls));

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using Internal;
 using Log;
 using NUnit.Framework;
 
@@ -48,6 +49,10 @@ public class LoggingTests
         }
 
         var log = logger.GetLogString();
+
+        StringAssert.Contains(
+            $"ClientFailoverSocket [Info] Ignite.NET client version {VersionUtils.GetInformationalVersion()} is starting",
+            log);
 
         StringAssert.Contains("Connection established", log);
         StringAssert.Contains("Handshake succeeded", log);

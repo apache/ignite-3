@@ -30,10 +30,9 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
  * Class for converting an array of objects into a {@link BinaryTuple} and vice-versa using a given index schema.
@@ -55,18 +54,9 @@ public class BinaryTupleRowSerializer {
     private final BinaryTupleSchema tupleSchema;
 
     /**
-     * Creates a new instance for a Sorted Index.
+     * Creates a new instance for an index.
      */
-    public BinaryTupleRowSerializer(SortedIndexDescriptor descriptor) {
-        this(descriptor.columns().stream()
-                .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
-                .collect(toUnmodifiableList()));
-    }
-
-    /**
-     * Creates a new instance for a Hash Index.
-     */
-    public BinaryTupleRowSerializer(HashIndexDescriptor descriptor) {
+    public BinaryTupleRowSerializer(IndexDescriptor descriptor) {
         this(descriptor.columns().stream()
                 .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
                 .collect(toUnmodifiableList()));

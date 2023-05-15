@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -48,12 +54,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -62,7 +71,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -94,16 +103,19 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -114,50 +126,62 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.TransactionException;
-import org.junit.jupiter.api.BeforeAll;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-/** There are tests for partition replica listener. */
+/** Tests for partition replica listener. */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(MockitoExtension.class)
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Partition id. */
     private static final int partId = 0;
 
     /** Table id. */
-    private static final UUID tblId = UUID.randomUUID();
+    private final UUID tblId = UUID.randomUUID();
 
-    private static final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
 
     /** The storage stores partition data. */
-    private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
+    private final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
-    private static final LockManager lockManager = new HeapLockManager();
+    private final LockManager lockManager = new HeapLockManager();
 
-    private static final Function<PartitionCommand, CompletableFuture<?>> DEFAULT_MOCK_RAFT_FUTURE_CLOSURE = cmd -> {
+    private final Function<PartitionCommand, CompletableFuture<?>> defaultMockRaftFutureClosure = cmd -> {
         if (cmd instanceof TxCleanupCommand) {
             Set<RowId> rows = pendingRows.remove(cmd.txId());
 
+            HybridTimestamp commitTimestamp = ((TxCleanupCommand) cmd).commitTimestamp();
+            assertNotNull(commitTimestamp);
+
             if (rows != null) {
                 for (RowId row : rows) {
-                    testMvPartitionStorage.commitWrite(row, ((TxCleanupCommand) cmd).commitTimestamp());
+                    testMvPartitionStorage.commitWrite(row, commitTimestamp);
                 }
             }
 
-            lockManager.locks(cmd.txId()).forEachRemaining(lock -> lockManager.release(lock));
+            lockManager.locks(cmd.txId()).forEachRemaining(lockManager::release);
         } else if (cmd instanceof UpdateCommand) {
             pendingRows.compute(cmd.txId(), (txId, v) -> {
                 if (v == null) {
@@ -180,65 +204,74 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Table messages factory. */
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
-    /** Replication group id. */
-    private static final ReplicationGroupId grpId = new TablePartitionId(tblId, partId);
+    /** Partition group id. */
+    private final TablePartitionId grpId = new TablePartitionId(tblId, partId);
 
     /** Hybrid clock. */
-    private static final HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     /** The storage stores transaction states. */
-    private static final TestTxStateStorage txStateStorage = new TestTxStateStorage();
+    private final TestTxStateStorage txStateStorage = new TestTxStateStorage();
 
     /** Local cluster node. */
-    private static final ClusterNode localNode = new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
+    private final ClusterNode localNode = new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
 
     /** Another (not local) cluster node. */
-    private static final ClusterNode anotherNode = new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.2:127"));
+    private final ClusterNode anotherNode = new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.2:127"));
 
-    private static final PlacementDriver placementDriver = mock(PlacementDriver.class);
+    private final PlacementDriver placementDriver = mock(PlacementDriver.class);
 
-    private static final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
-
-    @Mock
-    private static RaftGroupService mockRaftClient = mock(RaftGroupService.class);
+    private final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
 
     @Mock
-    private static TopologyService topologySrv = mock(TopologyService.class);
+    private RaftGroupService mockRaftClient;
 
-    /** Default reflection marshaller factory. */
-    private static MarshallerFactory marshallerFactory;
+    @Mock
+    private TxManager txManager;
+
+    @Mock
+    private TopologyService topologySrv;
+
+    @Mock
+    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeClock;
+
+    @Mock
+    private Schemas schemas;
 
     /** Schema descriptor for tests. */
-    private static SchemaDescriptor schemaDescriptor;
+    private SchemaDescriptor schemaDescriptor;
 
     /** Key-value marshaller for tests. */
-    private static KvMarshaller<TestKey, TestValue> kvMarshaller;
+    private KvMarshaller<TestKey, TestValue> kvMarshaller;
 
     /** Partition replication listener to test. */
-    private static PartitionReplicaListener partitionReplicaListener;
+    private PartitionReplicaListener partitionReplicaListener;
 
     /** Primary index. */
-    private static Lazy<TableSchemaAwareIndexStorage> pkStorage;
+    private Lazy<TableSchemaAwareIndexStorage> pkStorageSupplier;
 
     /** If true the local replica is considered leader, false otherwise. */
-    private static boolean localLeader;
+    private boolean localLeader;
 
     /** The state is used to resolve write intent. */
-    private static TxState txState;
+    @Nullable
+    private TxState txState;
 
-    private static BinaryTupleSchema sortedIndexBinarySchema;
+    private BinaryTupleSchema sortedIndexBinarySchema;
 
     /** Secondary sorted index. */
-    private static TableSchemaAwareIndexStorage sortedIndexStorage;
+    private TableSchemaAwareIndexStorage sortedIndexStorage;
 
     /** Secondary hash index. */
-    private static TableSchemaAwareIndexStorage hashIndexStorage;
+    private TableSchemaAwareIndexStorage hashIndexStorage;
 
-    private static Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
+    private Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = defaultMockRaftFutureClosure;
 
-    @BeforeAll
-    public static void beforeAll(@InjectConfiguration DataStorageConfiguration dsCfg) {
-        when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
+    private static final AtomicInteger nextMonotonicInt = new AtomicInteger(1);
+
+    @BeforeEach
+    public void beforeTest(@InjectConfiguration DataStorageConfiguration dsCfg) {
+        lenient().when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
                 return completedFuture(new LeaderWithTerm(new Peer(anotherNode.name()), 1L));
             }
@@ -246,9 +279,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return completedFuture(new LeaderWithTerm(new Peer(localNode.name()), 1L));
         });
 
-        when(mockRaftClient.run(any())).thenAnswer(invocationOnMock -> raftClientFutureClosure.apply(invocationOnMock.getArgument(0)));
+        lenient().when(mockRaftClient.run(any()))
+                .thenAnswer(invocationOnMock -> raftClientFutureClosure.apply(invocationOnMock.getArgument(0)));
 
-        when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
+        lenient().when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
             String consistentId = invocationOnMock.getArgument(0);
             if (consistentId.equals(anotherNode.name())) {
                 return anotherNode;
@@ -259,11 +293,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             }
         });
 
-        when(topologySrv.localMember()).thenReturn(localNode);
+        lenient().when(topologySrv.localMember()).thenReturn(localNode);
 
         HybridTimestamp txFixedTimestamp = clock.now();
 
-        when(placementDriver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
+        lenient().when(placementDriver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
             TxMeta txMeta;
 
             if (txState == null) {
@@ -278,8 +312,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return completedFuture(txMeta);
         });
 
-        PendingComparableValuesTracker safeTimeClock = mock(PendingComparableValuesTracker.class);
-        when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
+        lenient().when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
+
+        lenient().when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
 
         UUID pkIndexId = UUID.randomUUID();
         UUID sortedIndexId = UUID.randomUUID();
@@ -295,9 +330,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
-        pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
+        pkStorageSupplier = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 pkIndexId,
-                new TestHashIndexStorage(partId, null),
+                new TestHashIndexStorage(partId, mock(HashIndexDescriptor.class)),
                 row2Tuple
         ));
 
@@ -323,13 +358,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
-                mock(TxManager.class),
+                txManager,
                 lockManager,
                 Runnable::run,
                 partId,
                 tblId,
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
-                pkStorage,
+                pkStorageSupplier,
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clock,
                 safeTimeClock,
@@ -338,27 +373,33 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage())),
                         dsCfg,
                         safeTimeClock,
                         mock(LowWatermark.class)
                 ),
+                schemas,
                 peer -> localNode.name().equals(peer.consistentId()),
                 completedFuture(schemaManager)
         );
 
-        marshallerFactory = new ReflectionMarshallerFactory();
+        MarshallerFactory marshallerFactory = new ReflectionMarshallerFactory();
 
         sortedIndexBinarySchema = BinaryTupleSchema.createSchema(schemaDescriptor, new int[]{2 /* intVal column */});
 
         kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
+
+        reset();
     }
 
-    @BeforeEach
-    public void beforeTest() {
+    private TableSchemaAwareIndexStorage pkStorage() {
+        return Objects.requireNonNull(pkStorageSupplier.get());
+    }
+
+    private void reset() {
         localLeader = true;
         txState = null;
-        ((TestHashIndexStorage) pkStorage.get().storage()).clear();
+        ((TestHashIndexStorage) pkStorage().storage()).clear();
         ((TestHashIndexStorage) hashIndexStorage.storage()).clear();
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
         testMvPartitionStorage.clear();
@@ -396,8 +437,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
-        assertEquals(TxState.COMMITED, tuple.txMeta().txState());
-        assertTrue(readTimestamp.compareTo(tuple.txMeta().commitTimestamp()) > 0);
+        TxMeta txMeta = tuple.txMeta();
+        assertNotNull(txMeta);
+        assertEquals(TxState.COMMITED, txMeta.txState());
+        assertNotNull(txMeta.commitTimestamp());
+        assertTrue(readTimestamp.compareTo(txMeta.commitTimestamp()) > 0);
         assertNull(tuple.leaderName());
     }
 
@@ -440,7 +484,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        pkStorage.get().put(testBinaryRow, rowId);
+        pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
@@ -464,7 +508,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.COMMITED;
 
-        pkStorage.get().put(testBinaryRow, rowId);
+        pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -486,7 +530,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        pkStorage.get().put(testBinaryRow, rowId);
+        pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -509,7 +553,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         var rowId = new RowId(partId);
         txState = TxState.ABORTED;
 
-        pkStorage.get().put(testBinaryRow, rowId);
+        pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -525,7 +569,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testWriteScanRetriveBatchReplicaRequestWithSortedIndex() throws Exception {
+    public void testWriteScanRetrieveBatchReplicaRequestWithSortedIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
         UUID sortedIndexId = sortedIndexStorage.id();
 
@@ -632,7 +676,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testReadOnlyScanRetriveBatchReplicaRequestSortedIndex() throws Exception {
+    public void testReadOnlyScanRetrieveBatchReplicaRequestSortedIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
         UUID sortedIndexId = sortedIndexStorage.id();
 
@@ -734,7 +778,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testReadOnlyScanRetriveBatchReplicaRequstHashIndex() throws Exception {
+    public void testReadOnlyScanRetrieveBatchReplicaRequstHashIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
         UUID hashIndexId = hashIndexStorage.id();
 
@@ -964,7 +1008,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void checkRowInMvStorage(BinaryRow binaryRow, boolean shouldBePresent) {
-        Cursor<RowId> cursor = pkStorage.get().get(binaryRow);
+        Cursor<RowId> cursor = pkStorage().get(binaryRow);
 
         if (shouldBePresent) {
             boolean found = false;
@@ -991,7 +1035,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void checkNoRowInIndex(BinaryRow binaryRow) {
-        try (Cursor<RowId> cursor = pkStorage.get().get(binaryRow)) {
+        try (Cursor<RowId> cursor = pkStorage().get(binaryRow)) {
             assertFalse(cursor.hasNext());
         }
     }
@@ -1014,7 +1058,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertFalse(replicaWriteFut.isDone());
 
-            raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
+            raftClientFutureClosure = defaultMockRaftFutureClosure;
 
             HybridTimestamp now = clock.now();
 
@@ -1035,36 +1079,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertThat(replicaCleanupFut, willSucceedFast());
         } finally {
-            raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
+            raftClientFutureClosure = defaultMockRaftFutureClosure;
         }
 
         // Check that one more write after cleanup is discarded.
         CompletableFuture<?> writeAfterCleanupFuture = partitionReplicaListener.invoke(updatingRequestSupplier.get());
         assertThat(writeAfterCleanupFuture, willThrowFast(TransactionException.class));
-    }
-
-    @Test
-    public void testReadOnlyGetAfterRowRewrite() {
-        testReadOnlyGetAfterRowRewrite0(true,  true,  true,  false);
-        testReadOnlyGetAfterRowRewrite0(true,  true,  false, false);
-        testReadOnlyGetAfterRowRewrite0(true,  false, true,  false);
-        testReadOnlyGetAfterRowRewrite0(true,  false, false, false);
-        testReadOnlyGetAfterRowRewrite0(false, true,  true,  false);
-        testReadOnlyGetAfterRowRewrite0(false, true,  false, false);
-        testReadOnlyGetAfterRowRewrite0(false, false, true,  false);
-        testReadOnlyGetAfterRowRewrite0(false, false, false, false);
-    }
-
-    @Test
-    public void testReadOnlyGetAllAfterRowRewrite() {
-        testReadOnlyGetAfterRowRewrite0(true,  true,  true,  true);
-        testReadOnlyGetAfterRowRewrite0(true,  true,  false, true);
-        testReadOnlyGetAfterRowRewrite0(true,  false, true,  true);
-        testReadOnlyGetAfterRowRewrite0(true,  false, false, true);
-        testReadOnlyGetAfterRowRewrite0(false, true,  true,  true);
-        testReadOnlyGetAfterRowRewrite0(false, true,  false, true);
-        testReadOnlyGetAfterRowRewrite0(false, false, true,  true);
-        testReadOnlyGetAfterRowRewrite0(false, false, false, true);
     }
 
     /**
@@ -1076,9 +1096,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
      * @param committed Whether to commit RW transaction before doing RO request.
      * @param multiple Whether to check multiple rows via getAll request.
      */
-    public void testReadOnlyGetAfterRowRewrite0(boolean insertFirst, boolean upsertAfterDelete, boolean committed, boolean multiple) {
-        beforeTest();
-
+    @CartesianTest
+    void testReadOnlyGetAfterRowRewrite(
+            @Values(booleans = {false, true}) boolean insertFirst,
+            @Values(booleans = {false, true}) boolean upsertAfterDelete,
+            @Values(booleans = {false, true}) boolean committed,
+            @Values(booleans = {false, true}) boolean multiple
+    ) {
         BinaryRow br1 = binaryRow(1);
         BinaryRow br2 = binaryRow(2);
 
@@ -1102,7 +1126,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 upsert(tx1, br1);
             }
 
-            Cursor<RowId> cursor = pkStorage.get().get(br1);
+            Cursor<RowId> cursor = pkStorage().get(br1);
 
             if (!insertFirst) {
                 if (!upsertAfterDelete) {
@@ -1139,6 +1163,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertEquals(expected.size(), res.size());
             for (BinaryRow e : expected) {
+                // TODO: IGNITE-19430 - should there be an assertion in the next line?
                 res.contains(e);
             }
         } else {
@@ -1157,7 +1182,134 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         cleanup(tx1);
     }
 
-    private UUID beginTx() {
+    @Test
+    public void abortsSuccessfully() {
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndAbortTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(false));
+    }
+
+    private CompletableFuture<?> beginAndAbortTx() {
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
+
+        TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
+                .groupId(grpId)
+                .txId(txId)
+                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .commit(false)
+                .term(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(commitRequest);
+    }
+
+    @Test
+    public void commitsOnSameSchemaSuccessfully() {
+        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        tableSchema(1, List.of(nullableColumn("col")))
+                ));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndCommitTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(true));
+    }
+
+    private static TableColumnDescriptor nullableColumn(String colName) {
+        return new TableColumnDescriptor(colName, ColumnType.INT32, true, DefaultValue.constant(null));
+    }
+
+    private static TableColumnDescriptor defaultedColumn(String colName, int defaultValue) {
+        return new TableColumnDescriptor(colName, ColumnType.INT32, false, DefaultValue.constant(defaultValue));
+    }
+
+    private static FullTableSchema tableSchema(int schemaVersion, List<TableColumnDescriptor> columns) {
+        return new FullTableSchema(schemaVersion, 1, columns, List.of());
+    }
+
+    private AtomicReference<Boolean> interceptFinishTxCommand() {
+        AtomicReference<Boolean> committed = new AtomicReference<>();
+
+        raftClientFutureClosure = command -> {
+            if (command instanceof FinishTxCommand) {
+                committed.set(((FinishTxCommand) command).commit());
+            }
+            return defaultMockRaftFutureClosure.apply(command);
+        };
+
+        return committed;
+    }
+
+    private CompletableFuture<?> beginAndCommitTx() {
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
+
+        HybridTimestamp commitTimestamp = clock.now();
+
+        TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
+                .groupId(grpId)
+                .txId(txId)
+                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .commit(true)
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                .term(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(commitRequest);
+    }
+
+    @Test
+    @Disabled("IGNITE-19229")
+    public void commitsOnCompatibleSchemaChangeSuccessfully() {
+        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        tableSchema(1, List.of(nullableColumn("col1"))),
+                        tableSchema(2, List.of(nullableColumn("col1"), nullableColumn("col2")))
+                ));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndCommitTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(true));
+    }
+
+    @Test
+    public void abortsCommitOnIncompatibleSchema() {
+        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        tableSchema(1, List.of(defaultedColumn("col", 4))),
+                        tableSchema(2, List.of(defaultedColumn("col", 5)))
+                ));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndCommitTx();
+
+        IncompatibleSchemaAbortException ex = assertWillThrowFast(future,
+                IncompatibleSchemaAbortException.class);
+        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
+        assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
+
+        assertThat(committed.get(), is(false));
+    }
+
+    private static UUID beginTx() {
         return TestTransactionIds.newTransactionId();
     }
 
@@ -1217,53 +1369,55 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         txState = TxState.COMMITED;
     }
 
-    private static BinaryTuplePrefix toIndexBound(int val) {
+    private BinaryTuplePrefix toIndexBound(int val) {
         ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, 1).appendInt(val).build();
 
         return new BinaryTuplePrefix(sortedIndexBinarySchema, tuple);
     }
 
-    private static BinaryTuple toIndexKey(int val) {
+    private BinaryTuple toIndexKey(int val) {
         ByteBuffer tuple = new BinaryTupleBuilder(1, true).appendInt(val).build();
 
         return new BinaryTuple(sortedIndexBinarySchema, tuple);
     }
 
-    private static BinaryRow nextBinaryKey() {
+    private BinaryRow nextBinaryKey() {
         try {
-            int nextInt = (int) System.nanoTime();
-
-            return kvMarshaller.marshal(new TestKey(nextInt, "key " + nextInt));
+            return kvMarshaller.marshal(new TestKey(monotonicInt(), "key " + monotonicInt()));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
     }
 
-    protected static BinaryRow binaryRow(int i) {
+    private static int monotonicInt() {
+        return nextMonotonicInt.getAndIncrement();
+    }
+
+    protected BinaryRow binaryRow(int i) {
         try {
             return kvMarshaller.marshal(new TestKey(i, "k" + i), new TestValue(i, "v" + i));
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new AssertionError(e);
         }
     }
 
-    private static BinaryRow binaryRow(TestKey key, TestValue value) {
+    private BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
             return kvMarshaller.marshal(key, value);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new AssertionError(e);
         }
     }
 
-    private static TestKey key(BinaryRow binaryRow) {
+    private TestKey key(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new AssertionError(e);
         }
     }
 
-    private static TestValue value(BinaryRow binaryRow) {
+    private TestValue value(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {

@@ -34,7 +34,7 @@ public interface CatalogManager extends IgniteComponent {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<?> createTable(CreateTableParams params);
+    CompletableFuture<Void> createTable(CreateTableParams params);
 
     /**
      * Drops table.
@@ -42,7 +42,7 @@ public interface CatalogManager extends IgniteComponent {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<?> dropTable(DropTableParams params);
+    CompletableFuture<Void> dropTable(DropTableParams params);
 
     /**
      * Add columns to a table.
@@ -50,7 +50,7 @@ public interface CatalogManager extends IgniteComponent {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<?> addColumn(AlterTableAddColumnParams params);
+    CompletableFuture<Void> addColumn(AlterTableAddColumnParams params);
 
     /**
      * Drops columns from table.
@@ -58,5 +58,5 @@ public interface CatalogManager extends IgniteComponent {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<?> dropColumn(AlterTableDropColumnParams params);
+    CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params);
 }

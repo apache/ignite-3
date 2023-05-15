@@ -28,7 +28,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -43,17 +42,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Base class for integration tests that use a cluster of {@link MockNode}s.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
+public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
     private static final int PORT_BASE = 10000;
 
-    @InjectConfiguration("mock.failoverTimeout: 100")
+    @InjectConfiguration
     private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
@@ -69,7 +65,6 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                         workDir.resolve("node" + i),
                         raftConfiguration,
                         cmgConfiguration,
-                        securityConfiguration,
                         nodeAttributes
 
                 ))
@@ -84,7 +79,6 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                 workDir.resolve("node" + cluster.size()),
                 raftConfiguration,
                 cmgConfiguration,
-                securityConfiguration,
                 nodeAttributes
         );
 

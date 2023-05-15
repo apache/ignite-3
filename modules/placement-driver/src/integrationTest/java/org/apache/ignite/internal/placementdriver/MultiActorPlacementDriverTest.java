@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ByteArray.fromString;
@@ -60,9 +61,9 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -101,16 +102,17 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     @InjectConfiguration
     private DistributionZonesConfiguration dstZnsCfg;
 
-    List<String> placementDriverNodeNames;
-    List<String> nodeNames;
+    private List<String> placementDriverNodeNames;
 
-    List<Closeable> servicesToClose;
+    private List<String> nodeNames;
+
+    private List<Closeable> servicesToClose;
 
     /** The manager is used to read a data from Meta storage in the tests. */
-    MetaStorageManagerImpl metaStorageManager;
+    private MetaStorageManagerImpl metaStorageManager;
 
     /** Cluster service by node name. */
-    Map<String, ClusterService> clusterServices;
+    private Map<String, ClusterService> clusterServices;
 
     private TestInfo testInfo;
 
@@ -126,21 +128,27 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         this.testInfo = testInfo;
 
-        Map<String, ClusterService> services = startNodes();
-
-        this.clusterServices = services;
+        this.clusterServices = startNodes();
 
         List<LogicalTopologyServiceTestImpl> logicalTopManagers = new ArrayList<>();
 
-        servicesToClose = startPlacementDriver(services, logicalTopManagers);
+        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers);
 
         for (String nodeName : nodeNames) {
             if (!placementDriverNodeNames.contains(nodeName)) {
-                var service = services.get(nodeName);
+                var service = clusterServices.get(nodeName);
 
                 service.start();
 
-                servicesToClose.add(() -> service.stop());
+                servicesToClose.add(() -> {
+                    try {
+                        service.beforeNodeStop();
+
+                        service.stop();
+                    } catch (Exception e) {
+                        log.info("Fail to stop services [node={}]", e, nodeName);
+                    }
+                });
             }
         }
 
@@ -310,7 +318,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                             clusterService.stop();
                             vaultManager.stop();
                         } catch (Exception e) {
-                            log.info("Fail to stop services.");
+                            log.info("Fail to stop services [node={}]", e, nodeName);
                         }
                     }
             );
@@ -343,7 +351,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         Lease lease = checkLeaseCreated(grpPart0, true);
         Lease leaseRenew = waitForProlong(grpPart0, lease);
 
-        assertEquals(acceptedNodeRef.get(), leaseRenew.getLeaseholder().name());
+        assertEquals(acceptedNodeRef.get(), leaseRenew.getLeaseholder());
     }
 
     @Test
@@ -409,7 +417,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        assertEquals(lease.getLeaseholder().name(), acceptedNodeRef.get());
+        assertEquals(lease.getLeaseholder(), acceptedNodeRef.get());
 
         waitForProlong(grpPart0, lease);
     }
@@ -434,7 +442,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         lease = waitForProlong(grpPart, lease);
 
-        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder().name());
+        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder());
+        assertTrue(lease.isAccepted());
 
         var service = clusterServices.get(acceptedNodeRef.get());
 
@@ -460,7 +469,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         Lease leaseRenew = waitNewLeaseholder(grpPart, lease);
 
-        log.info("Lease move from {} to {}", lease.getLeaseholder().name(), leaseRenew.getLeaseholder().name());
+        log.info("Lease move from {} to {}", lease.getLeaseholder(), leaseRenew.getLeaseholder());
     }
 
     /**
@@ -477,7 +486,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             if (!lease.getLeaseholder().equals(leaseRenew.getLeaseholder())) {
                 leaseRenewRef.set(leaseRenew);
@@ -507,7 +516,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             if (lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0) {
                 leaseRenewRef.set(leaseRenew);
@@ -540,7 +549,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = ByteUtils.fromBytes(leaseEntry.value());
+                Lease lease = fromBytes(leaseEntry.value());
 
                 if (!waitAccept) {
                     leaseRef.set(lease);

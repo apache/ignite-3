@@ -42,6 +42,7 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-vault')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-catalog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -67,6 +68,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+    testImplementation libs.junit.pioneer
     testImplementation libs.slf4j.jdk14
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
@@ -80,6 +82,7 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))

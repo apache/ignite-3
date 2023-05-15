@@ -18,10 +18,18 @@
 package org.apache.ignite.internal.placementdriver.message;
 
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The message is sent to placement driver when a leaseholder does not want to hold lease anymore.
  */
 @Transferable(PlacementDriverMessageGroup.STOP_LEASE_PROLONGATION)
 public interface StopLeaseProlongationMessage extends PlacementDriverActorMessage {
+    /**
+     * Gets a consistent id for proposed node which is match to primary criteria.
+     *
+     * @return Consistent id.
+     */
+    @Nullable
+    String redirectProposal();
 }
