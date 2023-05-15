@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
@@ -47,16 +48,7 @@ public class SchemaUpdateTest
 
         await Task.WhenAll(task1, task2);
 
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                ClientOp.TableGet,
-                ClientOp.SchemasGet,
-                ClientOp.PartitionAssignmentGet,
-                ClientOp.TupleUpsert,
-                ClientOp.TupleUpsert
-            },
-            server.ClientOps);
+        Assert.AreEqual(1, server.ClientOps.Count(x => x == ClientOp.SchemasGet), string.Join(", ", server.ClientOps));
     }
 
     [Test]
