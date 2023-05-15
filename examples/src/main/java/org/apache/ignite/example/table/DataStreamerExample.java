@@ -18,6 +18,8 @@
 package org.apache.ignite.example.table;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -42,12 +44,35 @@ public class DataStreamerExample {
                         publisher,
                         pojo -> Tuple.create().set("id", pojo.id),
                         new TableUpdateReceiver(),
-                        null,
+                        new ClientResultSubscriber(),
                         new DataStreamerOptions().batchSize(512));
 
         publisher.submit(new MyData(1, "abc"));
 
         fut.join();
+    }
+
+    static class ClientResultSubscriber implements Subscriber<MyResult> {
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(MyResult myResult) {
+            // Non-null result from stream receiver goes here.
+            System.out.println("Could not process item: " + myResult.problem + ", " + myResult.item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            // Unhandled error in receiver. Streamer is aborted at this point.
+        }
+
+        @Override
+        public void onComplete() {
+            // All data has been processed.
+        }
     }
 
     static class TableUpdateReceiver implements StreamReceiver<MyData, MyResult> {
