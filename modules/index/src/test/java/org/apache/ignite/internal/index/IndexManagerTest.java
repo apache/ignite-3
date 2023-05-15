@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
+import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitorBuilder;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -212,7 +213,13 @@ public class IndexManagerTest {
     private static Object toMap(Object obj) {
         assert obj instanceof TraversableTreeNode;
 
-        return ((TraversableTreeNode) obj).accept(null, null, new ConverterToMapVisitor(false));
+        return ((TraversableTreeNode) obj).accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
     }
 
     private static void assertSameObjects(Object expected, Object actual) {

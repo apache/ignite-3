@@ -5,9 +5,7 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
- *
  *      http://www.apache.org/licenses/LICENSE-2.0
- *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,23 +13,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.network.configuration;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import org.junit.jupiter.api.Test;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+class KeyStoreConfigurationSchemaTest {
 
-    /** Username. */
-    @Value
-    public String username;
+    @Test
+    public void passwordIsSecret() {
+        Field password = Arrays.stream(KeyStoreConfigurationSchema.class.getDeclaredFields())
+                .filter(it -> it.getName().equals("password"))
+                .findFirst()
+                .orElseThrow();
 
-    /** Password. */
-
-    @Secret
-    @Value
-    public String password;
+        assertTrue(password.isAnnotationPresent(Secret.class));
+    }
 }

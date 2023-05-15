@@ -42,7 +42,12 @@ public class HoconConverter {
             ConfigurationRegistry registry,
             @NotNull List<String> path
     ) throws IllegalArgumentException {
-        Object res = registry.represent(path, new ConverterToMapVisitor(false));
+        Object res = registry.represent(
+                path,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .maskValues(true)
+                        .build());
 
         return ConfigImpl.fromAnyRef(res, null);
     }
