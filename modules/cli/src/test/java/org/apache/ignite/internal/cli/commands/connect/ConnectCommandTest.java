@@ -27,7 +27,7 @@ class ConnectCommandTest extends CliCommandTestBase {
 
     @Override
     protected Class<?> getCommandClass() {
-        return ConnectCommand.class;
+        return ConnectReplCommand.class;
     }
 
     @Test

@@ -56,7 +56,7 @@ public:
     [[nodiscard]] constexpr std::int32_t get_nano() const noexcept { return m_nanos; }
 
     /**
-     * Compare to another value.
+     * compare to another value.
      *
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.

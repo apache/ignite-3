@@ -24,17 +24,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.internal.sql.engine.datatypes.CustomDataTypeTestSpecs;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryCustomDataTypeTest;
-import org.apache.ignite.internal.sql.engine.datatypes.tests.CustomDataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryDataTypeTest;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for {@code SELECT} operator for {@link UuidType UUID data type}.
+ * Tests for {@code SELECT} operations for {@link UuidType UUID data type}.
  */
-public class ItUuidQueryTest extends BaseQueryCustomDataTypeTest<UUID> {
+public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
 
     /**
      * {@code UUID} vs type that can not be casted to {@code UUID}.
@@ -51,7 +51,7 @@ public class ItUuidQueryTest extends BaseQueryCustomDataTypeTest<UUID> {
 
     /** {@inheritDoc} **/
     @Override
-    protected CustomDataTypeTestSpec<UUID> getTypeSpec() {
-        return CustomDataTypeTestSpecs.UUID_TYPE;
+    protected DataTypeTestSpec<UUID> getTypeSpec() {
+        return DataTypeTestSpecs.UUID_TYPE;
     }
 }

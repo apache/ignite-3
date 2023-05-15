@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryStartResponse interface.
@@ -42,6 +43,7 @@ public interface QueryStartResponse extends NetworkMessage, Serializable {
     /**
      * Get error.
      */
+    @Nullable
     @Marshallable
     Throwable error();
 }

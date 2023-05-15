@@ -61,6 +61,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -72,7 +73,6 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -184,9 +184,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
@@ -292,26 +289,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock);
 
-        ReplicaManager replicaMgr = new ReplicaManager(
-                clusterSvc,
-                hybridClock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
-        );
-
-        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var lockManager = new HeapLockManager();
-
-        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
-
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
-
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -323,6 +305,21 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 distributedConfigurationUpdater,
                 nodeAttributes
         );
+
+        ReplicaManager replicaMgr = new ReplicaManager(
+                clusterSvc,
+                cmgManager,
+                hybridClock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
+
+        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var lockManager = new HeapLockManager();
+
+        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+
+        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
@@ -407,12 +404,16 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
-                vault
+                vault,
+                null,
+                null
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
 
-        CatalogManager catalogManager = new CatalogServiceImpl(metaStorageMgr);
+        CatalogManager catalogManager = new CatalogServiceImpl(
+                new UpdateLogImpl(metaStorageMgr, vault)
+        );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -1031,11 +1032,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        List<IgniteComponent> components = startPartialNode(1, null);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19408 Need to use ItIgniteNodeRestartTest.startPartialNode(int, String)
+        startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2);
 
-        stopPartialNode(components);
+        stopNode(1);
 
         Table table = ignite.tables().table(TABLE_NAME);
 
@@ -1045,9 +1047,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         createTableWithoutData(ignite, TABLE_NAME_2, 1, 1);
 
-        components = startPartialNode(1, null);
+        IgniteImpl ignite1 = startNode(1);
 
-        TableManager tableManager = findComponent(components, TableManager.class);
+        TableManager tableManager = (TableManager) ignite1.tables();
 
         assertNotNull(tableManager);
 

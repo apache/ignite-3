@@ -23,7 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -95,11 +95,11 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
-            ReplicationGroupId commitPartition,
+            TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups,
+            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
             UUID txId
     );
 
@@ -107,19 +107,19 @@ public interface TxManager extends IgniteComponent {
      * Sends cleanup request to the specified primary replica.
      *
      * @param recipientNode Primary replica to process given cleanup request.
-     * @param replicationGroupIds Replication group id with raft term.
+     * @param tablePartitionIds Table partition ids with raft terms.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
-     * @param commitTimestamp Commit timestamp.
+     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds,
+            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
             UUID txId,
             boolean commit,
-            HybridTimestamp commitTimestamp
-            );
+            @Nullable HybridTimestamp commitTimestamp
+    );
 
     /**
      * Returns a number of finished transactions.

@@ -235,7 +235,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains implementations of Rex operators as Java code.
@@ -1633,17 +1633,38 @@ public class RexImpTable {
                             .implement(translator, call, NullAs.NULL);
                 }
             } else if (op == TYPEOF) {
-                assert call.getOperands().size() == 1 : call.getOperands();
+                if (call.getOperands().size() == 1) {
+                    CallImplementor implementor = createTypeOfImplementor();
 
-                RelDataType type = call.getOperands().get(0).getType();
-
-                return Expressions.constant(type.toString());
+                    return implementor.implement(translator, call, NullAs.NOT_POSSIBLE);
+                }
             } else if (op == NULL_BOUND) {
                 return Expressions.call(root, IgniteMethod.CONTEXT_NULL_BOUND.method());
             }
 
             throw new AssertionError("unknown function " + op);
         }
+    }
+
+
+    private static CallImplementor createTypeOfImplementor() {
+        return createImplementor(new NotNullImplementor() {
+            @Override
+            public Expression implement(RexToLixTranslator translator, RexCall call, List<Expression> translatedOperands) {
+                Method method = IgniteMethod.CONSUME_FIRST_ARGUMENT.method();
+
+                RexNode operand = call.getOperands().get(0);
+                String operandType = operand.getType().toString();
+
+                List<Expression> finalOperands = new ArrayList<>(2);
+                // The first argument is an arbitrary expression (must be evaluated).
+                // The second argument is a type of the first expression (a constant).
+                finalOperands.add(translatedOperands.get(0));
+                finalOperands.add(Expressions.constant(operandType));
+
+                return Expressions.call(method, finalOperands);
+            }
+        }, NullPolicy.NONE, false);
     }
 
     /** Implementor for the {@code NOT} operator. */
@@ -1829,8 +1850,7 @@ public class RexImpTable {
 
         private final boolean harmonize;
 
-        AbstractRexCallImplementor(String variableName,
-                @Nullable NullPolicy nullPolicy, boolean harmonize) {
+        AbstractRexCallImplementor(String variableName, @Nullable NullPolicy nullPolicy, boolean harmonize) {
             this.variableName = requireNonNull(variableName, "variableName");
             this.nullPolicy = nullPolicy;
             this.harmonize = harmonize;

@@ -24,6 +24,7 @@ dependencies {
 
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
+    implementation libs.jetbrains.annotations
 }
 
 description = 'ignite-placement-driver-api'

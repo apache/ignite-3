@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -74,10 +75,8 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -105,6 +104,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
@@ -136,7 +136,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -191,9 +190,6 @@ public class ItRebalanceDistributedTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     @Target(ElementType.METHOD)
@@ -233,7 +229,12 @@ public class ItRebalanceDistributedTest {
             node.start();
         }
 
-        nodes.get(0).cmgManager.initCluster(List.of(nodes.get(2).name), List.of(), "cluster");
+        nodes.get(0).cmgManager.initCluster(List.of(nodes.get(2).name), List.of(nodes.get(2).name), "cluster");
+
+        assertThat(
+                allOf(nodes.get(0).cmgManager.onJoinReady(), nodes.get(1).cmgManager.onJoinReady(), nodes.get(2).cmgManager.onJoinReady()),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
@@ -245,7 +246,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testOneRebalance() throws Exception {
-        int zoneId = createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -254,8 +255,9 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-                        .changeZoneId(zoneId)));
+        ));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
@@ -270,7 +272,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testTwoQueuedRebalances() {
-        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -279,8 +281,9 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
+                ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-                        .changeZoneId(zoneId)));
+        ));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
@@ -296,7 +299,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testThreeQueuedRebalances() throws Exception {
-        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -305,8 +308,8 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-                        .changeZoneId(zoneId)));
+                ZONE_1_NAME,
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
@@ -325,17 +328,18 @@ public class ItRebalanceDistributedTest {
     void testOnLeaderElectedRebalanceRestart() throws Exception {
         String zoneName = "zone2";
 
-        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2));
+        await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
+        // Tests that the distribution zone created on node0 is available on node1.
         TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
                 "TBL1",
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-                        .changeZoneId(zoneId)));
+                zoneName,
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
         Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(0, 0).stream()
                 .map(Assignment::consistentId)
@@ -388,7 +392,7 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testRebalanceRetryWhenCatchupFailed() throws Exception {
-        int zoneId = await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -397,8 +401,8 @@ public class ItRebalanceDistributedTest {
 
         await(nodes.get(0).tableManager.createTableAsync(
                 "TBL1",
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-                        .changeZoneId(zoneId)));
+                ZONE_1_NAME,
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
@@ -627,8 +631,25 @@ public class ItRebalanceDistributedTest {
 
             raftManager = new Loza(clusterService, raftConfiguration, dir, new HybridClockImpl());
 
+            var clusterStateStorage = new TestClusterStateStorage();
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+
+            cmgManager = new ClusterManagementGroupManager(
+                    vaultManager,
+                    clusterService,
+                    raftManager,
+                    clusterStateStorage,
+                    logicalTopology,
+                    clusterManagementConfiguration,
+                    distributedConfigurationUpdater,
+                    nodeAttributes
+            );
+
             replicaManager = new ReplicaManager(
                     clusterService,
+                    cmgManager,
                     new HybridClockImpl(),
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
@@ -642,30 +663,15 @@ public class ItRebalanceDistributedTest {
 
             txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
 
-            var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
-
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
-
-            cmgManager = new ClusterManagementGroupManager(
-                    vaultManager,
-                    clusterService,
-                    raftManager,
-                    clusterStateStorage,
-                    logicalTopology,
-                    clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
-                    nodeAttributes
-            );
-
             String nodeName = clusterService.nodeName();
+
+            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
+                    logicalTopologyService,
                     raftManager,
                     testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
@@ -728,7 +734,6 @@ public class ItRebalanceDistributedTest {
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
-            LogicalTopologyService logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
                     logicalTopologyService,
@@ -766,7 +771,9 @@ public class ItRebalanceDistributedTest {
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
-                    vaultManager
+                    vaultManager,
+                    cmgManager,
+                    distributionZoneManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
@@ -913,7 +920,7 @@ public class ItRebalanceDistributedTest {
     }
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
-        int zoneId = await(
+        await(
                 createZone(
                         nodes.get(0).distributionZoneManager,
                         zoneName, 1, replicas,
@@ -922,9 +929,9 @@ public class ItRebalanceDistributedTest {
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
+                        zoneName,
                         tableChange -> {
-                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
-                                    .changeZoneId(zoneId);
+                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange);
                         }
                 ),
                 willCompleteSuccessfully()

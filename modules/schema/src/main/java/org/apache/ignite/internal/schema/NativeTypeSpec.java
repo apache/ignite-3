@@ -26,6 +26,10 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for storage built-in data types definition. The class contains predefined values for fixed-sized types and some of the
@@ -352,6 +356,82 @@ public enum NativeTypeSpec {
                 return BigDecimal.class;
             default:
                 throw new IllegalStateException("Unknown typeSpec " + spec);
+        }
+    }
+
+    /**
+     * Gets client type corresponding to this server type.
+     *
+     * @return Client type code.
+     */
+    public ColumnType asColumnType() {
+        ColumnType columnType = asColumnTypeOrNull();
+
+        if (columnType == null) {
+            throw new IgniteException(Common.UNEXPECTED_ERR, "Unsupported native type: " + this);
+        }
+
+        return columnType;
+    }
+
+    /**
+     * Gets client type corresponding to this server type.
+     *
+     * @return Client type code.
+     */
+    @Nullable
+    public ColumnType asColumnTypeOrNull() {
+        switch (this) {
+            case INT8:
+                return ColumnType.INT8;
+
+            case INT16:
+                return ColumnType.INT16;
+
+            case INT32:
+                return ColumnType.INT32;
+
+            case INT64:
+                return ColumnType.INT64;
+
+            case FLOAT:
+                return ColumnType.FLOAT;
+
+            case DOUBLE:
+                return ColumnType.DOUBLE;
+
+            case DECIMAL:
+                return ColumnType.DECIMAL;
+
+            case NUMBER:
+                return ColumnType.NUMBER;
+
+            case UUID:
+                return ColumnType.UUID;
+
+            case STRING:
+                return ColumnType.STRING;
+
+            case BYTES:
+                return ColumnType.BYTE_ARRAY;
+
+            case BITMASK:
+                return ColumnType.BITMASK;
+
+            case DATE:
+                return ColumnType.DATE;
+
+            case TIME:
+                return ColumnType.TIME;
+
+            case DATETIME:
+                return ColumnType.DATETIME;
+
+            case TIMESTAMP:
+                return ColumnType.TIMESTAMP;
+
+            default:
+                return null;
         }
     }
 

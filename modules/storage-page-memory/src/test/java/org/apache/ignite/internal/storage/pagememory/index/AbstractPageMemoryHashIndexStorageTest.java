@@ -26,11 +26,13 @@ import static org.hamcrest.Matchers.empty;
 import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -59,29 +61,38 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testWithStringsLargerThanMaximumInlineSize() {
-        IndexRow indexRow0 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE), new RowId(TEST_PARTITION));
+        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
-        put(indexRow0);
-        put(indexRow1);
+        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
+        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
 
-        assertThat(getAll(indexRow0), contains(indexRow0.rowId()));
-        assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
+        put(index, indexRow0);
+        put(index, indexRow1);
 
-        assertThat(getAll(createIndexRow(1, "foo", new RowId(TEST_PARTITION))), empty());
+        assertThat(getAll(index, indexRow0), contains(indexRow0.rowId()));
+        assertThat(getAll(index, indexRow1), contains(indexRow1.rowId()));
+
+        assertThat(getAll(index, createIndexRow(serializer, new RowId(TEST_PARTITION), 1, "foo")), empty());
     }
 
     @Test
     void testFragmentedIndexColumns() {
-        IndexRow indexRow0 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
-        IndexRow indexRow1 = createIndexRow(1, randomString(random, baseEngineConfig.pageSize().value() * 2), new RowId(TEST_PARTITION));
+        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
-        put(indexRow0);
-        put(indexRow1);
+        String longString0 = randomString(random, baseEngineConfig.pageSize().value() * 2);
+        String longString1 = randomString(random, baseEngineConfig.pageSize().value() * 2);
 
-        assertThat(getAll(indexRow0), contains(indexRow0.rowId()));
-        assertThat(getAll(indexRow1), contains(indexRow1.rowId()));
+        IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString0);
+        IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString1);
 
-        assertThat(getAll(createIndexRow(1, "foo", new RowId(TEST_PARTITION))), empty());
+        put(index, indexRow0);
+        put(index, indexRow1);
+
+        assertThat(getAll(index, indexRow0), contains(indexRow0.rowId()));
+        assertThat(getAll(index, indexRow1), contains(indexRow1.rowId()));
+
+        assertThat(getAll(index, createIndexRow(serializer, new RowId(TEST_PARTITION), 1, "foo")), empty());
     }
 }

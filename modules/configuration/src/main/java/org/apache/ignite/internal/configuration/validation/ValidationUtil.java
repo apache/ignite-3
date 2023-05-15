@@ -68,7 +68,7 @@ public class ValidationUtil {
         newRoots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
             /** {@inheritDoc} */
             @Override
-            protected Object doVisitInnerNode(String key, InnerNode innerNode) {
+            protected Object doVisitInnerNode(Field field, String key, InnerNode innerNode) {
                 assert innerNode != null;
 
                 innerNode.traverseChildren(new AnyNodeConfigurationVisitor<Void>() {
@@ -80,7 +80,7 @@ public class ValidationUtil {
                     }
                 }, true);
 
-                return super.doVisitInnerNode(key, innerNode);
+                return super.doVisitInnerNode(field, key, innerNode);
             }
 
             /**

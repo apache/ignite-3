@@ -255,7 +255,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
         fillFromPrefixMap(rootNode, toPrefixMap(latest));
 
-        Object transformed = rootNode.accept(null, new ConverterToMapVisitor(false, true));
+        Object transformed = rootNode.accept(null, null, new ConverterToMapVisitor(false, true));
 
         ConfigValue conf = ConfigImpl.fromAnyRef(transformed, null);
 

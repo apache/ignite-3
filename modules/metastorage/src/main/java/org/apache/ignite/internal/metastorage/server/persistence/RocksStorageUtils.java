@@ -25,7 +25,6 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.metastorage.server.Value;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,9 +49,22 @@ class RocksStorageUtils {
     static byte[] longToBytes(long value) {
         var buffer = new byte[Long.BYTES];
 
-        LONG_ARRAY_HANDLE.set(buffer, 0, value);
+        putLongToBytes(value, buffer, 0);
 
         return buffer;
+    }
+
+    /**
+     * Puts a {@code long} value to the byte array at specified position.
+     *
+     * @param value Value.
+     * @param array Byte array.
+     * @param position Position to put long at.
+     */
+    static void putLongToBytes(long value, byte[] array, int position) {
+        assert position + Long.BYTES <= array.length : "pos=" + position + ", arr.len=" + array.length;
+
+        LONG_ARRAY_HANDLE.set(array, position, value);
     }
 
     /**
@@ -64,7 +76,20 @@ class RocksStorageUtils {
     static long bytesToLong(byte[] array) {
         assert array.length == Long.BYTES;
 
-        return (long) LONG_ARRAY_HANDLE.get(array, 0);
+        return bytesToLong(array, 0);
+    }
+
+    /**
+     * Gets a {@code long} value from a byte array starting from the specified position.
+     *
+     * @param array Byte array.
+     * @param offset Offset to read a value from.
+     * @return {@code long} value.
+     */
+    static long bytesToLong(byte[] array, int offset) {
+        assert offset + Long.BYTES <= array.length : "off=" + offset + ", arr.len=" + array.length;
+
+        return (long) LONG_ARRAY_HANDLE.get(array, offset);
     }
 
     /**
@@ -156,7 +181,6 @@ class RocksStorageUtils {
      * @param bytes Byte array of longs.
      * @return Array of longs.
      */
-    @NotNull
     static long[] getAsLongs(byte[] bytes) {
         // Value must be divisible by a size of a long, because it's a list of longs
         assert (bytes.length % Long.BYTES) == 0;
@@ -173,18 +197,39 @@ class RocksStorageUtils {
      * @param value New long value.
      * @return Byte array with a new value.
      */
-    static byte @NotNull [] appendLong(byte @Nullable [] bytes, long value) {
+    static byte[] appendLong(byte @Nullable [] bytes, long value) {
         if (bytes == null) {
             return longToBytes(value);
         }
 
-        // Allocate a one long size bigger array
+        // Allocate a one long bigger array.
         var result = new byte[bytes.length + Long.BYTES];
 
         // Copy the current value
         System.arraycopy(bytes, 0, result, 0, bytes.length);
 
         LONG_ARRAY_HANDLE.set(result, bytes.length, value);
+
+        return result;
+    }
+
+    /**
+     * Converts an array of {@code long} values to an array of bytes.
+     *
+     * @param values Array of values.
+     * @param valuesOffset Offset in the array of values to start from.
+     * @return Array of bytes.
+     */
+    static byte[] longsToBytes(long[] values, int valuesOffset) {
+        assert valuesOffset < values.length : "off=" + valuesOffset + ", arr.len=" + values.length;
+
+        var result = new byte[(values.length - valuesOffset) * Long.BYTES];
+
+        for (int srcIdx = valuesOffset, dstIdx = 0; srcIdx < values.length; srcIdx++, dstIdx++) {
+            long val = values[srcIdx];
+
+            LONG_ARRAY_HANDLE.set(result, dstIdx * Long.BYTES, val);
+        }
 
         return result;
     }

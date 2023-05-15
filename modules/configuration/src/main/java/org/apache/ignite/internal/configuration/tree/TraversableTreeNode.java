@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import java.lang.reflect.Field;
+
 /**
  * An interface for traversing a tree.
  */
@@ -24,10 +26,11 @@ public interface TraversableTreeNode {
     /**
      * Accept the visitor.
      *
+     * @param field Field of the node retrieved from its holder object.
      * @param key Name of the node retrieved from its holder object.
      * @param visitor Configuration visitor.
      * @param <T> Parameter type of the passed visitor.
      * @return Whatever {@code visitor} returned.
      */
-    <T> T accept(String key, ConfigurationVisitor<T> visitor);
+    <T> T accept(Field field, String key, ConfigurationVisitor<T> visitor);
 }

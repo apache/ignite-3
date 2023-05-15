@@ -168,17 +168,25 @@ public class ConnectToClusterQuestion {
 
         return Flows.<Void, SslConfig>acceptQuestion(question, () -> {
             SslConfig config = new SslConfig();
-            config.trustStorePath(escapeWindowsPath(enterString("trust store path")));
-            config.trustStorePassword(enterString("trust store password"));
+            config.trustStorePath(escapeWindowsPath(enterFilePath("trust store path")));
+            config.trustStorePassword(enterPassword("trust store password"));
             return config;
         }).then(Flows.acceptQuestionFlow(question2, config -> {
-            config.keyStorePath(escapeWindowsPath(enterString("key store path")));
-            config.keyStorePassword(enterString("key store password"));
+            config.keyStorePath(escapeWindowsPath(enterFilePath("key store path")));
+            config.keyStorePassword(enterPassword("key store password"));
         }));
     }
 
-    private static String enterString(String question) {
-        return QuestionAskerFactory.newQuestionAsker().askQuestion("Enter " + question + ": ");
+    private static String enterFilePath(String question) {
+        return QuestionAskerFactory.newQuestionAsker()
+                .completeFilePaths(true)
+                .askQuestion("Enter " + question + ": ");
+    }
+
+    private static String enterPassword(String question) {
+        return QuestionAskerFactory.newQuestionAsker()
+                .maskInput(true)
+                .askQuestion("Enter " + question + ": ");
     }
 
     /** Escapes single backslashes to double backslashes, skips double backslashes if they are present. */

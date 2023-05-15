@@ -24,10 +24,14 @@ import java.util.List;
  */
 public class QuestionAsker {
 
-    private final QuestionWriterReader readWriter;
+    private final QuestionWriterReaderFactory writerReaderFactory;
 
-    public QuestionAsker(QuestionWriterReader readWriter) {
-        this.readWriter = readWriter;
+    private boolean completeFilePaths;
+
+    private boolean maskInput;
+
+    public QuestionAsker(QuestionWriterReaderFactory writerReaderFactory) {
+        this.writerReaderFactory = writerReaderFactory;
     }
 
     /**
@@ -40,7 +44,7 @@ public class QuestionAsker {
      * @return value of answer.
      */
     public <I, O> O askQuestion(String question, I input, List<QuestionAnswer<I, O>> answers) {
-        String userAnswer = readWriter.readAnswer(question);
+        String userAnswer = askQuestion(question);
 
         for (QuestionAnswer<I, O> answer : answers) {
             if (answer.isAnswer(userAnswer)) {
@@ -57,6 +61,28 @@ public class QuestionAsker {
      * @return value of answer.
      */
     public String askQuestion(String question) {
-        return readWriter.readAnswer(question);
+        QuestionWriterReader readWriter = writerReaderFactory.createWriterReader(completeFilePaths);
+        return readWriter.readAnswer(question, maskInput);
     }
+
+    /**
+     * Enables file paths completion.
+     *
+     * @param completeFilePaths If {@code true}, file paths will be completed.
+     */
+    public QuestionAsker completeFilePaths(boolean completeFilePaths) {
+        this.completeFilePaths = completeFilePaths;
+        return this;
+    }
+
+    /**
+     * Enables input masking.
+     *
+     * @param maskInput If {@code true}, user input will be masked with asterisks.
+     */
+    public QuestionAsker maskInput(boolean maskInput) {
+        this.maskInput = maskInput;
+        return this;
+    }
+
 }

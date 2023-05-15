@@ -38,7 +38,7 @@ public class TableGetBenchmarks
     [GlobalSetup]
     public async Task GlobalSetup()
     {
-        _server = new FakeServer();
+        _server = new FakeServer(true);
         _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_server.Endpoint));
     }
 

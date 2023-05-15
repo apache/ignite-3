@@ -44,8 +44,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -60,6 +59,8 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest {
+    private final UUID tableId = UUID.randomUUID();
+
     protected TxStateTableStorage tableStorage;
 
     /**
@@ -117,8 +118,10 @@ public abstract class AbstractTxStateStorageTest {
         }
     }
 
-    private List<ReplicationGroupId> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(Integer::toString).map(TestReplicationGroupId::new).collect(toList());
+    private List<TablePartitionId> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c)
+                .mapToObj(partitionNumber -> new TablePartitionId(tableId, partitionNumber))
+                .collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {

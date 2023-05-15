@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 
 import jakarta.inject.Inject;
 import java.io.File;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,7 +51,6 @@ import org.jline.reader.ParsedLine;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.SystemCompleter;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
@@ -63,7 +61,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /** Integration test for all completions in interactive mode. */
-@Disabled("IGNITE-19351")
 public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegrationBase {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
@@ -398,7 +395,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         await().until(() -> nodeNameRegistry.urls(), not(empty()));
 
         // Then
-        String[] expectedUrls = nodeNameRegistry.urls().stream().map(URL::toString).toArray(String[]::new);
+        String[] expectedUrls = nodeNameRegistry.urls().toArray(String[]::new);
         assertThat("For given parsed words: " + parsedLine.words(),
                 complete(parsedLine),
                 containsInAnyOrder(expectedUrls));

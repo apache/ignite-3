@@ -28,6 +28,7 @@ import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
+import java.sql.JDBCType;
 import java.sql.NClob;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
@@ -40,10 +41,14 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
@@ -51,13 +56,36 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc prepared statement implementation.
  */
 public class JdbcPreparedStatement extends JdbcStatement implements PreparedStatement {
+
+    /** Supported JDBC types. */
+    private static final Set<JDBCType> SUPPORTED_TYPES = EnumSet.of(
+            JDBCType.BOOLEAN,
+            JDBCType.TINYINT,
+            JDBCType.SMALLINT,
+            JDBCType.INTEGER,
+            JDBCType.BIGINT,
+            JDBCType.FLOAT,
+            JDBCType.REAL,
+            JDBCType.DOUBLE,
+            JDBCType.DECIMAL,
+            JDBCType.DATE,
+            JDBCType.TIME,
+            JDBCType.TIMESTAMP,
+            JDBCType.CHAR,
+            JDBCType.VARCHAR,
+            JDBCType.BINARY,
+            JDBCType.VARBINARY,
+            JDBCType.OTHER // UUID.
+    );
+
     /** SQL query. */
     private final String sql;
 
@@ -109,7 +137,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
         closeResults();
 
-        if (CollectionUtils.nullOrEmpty(batchedArgs) || StringUtils.nullOrBlank(sql)) {
+        if (CollectionUtils.nullOrEmpty(batchedArgs)) {
             return INT_EMPTY_ARRAY;
         }
 
@@ -225,7 +253,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             batchedArgs = new ArrayList<>();
         }
 
-        batchedArgs.add(currentArgs.toArray());
+        batchedArgs.add(currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray());
 
         currentArgs = null;
     }
@@ -248,13 +276,17 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public void setNull(int paramIdx, int sqlType) throws SQLException {
+        checkType(sqlType);
+
         setArgument(paramIdx, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setNull(int paramIdx, int sqlType, String typeName) throws SQLException {
-        setNull(paramIdx, sqlType);
+        checkType(sqlType);
+
+        setArgument(paramIdx, null);
     }
 
     /** {@inheritDoc} */
@@ -421,13 +453,47 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public void setObject(int paramIdx, Object x, int targetSqlType) throws SQLException {
-        setArgument(paramIdx, x); //TODO Do we support objects?
+        checkType(targetSqlType);
+
+        throw new SQLFeatureNotSupportedException("Conversion to target sql type is not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void setObject(int paramIdx, Object x) throws SQLException {
-        setArgument(paramIdx, x); //TODO Do we support objects?
+        if (x == null) {
+            setNull(paramIdx, Types.OTHER);
+        } else if (x instanceof Boolean) {
+            setBoolean(paramIdx, (Boolean) x);
+        } else if (x instanceof Byte) {
+            setByte(paramIdx, (Byte) x);
+        } else if (x instanceof Short) {
+            setShort(paramIdx, (Short) x);
+        } else if (x instanceof Integer) {
+            setInt(paramIdx, (Integer) x);
+        } else if (x instanceof Long) {
+            setLong(paramIdx, (Long) x);
+        } else if (x instanceof Float) {
+            setFloat(paramIdx, (Float) x);
+        } else if (x instanceof Double) {
+            setDouble(paramIdx, (Double) x);
+        } else if (x instanceof BigDecimal) {
+            setBigDecimal(paramIdx, (BigDecimal) x);
+        } else if (x instanceof String) {
+            setString(paramIdx, (String) x);
+        } else if (x instanceof byte[]) {
+            setBytes(paramIdx, (byte[]) x);
+        } else if (x instanceof Date) {
+            setDate(paramIdx, (Date) x);
+        } else if (x instanceof Time) {
+            setTime(paramIdx, (Time) x);
+        } else if (x instanceof Timestamp) {
+            setTimestamp(paramIdx, (Timestamp) x);
+        } else if (x instanceof UUID) {
+            setArgument(paramIdx, x);
+        } else {
+            throw new SQLFeatureNotSupportedException("Parameter is not supported: " + x + " <" + x.getClass().getTypeName() + ">");
+        }
     }
 
     /** {@inheritDoc} */
@@ -435,7 +501,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void setObject(int paramIdx, Object x, int targetSqlType, int scaleOrLen) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Objects are not supported.");
+        throw new SQLFeatureNotSupportedException("Conversion to target sql type is not supported.");
     }
 
     /** {@inheritDoc} */
@@ -634,7 +700,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      * Sets query argument value.
      *
      * @param paramIdx Index.
-     * @param val      Value.
+     * @param val Value.
      * @throws SQLException If index is invalid.
      */
     private void setArgument(int paramIdx, Object val) throws SQLException {
@@ -656,14 +722,54 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     }
 
     /**
+     * Converts value of JDBC type to value of Ignite Client protocol types.
+     *
+     * <ul>
+     *     <li>java.sql.* to Java Time API</li>
+     * </ul>
+     */
+    private @Nullable Object convertJdbcTypeToInternal(@Nullable Object val) {
+        if (val instanceof java.util.Date) {
+            if (val instanceof Timestamp) {
+                Timestamp timeStamp = (Timestamp) val;
+                return timeStamp.toLocalDateTime();
+            } else if (val instanceof Date) {
+                Date date = (Date) val;
+                return date.toLocalDate();
+            } else if (val instanceof Time) {
+                Time time = (Time) val;
+                return time.toLocalTime();
+            }
+
+            return ((java.util.Date) val).toInstant();
+        }
+
+        return val;
+    }
+
+    List<Object> getArguments() {
+        return currentArgs;
+    }
+
+    /**
      * Execute query with arguments and nullify them afterwards.
      *
      * @param statementType Expected statement type.
      * @throws SQLException If failed.
      */
     private void executeWithArguments(JdbcStatementType statementType) throws SQLException {
-        execute0(statementType, sql, currentArgs);
+        Object[] args = currentArgs == null ? ArrayUtils.OBJECT_EMPTY_ARRAY :
+                currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray();
+
+        execute0(statementType, sql, args);
 
         currentArgs = null;
+    }
+
+    private static void checkType(int sqlType) throws SQLException {
+        JDBCType jdbcType = JDBCType.valueOf(sqlType);
+        if (!SUPPORTED_TYPES.contains(jdbcType)) {
+            throw new SQLFeatureNotSupportedException("Type is not supported: " + sqlType);
+        }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,33 +28,36 @@ public interface ConfigurationVisitor<T> {
     /**
      * Invoked on visiting leaf node.
      *
+     * @param field Field of the node.
      * @param key Name of the serializable value retrieved from its holder object.
      * @param val Configuration value.
      * @return Anything that implementation decides to return.
      */
-    default @Nullable T visitLeafNode(String key, Serializable val) {
+    default @Nullable T visitLeafNode(@Nullable Field field, String key, Serializable val) {
         return null;
     }
 
     /**
      * Invoked on visiting regular inner node.
      *
+     * @param field Field of the node.
      * @param key  Name of the node retrieved from its holder object.
      * @param node Inner configuration node.
      * @return Anything that implementation decides to return.
      */
-    default @Nullable T visitInnerNode(String key, InnerNode node) {
+    default @Nullable T visitInnerNode(@Nullable Field field, String key, InnerNode node) {
         return null;
     }
 
     /**
      * Invoked on visiting named list nodes.
      *
+     * @param field Field of the node.
      * @param key  Name of the node retrieved from its holder object.
      * @param node Named list inner configuration node.
      * @return Anything that implementation decides to return.
      */
-    default @Nullable T visitNamedListNode(String key, NamedListNode<?> node) {
+    default @Nullable T visitNamedListNode(@Nullable Field field, String key, NamedListNode<?> node) {
         return null;
     }
 }

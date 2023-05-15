@@ -49,7 +49,7 @@ public class Replica {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
-    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    public static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
@@ -61,7 +61,7 @@ public class Replica {
     private final CompletableFuture<Void> whenReplicaReady;
 
     /** Storage index tracker. */
-    private final PendingComparableValuesTracker<Long> storageIndexTracker;
+    private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /** Topology aware Raft client. */
     private final TopologyAwareRaftGroupService raftClient;
@@ -92,7 +92,7 @@ public class Replica {
             ReplicationGroupId replicaGrpId,
             CompletableFuture<Void> replicaReady,
             ReplicaListener listener,
-            PendingComparableValuesTracker<Long> storageIndexTracker,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode
     ) {
@@ -255,5 +255,16 @@ public class Replica {
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, Runnable::run)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
+    }
+
+    /**
+     * Returns consistent id of the most convenient primary node.
+     *
+     * @return Node consistent id.
+     */
+    public String proposedPrimary() {
+        Peer leased = raftClient.leader();
+
+        return leased != null ? leased.consistentId() : localNode.name();
     }
 }

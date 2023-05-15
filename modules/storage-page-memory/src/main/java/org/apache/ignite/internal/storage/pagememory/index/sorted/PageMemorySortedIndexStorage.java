@@ -178,8 +178,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         return new SortedIndexRow(new IndexColumns(partitionId, tuple.byteBuffer()), rowId);
     }
 
-    private IndexRowImpl toIndexRowImpl(SortedIndexRow sortedIndexRow) {
-        return new IndexRowImpl(
+    private @Nullable IndexRowImpl toIndexRowImpl(@Nullable SortedIndexRow sortedIndexRow) {
+        return sortedIndexRow == null ? null : new IndexRowImpl(
                 new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer()),
                 sortedIndexRow.rowId()
         );
@@ -224,6 +224,9 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         };
     }
 
+    /** Constant that represents the absence of value in {@link ScanCursor}. */
+    private static final SortedIndexRow NO_INDEX_ROW = new SortedIndexRow(null, null);
+
     private class ScanCursor implements PeekCursor<IndexRow> {
         @Nullable
         private Boolean hasNext;
@@ -236,6 +239,9 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
         @Nullable
         private SortedIndexRow treeRow;
+
+        @Nullable
+        private SortedIndexRow peekedRow = NO_INDEX_ROW;
 
         private ScanCursor(@Nullable SortedIndexRowKey lower, @Nullable SortedIndexRowKey upper) {
             this.lower = lower;
@@ -251,9 +257,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         public boolean hasNext() {
             return busy(() -> {
                 try {
-                    advanceIfNeeded();
-
-                    return hasNext;
+                    return advanceIfNeeded();
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException("Error while advancing the cursor", e);
                 }
@@ -264,11 +268,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         public IndexRow next() {
             return busy(() -> {
                 try {
-                    advanceIfNeeded();
-
-                    boolean hasNext = this.hasNext;
-
-                    if (!hasNext) {
+                    if (!advanceIfNeeded()) {
                         throw new NoSuchElementException();
                     }
 
@@ -286,56 +286,44 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             return busy(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
 
-                if (hasNext != null) {
-                    if (hasNext) {
-                        return toIndexRowImpl(treeRow);
-                    }
-
-                    return null;
-                }
-
                 try {
-                    SortedIndexRow nextTreeRow;
-
-                    if (treeRow == null) {
-                        nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
-                    } else {
-                        nextTreeRow = sortedIndexTree.findNext(treeRow, false);
-                    }
-
-                    if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
-                        return null;
-                    }
-
-                    return toIndexRowImpl(nextTreeRow);
+                    return toIndexRowImpl(peekBusy());
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException("Error when peeking next element", e);
                 }
             });
         }
 
-        private void advanceIfNeeded() throws IgniteInternalCheckedException {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
+        private @Nullable SortedIndexRow peekBusy() throws IgniteInternalCheckedException {
             if (hasNext != null) {
-                return;
+                return treeRow;
             }
 
             if (treeRow == null) {
-                treeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                peekedRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
             } else {
-                SortedIndexRow next = sortedIndexTree.findNext(treeRow, false);
-
-                if (next == null) {
-                    hasNext = false;
-
-                    return;
-                } else {
-                    treeRow = next;
-                }
+                peekedRow = sortedIndexTree.findNext(treeRow, false);
             }
 
-            hasNext = treeRow != null && (upper == null || compareRows(treeRow, upper) < 0);
+            if (peekedRow == null || (upper != null && compareRows(peekedRow, upper) >= 0)) {
+                peekedRow = null;
+            }
+
+            return peekedRow;
+        }
+
+        private boolean advanceIfNeeded() throws IgniteInternalCheckedException {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
+
+            if (hasNext != null) {
+                return hasNext;
+            }
+
+            treeRow = (peekedRow == NO_INDEX_ROW) ? peekBusy() : peekedRow;
+            peekedRow = NO_INDEX_ROW;
+
+            hasNext = treeRow != null;
+            return hasNext;
         }
 
         private int compareRows(SortedIndexRowKey key1, SortedIndexRowKey key2) {

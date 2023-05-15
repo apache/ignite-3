@@ -71,7 +71,6 @@ public class NodeUrlMixin {
             }
             if (options.nodeName != null) {
                 return nodeNameRegistry.nodeUrlByName(options.nodeName)
-                        .map(URL::toString)
                         .orElseThrow(() -> new IgniteCliException("Node " + options.nodeName
                                 + " not found. Provide a valid name or use a URL"));
             }

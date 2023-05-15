@@ -41,9 +41,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -347,7 +347,7 @@ public class MvGcTest {
 
         StorageUpdateHandler storageUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lvm);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
                 HybridTimestamp.MIN_VALUE
         ));
 
@@ -362,7 +362,7 @@ public class MvGcTest {
         verify(safeTimeTracker).waitFor(lvm);
 
         // Update the safe time to be equal to the low watermark and make sure the garbage collection starts.
-        safeTimeTracker.update(lvm);
+        safeTimeTracker.update(lvm, null);
 
         assertThat(invokeVacuumMethodFuture, willSucceedFast());
     }

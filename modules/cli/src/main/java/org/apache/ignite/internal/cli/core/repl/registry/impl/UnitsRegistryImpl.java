@@ -19,11 +19,10 @@ package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
 import jakarta.inject.Singleton;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.unit.ListUnitCall;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -40,7 +39,7 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
 
     private final ListUnitCall call;
 
-    private final ConcurrentMap<String, Set<String>> idToVersions = new ConcurrentHashMap<>();
+    private LazyObjectRef<Map<String, Set<String>>> idToVersionsRef;
 
     public UnitsRegistryImpl(ListUnitCall call) {
         this.call = call;
@@ -48,34 +47,44 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
 
     @Override
     public void onConnect(SessionInfo sessionInfo) {
-        CompletableFuture.runAsync(() -> updateState(sessionInfo.nodeUrl()));
+        updateState(sessionInfo.nodeUrl());
     }
 
     private void updateState(String url) {
-        try {
-            lastKnownUrl.set(url);
+        lastKnownUrl.set(url);
+
+        idToVersionsRef = new LazyObjectRef<>(() -> {
             CallOutput<List<UnitStatusRecord>> output = call.execute(new UrlCallInput(url));
             if (!output.hasError() && !output.isEmpty()) {
-                output.body().forEach(record -> idToVersions.put(record.id(), record.versionToStatus().keySet()));
+
+                return output.body().stream()
+                        .collect(Collectors.toMap(
+                                UnitStatusRecord::id,
+                                record -> record.versionToStatus().keySet())
+                        );
+            } else {
+                return null;
             }
-        } catch (Exception ignored) {
-            // no-op
-        }
+        });
     }
 
     @Override
     public void onDisconnect() {
-        idToVersions.clear();
+        idToVersionsRef = null;
     }
 
     @Override
     public Set<String> versions(String unitId) {
-        return idToVersions.get(unitId);
+        return (idToVersionsRef == null || idToVersionsRef.get() == null)
+                ? Set.of()
+                : idToVersionsRef.get().get(unitId);
     }
 
     @Override
     public Set<String> ids() {
-        return idToVersions.keySet();
+        return (idToVersionsRef == null || idToVersionsRef.get() == null)
+                ? Set.of()
+                : idToVersionsRef.get().keySet();
     }
 
     @Override

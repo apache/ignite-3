@@ -17,15 +17,10 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
-import static org.apache.ignite.security.AuthenticationConfig.disabled;
-
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -34,14 +29,10 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
-import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfig;
-import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationProviderConfig;
-import org.apache.ignite.internal.rest.api.cluster.authentication.BasicAuthenticationProviderConfig;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.security.AuthenticationType;
 
 /**
  * Cluster management controller implementation.
@@ -79,16 +70,11 @@ public class ClusterManagementController implements ClusterManagementApi {
                     initCommand.cmgNodes());
         }
 
-        AuthenticationConfig authenticationConfigDto = initCommand.authenticationConfig();
-        org.apache.ignite.security.AuthenticationConfig authenticationConfig = authenticationConfigDto == null
-                ? disabled()
-                : authnConfigDtoToRestAuthnConfig(authenticationConfigDto);
-
         return clusterInitializer.initCluster(
                         initCommand.metaStorageNodes(),
                         initCommand.cmgNodes(),
                         initCommand.clusterName(),
-                        authenticationConfig
+                        initCommand.clusterConfiguration()
                 )
                 .exceptionally(ex -> {
                     throw mapException(ex);
@@ -121,34 +107,5 @@ public class ClusterManagementController implements ClusterManagementApi {
         }
 
         return new IgniteException(ex);
-    }
-
-    private org.apache.ignite.security.AuthenticationConfig authnConfigDtoToRestAuthnConfig(AuthenticationConfig configDto) {
-        return new org.apache.ignite.security.AuthenticationConfig(configDto.enabled(), authnProviders(configDto.providers()));
-    }
-
-    private List<org.apache.ignite.security.AuthenticationProviderConfig> authnProviders(List<AuthenticationProviderConfig> providers) {
-        if (providers == null) {
-            return Collections.emptyList();
-        } else {
-            return providers.stream()
-                    .map(this::authnProviderConfigDtoToAuthnProviderConfig)
-                    .collect(Collectors.toList());
-        }
-    }
-
-    private org.apache.ignite.security.AuthenticationProviderConfig authnProviderConfigDtoToAuthnProviderConfig(
-            AuthenticationProviderConfig configDto) {
-        AuthenticationType type = configDto.type();
-        if (type == AuthenticationType.BASIC) {
-            BasicAuthenticationProviderConfig basicAuthenticationProviderConfigDto = (BasicAuthenticationProviderConfig) configDto;
-            return new org.apache.ignite.security.BasicAuthenticationProviderConfig(
-                    basicAuthenticationProviderConfigDto.name(),
-                    basicAuthenticationProviderConfigDto.username(),
-                    basicAuthenticationProviderConfigDto.password()
-            );
-        } else {
-            throw new IllegalArgumentException("Unexpected auth type: " + type);
-        }
     }
 }

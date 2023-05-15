@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -132,9 +134,10 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         vaultMgr.start();
         clusterCfgMgr.start();
         metaStorageManager.start();
-        distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
+
+        distributionZoneManager.start();
 
         clearInvocations(keyValueStorage);
     }
@@ -188,7 +191,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testDataNodesNotPropagatedAfterZoneCreation() throws Exception {
-        keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
+        keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100), HybridTimestamp.MIN_VALUE);
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
 
@@ -203,7 +206,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertDataNodesForZone(1, nodes, keyValueStorage);
 
-        keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100));
+        keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100), HybridTimestamp.MIN_VALUE);
 
         distributionZoneManager.dropZone(ZONE_NAME).get();
 

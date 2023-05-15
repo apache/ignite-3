@@ -28,6 +28,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link NetworkMessage} implementation.
@@ -50,41 +51,51 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
 
     boolean booleanH();
 
-    byte[] byteArrI();
+    byte @Nullable [] byteArrI();
 
-    short[] shortArrJ();
+    short @Nullable [] shortArrJ();
 
-    int[] intArrK();
+    int @Nullable [] intArrK();
 
-    long[] longArrL();
+    long @Nullable [] longArrL();
 
-    float[] floatArrM();
+    float @Nullable [] floatArrM();
 
-    double[] doubleArrN();
+    double @Nullable [] doubleArrN();
 
-    char[] charArrO();
+    char @Nullable [] charArrO();
 
-    boolean[] booleanArrP();
+    boolean @Nullable [] booleanArrP();
 
+    @Nullable
     String strQ();
 
+    @Nullable
     BitSet bitSetR();
 
+    @Nullable
     UUID uuidS();
 
+    @Nullable
     IgniteUuid igniteUuidT();
 
+    @Nullable
     NetworkMessage netMsgU();
 
-    NetworkMessage[] netMsgArrV();
+    NetworkMessage @Nullable [] netMsgArrV();
 
+    @Nullable
     Collection<NetworkMessage> netMsgCollW();
 
+    @Nullable
     Map<String, NetworkMessage> netMsgMapX();
 
+    @Nullable
     List<NetworkMessage> netMsgListY();
 
+    @Nullable
     Set<NetworkMessage> netMsgSetY();
 
+    @Nullable
     ByteBuffer byteBufferZ();
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import java.lang.reflect.Field;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
@@ -63,8 +64,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
 
     /** {@inheritDoc} */
     @Override
-    public final <T> T accept(String key, ConfigurationVisitor<T> visitor) {
-        return visitor.visitInnerNode(key, this);
+    public final <T> T accept(Field field, String key, ConfigurationVisitor<T> visitor) {
+        return visitor.visitInnerNode(field, key, this);
     }
 
     /**

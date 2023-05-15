@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyC
 import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
+import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
@@ -141,7 +142,8 @@ public class UrlOptionsNegativeTest {
                 arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
                 arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
+                arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
+                arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
         );

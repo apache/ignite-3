@@ -17,7 +17,9 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;import java.util.Collection;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.annotations.Marshallable;
@@ -59,6 +61,7 @@ public final class RpcRequests {
          *
          * @return String with error message.
          */
+        @Nullable
         String errorMsg();
 
         /**
@@ -66,7 +69,8 @@ public final class RpcRequests {
          *
          * @return String new leader id, null otherwise.
          */
-        @Nullable String leaderId();
+        @Nullable
+        String leaderId();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.SM_ERROR_RESPONSE)
@@ -168,10 +172,12 @@ public final class RpcRequests {
 
         long prevLogIndex();
 
+        @Nullable
         Collection<EntryMeta> entriesList();
 
         long committedIndex();
 
+        @Nullable
         @Marshallable
         ByteString data();
 
@@ -224,11 +230,14 @@ public final class RpcRequests {
     public interface ReadIndexRequest extends Message {
         String groupId();
 
+        @Nullable
         String serverId();
 
+        @Nullable
         @Marshallable
         List<ByteString> entriesList();
 
+        @Nullable
         String peerId();
     }
 
