@@ -17,7 +17,6 @@
 
 package org.apache.ignite.example.table;
 
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import org.apache.ignite.client.IgniteClient;
@@ -43,6 +42,7 @@ public class DataStreamerExample {
                         publisher,
                         pojo -> Tuple.create().set("id", pojo.id),
                         new TableUpdateReceiver(),
+                        null,
                         new DataStreamerOptions().batchSize(512));
 
         publisher.submit(new MyData(1, "abc"));
@@ -50,25 +50,12 @@ public class DataStreamerExample {
         fut.join();
     }
 
-    private static void streamDataWithoutTable(IgniteClient client) {
-        var publisher = new SubmissionPublisher<MyData>();
-
-        CompletableFuture<Void> fut = client
-                .streamData(
-                        publisher,
-                        new ProcessAndSendToAnotherServiceReceiver(),
-                        null);
-
-        publisher.submit(new MyData(2, "xyz"));
-
-        fut.join();
-    }
-
-    static class TableUpdateReceiver implements StreamReceiver<MyData> {
+    static class TableUpdateReceiver implements StreamReceiver<MyData, MyResult> {
         @Override
-        public CompletableFuture<Void> receive(Collection<MyData> batch, StreamReceiverContext context) {
-            // Transform custom data into tuples and insert.
-            for (MyData row : batch) {
+        public CompletableFuture<MyResult> receive(MyData row, StreamReceiverContext context) {
+            try {
+
+                // Transform custom data into tuples and insert.
                 Tuple rec = Tuple.create()
                         .set("id", row.id)
                         .set("name", row.name);
@@ -86,17 +73,14 @@ public class DataStreamerExample {
                         .table("bar")
                         .recordView()
                         .upsert(null, colocatedRec);
+
+                // Return null to indicate success and avoid sending result back to the client.
+                // Can be a real future in case of async processing.
+                return CompletableFuture.completedFuture(null);
+            } catch (Exception e) {
+                // Return problematic result to the client.
+                return CompletableFuture.completedFuture(new MyResult(row, "Could not process item: " + e.getMessage()));
             }
-
-            return CompletableFuture.completedFuture(null); // Can be a real future in case of async processing.
-        }
-    }
-
-    static class ProcessAndSendToAnotherServiceReceiver implements StreamReceiver<MyData> {
-        @Override
-        public CompletableFuture<Void> receive(Collection<MyData> batch, StreamReceiverContext context) {
-            // Process data, serialize into JSON and send to some web API.
-            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -108,6 +92,17 @@ public class DataStreamerExample {
         public MyData(int id, String name) {
             this.id = id;
             this.name = name;
+        }
+    }
+
+    static class MyResult {
+        public final MyData item;
+
+        public final String problem;
+
+        public MyResult(MyData item, String problem) {
+            this.item = item;
+            this.problem = problem;
         }
     }
 }

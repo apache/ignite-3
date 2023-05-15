@@ -29,7 +29,9 @@ public interface StreamerTarget<T> {
      * @param publisher Producer.
      * @return Future that will be completed when the stream is finished.
      */
-    CompletableFuture<Void> streamData(Flow.Publisher<T> publisher, @Nullable DataStreamerOptions options);
+    CompletableFuture<Void> streamData(
+            Flow.Publisher<T> publisher,
+            @Nullable DataStreamerOptions options);
 
     /**
      * Streams data into the cluster with a receiver.
@@ -40,13 +42,13 @@ public interface StreamerTarget<T> {
      * @param resultSubscriber Optional stream result subscriber. Will be invoked on the current client
      * for every non-null result returned by the receiver.
      * @return Future that will be completed when the stream is finished.
-     * @param <S> Source data type.
+     * @param <S> Source item type.
      * @param <R> Result item type.
      */
     <S, R> CompletableFuture<Void> streamData(
-            Flow.Publisher<T> publisher,
+            Flow.Publisher<S> publisher,
             Function<S, T> keyAccessor,
-            StreamReceiver<T, R> receiver,
+            StreamReceiver<S, R> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options);
 }
