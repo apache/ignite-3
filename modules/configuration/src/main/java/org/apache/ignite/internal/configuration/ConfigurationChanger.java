@@ -275,7 +275,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         addDefaults(superRoot);
 
         // Validate the restored configuration.
-        validateConfiguration(superRoot, superRoot);
+        validateConfiguration(new SuperRoot(rootCreator()), superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 

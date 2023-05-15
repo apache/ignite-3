@@ -21,7 +21,7 @@ import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when node bootstrap configuration file failed to parse.
+ * Exception that gets thrown when a node bootstrap configuration file is malformed.
  */
 public class NodeConfigParseException extends IgniteException {
 

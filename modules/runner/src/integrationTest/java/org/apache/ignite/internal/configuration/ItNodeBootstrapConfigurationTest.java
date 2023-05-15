@@ -37,13 +37,16 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Integration tests for the node configuration file.
+ * Integration tests for the node bootstrap configuration.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItNodeConfigurationFileTest {
+public class ItNodeBootstrapConfigurationTest {
+
+    @WorkDirectory
+    private Path workDir;
 
     @Test
-    public void wrongConfigurationFormat(TestInfo testInfo, @WorkDirectory Path workDir) {
+    public void wrongConfigurationFormat(TestInfo testInfo) {
         String config = UUID.randomUUID().toString();
 
         IgniteException igniteException = assertThrows(
@@ -55,7 +58,7 @@ public class ItNodeConfigurationFileTest {
     }
 
     @Test
-    public void illegalConfigurationValueType(TestInfo testInfo, @WorkDirectory Path workDir) {
+    public void illegalConfigurationValueType(TestInfo testInfo) {
         String config =
                 "{\n"
                 + "  rest: {\n"
@@ -76,7 +79,7 @@ public class ItNodeConfigurationFileTest {
     }
 
     @Test
-    public void illegalConfigurationValue(TestInfo testInfo, @WorkDirectory Path workDir) {
+    public void illegalConfigurationValue(TestInfo testInfo) {
         String config = "{\n"
                 + "  rest: {\n"
                 + "    ssl: {\n"
