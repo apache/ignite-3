@@ -62,10 +62,7 @@ public class SchemaUpdateTest
     [Test]
     public async Task TestFailedSchemaLoadTaskIsRetried()
     {
-        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.SchemasGet, RequestCount: < 3 })
-        {
-            OperationDelay = TimeSpan.FromMilliseconds(100)
-        };
+        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.SchemasGet, RequestCount: < 3 });
 
         var cfg = new IgniteClientConfiguration
         {

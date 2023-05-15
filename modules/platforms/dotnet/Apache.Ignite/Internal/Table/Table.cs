@@ -207,16 +207,17 @@ namespace Apache.Ignite.Internal.Table
 
         private Task<Schema> GetCachedSchemaAsync(int version)
         {
-            // TODO: Check if task is failed.
             var task = _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
 
-            if (task.IsFaulted)
+            if (!task.IsFaulted)
             {
-                _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
-                return GetCachedSchemaAsync(version);
+                return task;
             }
 
-            return task;
+            // Do not return failed task. Remove it from the cache and try again.
+            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+
+            return _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         private async ValueTask<string[]?> GetPartitionAssignmentAsync()
