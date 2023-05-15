@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -159,40 +158,57 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     }
 
     private String dataTypeToJavaCls(int dataType, String typeName) {
+        Class cls = null;
+
         switch (dataType) {
             case Types.TINYINT:
-                return Byte.class.getName();
+                cls = Byte.class;
+                break;
             case Types.SMALLINT:
-                return Short.class.getName();
+                cls = Short.class;
+                break;
             case Types.INTEGER:
-                return Integer.class.getName();
+                cls = Integer.class;
+                break;
             case Types.BIGINT:
-                return Long.class.getName();
+                cls = Long.class;
+                break;
             case Types.REAL:
-                return Float.class.getName();
+                cls = Float.class;
+                break;
             case Types.DOUBLE:
-                return Double.class.getName();
+                cls = Double.class;
+                break;
             case Types.DECIMAL:
-                return BigDecimal.class.getName();
+                cls = BigDecimal.class;
+                break;
             case Types.DATE:
-                return java.sql.Date.class.getName();
+                cls = java.sql.Date.class;
+                break;
             case Types.TIME:
-                return java.sql.Time.class.getName();
+                cls = java.sql.Time.class;
+                break;
             case Types.TIMESTAMP:
-                return java.sql.Timestamp.class.getName();
+                cls = java.sql.Timestamp.class;
+                break;
             case Types.OTHER:
                 if (typeName.equals("UUID")) {
-                    return UUID.class.getName();
+                    cls = UUID.class;
                 }
                 break;
             case Types.VARCHAR:
-                return String.class.getName();
+                cls = String.class;
+                break;
             case Types.VARBINARY:
-                return byte[].class.getName();
+                cls = byte[].class;
+                break;
+            default:
+                break;
         }
 
-        fail("Not supported type " + dataType + " " + typeName);
-        return "UNSUPPORTED " + dataType + " " + typeName;
+        assertNotNull(cls, "Not supported type " + dataType + " " + typeName);
+
+        return cls.getName();
     }
 
     @Test
