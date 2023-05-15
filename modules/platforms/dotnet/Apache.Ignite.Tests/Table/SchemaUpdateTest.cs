@@ -73,11 +73,15 @@ public class SchemaUpdateTest
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
+        var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
 
         // First operation fails because server drops connection.
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 }));
+        Assert.IsTrue(schemas[-1].IsFaulted);
 
-        // Second operation should not reuse failed task and create a new one, which will succeed.
+        // Second operation should ignore failed task and create a new one, which will succeed.
         await view.UpsertAsync(null, new IgniteTuple { ["id"] = 1 });
+        Assert.IsTrue(schemas[-1].IsCompletedSuccessfully);
+        Assert.IsTrue(schemas[1].IsCompletedSuccessfully);
     }
 }
