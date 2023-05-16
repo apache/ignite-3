@@ -69,7 +69,6 @@ public class SchemaUpdateTest {
         assertEquals(4, metrics().requestsSent() - requestsBefore);
     }
 
-    @NotNull
     @Test
     public void testFailedSchemaLoadTaskIsRetried() {
         // TODO
