@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -71,7 +72,9 @@ public class SchemaUpdateTest {
 
     @Test
     public void testFailedSchemaLoadFutureIsRetried() {
-        Function<Integer, Boolean> shouldDropConnection = idx -> idx == 3;
+        AtomicBoolean shouldFail = new AtomicBoolean(true);
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx >= 3 && shouldFail.getAndSet(false);
+
         server = new TestServer(10800, 10, 10000, ignite(), shouldDropConnection, null, "n", UUID.randomUUID(), null);
         client = startClient();
 
@@ -90,7 +93,6 @@ public class SchemaUpdateTest {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
-                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                 .loggerFactory(new TestLoggerFactory("client"))
                 .build();
     }
