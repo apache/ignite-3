@@ -46,6 +46,7 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -374,12 +375,21 @@ public class CatalogServiceSelfTest {
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
         service.listen(CatalogEvent.TABLE_CREATE, eventListener);
+        service.listen(CatalogEvent.TABLE_DROP, eventListener);
 
         CompletableFuture<Void> fut = service.createTable(params);
 
         assertThat(fut, willBe((Object) null));
 
         verify(eventListener).notify(any(CreateTableEventParameters.class), ArgumentMatchers.isNull());
+
+        DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
+
+        fut = service.dropTable(dropTableparams);
+
+        assertThat(fut, willBe((Object) null));
+
+        verify(eventListener).notify(any(DropTableEventParameters.class), ArgumentMatchers.isNull());
         verifyNoMoreInteractions(eventListener);
     }
 
