@@ -19,51 +19,33 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Composite action to update the distributed configuration.
+ * Action to update the distributed configuration.
  */
 public class UpdateDistributedConfigurationAction {
 
     /**
-     * Configuration that should be applied.
+     * Action that should be executed.
      */
-    private final String configuration;
-
-    private final Function<CompletableFuture<Void>, CompletableFuture<Void>> nextAction;
-
+    private final Function<Function<String, CompletableFuture<Void>>, CompletableFuture<Void>> action;
 
     /**
      * Constructor.
      *
-     * @param configuration Configuration that should be applied.
-     * @param nextAction The next action to be performed.
+     * @param action The action to be executed.
      */
-    public UpdateDistributedConfigurationAction(
-            @Nullable String configuration,
-            Function<CompletableFuture<Void>, CompletableFuture<Void>> nextAction
-    ) {
-        this.configuration = configuration;
-        this.nextAction = nextAction;
+    public UpdateDistributedConfigurationAction(Function<Function<String, CompletableFuture<Void>>, CompletableFuture<Void>> action) {
+        this.action = action;
     }
 
     /**
-     * Returns the configuration that should be applied.
+     * Executes the action.
      *
-     * @return Configuration that should be applied.
+     * @param saveConfigurationFunction The function to save the configuration.
+     * @return The result of the action.
      */
-    @Nullable
-    public String configuration() {
-        return configuration;
-    }
-
-    /**
-     * Returns the next action to be performed.
-     *
-     * @return The next action to be performed.
-     */
-    public Function<CompletableFuture<Void>, CompletableFuture<Void>> nextAction() {
-        return nextAction;
+    public CompletableFuture<Void> execute(Function<String, CompletableFuture<Void>> saveConfigurationFunction) {
+        return action.apply(saveConfigurationFunction);
     }
 }

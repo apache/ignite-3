@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -43,22 +42,11 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     @Override
     public void start() {
         cmgMgr.clusterConfigurationToUpdate()
-                .thenApply(action -> {
-                    if (action.configuration() != null) {
-                        presentation.update(action.configuration());
-                    }
-                    return action;
-                })
-                .whenComplete((action, e) -> {
-                    CompletableFuture<Void> result = new CompletableFuture<>();
+                .thenApply(action -> action.execute(presentation::update))
+                .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to update the distributed configuration", e);
-                        result.completeExceptionally(e);
-                    } else {
-                        LOG.info("Successfully updated the distributed configuration");
-                        result.complete(null);
                     }
-                    action.nextAction().apply(result);
                 });
     }
 

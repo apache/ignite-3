@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -338,16 +338,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = cluster.stream()
-                .filter(n -> {
-                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
-
-                    assertThat(isLeader, willCompleteSuccessfully());
-
-                    return isLeader.join();
-                })
-                .findAny()
-                .orElseThrow();
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
 
         stopNodes(List.of(leaderNode));
 
@@ -374,8 +365,11 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .clusterConfigurationToUpdate()
                 .get();
 
-        assertThat(configurationAction.configuration(), is(clusterConfiguration));
-        configurationAction.nextAction().apply(CompletableFuture.completedFuture(null)).join();
+        CompletableFuture<Void> voidCompletableFuture = configurationAction.execute(config -> {
+            return CompletableFuture.runAsync(() -> assertEquals(clusterConfiguration, config));
+        });
+
+        assertThat(voidCompletableFuture, willCompleteSuccessfully());
 
         // Stop the cluster leader.
         stopNodes(List.of(leaderNode));
@@ -391,7 +385,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         UpdateDistributedConfigurationAction emptyAction = newLeaderNode.clusterManager()
                 .clusterConfigurationToUpdate().get();
 
-        assertThat(emptyAction.configuration(), nullValue());
+        CompletableFuture<Void> emptyCompletableFuture = emptyAction.execute(config ->
+                CompletableFuture.runAsync(() -> assertNull(config)));
+
+        assertThat(emptyCompletableFuture, willCompleteSuccessfully());
     }
 
     @Test
@@ -405,16 +402,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = cluster.stream()
-                .filter(n -> {
-                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
-
-                    assertThat(isLeader, willCompleteSuccessfully());
-
-                    return isLeader.join();
-                })
-                .findAny()
-                .orElseThrow();
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
 
         stopNodes(List.of(leaderNode));
 

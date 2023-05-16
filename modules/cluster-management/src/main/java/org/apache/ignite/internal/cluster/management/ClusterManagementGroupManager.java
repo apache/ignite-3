@@ -387,42 +387,45 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().thenCompose(service ->
+        raftServiceAfterJoin().whenComplete((service, e) -> {
+            if (e != null) {
+                LOG.error("Error when joining to the raft service", e);
+                updateDistributedConfigurationActionFuture.completeExceptionally(e);
+            } else {
                 service.readClusterState()
-                        .thenAccept(state -> {
-                            updateDistributedConfigurationActionFuture.complete(
-                                    new UpdateDistributedConfigurationAction(
-                                            state.clusterConfigurationToApply(),
-                                            (result) -> removeClusterConfigFromClusterState(result, service))
-                            );
-                        }));
+                        .thenAccept(state -> updateDistributedConfigurationActionFuture.complete(
+                                new UpdateDistributedConfigurationAction(f ->
+                                        updateClusterConfigurationAndRemoveFromState(service, f))));
+            }
+        });
     }
 
-    private CompletableFuture<Void> removeClusterConfigFromClusterState(
-            CompletableFuture<Void> configurationAppliedFuture,
-            CmgRaftService service
+    private CompletableFuture<Void> updateClusterConfigurationAndRemoveFromState(
+            CmgRaftService service,
+            Function<String, CompletableFuture<Void>> updateClusterConfigurationFunction
     ) {
-        return configurationAppliedFuture.thenCombine(
-                        service.readClusterState(),
-                        (ignored, state) -> {
-                            Collection<String> cmgNodes = state.cmgNodes();
-                            Collection<String> msNodes = state.metaStorageNodes();
-                            IgniteProductVersion igniteVersion = state.igniteVersion();
-                            ClusterTag clusterTag = state.clusterTag();
-                            return msgFactory.clusterState()
-                                    .cmgNodes(Set.copyOf(cmgNodes))
-                                    .metaStorageNodes(Set.copyOf(msNodes))
-                                    .version(igniteVersion.toString())
-                                    .clusterTag(clusterTag)
-                                    .build();
-                        })
-                .thenCompose(service::updateClusterState)
-                .whenComplete((v2, e2) -> {
-                    if (e2 != null) {
-                        LOG.warn("Error when removing cluster configuration", e2);
+        return service.readClusterState()
+                .thenCompose(state -> updateClusterConfigurationFunction.apply(state.clusterConfigurationToApply()))
+                .thenCompose(ignored -> removeClusterConfigFromClusterState(service))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.warn("Error when updating cluster configuration", e);
                     } else {
-                        LOG.info("Configuration is removed from cluster state");
+                        LOG.info("Updated cluster configuration successfully");
                     }
+                });
+    }
+
+    private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
+        return service.readClusterState()
+                .thenCompose(state -> {
+                    ClusterState clusterState = msgFactory.clusterState()
+                            .cmgNodes(Set.copyOf(state.cmgNodes()))
+                            .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))
+                            .version(state.igniteVersion().toString())
+                            .clusterTag(state.clusterTag())
+                            .build();
+                    return service.updateClusterState(clusterState);
                 });
     }
 
