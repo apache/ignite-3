@@ -361,13 +361,13 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
 
         // Read cluster configuration from the cluster state and remove it.
-        UpdateDistributedConfigurationAction configurationAction = leaderNode.clusterManager()
+        UpdateDistributedConfigurationAction leaderAction = leaderNode.clusterManager()
                 .clusterConfigurationToUpdate()
                 .get();
 
-        CompletableFuture<Void> voidCompletableFuture = configurationAction.execute(config -> {
-            return CompletableFuture.runAsync(() -> assertEquals(clusterConfiguration, config));
-        });
+        // Check the leader has configuration.
+        CompletableFuture<Void> voidCompletableFuture = leaderAction.execute(config ->
+                CompletableFuture.runAsync(() -> assertEquals(clusterConfiguration, config)));
 
         assertThat(voidCompletableFuture, willCompleteSuccessfully());
 
@@ -378,14 +378,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         // Wait for a new leader to be elected.
         Awaitility.await().until(() -> findLeaderNode(cluster).isPresent());
 
-        // Find the CMG leader and stop it.
+        // Find the new CMG leader and stop it.
         MockNode newLeaderNode = findLeaderNode(cluster).orElseThrow();
 
-        // Check action doesn't have configuration.
-        UpdateDistributedConfigurationAction emptyAction = newLeaderNode.clusterManager()
-                .clusterConfigurationToUpdate().get();
+        // Check the new leader doesn't have configuration.
+        UpdateDistributedConfigurationAction newLeaderAction = newLeaderNode.clusterManager()
+                .clusterConfigurationToUpdate()
+                .get();
 
-        CompletableFuture<Void> emptyCompletableFuture = emptyAction.execute(config ->
+        CompletableFuture<Void> emptyCompletableFuture = newLeaderAction.execute(config ->
                 CompletableFuture.runAsync(() -> assertNull(config)));
 
         assertThat(emptyCompletableFuture, willCompleteSuccessfully());
