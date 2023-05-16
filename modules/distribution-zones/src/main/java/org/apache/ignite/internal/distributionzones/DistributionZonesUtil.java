@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -312,7 +313,7 @@ public class DistributionZonesUtil {
      */
     public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
                 .collect(toSet());
 
         return ops(
@@ -329,11 +330,8 @@ public class DistributionZonesUtil {
      *                     Joining increases the counter, leaving decreases.
      * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
      */
-    public static Set<NodeWithAttributes> dataNodes(Map<NodeWithAttributes, Integer> dataNodesMap, String filter) {
-        return dataNodesMap.entrySet().stream()
-                .filter(e -> e.getValue() > 0 && filter(e.getKey().nodeAttributes(), filter))
-                .map(Map.Entry::getKey)
-                .collect(toSet());
+    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }
 
     /**
@@ -344,8 +342,8 @@ public class DistributionZonesUtil {
      * @param dataNodes Set of data nodes.
      * @return Returns a map from a set of data nodes.
      */
-    public static Map<NodeWithAttributes, Integer> toDataNodesMap(Set<NodeWithAttributes> dataNodes) {
-        Map<NodeWithAttributes, Integer> dataNodesMap = new HashMap<>();
+    public static Map<Node, Integer> toDataNodesMap(Set<Node> dataNodes) {
+        Map<Node, Integer> dataNodesMap = new HashMap<>();
 
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
 
@@ -358,7 +356,7 @@ public class DistributionZonesUtil {
      * @param dataNodesEntry Meta storage entry with data nodes.
      * @return Data nodes.
      */
-    static Map<NodeWithAttributes, Integer> extractDataNodes(Entry dataNodesEntry) {
+    static Map<Node, Integer> extractDataNodes(Entry dataNodesEntry) {
         if (!dataNodesEntry.empty()) {
             return fromBytes(dataNodesEntry.value());
         } else {

@@ -43,17 +43,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -61,6 +61,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -76,15 +77,15 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     private static final LogicalNode NODE_2 = new LogicalNode("2", "node2", new NetworkAddress("localhost", 123));
 
-    private static final NodeWithAttributes A  = new NodeWithAttributes("A", Collections.emptyMap());
+    private static final Node A  = new Node("A", "A");
 
-    private static final NodeWithAttributes B  = new NodeWithAttributes("B", Collections.emptyMap());
+    private static final Node B  = new Node("B", "B");
 
-    private static final NodeWithAttributes C  = new NodeWithAttributes("C", Collections.emptyMap());
+    private static final Node C  = new Node("C", "C");
 
-    private static final NodeWithAttributes D  = new NodeWithAttributes("D", Collections.emptyMap());
+    private static final Node D  = new Node("D", "D");
 
-    private static final NodeWithAttributes E  = new NodeWithAttributes("E", Collections.emptyMap());
+    private static final Node E  = new Node("E", "E");
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
@@ -1310,7 +1311,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         zoneState.nodesToAddToDataNodes(Set.of(A, B), 1);
         zoneState.nodesToAddToDataNodes(Set.of(A, B), 2);
 
-        List<NodeWithAttributes> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
+        List<Node> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
 
         nodes.sort((a, b) -> a.nodeName.compareTo(b.nodeName()));
 
@@ -1324,71 +1325,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         nodes.sort((a, b) -> a.nodeName.compareTo(b.nodeName()));
 
         assertEquals(List.of(C, C, D, D), nodes);
-    }
-
-    @Test
-    void testFilterOnScaleUp() throws Exception {
-        NodeWithAttributes a1  = new NodeWithAttributes("A1", Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"));
-        NodeWithAttributes a2  = new NodeWithAttributes("A2", Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"));
-        NodeWithAttributes a3  = new NodeWithAttributes("A3", Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"));
-
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
-
-        preparePrerequisites(filter);
-
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
-
-        zoneState.nodesToAddToDataNodes(Set.of(a1, a2, a3), 7);
-        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 8);
-
-        assertDataNodesForZoneWithAttributes(1, Set.of(a1, a3), keyValueStorage, filter);
-    }
-
-    @Test
-    void testFilterOnScaleDown() throws Exception {
-        NodeWithAttributes a1  = new NodeWithAttributes("A1", Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"));
-        NodeWithAttributes a2  = new NodeWithAttributes("A2", Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"));
-        NodeWithAttributes a3  = new NodeWithAttributes("A3", Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"));
-
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
-
-        preparePrerequisites(filter);
-
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
-
-        zoneState.nodesToAddToDataNodes(Set.of(a1, a2, a3), 7);
-        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
-
-        zoneState.nodesToRemoveFromDataNodes(Set.of(a1, a2), 10);
-        distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 11);
-
-        assertDataNodesForZoneWithAttributes(1, Set.of(a3), keyValueStorage, filter);
-    }
-
-    @Test
-    void testFilterOnScaleUpWithNodeWithNewAttributesAfterRestart() throws Exception {
-        NodeWithAttributes a1  = new NodeWithAttributes("A1", Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"));
-        NodeWithAttributes a2  = new NodeWithAttributes("A2", Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"));
-        NodeWithAttributes a3  = new NodeWithAttributes("A3", Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"));
-
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
-
-        preparePrerequisites(filter);
-
-        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
-
-        zoneState.nodesToAddToDataNodes(Set.of(a1, a2, a3), 7);
-
-        zoneState.nodesToRemoveFromDataNodes(Set.of(a3), 8);
-
-        // Now A3 do not fit the filter
-        a3 = new NodeWithAttributes("A3", Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"));
-
-        zoneState.nodesToAddToDataNodes(Set.of(a3), 9);
-
-        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 10);
-
-        assertDataNodesForZoneWithAttributes(1, Set.of(a1), keyValueStorage, filter);
     }
 
     /**
@@ -1455,18 +1391,12 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                         return clusterNodes == null;
                     }
 
-                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes), DEFAULT_FILTER).stream()
-                            .map(NodeWithAttributes::nodeName).collect(Collectors.toSet());
+                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes)).stream()
+                            .map(Node::nodeName).collect(Collectors.toSet());
 
                     return res.equals(clusterNodes);
                 },
                 1000
         ));
-    }
-
-    private void startDistributionZoneManager() throws Exception {
-        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
-
-        distributionZoneManager.start();
     }
 }

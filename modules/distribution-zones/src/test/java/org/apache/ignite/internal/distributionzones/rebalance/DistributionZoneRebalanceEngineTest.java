@@ -56,7 +56,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -323,16 +323,16 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
-        Set<String> emptyNodes = emptySet();
+        nodes = emptySet();
 
-        watchListenerOnUpdate(1, emptyNodes, 3);
+        watchListenerOnUpdate(1, nodes, 3);
 
         zoneNodes.clear();
-        zoneNodes.put(1, null);
+        zoneNodes.put(1, nodes);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
     }
 
     @Test
@@ -420,7 +420,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         if (nodes != null) {
             newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
-                    .map(n -> new NodeWithAttributes(n, emptyMap()))
+                    .map(n -> new Node(n, n))
                     .collect(Collectors.toSet())));
         } else {
             newLogicalTopology = null;

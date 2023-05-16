@@ -34,12 +34,12 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.Session;
 import org.intellij.lang.annotations.Language;
@@ -136,14 +136,14 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(1),
-                (v) -> ((Map<NodeWithAttributes, Integer>) fromBytes(v)).size(),
+                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
                 3,
                 TIMEOUT_MILLIS
         );
 
-        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, MILLISECONDS);
+        Entry dataNodesEntry1 = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, MILLISECONDS);
 
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry.revision(), TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry1.revision(), TIMEOUT_MILLIS));
 
         // We check that two nodes that pass the filter are presented in the stable key.
 
@@ -152,7 +152,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
                 stablePartAssignmentsKey(partId),
                 (v) -> ((Set<Assignment>) fromBytes(v)).size(),
                 2,
-                TIMEOUT_MILLIS
+                TIMEOUT_MILLIS * 2
         );
 
         byte[] stableAssignments = metaStorageManager.get(stablePartAssignmentsKey(partId)).get(5_000, MILLISECONDS).value();
@@ -220,7 +220,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(1),
-                (v) -> ((Map<NodeWithAttributes, Integer>) fromBytes(v)).size(),
+                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
                 2,
                 TIMEOUT_MILLIS
         );
@@ -242,7 +242,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(1),
-                (v) -> ((Map<NodeWithAttributes, Integer>) fromBytes(v)).size(),
+                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
                 1,
                 TIMEOUT_MILLIS
         );

@@ -47,6 +47,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -142,14 +143,14 @@ public class DistributionZonesTestUtil {
             @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        Set<NodeWithAttributes> nodes = clusterNodes == null
+        Set<Node> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(Collectors.toSet());
 
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value), DEFAULT_FILTER),
+                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
                 nodes,
                 2000
         );
@@ -165,7 +166,7 @@ public class DistributionZonesTestUtil {
      */
     public static void assertDataNodesForZoneWithAttributes(
             int zoneId,
-            @Nullable Set<NodeWithAttributes> nodes,
+            @Nullable Set<Node> nodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
         assertDataNodesForZoneWithAttributes(zoneId, nodes, keyValueStorage, DEFAULT_FILTER);
@@ -182,14 +183,14 @@ public class DistributionZonesTestUtil {
      */
     public static void assertDataNodesForZoneWithAttributes(
             int zoneId,
-            @Nullable Set<NodeWithAttributes> nodes,
+            @Nullable Set<Node> nodes,
             KeyValueStorage keyValueStorage,
             String filter
     ) throws InterruptedException {
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value), filter),
+                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
                 nodes,
                 2000
         );
@@ -274,7 +275,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(Collectors.toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -339,7 +340,7 @@ public class DistributionZonesTestUtil {
      */
     public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.nodeAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
                 .collect(Collectors.toSet());
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);

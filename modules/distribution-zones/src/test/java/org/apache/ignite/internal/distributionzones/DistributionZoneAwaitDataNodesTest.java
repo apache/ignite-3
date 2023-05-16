@@ -436,8 +436,8 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
     void testInitializedDataNodesOnZoneManagerStart() throws Exception {
         Set<String> dataNodes0 = Set.of("node0", "node1");
 
-        Set<NodeWithAttributes> dataNodes = Set.of(new NodeWithAttributes("node0", emptyMap()),
-                new NodeWithAttributes("node1", emptyMap()));
+        Set<NodeWithAttributes> dataNodes = Set.of(new NodeWithAttributes("node0", "node0", emptyMap()),
+                new NodeWithAttributes("node1", "node1", emptyMap()));
 
         Map<ByteArray, byte[]> valEntries = new HashMap<>();
 
