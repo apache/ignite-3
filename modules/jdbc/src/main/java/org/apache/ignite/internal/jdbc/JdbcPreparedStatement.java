@@ -56,7 +56,9 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc prepared statement implementation.
@@ -251,7 +253,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             batchedArgs = new ArrayList<>();
         }
 
-        batchedArgs.add(currentArgs.toArray());
+        batchedArgs.add(currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray());
 
         currentArgs = null;
     }
@@ -719,6 +721,32 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         currentArgs.set(paramIdx - 1, val);
     }
 
+    /**
+     * Converts value of JDBC type to value of Ignite Client protocol types.
+     *
+     * <ul>
+     *     <li>java.sql.* to Java Time API</li>
+     * </ul>
+     */
+    private @Nullable Object convertJdbcTypeToInternal(@Nullable Object val) {
+        if (val instanceof java.util.Date) {
+            if (val instanceof Timestamp) {
+                Timestamp timeStamp = (Timestamp) val;
+                return timeStamp.toLocalDateTime();
+            } else if (val instanceof Date) {
+                Date date = (Date) val;
+                return date.toLocalDate();
+            } else if (val instanceof Time) {
+                Time time = (Time) val;
+                return time.toLocalTime();
+            }
+
+            return ((java.util.Date) val).toInstant();
+        }
+
+        return val;
+    }
+
     List<Object> getArguments() {
         return currentArgs;
     }
@@ -730,7 +758,10 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      * @throws SQLException If failed.
      */
     private void executeWithArguments(JdbcStatementType statementType) throws SQLException {
-        execute0(statementType, sql, currentArgs);
+        Object[] args = currentArgs == null ? ArrayUtils.OBJECT_EMPTY_ARRAY :
+                currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray();
+
+        execute0(statementType, sql, args);
 
         currentArgs = null;
     }

@@ -250,7 +250,7 @@ public:
     }
 
     /**
-     * Compare this instance to another.
+     * compare this instance to another.
      *
      * @param other Another instance.
      * @return Comparasion result - 0 if equal, 1 if this is greater, -1 if
