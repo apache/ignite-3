@@ -80,7 +80,12 @@ public class SchemaUpdateTest {
 
         RecordView<Tuple> view = client.tables().table(DEFAULT_TABLE).recordView();
 
-        view.upsertAsync(null, Tuple.create().set("id", 1L)).join();
+        try {
+            view.upsertAsync(null, Tuple.create().set("id", 1L)).join();
+        } catch (Exception ignored) {
+            // Expected.
+        }
+
         view.upsertAsync(null, Tuple.create().set("id", 2L)).join();
 
         TestLoggerFactory testLoggerFactory = (TestLoggerFactory) client.configuration().loggerFactory();
@@ -94,6 +99,7 @@ public class SchemaUpdateTest {
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
                 .loggerFactory(new TestLoggerFactory("client"))
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                 .build();
     }
 
