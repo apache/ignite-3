@@ -74,7 +74,6 @@ public class ClientTables implements IgniteTables {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        // TODO: Cache ClientTable instances to retain schema caches.
         Objects.requireNonNull(name);
 
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
