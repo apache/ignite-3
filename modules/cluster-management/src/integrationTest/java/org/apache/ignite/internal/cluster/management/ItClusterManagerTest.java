@@ -367,10 +367,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .get();
 
         // Check the leader has configuration.
-        CompletableFuture<Void> voidCompletableFuture = leaderAction.execute(config ->
-                CompletableFuture.runAsync(() -> assertEquals(clusterConfiguration, config)));
+        assertEquals(clusterConfiguration, leaderAction.configuration());
 
-        assertThat(voidCompletableFuture, willCompleteSuccessfully());
+        // Execute the next action (remove the configuration from the cluster state)
+        leaderAction.nextAction().get().join();
 
         // Stop the cluster leader.
         stopNodes(List.of(leaderNode));
@@ -387,10 +387,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .clusterConfigurationToUpdate()
                 .get();
 
-        CompletableFuture<Void> emptyCompletableFuture = newLeaderAction.execute(config ->
-                CompletableFuture.runAsync(() -> assertNull(config)));
-
-        assertThat(emptyCompletableFuture, willCompleteSuccessfully());
+        assertNull(newLeaderAction.configuration());
     }
 
     @Test

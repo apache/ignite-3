@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Action to update the distributed configuration.
@@ -26,26 +27,41 @@ import java.util.function.Function;
 public class UpdateDistributedConfigurationAction {
 
     /**
-     * Action that should be executed.
+     * Configuration that should be applied.
      */
-    private final Function<Function<String, CompletableFuture<Void>>, CompletableFuture<Void>> action;
+    private final String configuration;
+
+    /**
+     * The next action to execute.
+     */
+    private final Supplier<CompletableFuture<Void>> nextAction;
 
     /**
      * Constructor.
      *
-     * @param action The action to be executed.
+     * @param configuration the configuration.
+     * @param nextAction the next action.
      */
-    public UpdateDistributedConfigurationAction(Function<Function<String, CompletableFuture<Void>>, CompletableFuture<Void>> action) {
-        this.action = action;
+    public UpdateDistributedConfigurationAction(String configuration, Supplier<CompletableFuture<Void>> nextAction) {
+        this.configuration = configuration;
+        this.nextAction = nextAction;
     }
 
     /**
-     * Executes the action.
+     * Returns the configuration.
      *
-     * @param saveConfigurationFunction The function to save the configuration.
-     * @return The result of the action.
+     * @return the configuration.
      */
-    public CompletableFuture<Void> execute(Function<String, CompletableFuture<Void>> saveConfigurationFunction) {
-        return action.apply(saveConfigurationFunction);
+    public String configuration() {
+        return configuration;
+    }
+
+    /**
+     * Returns the next action to execute.
+     *
+     * @return the next action.
+     */
+    public Supplier<CompletableFuture<Void>> nextAction() {
+        return nextAction;
     }
 }

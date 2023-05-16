@@ -107,6 +107,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     private final CompletableFuture<Void> joinFuture = new CompletableFuture<>();
 
+    // TODO: IGNITE-19489 Cancel updateDistributedConfigurationActionFuture if the configuration is applied
     private final CompletableFuture<UpdateDistributedConfigurationAction> updateDistributedConfigurationActionFuture =
             new CompletableFuture<>();
 
@@ -393,27 +394,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 updateDistributedConfigurationActionFuture.completeExceptionally(e);
             } else {
                 service.readClusterState()
-                        .thenAccept(state -> updateDistributedConfigurationActionFuture.complete(
-                                new UpdateDistributedConfigurationAction(f ->
-                                        updateClusterConfigurationAndRemoveFromState(service, f))));
+                        .thenAccept(state -> {
+                            String configuration = state.clusterConfigurationToApply();
+                            if (configuration != null) {
+                                updateDistributedConfigurationActionFuture.complete(
+                                        new UpdateDistributedConfigurationAction(
+                                                configuration,
+                                                () -> removeClusterConfigFromClusterState(service)
+                                        ));
+                            } else {
+                                updateDistributedConfigurationActionFuture.cancel(true);
+                            }
+                        });
             }
         });
-    }
-
-    private CompletableFuture<Void> updateClusterConfigurationAndRemoveFromState(
-            CmgRaftService service,
-            Function<String, CompletableFuture<Void>> updateClusterConfigurationFunction
-    ) {
-        return service.readClusterState()
-                .thenCompose(state -> updateClusterConfigurationFunction.apply(state.clusterConfigurationToApply()))
-                .thenCompose(ignored -> removeClusterConfigFromClusterState(service))
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.warn("Error when updating cluster configuration", e);
-                    } else {
-                        LOG.info("Updated cluster configuration successfully");
-                    }
-                });
     }
 
     private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
@@ -426,6 +420,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .clusterTag(state.clusterTag())
                             .build();
                     return service.updateClusterState(clusterState);
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Error when removing configuration from cluster state", e);
+                    } else {
+                        LOG.info("Cluster configuration is removed from cluster state");
+                    }
                 });
     }
 
