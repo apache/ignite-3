@@ -241,7 +241,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /**
      * Start component.
      */
-    // ConfigurationChangeException, really?
     public void start() {
         Data data;
 
@@ -275,7 +274,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         addDefaults(superRoot);
 
         // Validate the restored configuration.
-        validateConfiguration(new SuperRoot(null), superRoot);
+        validateConfiguration(new SuperRoot(rootCreator()), superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
