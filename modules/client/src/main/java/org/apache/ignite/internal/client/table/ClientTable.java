@@ -137,12 +137,22 @@ public class ClientTable implements Table {
     }
 
     private CompletableFuture<ClientSchema> getLatestSchema() {
-        return getSchema(UNKNOWN_SCHEMA_VERSION);
+        // latestSchemaVer can be -1 (unknown) or a valid version.
+        // In case of unknown version, we request latest from the server and cache it with -1 key
+        // to avoid duplicate requests for latest schema.
+        return getSchema(latestSchemaVer);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
-        // TODO: Do not reuse failed future.
-        return schemas.computeIfAbsent(ver, this::loadSchema);
+        CompletableFuture<ClientSchema> fut = schemas.computeIfAbsent(ver, this::loadSchema);
+
+        if (fut.isCompletedExceptionally()) {
+            // Do not return failed future. Remove it from the cache and try again.
+            schemas.remove(ver, fut);
+            fut = schemas.computeIfAbsent(ver, this::loadSchema);
+        }
+
+        return fut;
     }
 
     private CompletableFuture<ClientSchema> loadSchema(int ver) {
