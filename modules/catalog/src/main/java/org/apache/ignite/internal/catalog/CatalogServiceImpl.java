@@ -48,6 +48,8 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -63,6 +65,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
+
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
     /** Versioned catalog descriptors. */
     private final NavigableMap<Integer, Catalog> catalogByVer = new ConcurrentSkipListMap<>();
@@ -323,7 +328,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             registerCatalog(catalog);
 
-            CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new)).thenRun(() -> versionTracker.update(version, null));
+            CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
+                    .thenRun(() -> versionTracker.update(version, null))
+                    .whenComplete((ignore, err) -> {
+                        if (err != null) {
+                            LOG.warn("Failed to apply catalog update.", err);
+                        } else {
+                            versionTracker.update(version, null);
+                        }
+                    });
         }
     }
 

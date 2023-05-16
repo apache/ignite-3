@@ -32,7 +32,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 
 /**
  * Wrapper for DDL command handler passes DDL commands to CatalogService.
- * TODO: IGNITE-19082 Drop this class when all versioned schema stuff will be moved to Catalog.
+ * TODO: IGNITE-19082 Drop this wrapper when all the versioned schema stuff will be moved from Configuration to Catalog.
  */
 public class DdlCommandHandlerWrapper extends DdlCommandHandler {
 
@@ -56,18 +56,22 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
     /** Handles ddl commands. */
     @Override
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
+        // Handle command in usual way.
+        CompletableFuture<Boolean> ddlCommandFuture = super.handle(cmd);
+
+        // Pass supported commands to the Catalog.
         if (cmd instanceof CreateTableCommand) {
-            return super.handle(cmd)
+            return ddlCommandFuture
                     .thenCompose(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
                             .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class))
                     );
         } else if (cmd instanceof DropTableCommand) {
-            return super.handle(cmd)
+            return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
                             .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
                     );
         }
 
-        return super.handle(cmd);
+        return ddlCommandFuture;
     }
 }

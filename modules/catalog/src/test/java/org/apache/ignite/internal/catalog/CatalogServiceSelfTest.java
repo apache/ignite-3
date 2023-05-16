@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,6 +74,7 @@ import org.mockito.Mockito;
  */
 public class CatalogServiceSelfTest {
     private static final String TABLE_NAME = "myTable";
+    private static final String TABLE_NAME_2 = "myTable2";
 
     private MetaStorageManager metastore;
 
@@ -116,6 +120,7 @@ public class CatalogServiceSelfTest {
         SchemaDescriptor schema = service.schema(0);
         assertEquals(CatalogService.PUBLIC, schema.name());
 
+        assertEquals(0, schema.id());
         assertEquals(0, schema.version());
         assertEquals(0, schema.tables().length);
         assertEquals(0, schema.indexes().length);
@@ -147,6 +152,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(0, schema.version());
         assertSame(schema, service.activeSchema(0L));
         assertSame(schema, service.activeSchema(123L));
 
@@ -160,6 +166,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(1, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
@@ -172,12 +179,34 @@ public class CatalogServiceSelfTest {
         assertEquals(TABLE_NAME, table.name());
         assertEquals(0L, table.engineId());
         assertEquals(0L, table.zoneId());
+
+        // Validate another table creation.
+        fut = service.createTable(simpleTable(TABLE_NAME_2));
+
+        assertThat(fut, willBe((Object) null));
+
+        // Validate actual catalog has both tables.
+        schema = service.schema(2);
+
+        assertNotNull(schema);
+        assertEquals(0, schema.id());
+        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(2, schema.version());
+        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+
+        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
+
+        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
+
+        assertNotSame(schema.table(TABLE_NAME), schema.table(TABLE_NAME_2));
     }
 
     @Test
     public void testCreateTableIfExistsFlag() {
         CreateTableParams params = CreateTableParams.builder()
-                .tableName("table1")
+                .tableName(TABLE_NAME)
                 .columns(List.of(
                         new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
                         new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
@@ -191,7 +220,7 @@ public class CatalogServiceSelfTest {
 
         CompletableFuture<?> fut = service.createTable(
                 CreateTableParams.builder()
-                        .tableName("table1")
+                        .tableName(TABLE_NAME)
                         .columns(List.of(
                                 new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
                                 new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
@@ -201,6 +230,78 @@ public class CatalogServiceSelfTest {
                         .build());
 
         assertThat(fut, willThrowFast(TableAlreadyExistsException.class));
+    }
+
+    @Test
+    public void testDropTable() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
+
+        long beforeDropTimestamp = System.currentTimeMillis();
+
+        DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
+
+        assertThat(service.dropTable(dropTableParams), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        SchemaDescriptor schema = service.schema(2);
+
+        assertNotNull(schema);
+        assertEquals(0, schema.id());
+        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(2, schema.version());
+        assertSame(schema, service.activeSchema(beforeDropTimestamp));
+
+        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME), service.table(1, beforeDropTimestamp));
+
+        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME_2), service.table(2, beforeDropTimestamp));
+
+        // Validate actual catalog
+        schema = service.schema(3);
+
+        assertNotNull(schema);
+        assertEquals(0, schema.id());
+        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(3, schema.version());
+        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+
+        assertNull(schema.table(TABLE_NAME));
+        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
+        assertNull(service.table(1, System.currentTimeMillis()));
+
+        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testDropTableIfExistsFlag() {
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
+                ))
+                .primaryKeyColumns(List.of("key"))
+                .build();
+
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
+
+        DropTableParams params = DropTableParams.builder()
+                .tableName(TABLE_NAME)
+                .ifTableExists(true)
+                .build();
+
+        assertThat(service.dropTable(params), willBe((Object) null));
+        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+
+        params = DropTableParams.builder()
+                .tableName(TABLE_NAME)
+                .ifTableExists(false)
+                .build();
+
+        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
     }
 
     @Test
