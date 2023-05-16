@@ -385,6 +385,7 @@ public class ClientTable implements Table {
             return CompletableFuture.completedFuture(cached);
         }
 
+        // TODO: Avoid multiple requests for the same assignment.
         return loadPartitionAssignment();
     }
 

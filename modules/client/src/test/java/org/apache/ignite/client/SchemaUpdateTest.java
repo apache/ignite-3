@@ -54,18 +54,19 @@ public class SchemaUpdateTest {
     @Test
     public void testMultipleParallelOperationsRequestSchemaOnce() {
         int responseDelay = 100;
-        server = new TestServer(10800, 10, 1000, ignite(), null, idx -> responseDelay, "n", UUID.randomUUID(), null);
+        server = new TestServer(10800, 10, 10000, ignite(), null, idx -> responseDelay, "n", UUID.randomUUID(), null);
         client = startClient();
 
         RecordView<Tuple> view = client.tables().table(DEFAULT_TABLE).recordView();
-        long requestsBefore = metrics().requestsCompleted();
+        long requestsBefore = metrics().requestsSent();
 
         CompletableFuture<Void> fut1 = view.upsertAsync(null, Tuple.create().set("id", 1L));
         CompletableFuture<Void> fut2 = view.upsertAsync(null, Tuple.create().set("id", 2L));
 
         CompletableFuture.allOf(fut1, fut2).join();
 
-        assertEquals(3, metrics().requestsCompleted() - requestsBefore);
+        // PARTITION_ASSIGNMENT_GET, SCHEMAS_GET, TUPLE_UPSERT x2
+        assertEquals(4, metrics().requestsSent() - requestsBefore);
     }
 
     @NotNull
