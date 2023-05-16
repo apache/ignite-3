@@ -77,18 +77,18 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitLeafNode(Field field, String key, Serializable val) {
-        Object valObj = maskIfNeeded(field, extractLeafNodeValue(field, key, val));
+        Object valObj = maskIfNeeded(field, extractLeafNodeValue(field, val));
 
         addToParent(key, valObj);
 
         return valObj;
     }
 
-    private Object extractLeafNodeValue(Field field, String key, Serializable val) {
+    private Object extractLeafNodeValue(Field field, Serializable val) {
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
-            valObj = maskIfNeeded(field, val.toString());
+            valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
             valObj = toListOfObjects(field, val);
         }
