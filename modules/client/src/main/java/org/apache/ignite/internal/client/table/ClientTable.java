@@ -65,7 +65,9 @@ public class ClientTable implements Table {
 
     private final IgniteLogger log;
 
-    private volatile int latestSchemaVer = -1;
+    private static final int UNKNOWN_SCHEMA_VERSION = -1;
+
+    private volatile int latestSchemaVer = UNKNOWN_SCHEMA_VERSION;
 
     private final Object latestSchemaLock = new Object();
 
@@ -135,12 +137,7 @@ public class ClientTable implements Table {
     }
 
     private CompletableFuture<ClientSchema> getLatestSchema() {
-        if (latestSchemaVer >= 0) {
-            // TODO: Do not reuse failed future.
-            return schemas.get(latestSchemaVer);
-        }
-
-        return loadSchema(null);
+        return getSchema(UNKNOWN_SCHEMA_VERSION);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
@@ -148,11 +145,11 @@ public class ClientTable implements Table {
         return schemas.computeIfAbsent(ver, this::loadSchema);
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
+    private CompletableFuture<ClientSchema> loadSchema(int ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
-            if (ver == null) {
+            if (ver == UNKNOWN_SCHEMA_VERSION) {
                 w.out().packNil();
             } else {
                 w.out().packArrayHeader(1);
