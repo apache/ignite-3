@@ -18,7 +18,14 @@
 namespace Apache.Ignite.Table;
 
 /// <summary>
-/// Data streamer options.
+/// Data streamer result listener.
 /// </summary>
-/// <param name="BatchSize">Batch size.</param>
-public record DataStreamerOptions(int BatchSize);
+/// <typeparam name="T">Result item type.</typeparam>
+public interface IStreamerResultListener<in T>
+{
+    /// <summary>
+    /// Called when a result is received.
+    /// </summary>
+    /// <param name="result">Result item.</param>
+    void OnNext(T result);
+}

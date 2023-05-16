@@ -33,7 +33,7 @@ public interface IStreamerTarget<in T>
     /// <param name="stream">Data stream.</param>
     /// <param name="options">Options.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task StreamDataAsync(IAsyncEnumerable<T> stream, DataStreamerOptions? options = null);
+    Task StreamDataAsync(IAsyncEnumerable<T> stream, StreamerOptions? options = null);
 
     /// <summary>
     /// Streams data into the table with a receiver.
@@ -41,12 +41,15 @@ public interface IStreamerTarget<in T>
     /// <param name="stream">Data stream.</param>
     /// <param name="keySelector">Key selector for partition awareness.</param>
     /// <param name="receiverClassName">Java class name of the stream receiver.</param>
+    /// <param name="resultListener">Result listener.</param>
     /// <param name="options">Options.</param>
     /// <typeparam name="TItem">Item type.</typeparam>
+    /// <typeparam name="TResult">Result type type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task StreamDataAsync<TItem>(
+    Task StreamDataAsync<TItem, TResult>(
         IAsyncEnumerable<TItem> stream,
         Func<TItem, T> keySelector,
         string receiverClassName,
-        DataStreamerOptions? options = null);
+        IStreamerResultListener<TResult>? resultListener,
+        StreamerOptions? options = null);
 }

@@ -324,7 +324,7 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task StreamDataAsync(IAsyncEnumerable<T> stream, DataStreamerOptions? options = null)
+        public async Task StreamDataAsync(IAsyncEnumerable<T> stream, StreamerOptions? options = null)
         {
             // We consume the stream here asynchronously, and at our own pace (as fast as we can push the data out to the cluster).
             // If the stream is slow, we use non-blocking await to wait for more data.
@@ -342,7 +342,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public Task StreamDataAsync<TItem>(IAsyncEnumerable<TItem> stream, Func<TItem, T> keySelector, string receiverClassName, DataStreamerOptions? options = null)
+        public Task StreamDataAsync<TItem>(IAsyncEnumerable<TItem> stream, Func<TItem, T> keySelector, string receiverClassName, StreamerOptions? options = null)
         {
             throw new NotImplementedException();
         }
