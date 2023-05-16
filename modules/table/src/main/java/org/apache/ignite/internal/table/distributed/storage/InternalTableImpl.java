@@ -916,7 +916,8 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                Function.identity());
+                Function.identity(),
+                partId);
     }
 
     /** {@inheritDoc} */
@@ -1268,6 +1269,26 @@ public class InternalTableImpl implements InternalTable {
         /** True when the publisher has a subscriber, false otherwise. */
         private AtomicBoolean subscribed;
 
+        private final int partId;
+
+        /**
+         * The constructor.
+         *
+         * @param retrieveBatch Closure that gets a new batch from the remote replica.
+         * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is finished.
+         */
+        PartitionScanPublisher(
+                BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
+                Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose,
+                int partId
+        ) {
+            this.retrieveBatch = retrieveBatch;
+            this.onClose = onClose;
+
+            this.subscribed = new AtomicBoolean(false);
+            this.partId = partId;
+        }
+
         /**
          * The constructor.
          *
@@ -1278,10 +1299,7 @@ public class InternalTableImpl implements InternalTable {
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
                 Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose
         ) {
-            this.retrieveBatch = retrieveBatch;
-            this.onClose = onClose;
-
-            this.subscribed = new AtomicBoolean(false);
+            this(retrieveBatch, onClose, -1);
         }
 
         /** {@inheritDoc} */
@@ -1408,8 +1426,12 @@ public class InternalTableImpl implements InternalTable {
 
                     if (binaryRows.size() < n) {
                         cancel();
-                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
-                        scanBatch(Math.min(n, INTERNAL_BATCH_SIZE));
+                    } else {
+                        int remaining = (int) requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
+
+                        if (remaining > 0) {
+                            scanBatch(Math.min(remaining, INTERNAL_BATCH_SIZE));
+                        }
                     }
                 }).exceptionally(t -> {
                     cancel(t);
