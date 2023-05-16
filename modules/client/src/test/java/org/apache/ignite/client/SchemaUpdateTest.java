@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -56,10 +58,14 @@ public class SchemaUpdateTest {
         client = startClient();
 
         RecordView<Tuple> view = client.tables().table(DEFAULT_TABLE).recordView();
-        CompletableFuture<Void> fut1 = view.upsertAsync(null, Tuple.create().set("id", 1));
-        CompletableFuture<Void> fut2 = view.upsertAsync(null, Tuple.create().set("id", 2));
+        long requestsBefore = metrics().requestsCompleted();
+
+        CompletableFuture<Void> fut1 = view.upsertAsync(null, Tuple.create().set("id", 1L));
+        CompletableFuture<Void> fut2 = view.upsertAsync(null, Tuple.create().set("id", 2L));
 
         CompletableFuture.allOf(fut1, fut2).join();
+
+        assertEquals(3, metrics().requestsCompleted() - requestsBefore);
     }
 
     @NotNull
