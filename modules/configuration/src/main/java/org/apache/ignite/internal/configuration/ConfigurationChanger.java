@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.to
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -174,14 +175,14 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         node.traverseChildren(new ConfigurationVisitor<>() {
             @Override
-            public @Nullable Object visitInnerNode(String key, InnerNode node) {
+            public @Nullable Object visitInnerNode(Field field, String key, InnerNode node) {
                 makeImmutable(node);
 
                 return null;
             }
 
             @Override
-            public @Nullable Object visitNamedListNode(String key, NamedListNode<?> node) {
+            public @Nullable Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
                 if (node.makeImmutable()) {
                     for (String namedListKey : node.namedListKeys()) {
                         makeImmutable(node.getInnerNode(namedListKey));
@@ -241,8 +242,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /**
      * Start component.
      */
-    // ConfigurationChangeException, really?
-    public void start() throws ConfigurationChangeException {
+    public void start() {
         Data data;
 
         try {
@@ -273,6 +273,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         //Workaround for distributed configuration.
         addDefaults(superRoot);
+
+        // Validate the restored configuration.
+        validateConfiguration(new SuperRoot(rootCreator()), superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
@@ -587,17 +590,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             dropNulls(changes);
 
-            List<ValidationIssue> validationIssues = ValidationUtil.validate(
-                    curRoots,
-                    changes,
-                    this::getRootNode,
-                    cachedAnnotations,
-                    validators
-            );
-
-            if (!validationIssues.isEmpty()) {
-                throw new ConfigurationValidationException(validationIssues);
-            }
+            validateConfiguration(curRoots, changes);
 
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
@@ -615,6 +608,20 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     });
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
+        List<ValidationIssue> validationIssues = ValidationUtil.validate(
+                curRoots,
+                changes,
+                this::getRootNode,
+                cachedAnnotations,
+                validators
+        );
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
         }
     }
 

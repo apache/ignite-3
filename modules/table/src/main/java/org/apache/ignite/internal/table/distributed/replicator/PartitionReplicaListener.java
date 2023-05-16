@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -102,6 +102,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -204,6 +205,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final CompletableFuture<SchemaRegistry> schemaFut;
 
+    private final SchemaCompatValidator schemaCompatValidator;
+
     /**
      * The constructor.
      *
@@ -240,6 +243,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxStateStorage txStateStorage,
             PlacementDriver placementDriver,
             StorageUpdateHandler storageUpdateHandler,
+            Schemas schemas,
             Function<Peer, Boolean> isLocalPeerChecker,
             CompletableFuture<SchemaRegistry> schemaFut
     ) {
@@ -264,6 +268,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
+
+        schemaCompatValidator = new SchemaCompatValidator(schemas);
     }
 
     @Override
@@ -964,6 +970,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes transaction finish request.
      * <ol>
      *     <li>Get commit timestamp from finish replica request.</li>
+     *     <li>If attempting a commit, validate commit (and, if not valid, switch to abort)</li>
      *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
      *     <li>Send cleanup requests to all enlisted primary replicas.</li>
      * </ol>
@@ -976,13 +983,37 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream)
                 .map(IgniteBiTuple::get1)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         UUID txId = request.txId();
 
-        boolean commit = request.commit();
+        if (request.commit()) {
+            return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commitTimestamp())
+                    .thenCompose(validationResult -> {
+                        return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId)
+                                .thenAccept(unused -> throwIfValidationFailed(validationResult));
+                    });
+        } else {
+            // Aborting.
+            return finishAndCleanup(request, false, aggregatedGroupIds, txId);
+        }
+    }
 
-        CompletableFuture<Object> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
+    private static void throwIfValidationFailed(ForwardValidationResult validationResult) {
+        if (!validationResult.isSuccessful()) {
+            throw new IncompatibleSchemaAbortException("Commit failed because schema "
+                    + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+        }
+    }
+
+    private CompletableFuture<Void> finishAndCleanup(
+            TxFinishReplicaRequest request,
+            boolean commit,
+            List<TablePartitionId> aggregatedGroupIds,
+            UUID txId
+    ) {
+        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
@@ -1028,7 +1059,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .tablePartitionIds(
                         aggregatedGroupIds.stream()
                                 .map(PartitionReplicaListener::tablePartitionId)
-                                .collect(Collectors.toList())
+                                .collect(toList())
                 );
 
         if (commit) {
@@ -2118,7 +2149,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future with boolean value, indicating whether the transaction was committed before timestamp.
      */
     private CompletableFuture<Boolean> resolveTxState(
-            ReplicationGroupId commitGrpId,
+            TablePartitionId commitGrpId,
             UUID txId,
             HybridTimestamp timestamp
     ) {
@@ -2162,7 +2193,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction ID.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, ByteBuffer rowBuf, UUID txId) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, @Nullable ByteBuffer rowBuf, UUID txId) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)

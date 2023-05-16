@@ -285,7 +285,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return context.raftService().run(syncTimeCommand);
     }
 
-    // TODO: IGNITE-14734 Implement.
+    // TODO: IGNITE-19417 Implement.
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();

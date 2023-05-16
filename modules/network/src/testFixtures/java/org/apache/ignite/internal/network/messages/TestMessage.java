@@ -21,13 +21,16 @@ import java.io.Serializable;
 import java.util.Map;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link NetworkMessage} implementation.
  */
 @Transferable(TestMessageTypes.TEST)
 public interface TestMessage extends NetworkMessage, Serializable {
+    @Nullable
     String msg();
 
+    @Nullable
     Map<Integer, String> map();
 }

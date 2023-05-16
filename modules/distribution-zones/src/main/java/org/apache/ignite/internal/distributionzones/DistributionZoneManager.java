@@ -379,7 +379,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone with the given {@code name} asynchronously.
      *
      * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation. Future can be completed with:
+     * @return Future with the id of the zone. Future can be completed with:
      *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists,
      *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
      *      {@link IllegalArgumentException} if distribution zone configuration is null
@@ -409,9 +409,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
-                        if (distributionZoneCfg.partitions() == null) {
-                            zoneChange.changePartitions(DEFAULT_PARTITION_COUNT);
-                        } else {
+                        if (distributionZoneCfg.partitions() != null) {
                             zoneChange.changePartitions(distributionZoneCfg.partitions());
                         }
 
@@ -421,9 +419,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
                         }
 
-                        if (distributionZoneCfg.replicas() == null) {
-                            zoneChange.changeReplicas(DEFAULT_REPLICA_COUNT);
-                        } else {
+                        if (distributionZoneCfg.replicas() != null) {
                             zoneChange.changeReplicas(distributionZoneCfg.replicas());
                         }
 
@@ -431,22 +427,19 @@ public class DistributionZoneManager implements IgniteComponent {
                             zoneChange.changeFilter(distributionZoneCfg.filter());
                         }
 
-                        if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
-                            zoneChange.changeDataNodesAutoAdjust(INFINITE_TIMER_VALUE);
-                        } else {
+                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
                             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
                         }
 
                         if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() == null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                            if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+                                zoneChange.changeDataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE);
+                            }
                         } else {
-                            zoneChange.changeDataNodesAutoAdjustScaleUp(
-                                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+                            zoneChange.changeDataNodesAutoAdjustScaleUp(distributionZoneCfg.dataNodesAutoAdjustScaleUp());
                         }
 
-                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() == null) {
-                            zoneChange.changeDataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE);
-                        } else {
+                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
                             zoneChange.changeDataNodesAutoAdjustScaleDown(distributionZoneCfg.dataNodesAutoAdjustScaleDown());
                         }
 

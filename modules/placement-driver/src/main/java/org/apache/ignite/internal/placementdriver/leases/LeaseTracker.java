@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver.leases;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -89,7 +89,7 @@ public class LeaseTracker {
                 key = key.replace(PLACEMENTDRIVER_PREFIX, "");
 
                 TablePartitionId grpId = TablePartitionId.fromString(key);
-                Lease lease = ByteUtils.fromBytes(entry.value());
+                Lease lease = fromBytes(entry.value());
 
                 leases.put(grpId, lease);
             }
@@ -139,7 +139,7 @@ public class LeaseTracker {
                 if (msEntry.empty()) {
                     leases.remove(grpId);
                 } else {
-                    Lease lease = ByteUtils.fromBytes(msEntry.value());
+                    Lease lease = fromBytes(msEntry.value());
 
                     leases.put(grpId, lease);
                 }

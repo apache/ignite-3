@@ -50,11 +50,11 @@ public class NodeNameOrUrlConverter implements CommandLine.ITypeConverter<NodeNa
         if (isUrl) {
             return new NodeNameOrUrl(stringToUrl(input));
         } else {
-            return new NodeNameOrUrl(findNodeUrlByNodeName(input));
+            return new NodeNameOrUrl(stringToUrl(findNodeUrlByNodeName(input)));
         }
     }
 
-    private URL findNodeUrlByNodeName(String name) {
+    private String findNodeUrlByNodeName(String name) {
         return nodeNameRegistry.nodeUrlByName(name)
                 .orElseThrow(() -> new TypeConversionException("Node " + name + " not found. Provide valid name or use URL"));
     }

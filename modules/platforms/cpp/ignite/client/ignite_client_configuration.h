@@ -96,7 +96,7 @@ public:
     /**
      * Get connection limit.
      *
-     * By default, C++ client establishes a connection to every server node listed in @c endPoints. Use
+     * By default, C++ client establishes a connection to every server node listed in @c end_points. Use
      * this setting to limit the number of active connections. This reduces initial connection time and the
      * resource usage, but can have a negative effect on cache operation performance.
      *

@@ -39,9 +39,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -64,7 +67,9 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
+import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
@@ -129,6 +134,8 @@ public class ExecutionServiceImplTest {
 
     private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, -1);
 
+    private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
+
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
@@ -146,6 +153,12 @@ public class ExecutionServiceImplTest {
     @AfterEach
     public void tearDown() throws Exception {
         prepareService.stop();
+
+        for (CapturingMailboxRegistry mailbox : mailboxes) {
+            assertTrue(waitForCondition(mailbox::empty, TIMEOUT_IN_MS));
+        }
+
+        mailboxes.clear();
     }
 
     /**
@@ -427,7 +440,7 @@ public class ExecutionServiceImplTest {
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Connection refused to ")), 10, TimeUnit.SECONDS));
+        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Unable to send fragment")), 10, TimeUnit.SECONDS));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();
@@ -455,7 +468,8 @@ public class ExecutionServiceImplTest {
         node.dataset(dataPerNode.get(nodeName));
 
         var messageService = node.messageService();
-        var mailboxRegistry = new MailboxRegistryImpl();
+        var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
+        mailboxes.add(mailboxRegistry);
 
         var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
 
@@ -728,5 +742,68 @@ public class ExecutionServiceImplTest {
                 return super.colocationGroup(ctx);
             }
         };
+    }
+
+    private static class CapturingMailboxRegistry implements MailboxRegistry {
+        private final MailboxRegistry delegate;
+
+        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        CapturingMailboxRegistry(MailboxRegistry delegate) {
+            this.delegate = delegate;
+        }
+
+        boolean empty() {
+            return inboxes.isEmpty() && outboxes.isEmpty();
+        }
+
+        @Override
+        public void start() {
+            delegate.start();
+        }
+
+        @Override
+        public void stop() throws Exception {
+            delegate.stop();
+        }
+
+        @Override
+        public void register(Inbox<?> inbox) {
+            delegate.register(inbox);
+
+            inboxes.add(inbox);
+        }
+
+        @Override
+        public void register(Outbox<?> outbox) {
+            delegate.register(outbox);
+
+            outboxes.add(outbox);
+        }
+
+        @Override
+        public void unregister(Inbox<?> inbox) {
+            delegate.unregister(inbox);
+
+            inboxes.remove(inbox);
+        }
+
+        @Override
+        public void unregister(Outbox<?> outbox) {
+            delegate.unregister(outbox);
+
+            outboxes.remove(outbox);
+        }
+
+        @Override
+        public CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId) {
+            return delegate.outbox(qryId, exchangeId);
+        }
+
+        @Override
+        public Inbox<?> inbox(UUID qryId, long exchangeId) {
+            return delegate.inbox(qryId, exchangeId);
+        }
     }
 }

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -196,7 +197,7 @@ public class TxManagerImpl implements TxManager {
             List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
             UUID txId,
             boolean commit,
-            HybridTimestamp commitTimestamp
+            @Nullable HybridTimestamp commitTimestamp
     ) {
         var cleanupFutures = new CompletableFuture[tablePartitionIds.size()];
 

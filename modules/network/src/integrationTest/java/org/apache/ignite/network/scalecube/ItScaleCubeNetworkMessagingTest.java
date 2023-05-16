@@ -48,12 +48,12 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -304,7 +304,7 @@ class ItScaleCubeNetworkMessagingTest {
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
                 (message, sender, correlationId) -> {
-                    if (message instanceof FieldDescriptorMessage) {
+                    if (message instanceof HandshakeFinishMessage) {
                         assertTrue(networkMessageFuture.complete(message));
                     }
                 }
@@ -312,7 +312,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         var testMessage = messageFactory.testMessage().msg("foo").build();
 
-        FieldDescriptorMessage networkMessage = new NetworkMessagesFactory().fieldDescriptorMessage().build();
+        HandshakeFinishMessage networkMessage = new NetworkMessagesFactory().handshakeFinishMessage().build();
 
         // test that a message gets delivered to both handlers
         node2.messagingService()

@@ -160,7 +160,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertDataNodesForZoneWithAttributes(1, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(1L, 1, keyValueStorage);
 
         assertZonesChangeTriggerKey(1, 1, keyValueStorage);
     }
@@ -185,8 +185,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()).get();
 
-        assertZoneScaleUpChangeTriggerKey(1, 1, keyValueStorage);
-        assertZoneScaleUpChangeTriggerKey(2, 2, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(1L, 1, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(2L, 2, keyValueStorage);
         assertZonesChangeTriggerKey(1, 1, keyValueStorage);
         assertZonesChangeTriggerKey(2, 2, keyValueStorage);
     }

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for ScaleCube's {@link Message}. {@link Message#data} is stored in {@link #data} or {@link #message} depending on the type of the
@@ -30,9 +31,11 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(NetworkMessageTypes.SCALE_CUBE_MESSAGE)
 public interface ScaleCubeMessage extends NetworkMessage {
+    @Nullable
     @Marshallable
     Object data();
 
+    @Nullable
     NetworkMessage message();
 
     Map<String, String> headers();

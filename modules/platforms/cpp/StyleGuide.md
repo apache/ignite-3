@@ -117,7 +117,7 @@ private:
 } // namespace ignite::sample
 ```
 
-Template parameters are an exception from this rule.
+Template m_parameters are an exception from this rule.
 
 ```
 template <typename T, typename IterT>

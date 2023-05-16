@@ -25,6 +25,8 @@ set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
 option(ENABLE_CONAN "Use Conan package manager to get dependencies" ON)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
+option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
+option(ENABLE_ODBC_MSI "Build Ignite ODBC driver installer for Windows" OFF)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
@@ -151,17 +153,29 @@ include(ignite_test)
 add_subdirectory(ignite/common)
 add_subdirectory(ignite/tuple)
 
-# Add client libraries.
-if (${ENABLE_CLIENT})
+# Add client and ODBC libraries.
+if (${ENABLE_CLIENT} OR ${ENABLE_ODBC})
     add_subdirectory(ignite/protocol)
     add_subdirectory(ignite/network)
+endif()
+
+# Add client library.
+if (${ENABLE_CLIENT})
     add_subdirectory(ignite/client)
+endif()
+
+# Add client libraries.
+if (${ENABLE_ODBC})
+    add_subdirectory(ignite/odbc)
 endif()
 
 # Add integration tests.
 if (${ENABLE_TESTS})
-    if (${ENABLE_CLIENT})
+    if (${ENABLE_CLIENT} OR ${ENABLE_ODBC})
         add_subdirectory(tests/test-common)
+    endif()
+
+    if (${ENABLE_CLIENT})
         add_subdirectory(tests/client-test)
     endif()
 endif()

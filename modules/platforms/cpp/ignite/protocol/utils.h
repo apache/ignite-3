@@ -123,6 +123,16 @@ template<>
 [[nodiscard]] std::int16_t unpack_object(const msgpack_object &object);
 
 /**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::int8_t unpack_object(const msgpack_object &object);
+
+/**
  * Unpack string.
  *
  * @param object MsgPack object.

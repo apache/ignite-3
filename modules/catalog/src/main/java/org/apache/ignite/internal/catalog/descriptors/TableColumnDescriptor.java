@@ -36,7 +36,7 @@ public class TableColumnDescriptor implements Serializable {
     private int length;
     private int precision;
     private int scale;
-    private DefaultValue defaultValue;
+    private final DefaultValue defaultValue;
 
     /**
      * Constructor.
@@ -78,6 +78,50 @@ public class TableColumnDescriptor implements Serializable {
 
     public DefaultValue defaultValue() {
         return defaultValue;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TableColumnDescriptor that = (TableColumnDescriptor) o;
+
+        if (nullable != that.nullable) {
+            return false;
+        }
+        if (length != that.length) {
+            return false;
+        }
+        if (precision != that.precision) {
+            return false;
+        }
+        if (scale != that.scale) {
+            return false;
+        }
+        if (!name.equals(that.name)) {
+            return false;
+        }
+        if (type != that.type) {
+            return false;
+        }
+        return defaultValue != null ? defaultValue.equals(that.defaultValue) : that.defaultValue == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = name.hashCode();
+        result = 31 * result + type.hashCode();
+        result = 31 * result + (nullable ? 1 : 0);
+        result = 31 * result + length;
+        result = 31 * result + precision;
+        result = 31 * result + scale;
+        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
+        return result;
     }
 
     /** {@inheritDoc} */

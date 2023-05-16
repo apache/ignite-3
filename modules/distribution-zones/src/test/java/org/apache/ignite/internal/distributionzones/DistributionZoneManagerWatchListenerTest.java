@@ -32,10 +32,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
-import java.util.Collections;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
@@ -48,53 +49,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     private static final LogicalNode NODE_1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 123));
     private static final LogicalNode NODE_2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 123));
     private static final LogicalNode NODE_3 = new LogicalNode("node3", "node3", new NetworkAddress("localhost", 123));
-
-    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
-    @Test
-    void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws Exception {
-        startDistributionZoneManager();
-
-        // First invoke happens on distributionZoneManager start.
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
-
-        distributionZoneManager.alterZone(
-                DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(0)
-                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                        .build()
-        ).get();
-
-        //first event
-
-        Set<LogicalNode> nodes = Set.of(NODE_1, NODE_2);
-
-        setLogicalTopologyInMetaStorage(nodes, 2, metaStorageManager);
-
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-
-        //second event
-
-        nodes = Set.of(NODE_1, NODE_3);
-
-        setLogicalTopologyInMetaStorage(nodes, 3, metaStorageManager);
-
-        nodes = Set.of(NODE_1, NODE_2, NODE_3);
-
-        // Scale up just adds node to data nodes
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-
-        //third event
-
-        nodes = Collections.emptySet();
-
-        setLogicalTopologyInMetaStorage(nodes, 4, metaStorageManager);
-
-        nodes = Set.of(NODE_1, NODE_2, NODE_3);
-
-        // Scale up wasn't triggered
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-    }
 
     @Test
     void testStaleWatchEvent() throws Exception {
