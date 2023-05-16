@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
