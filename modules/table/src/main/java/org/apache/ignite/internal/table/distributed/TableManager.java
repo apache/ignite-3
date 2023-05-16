@@ -535,11 +535,49 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            return createTableLocally(
+            var createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
-                    ((ExtendedTableView) ctx.newValue()).id()
-            );
+                    ((ExtendedTableView) ctx.newValue()).id());
+
+            DistributionZoneView zone =
+                    getZoneById(distributionZonesConfiguration, ((ExtendedTableView) ctx.newValue()).zoneId()).value();
+
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(zone.partitions());
+            List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
+                    baselineMgr.nodes().stream().map(n -> n.name()).collect(Collectors.toList()),
+                    zone.partitions(),
+                    zone.replicas());
+
+            UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
+
+            for (int i = 0; i < zone.partitions(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tblId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
+
+            }
+            var entriesList = partitionAssignments.entrySet().stream()
+                    .map(e -> new EntryWrapper(null, null, e.getKey().bytes(), e.getValue()))
+                    .collect(toList());
+            var handleAssignments = updateAssignmentInternal(ctx.storageRevision(), entriesList);
+
+
+            var resultFuture = createTableFut.thenCompose(v -> handleAssignments);
+
+            resultFuture.thenRun(() -> {
+                System.out.println("KKK writing metastore");
+                metaStorageMgr.putAll(partitionAssignments);
+            }).exceptionally(e -> {
+                LOG.error("Can't write to metastore assignments", e);
+                return null;
+            });
+
+            // TODO: KKK why putAll is not a part of the public interface?
+            return resultFuture;
+
+
         } finally {
             busyLock.leaveBusy();
         }
@@ -606,17 +644,47 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    private class EntryWrapper {
+
+        public byte[] oldKey;
+
+        public byte[] oldValue;
+
+        public byte[] newKey;
+
+        public byte[] newValue;
+
+        public EntryWrapper(byte[] oldKey, byte[] oldValue, byte[] newKey, byte[] newValue) {
+            this.oldKey = oldKey;
+            this.oldValue = oldValue;
+            this.newKey = newKey;
+            this.newValue = newValue;
+        }
+    }
+
+    private CompletableFuture<?> updateAssignmentInternal(WatchEvent evt) {
+        if (evt.entryEvents().stream().map(e -> e.oldEntry().value()).allMatch(Objects::isNull)) {
+            return completedFuture(null);
+        }
+
+        long causalityToken = evt.revision();
+
+        List<EntryWrapper> entries = evt.entryEvents().stream()
+                .map(e -> new EntryWrapper(e.oldEntry().key(), e.oldEntry().value(), e.newEntry().key(), e.newEntry().value()))
+                .collect(toList());
+
+        return updateAssignmentInternal(causalityToken, entries);
+    }
+
     /**
      * Updates or creates partition raft groups.
      *
      * @param evt Change assignment event.
      */
-    private CompletableFuture<?> updateAssignmentInternal(WatchEvent evt) {
-        long causalityToken = evt.revision();
-
+    private CompletableFuture<?> updateAssignmentInternal(long causalityToken, List<EntryWrapper> entries) {
         String localMemberName = clusterService.topologyService().localMember().name();
 
-        CompletableFuture<?>[] futures = new CompletableFuture<?>[evt.entryEvents().size()];
+        CompletableFuture<?>[] futures = new CompletableFuture<?>[entries.size()];
         for (int i = 0; i < futures.length; i++) {
             futures[i] = new CompletableFuture<>();
         }
@@ -624,10 +692,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // Create new raft nodes according to new assignments.
         return tablesByIdVv.get(causalityToken).thenCompose(tablesById -> inBusyLock(busyLock, () -> {
             final AtomicInteger futN = new AtomicInteger(0);
-            for (EntryEvent e : evt.entryEvents()) {
-                UUID tblId = extractTableId(e.newEntry().key(), STABLE_ASSIGNMENTS_PREFIX);
+            for (EntryWrapper e : entries) {
+                UUID tblId = extractTableId(e.newKey, STABLE_ASSIGNMENTS_PREFIX);
 
-                int partId = extractPartitionNumber(e.newEntry().key());
+                int partId = extractPartitionNumber(e.newKey);
 
                 int zoneId = tablesCfg.tables().get(tblId).zoneId().value();
 
@@ -635,10 +703,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 DataStorageConfiguration dsCfg = dstCfg.dataStorage();
 
-                Set<Assignment> oldAssignments = e.oldEntry().value() == null
-                        ? null : ByteUtils.fromBytes(e.oldEntry().value());
+                Set<Assignment> oldAssignments = e.oldValue == null
+                        ? null : ByteUtils.fromBytes(e.oldValue);
 
-                Set<Assignment> newAssignments = ByteUtils.fromBytes(e.newEntry().value());
+                Set<Assignment> newAssignments = ByteUtils.fromBytes(e.newValue);
 
                 // Empty assignments might be a valid case if tables are created from within cluster init HOCON
                 // configuration, which is not supported now.
@@ -653,6 +721,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 InternalTable internalTbl = table.internalTable();
 
+
+                System.out.println("KKK localMemberName = " + localMemberName + "newPartAssignment = " + newPartAssignment);
                 Assignment localMemberAssignment = newPartAssignment.stream()
                         .filter(a -> a.consistentId().equals(localMemberName))
                         .findAny()
@@ -696,6 +766,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 CompletableFuture<Void> startGroupFut;
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
+                System.out.println("KKK localMemberAssignment " + localMemberAssignment);
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
                     startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
                         CompletableFuture<Boolean> fut;
@@ -1406,8 +1477,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<TableChange> tableInitChange,
             CompletableFuture<Table> tblFut
     ) {
-        AtomicReference<UUID> tableId = new AtomicReference<>();
-        AtomicReference<DistributionZoneView> distributionZoneView = new AtomicReference<>();
 
         tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
             if (tablesListChange.get(name) != null) {
@@ -1432,30 +1501,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 DistributionZoneConfiguration distributionZoneConfiguration =
                         getZoneById(distributionZonesConfiguration, zoneId);
-
-                tableId.set(extConfCh.id());
-                distributionZoneView.set(distributionZoneConfiguration.value());
             });
-        })).thenCompose((v) -> {
-            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(distributionZoneView.get().partitions());
-            DistributionZoneView zone = distributionZoneView.get();
-            List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
-                    dataNodes,
-                    zone.partitions(),
-                    zone.replicas());
-
-            for (int i = 0; i < distributionZoneView.get().partitions(); i++) {
-                partitionAssignments.put(
-                        stablePartAssignmentsKey(
-                                new TablePartitionId(tableId.get(), i)),
-                        ByteUtils.toBytes(assignments.get(i)));
-
-            }
-
-            System.out.println("Putting the following keys: " + partitionAssignments.keySet());
-            // TODO: KKK why putAll is not a part of the public interface?
-            return metaStorageMgr.putAll(partitionAssignments);
-        }).exceptionally(t -> {
+        })).exceptionally(t -> {
             Throwable ex = getRootCause(t);
 
             if (ex instanceof TableAlreadyExistsException) {

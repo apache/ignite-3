@@ -289,6 +289,8 @@ public class ItRebalanceDistributedTest {
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
         ));
 
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
+
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
@@ -315,6 +317,7 @@ public class ItRebalanceDistributedTest {
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
