@@ -21,14 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -70,14 +70,28 @@ public class SchemaUpdateTest {
     }
 
     @Test
-    public void testFailedSchemaLoadTaskIsRetried() {
-        // TODO
+    public void testFailedSchemaLoadFutureIsRetried() {
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx == 3;
+        server = new TestServer(10800, 10, 10000, ignite(), shouldDropConnection, null, "n", UUID.randomUUID(), null);
+        client = startClient();
+
+        RecordView<Tuple> view = client.tables().table(DEFAULT_TABLE).recordView();
+
+        view.upsertAsync(null, Tuple.create().set("id", 1L)).join();
+        view.upsertAsync(null, Tuple.create().set("id", 2L)).join();
+
+        TestLoggerFactory testLoggerFactory = (TestLoggerFactory) client.configuration().loggerFactory();
+
+        //noinspection DataFlowIssue
+        testLoggerFactory.assertLogContains("Retrying operation [opCode=" + ClientOp.SCHEMAS_GET);
     }
 
     private IgniteClient startClient() {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .metricsEnabled(true)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0))
+                .loggerFactory(new TestLoggerFactory("client"))
                 .build();
     }
 
