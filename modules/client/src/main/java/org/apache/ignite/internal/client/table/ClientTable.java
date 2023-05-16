@@ -27,7 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicStampedReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -72,7 +71,11 @@ public class ClientTable implements Table {
 
     private final Object latestSchemaLock = new Object();
 
-    private final AtomicStampedReference<CompletableFuture<List<String>>> partitionAssignment = new AtomicStampedReference<>(null, -1);
+    private final Object partitionAssignmentLock = new Object();
+
+    private CompletableFuture<List<String>> partitionAssignment = null;
+
+    private long partitionAssignmentVersion = -1;
 
     /**
      * Constructor.
@@ -377,34 +380,34 @@ public class ClientTable implements Table {
         }
     }
 
-    private CompletableFuture<List<String>> getPartitionAssignment() {
-        var cached = partitionAssignment;
+    private synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+        synchronized (partitionAssignmentLock) {
+            long currentVersion = ch.partitionAssignmentVersion();
 
-        if (cached != null && partitionAssignmentVersion == ch.partitionAssignmentVersion()) {
-            return CompletableFuture.completedFuture(cached);
+            if (partitionAssignmentVersion == currentVersion
+                    && partitionAssignment != null
+                    && !partitionAssignment.isCompletedExceptionally()) {
+                return partitionAssignment;
+            }
+
+            partitionAssignmentVersion = currentVersion;
+
+            // Load currentVersion or newer.
+            partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+                    w -> w.out().packUuid(id),
+                    r -> {
+                        int cnt = r.in().unpackArrayHeader();
+                        List<String> res = new ArrayList<>(cnt);
+
+                        for (int i = 0; i < cnt; i++) {
+                            res.add(r.in().unpackString());
+                        }
+
+                        return res;
+                    });
+
+            return partitionAssignment;
         }
-
-        // TODO: Avoid multiple requests for the same assignment.
-        return loadPartitionAssignment();
-    }
-
-    private CompletableFuture<List<String>> loadPartitionAssignment() {
-        partitionAssignmentVersion = ch.partitionAssignmentVersion();
-
-        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                w -> w.out().packUuid(id),
-                r -> {
-                    int cnt = r.in().unpackArrayHeader();
-                    List<String> res = new ArrayList<>(cnt);
-
-                    for (int i = 0; i < cnt; i++) {
-                        res.add(r.in().unpackString());
-                    }
-
-                    partitionAssignment = res;
-
-                    return res;
-                });
     }
 
     @Nullable
