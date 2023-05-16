@@ -77,21 +77,17 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitLeafNode(Field field, String key, Serializable val) {
-        Object valObj = maskIfNeeded(field, extractLeafNodeValue(field, val));
-
-        addToParent(key, valObj);
-
-        return valObj;
-    }
-
-    private Object extractLeafNodeValue(Field field, Serializable val) {
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
             valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
             valObj = toListOfObjects(field, val);
+        } else if (val instanceof String) {
+            valObj = maskIfNeeded(field, (String) val);
         }
+
+        addToParent(key, valObj);
 
         return valObj;
     }
@@ -188,30 +184,26 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
             stream = stream.map(Object::toString);
         }
 
-        return stream.map(it -> maskIfNeeded(field, it)).collect(Collectors.toList());
+        return stream.collect(Collectors.toList());
     }
 
     /**
-     * Returns {@link ConverterToMapVisitor#MASKED_VALUE}
-     * if the field is annotated with {@link Secret} and {@link ConverterToMapVisitor#maskSecretValues} is {@code true}.
+     * Returns {@link ConverterToMapVisitor#MASKED_VALUE} if the field is annotated with {@link Secret} and
+     * {@link ConverterToMapVisitor#maskSecretValues} is {@code true}.
      *
      * @param field Field to check
      * @param val Value to mask
      * @return Masked value
      */
-    private Object maskIfNeeded(Field field, Object val) {
+    private Object maskIfNeeded(Field field, String val) {
         if (!maskSecretValues) {
             return val;
         }
 
         if (field != null && field.isAnnotationPresent(Secret.class)) {
-            if (val instanceof String) {
-                return MASKED_VALUE;
-            } else {
-                return val;
-            }
+            return MASKED_VALUE;
+        } else {
+            return val;
         }
-
-        return val;
     }
 }
