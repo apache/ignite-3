@@ -19,12 +19,12 @@ package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -382,12 +383,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         // Find the new CMG leader and stop it.
         MockNode newLeaderNode = findLeaderNode(cluster).orElseThrow();
 
-        // Check the new leader doesn't have configuration.
-        UpdateDistributedConfigurationAction newLeaderAction = newLeaderNode.clusterManager()
-                .clusterConfigurationToUpdate()
-                .get();
-
-        assertNull(newLeaderAction.configuration());
+        // Check the new leader cancels the action.
+        assertThat(newLeaderNode.clusterManager().clusterConfigurationToUpdate(), willThrow(CancellationException.class));
     }
 
     @Test
