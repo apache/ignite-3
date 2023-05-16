@@ -374,7 +374,7 @@ public class ClientTable implements Table {
         if (schemas.get(schemaVer) == null) {
             // The schema is not needed for current response.
             // Load it in the background to keep the client up to date with the latest version.
-            loadSchema(schemaVer);
+            getSchema(schemaVer);
         }
     }
 
