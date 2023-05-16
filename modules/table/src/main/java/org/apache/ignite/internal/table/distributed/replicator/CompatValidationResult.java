@@ -22,10 +22,10 @@ import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of forward schema compatibility validation.
+ * Result of a schema compatibility validation.
  */
-public class ForwardValidationResult {
-    private static final ForwardValidationResult SUCCESS = new ForwardValidationResult(true, null, -1, -1);
+public class CompatValidationResult {
+    private static final CompatValidationResult SUCCESS = new CompatValidationResult(true, null, -1, -1);
 
     private final boolean ok;
     @Nullable
@@ -38,7 +38,7 @@ public class ForwardValidationResult {
      *
      * @return A successful validation result.
      */
-    public static ForwardValidationResult success() {
+    public static CompatValidationResult success() {
         return SUCCESS;
     }
 
@@ -50,11 +50,11 @@ public class ForwardValidationResult {
      * @param toSchemaVersion Version number of the schema to which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static ForwardValidationResult failure(UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
-        return new ForwardValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
+    public static CompatValidationResult failure(UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+        return new CompatValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
     }
 
-    private ForwardValidationResult(boolean ok, @Nullable UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+    private CompatValidationResult(boolean ok, @Nullable UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
         this.ok = ok;
         this.failedTableId = failedTableId;
         this.fromSchemaVersion = fromSchemaVersion;

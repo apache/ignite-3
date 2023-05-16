@@ -217,7 +217,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             IgniteTetraFunction<TablePartitionId, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
@@ -279,7 +279,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
