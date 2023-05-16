@@ -1432,7 +1432,7 @@ public class DistributionZoneManager implements IgniteComponent {
             //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
         } else {
-            if (!addedNodes.isEmpty() && autoAdjustScaleUp != INFINITE_TIMER_VALUE) {
+            if (!addedNodes.isEmpty()) {
                 zonesState.get(zoneId).nodesToAddToDataNodes(addedNodes, revision);
 
                 zonesState.get(zoneId).rescheduleScaleUp(
@@ -1441,7 +1441,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 );
             }
 
-            if (!removedNodes.isEmpty() && autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
+            if (!removedNodes.isEmpty()) {
                 zonesState.get(zoneId).nodesToRemoveFromDataNodes(removedNodes, revision);
 
                 zonesState.get(zoneId).rescheduleScaleDown(
