@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.UnitMeta;
@@ -73,7 +75,7 @@ public interface DeploymentUnitMetastore {
     CompletableFuture<Boolean> createClusterStatus(String id, Version version);
 
     /**
-     * Create new node status for deployment unit.
+     * Create new node status for deployment unit with {@link DeploymentStatus#UPLOADING} deployment status.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
@@ -81,7 +83,21 @@ public interface DeploymentUnitMetastore {
      * @return Future with {@code true} result if status created successfully
      *          or with {@code false} if status with provided {@param id} and {@param version} and {@param nodeId} already existed.
      */
-    CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId);
+    default CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId) {
+        return createNodeStatus(id, version, nodeId, UPLOADING);
+    }
+
+    /**
+     * Create new node status for deployment unit.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @param nodeId Node consistent identifier.
+     * @param status Initial deployment status.
+     * @return Future with {@code true} result if status created successfully
+     *          or with {@code false} if status with provided {@param id} and {@param version} and {@param nodeId} already existed.
+     */
+    CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status);
 
     /**
      * Updates cluster status for deployment unit.

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -105,15 +106,15 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
     @Override
     public CompletableFuture<Boolean> createClusterStatus(String id, Version version) {
         ByteArray key = clusterStatusKey(id, version);
-        byte[] value = serialize(new UnitMeta(id, version, DeploymentStatus.UPLOADING));
+        byte[] value = serialize(new UnitMeta(id, version, UPLOADING));
 
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 
     @Override
-    public CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId) {
+    public CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
         ByteArray key = nodeStatusKey(id, version, nodeId);
-        byte[] value = serialize(new UnitMeta(id, version, DeploymentStatus.UPLOADING));
+        byte[] value = serialize(new UnitMeta(id, version, status));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 

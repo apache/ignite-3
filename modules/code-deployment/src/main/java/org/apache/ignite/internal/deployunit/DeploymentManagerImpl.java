@@ -155,7 +155,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 .thenCompose(deployed -> {
                     if (deployed) {
                         String nodeId = clusterService.topologyService().localMember().name();
-                        return metastore.createNodeStatus(id, version, nodeId);
+                        return metastore.createNodeStatus(id, version, nodeId, DEPLOYED);
                     }
                     return completedFuture(false);
                 })
