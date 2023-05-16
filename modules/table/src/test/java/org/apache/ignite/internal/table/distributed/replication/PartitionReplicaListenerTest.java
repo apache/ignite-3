@@ -167,7 +167,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static final int CURRENT_SCHEMA_VERSION = 1;
 
-    public static final int FUTURE_SCHEMA_VERSION = 2;
+    private static final int FUTURE_SCHEMA_VERSION = 2;
+
+    private static final int FUTURE_SCHEMA_ROW_INDEXED_VALUE = 0;
 
     /** Table id. */
     private final UUID tblId = UUID.randomUUID();
@@ -1225,7 +1227,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
 
         HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = getTransactionIdFor(beginTimestamp);
+        UUID txId = transactionIdFor(beginTimestamp);
 
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(grpId)
@@ -1238,7 +1240,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return partitionReplicaListener.invoke(commitRequest);
     }
 
-    private static UUID getTransactionIdFor(HybridTimestamp beginTimestamp) {
+    private static UUID transactionIdFor(HybridTimestamp beginTimestamp) {
         return TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
     }
 
@@ -1287,7 +1289,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
 
         HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = getTransactionIdFor(beginTimestamp);
+        UUID txId = transactionIdFor(beginTimestamp);
 
         HybridTimestamp commitTimestamp = clock.now();
 
@@ -1357,8 +1359,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("singleRowRequestTypes")
     public void failsWhenReadingSingleRowFromFutureIncompatibleSchema(RequestType requestType) {
-        HybridTimestamp targetTxBeginTimestamp = clock.now();
-        UUID targetTxId = getTransactionIdFor(targetTxBeginTimestamp);
+        testFailsWhenReadingFromFutureIncompatibleSchema((targetTxId, key) -> doSingleRowRequest(
+                targetTxId,
+                binaryRow(key, new TestValue(1, "v1"), kvMarshaller),
+                requestType
+        ));
+    }
+
+    private void testFailsWhenReadingFromFutureIncompatibleSchema(ListenerInvocation listenerInvocation) {
+        UUID targetTxId = transactionIdFor(clock.now());
 
         TestKey key = simulateWriteWithSchemaVersionFromFuture();
 
@@ -1366,11 +1375,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         AtomicReference<Boolean> committed = interceptFinishTxCommand();
 
-        CompletableFuture<?> future = doSingleRowRequest(
-                targetTxId,
-                binaryRow(key, new TestValue(1, "v1"), kvMarshaller),
-                requestType
-        );
+        CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
 
         assertFailureDueToBackwardIncompatibleSchemaChange(future, committed);
     }
@@ -1382,14 +1387,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private TestKey simulateWriteWithSchemaVersionFromFuture() {
-        UUID futureSchemaVersionTxId = getTransactionIdFor(clock.now());
+        UUID futureSchemaVersionTxId = transactionIdFor(clock.now());
 
         TestKey key = nextKey();
         BinaryRow futureSchemaVersionRow = binaryRow(key, new TestValue(2, "v2"), kvMarshallerVersion2);
         var rowId = new RowId(partId);
 
+        BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+                new BinaryTupleBuilder(1, false).appendInt(FUTURE_SCHEMA_ROW_INDEXED_VALUE).build()
+        );
+
         pkStorage().put(futureSchemaVersionRow, rowId);
         testMvPartitionStorage.addWrite(rowId, futureSchemaVersionRow, futureSchemaVersionTxId, tblId, partId);
+        sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
         return key;
@@ -1411,22 +1421,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("multiRowsRequestTypes")
     public void failsWhenReadingMultiRowsFromFutureIncompatibleSchema(RequestType requestType) {
-        HybridTimestamp targetTxBeginTimestamp = clock.now();
-        UUID targetTxId = getTransactionIdFor(targetTxBeginTimestamp);
-
-        TestKey key = simulateWriteWithSchemaVersionFromFuture();
-
-        simulateBackwardIncompatibleSchemaChange(CURRENT_SCHEMA_VERSION, FUTURE_SCHEMA_VERSION);
-
-        AtomicReference<Boolean> committed = interceptFinishTxCommand();
-
-        CompletableFuture<?> future = doMultiRowRequest(
+        testFailsWhenReadingFromFutureIncompatibleSchema((targetTxId, key) -> doMultiRowRequest(
                 targetTxId,
                 List.of(binaryRow(key, new TestValue(1, "v1"), kvMarshaller)),
                 requestType
-        );
-
-        assertFailureDueToBackwardIncompatibleSchemaChange(future, committed);
+        ));
     }
 
     private static Stream<Arguments> multiRowsRequestTypes() {
@@ -1437,26 +1436,59 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void failsWhenReplacingOnTupleWithIncompatibleSchemaFromFuture() {
-        HybridTimestamp targetTxBeginTimestamp = clock.now();
-        UUID targetTxId = getTransactionIdFor(targetTxBeginTimestamp);
-
-        TestKey key = simulateWriteWithSchemaVersionFromFuture();
-
-        simulateBackwardIncompatibleSchemaChange(CURRENT_SCHEMA_VERSION, FUTURE_SCHEMA_VERSION);
-
-        AtomicReference<Boolean> committed = interceptFinishTxCommand();
-
-        CompletableFuture<?> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSwapRowReplicaRequest()
-                .transactionId(targetTxId)
-                .requestType(RequestType.RW_REPLACE)
-                .oldBinaryRow(binaryRow(key, new TestValue(1, "v1"), kvMarshaller))
-                .binaryRow(binaryRow(key, new TestValue(3, "v3"), kvMarshaller))
-                .term(1L)
-                .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
-                .build()
+        testFailsWhenReadingFromFutureIncompatibleSchema(
+                (targetTxId, key) -> partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSwapRowReplicaRequest()
+                        .transactionId(targetTxId)
+                        .requestType(RequestType.RW_REPLACE)
+                        .oldBinaryRow(binaryRow(key, new TestValue(1, "v1"), kvMarshaller))
+                        .binaryRow(binaryRow(key, new TestValue(3, "v3"), kvMarshaller))
+                        .term(1L)
+                        .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
+                        .build()
+                )
         );
+    }
 
-        assertFailureDueToBackwardIncompatibleSchemaChange(future, committed);
+    @Test
+    public void failsWhenScanByExactMatchReadsTupleWithIncompatibleSchemaFromFuture() {
+        testFailsWhenReadingFromFutureIncompatibleSchema(
+                (targetTxId, key) -> partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                        .transactionId(targetTxId)
+                        .indexToUse(sortedIndexStorage.id())
+                        .exactKey(toIndexKey(FUTURE_SCHEMA_ROW_INDEXED_VALUE))
+                        .term(1L)
+                        .scanId(1)
+                        .batchSize(100)
+                        .build()
+                )
+        );
+    }
+
+    @Test
+    public void failsWhenScanByIndexReadsTupleWithIncompatibleSchemaFromFuture() {
+        testFailsWhenReadingFromFutureIncompatibleSchema(
+                (targetTxId, key) -> partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                        .transactionId(targetTxId)
+                        .indexToUse(sortedIndexStorage.id())
+                        .term(1L)
+                        .scanId(1)
+                        .batchSize(100)
+                        .build()
+                )
+        );
+    }
+
+    @Test
+    public void failsWhenFullScanReadsTupleWithIncompatibleSchemaFromFuture() {
+        testFailsWhenReadingFromFutureIncompatibleSchema(
+                (targetTxId, key) -> partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
+                        .transactionId(targetTxId)
+                        .term(1L)
+                        .scanId(1)
+                        .batchSize(100)
+                        .build()
+                )
+        );
     }
 
     private static UUID beginTx() {
@@ -1671,5 +1703,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         public String toString() {
             return S.toString(TestValue.class, this);
         }
+    }
+
+    @FunctionalInterface
+    private interface ListenerInvocation {
+        CompletableFuture<?> invoke(UUID targetTxId, TestKey key);
     }
 }
