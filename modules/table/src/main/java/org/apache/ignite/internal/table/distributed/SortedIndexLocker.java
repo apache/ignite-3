@@ -71,6 +71,7 @@ public class SortedIndexLocker implements IndexLocker {
      * Constructs the object.
      *
      * @param indexId An identifier of the index this locker is created for.
+     * @param partId Partition number.
      * @param lockManager A lock manager to acquire locks in.
      * @param storage A storage of an index this locker is created for.
      * @param indexRowResolver A convertor which derives an index key from given table row.
@@ -82,7 +83,7 @@ public class SortedIndexLocker implements IndexLocker {
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
 
-        this.positiveInf = createInfinitelyBoundary(partId, indexId);
+        this.positiveInf = createInfiniteBoundary(partId, indexId);
     }
 
     /**
@@ -92,7 +93,7 @@ public class SortedIndexLocker implements IndexLocker {
      * @param indexId Index id.
      * @return Infinity binary tuple.
      */
-    private static BinaryTuple createInfinitelyBoundary(int partId, UUID indexId) {
+    private static BinaryTuple createInfiniteBoundary(int partId, UUID indexId) {
         var binarySchema = BinaryTupleSchema.createSchema(INFINITY_TUPLE_SCHEMA, new int[]{
                 INFINITY_TUPLE_SCHEMA.column("indexId").schemaIndex(),
                 INFINITY_TUPLE_SCHEMA.column("partId").schemaIndex()
