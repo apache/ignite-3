@@ -17,19 +17,50 @@
 
 package org.apache.ignite.client;
 
+import java.util.UUID;
+import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.client.ClientMetricSource;
+import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests schema update logic. See also {@link ClientTableTest#testGetReturningTupleWithUnknownSchemaRequestsNewSchema}.
  */
 public class SchemaUpdateTest {
+    private TestServer server;
+    private IgniteClient client;
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        if (client != null) {
+            client.close();
+        }
+
+        if (server != null) {
+            server.close();
+        }
+    }
+
     @Test
     public void testMultipleParallelOperationsRequestSchemaOnce() {
-        // TODO
+        server = new TestServer(10800, 10, 1000, new FakeIgnite(), null, idx -> 100, "n", UUID.randomUUID(), null);
+        client = startClient();
     }
 
     @Test
     public void testFailedSchemaLoadTaskIsRetried() {
         // TODO
+    }
+
+    private IgniteClient startClient() {
+        return IgniteClient.builder()
+                .addresses("127.0.0.1:" + server.port())
+                .metricsEnabled(true)
+                .build();
+    }
+
+    private ClientMetricSource metrics() {
+        return ((TcpIgniteClient) client).metrics();
     }
 }
