@@ -61,7 +61,7 @@ public class ClientTable implements Table {
 
     private final ReliableChannel ch;
 
-    private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, CompletableFuture<ClientSchema>> schemas = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
@@ -136,24 +136,19 @@ public class ClientTable implements Table {
 
     private CompletableFuture<ClientSchema> getLatestSchema() {
         if (latestSchemaVer >= 0) {
-            return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
+            // TODO: Do not reuse failed future.
+            return schemas.get(latestSchemaVer);
         }
 
         return loadSchema(null);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
-        var schema = schemas.get(ver);
-
-        if (schema != null) {
-            return CompletableFuture.completedFuture(schema);
-        }
-
-        return loadSchema(ver);
+        // TODO: Do not reuse failed future.
+        return schemas.computeIfAbsent(ver, this::loadSchema);
     }
 
     private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
-        // TODO IGNITE-19354 Same schema version is retrieved multiple times in concurrent scenarios
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
@@ -214,7 +209,7 @@ public class ClientTable implements Table {
 
         var schema = new ClientSchema(schemaVer, columns);
 
-        schemas.put(schemaVer, schema);
+        schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
         synchronized (latestSchemaLock) {
             if (schemaVer > latestSchemaVer) {
