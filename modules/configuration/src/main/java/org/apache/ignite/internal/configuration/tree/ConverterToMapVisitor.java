@@ -48,7 +48,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     private final boolean skipEmptyValues;
 
     /** Mask values, if their {@link Field} has {@link Secret} annotation. */
-    private final boolean maskValues;
+    private final boolean maskSecretValues;
 
     /** Stack with intermediate results. Used to store values during recursive calls. */
     private final Deque<Object> deque = new ArrayDeque<>();
@@ -62,16 +62,16 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      *
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @param skipEmptyValues Skip empty values.
-     * @param maskValues Mask values, if their {@link Field} has {@link Secret} annotation.
+     * @param maskSecretValues Mask values, if their {@link Field} has {@link Secret} annotation.
      */
     ConverterToMapVisitor(
             boolean includeInternal,
             boolean skipEmptyValues,
-            boolean maskValues
+            boolean maskSecretValues
     ) {
         this.includeInternal = includeInternal;
         this.skipEmptyValues = skipEmptyValues;
-        this.maskValues = maskValues;
+        this.maskSecretValues = maskSecretValues;
     }
 
     /** {@inheritDoc} */
@@ -192,14 +192,15 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     }
 
     /**
-     * Returns {@link ConverterToMapVisitor#MASKED_VALUE} if the field is annotated with {@link Secret}.
+     * Returns {@link ConverterToMapVisitor#MASKED_VALUE}
+     * if the field is annotated with {@link Secret} and {@link ConverterToMapVisitor#maskSecretValues} is {@code true}.
      *
      * @param field Field to check
      * @param val Value to mask
      * @return Masked value
      */
     private Object maskIfNeeded(Field field, Object val) {
-        if (!maskValues) {
+        if (!maskSecretValues) {
             return val;
         }
 
