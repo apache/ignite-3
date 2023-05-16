@@ -46,6 +46,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.awaitility.Awaitility;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -489,7 +490,11 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         initCluster(metaStorageNodes, cmgNodes, null);
     }
 
-    private void initCluster(String[] metaStorageNodes, String[] cmgNodes, String clusterConfiguration) throws NodeStoppingException {
+    private void initCluster(
+            String[] metaStorageNodes,
+            String[] cmgNodes,
+            @Nullable String clusterConfiguration
+    ) throws NodeStoppingException {
         cluster.get(0).clusterManager().initCluster(
                 Arrays.asList(metaStorageNodes),
                 Arrays.asList(cmgNodes),
