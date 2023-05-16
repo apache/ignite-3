@@ -32,7 +32,7 @@ public final class ConverterToMapVisitorBuilder {
     private boolean skipEmptyValues = false;
 
     /** Mask values, if their {@link Field} has {@link Secret} annotation. */
-    private boolean maskValues = false;
+    private boolean maskSecretValues = false;
 
     ConverterToMapVisitorBuilder() {
     }
@@ -47,12 +47,12 @@ public final class ConverterToMapVisitorBuilder {
         return this;
     }
 
-    public ConverterToMapVisitorBuilder maskValues(boolean maskValues) {
-        this.maskValues = maskValues;
+    public ConverterToMapVisitorBuilder maskSecretValues(boolean maskSecretValues) {
+        this.maskSecretValues = maskSecretValues;
         return this;
     }
 
     public ConverterToMapVisitor build() {
-        return new ConverterToMapVisitor(includeInternal, skipEmptyValues, maskValues);
+        return new ConverterToMapVisitor(includeInternal, skipEmptyValues, maskSecretValues);
     }
 }

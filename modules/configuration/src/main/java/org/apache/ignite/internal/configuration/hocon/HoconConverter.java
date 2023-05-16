@@ -46,7 +46,7 @@ public class HoconConverter {
                 path,
                 ConverterToMapVisitor.builder()
                         .includeInternal(false)
-                        .maskValues(true)
+                        .maskSecretValues(true)
                         .build());
 
         return ConfigImpl.fromAnyRef(res, null);
