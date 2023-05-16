@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.Session;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -175,6 +176,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19443")
     void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
         String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
 

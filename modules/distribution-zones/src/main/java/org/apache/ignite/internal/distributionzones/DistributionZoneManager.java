@@ -1402,6 +1402,15 @@ public class DistributionZoneManager implements IgniteComponent {
         };
     }
 
+    /**
+     * Filters {@code dataNodes} according to the provided {@code filter}.
+     * Nodes' attributes are taken from {@code nodesAttributes} map.
+     *
+     * @param dataNodes Data nodes.
+     * @param filter Filter for data nodes.
+     * @param nodesAttributes Nodes' attributes which used for filtering.
+     * @return Filtered data nodes.
+     */
     public static Set<String> filterDataNodes(
             Set<Node> dataNodes,
             String filter,
@@ -2143,6 +2152,12 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Node representation that we store in data nodes.
+     * Includes {@code nodeName} that is unique identifier of the node, that is not changing after a restart, and
+     * {@code nodeId} that is unique identifier of a node, that changes after a restart.
+     * {@code nodeId} is needed to get nodes' attributes from the local state of the distribution zone manager.
+     */
     public static class Node implements Serializable {
         String nodeName;
 

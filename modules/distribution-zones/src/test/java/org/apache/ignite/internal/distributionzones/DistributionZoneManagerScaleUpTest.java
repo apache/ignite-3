@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
@@ -27,14 +26,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockVaultZonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,25 +43,20 @@ import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -131,8 +121,8 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertLogicalTopology(clusterNodes3, keyValueStorage);
 
-        assertDataNodesForZone(ZONE_1_ID, clusterNodes3.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
-        assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes3.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(ZONE_1_ID, clusterNodes3, keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes3, keyValueStorage);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
@@ -177,7 +167,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 new DistributionZoneConfigurationParameters.Builder(ZONE_1_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
-        assertDataNodesForZone(ZONE_1_ID, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(ZONE_1_ID, clusterNodes, keyValueStorage);
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -185,10 +175,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
-        assertDataNodesForZone(ZONE_1_ID, clusterNodes2.stream().map(ClusterNode::name).collect(Collectors.toSet()), keyValueStorage);
+        assertDataNodesForZone(ZONE_1_ID, clusterNodes2, keyValueStorage);
 
         // Check that default zone still has both node1 and node2 because dafault zones' scaleDown is INF.
-        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1.name(), NODE_2.name()), keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
@@ -1344,7 +1334,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                             .build()).get();
         } else {
             distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                    new DistributionZoneConfigurationParameters.Builder(ZONE_1_NAME)
                             .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                             .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                             .filter(filter)
@@ -1373,24 +1363,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     private CompletableFuture<Void> testSaveDataNodesOnScaleDown(int zoneId, long revision) {
         return distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(zoneId, revision);
-    }
-
-    private void assertNotEqualsDataNodesForZone(int zoneId, @Nullable Set<String> clusterNodes) throws InterruptedException {
-        assertFalse(waitForCondition(
-                () -> {
-                    byte[] dataNodes = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
-
-                    if (dataNodes == null) {
-                        return clusterNodes == null;
-                    }
-
-                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes)).stream()
-                            .map(Node::nodeName).collect(Collectors.toSet());
-
-                    return res.equals(clusterNodes);
-                },
-                1000
-        ));
     }
 
     private void assertThatZonesAugmentationMapContainsRevision(int zoneId, long revisionToAssert) throws InterruptedException {

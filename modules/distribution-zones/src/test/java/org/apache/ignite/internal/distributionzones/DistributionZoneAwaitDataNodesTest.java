@@ -46,20 +46,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
@@ -390,7 +388,7 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
             return invocation.callRealMethod();
         }).when(keyValueStorage).invoke(any(), any());
 
-        setLogicalTopologyInMetaStorage(Set.of(NODE_0), 200);
+        setLogicalTopologyInMetaStorage(Set.of(NODE_0), 200, metaStorageManager);
 
         assertFalse(dataNodesFut0.isDone());
 
@@ -416,7 +414,7 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         assertThat(distributionZoneManager.dropZone(ZONE_NAME_0), willSucceedIn(3, SECONDS));
 
-        setLogicalTopologyInMetaStorage(Set.of(NODE_0), 200);
+        setLogicalTopologyInMetaStorage(Set.of(NODE_0), 200, metaStorageManager);
 
         assertFalse(dataNodesFut0.isDone());
 
@@ -477,9 +475,9 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
             return invocation.callRealMethod();
         }).when(keyValueStorage).invoke(any(), any());
 
-        setLogicalTopologyInMetaStorage(nodes1, 2);
+        setLogicalTopologyInMetaStorage(nodes1, 2, metaStorageManager);
 
-        assertEquals(nodes0, dataNodesFut1.get(5, SECONDS));
+        assertEquals(nodes0.stream().map(ClusterNode::name).collect(Collectors.toSet()), dataNodesFut1.get(5, SECONDS));
 
         scaleUpLatch.countDown();
         scaleDownLatch.countDown();

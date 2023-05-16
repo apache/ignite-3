@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
