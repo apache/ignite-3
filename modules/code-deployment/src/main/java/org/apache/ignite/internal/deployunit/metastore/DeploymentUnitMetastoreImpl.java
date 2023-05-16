@@ -142,10 +142,7 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
 
         return nodesFuture.thenCompose(nodes ->
             metaStorage.invoke(existsAll(key, nodes), removeAll(key, nodes), Collections.emptyList())
-        ).thenApply(success -> {
-            System.out.println(success);
-            return success;
-        });
+        );
     }
 
     private Condition existsAll(ByteArray key, List<byte[]> keys) {

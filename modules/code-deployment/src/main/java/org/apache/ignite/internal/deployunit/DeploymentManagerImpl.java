@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -214,16 +215,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     public CompletableFuture<List<Version>> versionsAsync(String id) {
         checkId(id);
 
-        return metastore.getClusterStatuses(id).thenApply(status -> new ArrayList<>(status.versions()));
+        return metastore.getClusterStatuses(id).thenApply(status -> {
+            ArrayList<Version> result = new ArrayList<>(status.versions());
+            Collections.sort(result);
+            return result;
+        });
     }
 
     @Override
     public CompletableFuture<UnitStatus> statusAsync(String id) {
         checkId(id);
-        return metastore.getClusterStatuses(id).thenApply(status -> {
-            System.out.println(status);
-            return status;
-        });
+        return metastore.getClusterStatuses(id);
     }
 
     @Override

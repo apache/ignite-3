@@ -21,8 +21,12 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DE
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitMetastoreImpl;
@@ -35,7 +39,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,17 +73,16 @@ public class DeploymentUnitMetastoreImplTest {
         String id = "id1";
         Version version = Version.parseVersion("1.1.1");
 
-        metastore.createClusterStatus(id, version);
+        assertThat(metastore.createClusterStatus(id, version), willBe(true));
 
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitMeta(id, version, UPLOADING)));
 
-        metastore.updateClusterStatus(id, version, DEPLOYED);
-
+        assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitMeta(id, version, DEPLOYED)));
 
-        metastore.remove(id, version);
+        assertThat(metastore.remove(id, version), willBe(true));
 
         assertThat(metastore.getClusterStatus(id, version), willBe((UnitMeta) null));
     }
@@ -94,35 +96,33 @@ public class DeploymentUnitMetastoreImplTest {
         String node2 = "node2";
         String node3 = "node3";
 
-        metastore.createClusterStatus(id, version);
+        assertThat(metastore.createClusterStatus(id, version), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitMeta(id, version, UPLOADING)));
 
-        metastore.createNodeStatus(id, version, node1);
+        assertThat(metastore.createNodeStatus(id, version, node1), willBe(true));
         assertThat(metastore.getNodeStatus(id, version, node1),
                 willBe(new UnitMeta(id, version, UPLOADING)));
 
-        metastore.updateNodeStatus(id, version, node1, DEPLOYED);
+        assertThat(metastore.updateNodeStatus(id, version, node1, DEPLOYED), willBe(true));
         assertThat(metastore.getNodeStatus(id, version, node1),
                 willBe(new UnitMeta(id, version, DEPLOYED)));
 
-        metastore.createNodeStatus(id, version, node2);
+        assertThat(metastore.createNodeStatus(id, version, node2), willBe(true));
         assertThat(metastore.getNodeStatus(id, version, node2),
                 willBe(new UnitMeta(id, version, UPLOADING)));
 
-        metastore.createNodeStatus(id, version, node3);
+        assertThat(metastore.createNodeStatus(id, version, node3), willBe(true));
 
-        metastore.updateClusterStatus(id, version, DEPLOYED);
+        assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitMeta(id, version, DEPLOYED)));
 
-        assertThat(metastore.getClusterStatuses(id), willBe(UnitStatus.builder(id)
-                .append(version, DEPLOYED)
-                .build())
+        assertThat(metastore.getClusterStatuses(id),
+                willBe(UnitStatus.builder(id).append(version, DEPLOYED).build())
         );
 
-        metastore.remove(id, version);
-
+        assertThat(metastore.remove(id, version), willBe(true));
         assertThat(metastore.getNodeStatus(id, version, node1),
                 willBe((UnitMeta) null));
     }
@@ -137,26 +137,31 @@ public class DeploymentUnitMetastoreImplTest {
         String node2 = "node2";
         String node3 = "node3";
 
-        metastore.createClusterStatus(id1, version);
-        metastore.createNodeStatus(id1, version, node1);
-        metastore.createNodeStatus(id1, version, node2);
-        metastore.createNodeStatus(id1, version, node3);
+        assertThat(metastore.createClusterStatus(id1, version), willBe(true));
+        assertThat(metastore.createNodeStatus(id1, version, node1), willBe(true));
+        assertThat(metastore.createNodeStatus(id1, version, node2), willBe(true));
+        assertThat(metastore.createNodeStatus(id1, version, node3), willBe(true));
 
+        assertThat(metastore.createClusterStatus(id2, version), willBe(true));
+        assertThat(metastore.updateClusterStatus(id2, version, DEPLOYED), willBe(true));
+        assertThat(metastore.getClusterStatus(id2, version), willBe(new UnitMeta(id2, version, DEPLOYED)));
 
-        metastore.createClusterStatus(id2, version);
-        metastore.updateClusterStatus(id2, version, DEPLOYED);
-        assertThat(metastore.getClusterStatus(id2, version),
-                willBe(new UnitMeta(id2, version, DEPLOYED)));
-        metastore.createNodeStatus(id2, version, node1);
-        metastore.createNodeStatus(id2, version, node2);
-        metastore.createNodeStatus(id2, version, node3);
+        assertThat(metastore.createNodeStatus(id2, version, node1), willBe(true));
+        assertThat(metastore.createNodeStatus(id2, version, node2), willBe(true));
+        assertThat(metastore.createNodeStatus(id2, version, node3), willBe(true));
 
-        assertThat(metastore.findAllByNodeConsistentId(node1),
-                willBe(Matchers.containsInAnyOrder(
-                        UnitStatus.builder(id1).append(version, UPLOADING).build(),
-                        UnitStatus.builder(id2).append(version, DEPLOYED).build()
-                ))
-        );
+        assertThat(metastore.findAllByNodeConsistentId(node1), willBe(Collections.emptyList()));
+
+        assertThat(metastore.updateNodeStatus(id1, version, node1, DEPLOYED), willBe(true));
+        assertThat(metastore.findAllByNodeConsistentId(node1), willBe(equalTo(
+                List.of(UnitStatus.builder(id1).append(version, UPLOADING).build())
+        )));
+
+        assertThat(metastore.updateNodeStatus(id2, version, node1, DEPLOYED), willBe(true));
+        assertThat(metastore.findAllByNodeConsistentId(node1), willBe(containsInAnyOrder(
+                UnitStatus.builder(id1).append(version, UPLOADING).build(),
+                UnitStatus.builder(id2).append(version, DEPLOYED).build()
+        )));
     }
 
 

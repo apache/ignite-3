@@ -179,7 +179,12 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     @Test
     public void testVersionEmpty() {
         String id = "nonExisted";
-        assertThat(versions(id), equalTo(Collections.emptyList()));
+
+        HttpClientResponseException e = assertThrows(
+                HttpClientResponseException.class,
+                () -> versions(id));
+
+        assertThat(e.getResponse().code(), is(NOT_FOUND.code()));
     }
 
     @Test
