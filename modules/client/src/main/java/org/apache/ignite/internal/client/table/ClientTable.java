@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicStampedReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -71,9 +72,7 @@ public class ClientTable implements Table {
 
     private final Object latestSchemaLock = new Object();
 
-    private volatile List<String> partitionAssignment = null;
-
-    private volatile long partitionAssignmentVersion = -1;
+    private final AtomicStampedReference<CompletableFuture<List<String>>> partitionAssignment = new AtomicStampedReference<>(null, -1);
 
     /**
      * Constructor.
