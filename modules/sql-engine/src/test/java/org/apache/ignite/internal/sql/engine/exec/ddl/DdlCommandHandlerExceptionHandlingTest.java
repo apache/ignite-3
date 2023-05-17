@@ -88,8 +88,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
             new TestConfigurationStorage(DISTRIBUTED),
-            List.of(),
-            List.of(TestPersistStorageConfigurationSchema.class),
+            generator,
             ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
     );
 
@@ -127,7 +126,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
-        generator.close();
     }
 
     @Test
