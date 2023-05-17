@@ -41,9 +41,6 @@ public interface IgniteResource {
     @Resources.BaseMessage("Invalid decimal literal.")
     Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
 
-    // Fix error message because {1} and {} can get mixed up.
-    // mapping param/target from t1/t2 depends on position of dynamic parameter.
-    // Cannot apply ''{0}'' to arguments of type {1}, {2}. Dynamic parameter requires adding explicit type cast.
     @Resources.BaseMessage
             ("Values passed to {0} operator must have compatible types. Dynamic parameter requires adding explicit type cast.")
     Resources.ExInst<SqlValidatorException> operationRequiresExplicitCast(String operation);
