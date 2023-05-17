@@ -116,7 +116,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * UPDATE when table has a single distribution.
+     * Test for UPDATE when table has a single distribution.
      */
     @Test
     public void testUpdateOfSingleDistributedTable() throws Exception {
