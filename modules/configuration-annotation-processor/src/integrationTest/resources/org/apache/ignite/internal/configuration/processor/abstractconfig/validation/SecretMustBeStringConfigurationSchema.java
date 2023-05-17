@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Checks that field annotated with {@link org.apache.ignite.configuration.annotation.Secret} must {@link String}.
+ * Checks that field annotated with {@link org.apache.ignite.configuration.annotation.Secret} must be {@link String}.
  */
 @Config
 public class SecretMustBeStringConfigurationSchema {
