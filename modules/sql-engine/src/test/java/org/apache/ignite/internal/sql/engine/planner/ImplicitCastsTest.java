@@ -359,6 +359,17 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4))
                         .sql("SELECT str_col, int_col FROM t UNION SELECT int_col, str_col FROM t")
+                        .fail("Type mismatch in column 1 of UNION"),
+
+                // See https://issues.apache.org/jira/browse/CALCITE-5130
+                checkStatement()
+                        .table("t1", "int_col", NativeTypes.INT32)
+                        .sql("SELECT int_col FROM t1 UNION SELECT '1000'")
+                        .fail("Type mismatch in column 1 of UNION"),
+
+                checkStatement()
+                        .table("t1", "int_col", NativeTypes.INT32)
+                        .sql("SELECT '1000' UNION SELECT int_col FROM t1")
                         .fail("Type mismatch in column 1 of UNION")
         );
     }
