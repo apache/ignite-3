@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -336,25 +337,34 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    /**
+     * Ensures that multiple consecutive scan requests with different requested rows amount
+     * return the expected total number of requested rows.
+     *
+     * @throws Exception If failed.
+     */
     @Test
-    public void testCompositeRequest() throws Exception {
-        List<BinaryRow> scannedRows = new ArrayList<>();
+    public void testCompositeScanRequest() throws Exception {
+        int[][] demandPairs = {{3, 1}, {1, 3}};
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+        for (int[] input : demandPairs) {
+            List<BinaryRow> scannedRows = new ArrayList<>();
+            Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+            CompletableFuture<Void> scanned = new CompletableFuture<>();
 
-        CompletableFuture<Void> scanned = new CompletableFuture<>();
+            Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
-        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+            subscription.request(input[0]);
+            subscription.request(input[1]);
 
-        subscription.request(3);
-        subscription.request(1);
+            int total = input[0] + input[1];
+            waitForCondition(() -> scannedRows.size() == total, 10_000);
+            assertEquals(total, scannedRows.size(), "input=" + Arrays.toString(input));
 
-        waitForCondition(() -> scannedRows.size() == 4, 10_000);
-        assertEquals(4, scannedRows.size());
-
-        // Close the publisher.
-        subscription.request(1_000);
-        IgniteTestUtils.await(scanned);
+            // Close the publisher.
+            subscription.request(1_000);
+            IgniteTestUtils.await(scanned);
+        }
     }
 
     /**
