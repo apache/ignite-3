@@ -108,6 +108,7 @@ public class PlacementDriverTest {
     }
 
     /**
+     * Test steps
      * <ol>
      *     <li>Await primary replica for time 10.</li>
      *     <li>Publish primary replica for an interval [1, 5].</li>
@@ -145,6 +146,7 @@ public class PlacementDriverTest {
     }
 
     /**
+     * Test steps
      * <ol>
      *     <li>Await primary replica for time 10.</li>
      *     <li>Publish primary replica for an interval [1, 5].</li>
@@ -182,6 +184,7 @@ public class PlacementDriverTest {
     }
 
     /**
+     * Test steps
      * <ol>
      *     <li>Publish primary replica for an interval [1, 15].</li>
      *     <li>Await primary replica for time 10.</li>
@@ -210,6 +213,7 @@ public class PlacementDriverTest {
     }
 
     /**
+     * Test steps
      * <ol>
      *     <li>Await primary replica for time 10 twice.</li>
      *     <li>Publish primary replica for an interval [15, 30] with left border gt than await time 10.</li>
@@ -244,6 +248,7 @@ public class PlacementDriverTest {
     }
 
     /**
+     * Test steps
      * <ol>
      *     <li>Await primary replica for time 10 twice.</li>
      *     <li>Timeout first waiter, and assert that timeout occurred.</li>
@@ -281,6 +286,7 @@ public class PlacementDriverTest {
     }
 
     /**
+     * Test steps
      * <ol>
      *     <li>Await primary replica for time 10.</li>
      *     <li>Publish primary replica for an interval [1, 15].</li>
