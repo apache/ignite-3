@@ -66,15 +66,25 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         try {
             SchemaDescriptor schema = schemaReg.schema();
 
-            if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
-                SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
-                BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
+            if (tuple instanceof SchemaAware) {
+                SchemaAware schemaAware = (SchemaAware) tuple;
+                SchemaDescriptor tupleSchema = schemaAware.schema();
 
-                if (tupleSchema != null
-                        && tupleReader != null
-                        && tupleSchema.version() == schema.version()
-                        && !binaryTupleRebuildRequired(schema)) {
-                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                if (schemaAware.requireMatchingSchema() && tupleSchema != null && schema.version() != tupleSchema.version()) {
+                    throw new SchemaMismatchException(
+                            String.format("Tuple doesn't match latest schema: latestVersion=%s, version=%s",
+                                    schema.version(), tupleSchema.version()));
+                }
+
+                if (tuple instanceof BinaryTupleContainer) {
+                    BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
+
+                    if (tupleSchema != null
+                            && tupleReader != null
+                            && tupleSchema.version() == schema.version()
+                            && !binaryTupleRebuildRequired(schema)) {
+                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                    }
                 }
             }
 
