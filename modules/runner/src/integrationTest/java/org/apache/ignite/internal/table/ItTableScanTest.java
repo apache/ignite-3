@@ -336,6 +336,27 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    @Test
+    public void testCompositeRequest() throws Exception {
+        List<BinaryRow> scannedRows = new ArrayList<>();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        subscription.request(3);
+        subscription.request(1);
+
+        waitForCondition(() -> scannedRows.size() == 4, 10_000);
+        assertEquals(4, scannedRows.size());
+
+        // Close the publisher.
+        subscription.request(1_000);
+        IgniteTestUtils.await(scanned);
+    }
+
     /**
      * The method executes an operation, encapsulated in closure, during a pure table scan.
      *

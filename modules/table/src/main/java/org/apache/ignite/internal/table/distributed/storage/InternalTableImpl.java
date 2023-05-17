@@ -1427,10 +1427,10 @@ public class InternalTableImpl implements InternalTable {
                     if (binaryRows.size() < n) {
                         cancel();
                     } else {
-                        int remaining = (int) requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
+                        long remaining = requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
 
                         if (remaining > 0) {
-                            scanBatch(Math.min(remaining, INTERNAL_BATCH_SIZE));
+                            scanBatch((int) Math.min(remaining, INTERNAL_BATCH_SIZE));
                         }
                     }
                 }).exceptionally(t -> {
