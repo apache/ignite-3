@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -108,8 +109,11 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 new TestConfigurationStorage(DISTRIBUTED),
-                List.of(),
-                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class),
+                new ConfigurationTreeGenerator(
+                        List.of(DistributionZonesConfiguration.KEY),
+                        List.of(),
+                        List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
+                ),
                 new TestConfigurationValidator()
         );
 

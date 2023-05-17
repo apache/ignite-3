@@ -33,6 +33,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -94,8 +95,11 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         ConfigurationManager cfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 cfgStorage,
-                List.of(),
-                List.of(TestPersistStorageConfigurationSchema.class),
+                new ConfigurationTreeGenerator(
+                        List.of(DistributionZonesConfiguration.KEY),
+                        List.of(),
+                        List.of(TestPersistStorageConfigurationSchema.class)
+                ),
                 new TestConfigurationValidator()
         );
 

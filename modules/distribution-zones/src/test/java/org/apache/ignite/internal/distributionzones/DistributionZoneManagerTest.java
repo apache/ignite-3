@@ -86,8 +86,11 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         registry = new ConfigurationRegistry(
                 List.of(DistributionZonesConfiguration.KEY),
                 new TestConfigurationStorage(DISTRIBUTED),
-                List.of(),
-                List.of(TestPersistStorageConfigurationSchema.class),
+                new ConfigurationTreeGenerator(
+                        List.of(DistributionZonesConfiguration.KEY),
+                        List.of(),
+                        List.of(TestPersistStorageConfigurationSchema.class)
+                ),
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(FilterValidator.INSTANCE))
         );
 

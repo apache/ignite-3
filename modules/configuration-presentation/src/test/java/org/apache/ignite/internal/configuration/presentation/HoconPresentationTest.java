@@ -82,8 +82,7 @@ public class HoconPresentationTest {
         cfgRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(),
+                new ConfigurationTreeGenerator(TestRootConfiguration.KEY),
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
