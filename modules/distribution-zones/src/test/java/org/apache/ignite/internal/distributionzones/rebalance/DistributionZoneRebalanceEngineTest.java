@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -122,8 +122,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        when(distributionZoneManager.getDataNodesByZoneId(anyInt())).thenReturn(Set.of("node0"));
-
         doAnswer(invocation -> {
             ByteArray key = invocation.getArgument(0);
 
@@ -417,7 +415,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = toBytes(toDataNodesMap(nodes));
+            newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
+                    .map(n -> new Node(n, n))
+                    .collect(Collectors.toSet())));
         } else {
             newLogicalTopology = null;
         }

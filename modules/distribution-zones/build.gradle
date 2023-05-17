@@ -64,9 +64,12 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.mockito.junit
+    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
 }

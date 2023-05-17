@@ -190,6 +190,10 @@ public class DdlCommandHandler {
             zoneCfgBuilder.partitions(cmd.partitions());
         }
 
+        if (cmd.nodeFilter() != null) {
+            zoneCfgBuilder.filter(cmd.nodeFilter());
+        }
+
         zoneCfgBuilder.dataStorageChangeConsumer(
                 dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
