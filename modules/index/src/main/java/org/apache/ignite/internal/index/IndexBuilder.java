@@ -100,6 +100,7 @@ class IndexBuilder {
      * Initializes the build of the index.
      */
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
+        // TODO: IGNITE-19177 вот тут пока подложил мину
         if (tableIndexView != null) {
             return;
         }

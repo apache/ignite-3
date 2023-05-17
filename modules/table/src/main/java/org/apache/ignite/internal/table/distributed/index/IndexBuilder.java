@@ -103,16 +103,16 @@ public class IndexBuilder implements ManuallyCloseable {
 
             IndexBuildTask newTask = new IndexBuildTask(taskId, indexStorage, partitionStorage, raftClient, executor, busyLock, BATCH_SIZE);
 
-            IndexBuildTask currentTask = indexBuildTaskById.putIfAbsent(taskId, newTask);
+            IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, newTask);
 
-            if (currentTask != newTask) {
+            if (previousTask != null) {
                 // Index building is already in progress.
                 return;
             }
 
-            currentTask.start();
+            newTask.start();
 
-            currentTask.getTaskFuture().whenComplete((unused, throwable) -> indexBuildTaskById.remove(taskId));
+            newTask.getTaskFuture().whenComplete((unused, throwable) -> indexBuildTaskById.remove(taskId));
         });
     }
 
