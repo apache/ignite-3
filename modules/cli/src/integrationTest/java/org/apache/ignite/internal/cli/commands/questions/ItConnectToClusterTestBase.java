@@ -26,13 +26,9 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.config.TestStateConfigProvider;
-import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReader;
+import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
-import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
-import org.jline.reader.Parser;
-import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
@@ -65,13 +61,7 @@ class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegrationBas
 
         input = Files.createTempFile(WORK_DIR, "input", "");
         terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
-        Parser parser = new DefaultParser().escapeChars(null);
-
-        LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .parser(parser)
-                .build();
-        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
+        QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
     }
 
     @AfterEach

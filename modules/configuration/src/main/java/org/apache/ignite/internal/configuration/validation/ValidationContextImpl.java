@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
-
 import java.util.List;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
@@ -27,6 +25,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
@@ -100,7 +99,7 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     @Override
     public VIEWT getOldValue() {
         try {
-            return find(currentPath, oldRoots, true);
+            return ConfigurationUtil.<VIEWT>find(currentPath, oldRoots, true).value();
         } catch (KeyNotFoundException ignore) {
             return null;
         }
@@ -148,7 +147,9 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
 
     private <T> @Nullable T findOwner(SuperRoot superRoot) {
         try {
-            return currentPath.size() <= 1 ? null : find(currentPath.subList(0, currentPath.size() - 1), superRoot, true);
+            return currentPath.size() <= 1
+                    ? null
+                    : ConfigurationUtil.<T>find(currentPath.subList(0, currentPath.size() - 1), superRoot, true).value();
         } catch (KeyNotFoundException ignore) {
             return null;
         }

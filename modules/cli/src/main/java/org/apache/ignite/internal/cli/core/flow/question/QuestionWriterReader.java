@@ -24,8 +24,9 @@ public interface QuestionWriterReader {
     /**
      * Write question to output and read answer from input.
      *
-     * @param question question to ask.
+     * @param question Question to ask.
+     * @param maskInput If {@code true}, user input will be masked with asterisks.
      * @return user answer.
      */
-    String readAnswer(String question);
+    String readAnswer(String question, boolean maskInput);
 }

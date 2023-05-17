@@ -93,7 +93,8 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
+        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock,
+                mock(ClusterService.class));
         indexManager.start();
 
         assertThat(
@@ -212,7 +213,7 @@ public class IndexManagerTest {
     private static Object toMap(Object obj) {
         assert obj instanceof TraversableTreeNode;
 
-        return ((TraversableTreeNode) obj).accept(null, new ConverterToMapVisitor(false));
+        return ((TraversableTreeNode) obj).accept(null, null, new ConverterToMapVisitor(false));
     }
 
     private static void assertSameObjects(Object expected, Object actual) {

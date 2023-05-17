@@ -105,7 +105,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         ResultSet rs = getResultSet();
 
@@ -123,7 +123,7 @@ public class JdbcStatement implements Statement {
      * @param args Query parameters.
      * @throws SQLException Onj error.
      */
-    protected void execute0(JdbcStatementType stmtType, String sql, List<Object> args) throws SQLException {
+    protected void execute0(JdbcStatementType stmtType, String sql, Object[] args) throws SQLException {
         ensureNotClosed();
 
         closeResults();
@@ -132,8 +132,7 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
-                args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray(), conn.getAutoCommit());
+        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args, conn.getAutoCommit());
 
         Response res;
         try {
@@ -176,7 +175,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        execute0(JdbcStatementType.UPDATE_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.UPDATE_STATEMENT_TYPE, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         int res = getUpdateCount();
 
@@ -340,7 +339,7 @@ public class JdbcStatement implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), ArrayUtils.OBJECT_EMPTY_ARRAY);
 
         return isQuery();
     }

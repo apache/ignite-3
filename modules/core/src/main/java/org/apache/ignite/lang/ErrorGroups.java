@@ -374,6 +374,11 @@ public class ErrorGroups {
          * Config write error.
          */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
+
+        /**
+         * Config parse error.
+         */
+        public static final int CONFIG_PARSE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(4);
     }
 
     /**

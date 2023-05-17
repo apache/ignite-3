@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -28,7 +26,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
  */
 public class LeaseAgreement {
     /** The agreement, which has not try negotiating yet. */
-    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, completedFuture(null));
+    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, null);
 
     /** Lease. */
     private final Lease lease;
@@ -62,7 +60,7 @@ public class LeaseAgreement {
      * @return Accepted flag.
      */
     public boolean isAccepted() {
-        if (!responseFut.isDone()) {
+        if (!ready()) {
             return false;
         }
 
@@ -82,7 +80,7 @@ public class LeaseAgreement {
      * @return Node id to propose a lease.
      */
     public String getRedirectTo() {
-        assert responseFut.isDone() : "The method should be invoked only after the agreement is ready";
+        assert ready() : "The method should be invoked only after the agreement is ready";
 
         LeaseGrantedMessageResponse resp = responseFut.join();
 
@@ -95,6 +93,6 @@ public class LeaseAgreement {
      * @return True if a response of the agreement has been received, false otherwise.
      */
     public boolean ready() {
-        return responseFut.isDone();
+        return responseFut != null && responseFut.isDone();
     }
 }

@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,8 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -48,12 +54,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -94,15 +103,19 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -113,19 +126,24 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -209,10 +227,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private RaftGroupService mockRaftClient;
 
     @Mock
+    private TxManager txManager;
+
+    @Mock
     private TopologyService topologySrv;
 
     @Mock
     private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeClock;
+
+    @Mock
+    private Schemas schemas;
 
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;
@@ -290,6 +314,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         lenient().when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
 
+        lenient().when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
+
         UUID pkIndexId = UUID.randomUUID();
         UUID sortedIndexId = UUID.randomUUID();
         UUID hashIndexId = UUID.randomUUID();
@@ -325,14 +351,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
 
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
-        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, lockManager, indexStorage, row2Tuple);
+        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, partId, lockManager, indexStorage, row2Tuple);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
-                mock(TxManager.class),
+                txManager,
                 lockManager,
                 Runnable::run,
                 partId,
@@ -352,6 +378,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         safeTimeClock,
                         mock(LowWatermark.class)
                 ),
+                schemas,
                 peer -> localNode.name().equals(peer.consistentId()),
                 completedFuture(schemaManager)
         );
@@ -1153,6 +1180,133 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
 
         cleanup(tx1);
+    }
+
+    @Test
+    public void abortsSuccessfully() {
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndAbortTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(false));
+    }
+
+    private CompletableFuture<?> beginAndAbortTx() {
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
+
+        TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
+                .groupId(grpId)
+                .txId(txId)
+                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .commit(false)
+                .term(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(commitRequest);
+    }
+
+    @Test
+    public void commitsOnSameSchemaSuccessfully() {
+        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        tableSchema(1, List.of(nullableColumn("col")))
+                ));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndCommitTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(true));
+    }
+
+    private static TableColumnDescriptor nullableColumn(String colName) {
+        return new TableColumnDescriptor(colName, ColumnType.INT32, true, DefaultValue.constant(null));
+    }
+
+    private static TableColumnDescriptor defaultedColumn(String colName, int defaultValue) {
+        return new TableColumnDescriptor(colName, ColumnType.INT32, false, DefaultValue.constant(defaultValue));
+    }
+
+    private static FullTableSchema tableSchema(int schemaVersion, List<TableColumnDescriptor> columns) {
+        return new FullTableSchema(schemaVersion, 1, columns, List.of());
+    }
+
+    private AtomicReference<Boolean> interceptFinishTxCommand() {
+        AtomicReference<Boolean> committed = new AtomicReference<>();
+
+        raftClientFutureClosure = command -> {
+            if (command instanceof FinishTxCommand) {
+                committed.set(((FinishTxCommand) command).commit());
+            }
+            return defaultMockRaftFutureClosure.apply(command);
+        };
+
+        return committed;
+    }
+
+    private CompletableFuture<?> beginAndCommitTx() {
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTimestamp);
+
+        HybridTimestamp commitTimestamp = clock.now();
+
+        TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
+                .groupId(grpId)
+                .txId(txId)
+                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .commit(true)
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                .term(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(commitRequest);
+    }
+
+    @Test
+    @Disabled("IGNITE-19229")
+    public void commitsOnCompatibleSchemaChangeSuccessfully() {
+        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        tableSchema(1, List.of(nullableColumn("col1"))),
+                        tableSchema(2, List.of(nullableColumn("col1"), nullableColumn("col2")))
+                ));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndCommitTx();
+
+        assertThat(future, willSucceedFast());
+
+        assertThat(committed.get(), is(true));
+    }
+
+    @Test
+    public void abortsCommitOnIncompatibleSchema() {
+        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+                .thenReturn(List.of(
+                        tableSchema(1, List.of(defaultedColumn("col", 4))),
+                        tableSchema(2, List.of(defaultedColumn("col", 5)))
+                ));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        CompletableFuture<?> future = beginAndCommitTx();
+
+        IncompatibleSchemaAbortException ex = assertWillThrowFast(future,
+                IncompatibleSchemaAbortException.class);
+        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
+        assertThat(ex.getMessage(), containsString("Commit failed because schema 1 is not forward-compatible with 2"));
+
+        assertThat(committed.get(), is(false));
     }
 
     private static UUID beginTx() {

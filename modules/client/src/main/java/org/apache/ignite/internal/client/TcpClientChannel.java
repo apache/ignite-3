@@ -295,7 +295,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request", f.cause()));
+                    String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
+                    fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, msg, f.cause()));
+                    log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
+
                     pendingReqs.remove(id);
                     metrics.requestsActiveDecrement();
                 } else {

@@ -58,3 +58,7 @@
 #else
 # define IGNITE_SWITCH_WIN_OTHER(x, y) y
 #endif
+
+#ifndef UNUSED_VALUE
+#define UNUSED_VALUE (void)
+#endif // UNUSED_VALUE

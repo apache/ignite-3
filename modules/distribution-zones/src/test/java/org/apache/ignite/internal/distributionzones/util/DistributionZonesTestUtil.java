@@ -81,7 +81,7 @@ public class DistributionZonesTestUtil {
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertZoneScaleUpChangeTriggerKey(
-            long revision,
+            @Nullable Long revision,
             int zoneId,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
@@ -103,7 +103,7 @@ public class DistributionZonesTestUtil {
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertZoneScaleDownChangeTriggerKey(
-            long revision,
+            @Nullable Long revision,
             int zoneId,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {

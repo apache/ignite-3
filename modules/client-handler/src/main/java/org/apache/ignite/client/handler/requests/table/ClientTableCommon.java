@@ -373,58 +373,13 @@ public class ClientTableCommon {
      * @return Client type code.
      */
     public static ColumnType getColumnType(NativeTypeSpec spec) {
-        switch (spec) {
-            case INT8:
-                return ColumnType.INT8;
+        ColumnType columnType = spec.asColumnTypeOrNull();
 
-            case INT16:
-                return ColumnType.INT16;
-
-            case INT32:
-                return ColumnType.INT32;
-
-            case INT64:
-                return ColumnType.INT64;
-
-            case FLOAT:
-                return ColumnType.FLOAT;
-
-            case DOUBLE:
-                return ColumnType.DOUBLE;
-
-            case DECIMAL:
-                return ColumnType.DECIMAL;
-
-            case NUMBER:
-                return ColumnType.NUMBER;
-
-            case UUID:
-                return ColumnType.UUID;
-
-            case STRING:
-                return ColumnType.STRING;
-
-            case BYTES:
-                return ColumnType.BYTE_ARRAY;
-
-            case BITMASK:
-                return ColumnType.BITMASK;
-
-            case DATE:
-                return ColumnType.DATE;
-
-            case TIME:
-                return ColumnType.TIME;
-
-            case DATETIME:
-                return ColumnType.DATETIME;
-
-            case TIMESTAMP:
-                return ColumnType.TIMESTAMP;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
+        if (columnType == null) {
+            throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
         }
+
+        return columnType;
     }
 
     /**
