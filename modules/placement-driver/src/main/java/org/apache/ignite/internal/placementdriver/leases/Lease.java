@@ -35,7 +35,7 @@ public class Lease implements LeaseMeta {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE);
 
-    /** A node that holds a lease until {@code stopLeas}LeaseMeta. */
+    /** A node that holds a lease until {@code stopLeas}. */
     private final String leaseholder;
 
     /** The lease is accepted, when the holder knows about it and applies all related obligations. */
