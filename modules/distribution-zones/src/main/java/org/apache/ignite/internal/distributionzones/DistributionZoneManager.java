@@ -1373,14 +1373,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     assert newDataNodes != null : "Data nodes was not initialized.";
 
-                    String filter;
-
-                    try {
-                        filter = getZoneById(zonesConfiguration, zoneId).filter().value();
-                    } catch (DistributionZoneNotFoundException ignored) {
-                        //The zone has been dropped so no need to update zoneState.
-                        return completedFuture(null);
-                    }
+                    String filter = getZoneById(zonesConfiguration, zoneId).filter().value();
 
                     zoneState.nodes(filterDataNodes(newDataNodes, filter, nodesAttributes()));
 
