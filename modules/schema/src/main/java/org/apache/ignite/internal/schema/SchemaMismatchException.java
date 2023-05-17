@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.schema;
 
 import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Table;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
@@ -29,7 +31,7 @@ public class SchemaMismatchException extends SchemaException {
      * @param msg Error message.
      */
     public SchemaMismatchException(String msg) {
-        super(msg);
+        this(UUID.randomUUID(), Table.SCHEMA_MISMATCH_ERR, msg, null);
     }
 
     /**
@@ -40,7 +42,7 @@ public class SchemaMismatchException extends SchemaException {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SchemaMismatchException(UUID traceId, int code, String message, Throwable cause) {
+    public SchemaMismatchException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

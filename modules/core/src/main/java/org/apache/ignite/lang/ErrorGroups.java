@@ -66,6 +66,9 @@ public class ErrorGroups {
 
         /** Table is stopping. */
         public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
+
+        /** Schema mismatch. */
+        public static final int SCHEMA_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode(6);
     }
 
     /** Client error group. */

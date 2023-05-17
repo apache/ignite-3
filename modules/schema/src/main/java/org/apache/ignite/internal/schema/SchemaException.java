@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for schema exceptions.
@@ -51,7 +52,7 @@ public class SchemaException extends IgniteInternalException {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SchemaException(UUID traceId, int code, String message, Throwable cause) {
+    public SchemaException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
     }
 }
