@@ -28,7 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -137,10 +139,18 @@ public class ConfigurationRegistryTest {
 
     @Test
     void testComplicatedPolymorphicConfig() throws Exception {
+
+        Map<String, Serializable> bootstrapConfig = Map.of(
+                "sixth.entity.poly.strVal", "val",
+                "sixth.poly.strVal", "val",
+                "sixth.entity.poly.intVal", 1,
+                "sixth.poly.intVal", 1
+        );
+
         ConfigurationRegistry registry = new ConfigurationRegistry(
                 List.of(SixthRootConfiguration.KEY),
                 Set.of(),
-                new TestConfigurationStorage(LOCAL),
+                new TestConfigurationStorage(LOCAL, bootstrapConfig),
                 List.of(),
                 List.of(Fourth0PolymorphicConfigurationSchema.class)
         );

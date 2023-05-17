@@ -59,7 +59,7 @@ public:
     /**
      * Asynchronously executes a job represented by the given class on one node where the given key is located.
      *
-     * @param tableName Name of the table to be used with @c key to determine target node.
+     * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
      * @param job_class_name Java class name of the job to execute.
      * @param args Job arguments.

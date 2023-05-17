@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
+
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -27,7 +29,6 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -73,7 +74,7 @@ public final class RowConverter {
 
         int specifiedCols = 0;
         for (int i = 0; i < prefixColumnsCount; i++) {
-            if (handler.get(i, searchRow) == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+            if (handler.get(i, searchRow) == UNSPECIFIED_VALUE_PLACEHOLDER) {
                 break;
             }
 
@@ -109,7 +110,7 @@ public final class RowConverter {
 
         if (IgniteUtils.assertionsEnabled()) {
             for (int i = 0; i < rowColumnsCount; i++) {
-                if (handler.get(i, searchRow) == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+                if (handler.get(i, searchRow) == UNSPECIFIED_VALUE_PLACEHOLDER) {
                     throw new AssertionError("Invalid lookup key.");
                 }
             }
@@ -132,7 +133,7 @@ public final class RowConverter {
         for (int i = 0; i < columnsCount; i++) {
             Object val = handler.get(i, searchRow);
 
-            if (val == RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER) {
+            if (val == UNSPECIFIED_VALUE_PLACEHOLDER) {
                 break; // No more columns in prefix.
             }
 

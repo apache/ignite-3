@@ -60,7 +60,7 @@ public:
     [[nodiscard]] int16_t patch() const { return m_patch; }
 
     /**
-     * Compare to another value.
+     * compare to another value.
      *
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less and positive if more.

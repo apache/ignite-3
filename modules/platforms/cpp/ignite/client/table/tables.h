@@ -50,7 +50,7 @@ public:
     /**
      * Gets a table by name, if it was created before.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
+     * @param name Canonical name of the table ([schema_name].[table_name]) with SQL-parser style quotation, e.g.
      *   "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
      *   "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0",
      *   "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
@@ -62,7 +62,7 @@ public:
     /**
      * Gets a table by name, if it was created before asynchronously.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
+     * @param name Canonical name of the table ([schema_name].[table_name]) with SQL-parser style quotation, e.g.
      *   "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
      *   "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0",
      *   "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.

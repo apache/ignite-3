@@ -92,7 +92,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Writer function.
-     * @param handler Response handler.
+     * @param handler response handler.
      * @return @c true on success and @c false otherwise.
      */
     bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
@@ -135,7 +135,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */

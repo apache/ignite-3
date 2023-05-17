@@ -63,7 +63,7 @@ public:
     constexpr std::int32_t get_days() const noexcept { return days; }
 
     /**
-     * Compare to another value.
+     * compare to another value.
      *
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.

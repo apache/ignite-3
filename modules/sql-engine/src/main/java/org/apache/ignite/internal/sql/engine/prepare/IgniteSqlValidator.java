@@ -51,6 +51,7 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.fun.SqlCase;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.FamilyOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeChecker;
@@ -585,7 +586,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             Arrays.fill(operandTypes, unknownType);
 
-            if (operandTypeInference != null) {
+            if (operandTypeInference != null && !(call instanceof SqlCase)) {
                 operandTypeInference.inferOperandTypes(callBinding, inferredType, operandTypes);
             } else if (operandTypeChecker instanceof FamilyOperandTypeChecker) {
                 // Infer operand types from checker for dynamic parameters if it's possible.

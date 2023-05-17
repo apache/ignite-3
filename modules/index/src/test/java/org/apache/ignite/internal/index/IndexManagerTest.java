@@ -93,7 +93,8 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
+        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock,
+                mock(ClusterService.class));
         indexManager.start();
 
         assertThat(

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -26,7 +27,6 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -48,14 +48,14 @@ import org.jetbrains.annotations.Nullable;
  * </ol>
  * , where <ul>
  *     <li>[insert row type] is the same as [full row type], but may contain
- *         {@link RexImpTable#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s which have to be resolved</li>
+ *         {@link ExpressionFactoryImpl#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s which have to be resolved</li>
  *     <li>[delete row type] is the type of the row defined by {@link TableDescriptor#deleteRowType(IgniteTypeFactory)}</li>
  *     <li>[columns to update] is the projection of [full row type] having only columns enumerated in
  *         {@link #updateColumns} (with respect to the order of the enumeration)</li>
  * </ul>
  *
  * <p>Depending on the type of operation, different preparatory steps must be taken: <ul>
- *     <li>Before any insertion, all {@link RexImpTable#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s must be resolved</li>
+ *     <li>Before any insertion, all {@link ExpressionFactoryImpl#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s must be resolved</li>
  *     <li>Before any update, new value must be inlined into the old row: rows for update contains actual row
  *         read from a table followed by new values with respect to {@link #updateColumns}</li>
  *     <li>For MERGE operation, the rows need to be split on two group: rows to insert and rows to update</li>
@@ -437,13 +437,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         Object newValue;
 
         if (desc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name())) {
-            assert val != RexImpTable.DEFAULT_VALUE_PLACEHOLDER  : "Implicit primary key value should have already been generated";
+            assert val != DEFAULT_VALUE_PLACEHOLDER  : "Implicit primary key value should have already been generated";
             newValue = val;
         } else {
-            newValue = val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
+            newValue = val == DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
         }
 
-        assert newValue != RexImpTable.DEFAULT_VALUE_PLACEHOLDER : "Placeholder should have been replaced. Column: " + desc.name();
+        assert newValue != DEFAULT_VALUE_PLACEHOLDER : "Placeholder should have been replaced. Column: " + desc.name();
 
         return newValue;
     }

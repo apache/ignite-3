@@ -62,6 +62,14 @@ namespace Apache.Ignite.Tests
             Assert.Fail(message);
         }
 
+        public static T GetFieldValue<T>(this object obj, string fieldName)
+        {
+            var field = obj.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Field '{fieldName}' not found in '{obj.GetType()}'");
+
+            return (T) field!.GetValue(obj)!;
+        }
+
         private static string GetSolutionDir()
         {
             var dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);

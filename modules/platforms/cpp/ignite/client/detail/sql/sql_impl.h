@@ -55,7 +55,7 @@ public:
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param statement Statement to execute.
+     * @param statement statement to execute.
      * @param args Arguments for the statement.
      * @param callback A callback called on operation completion with SQL result set.
      */
