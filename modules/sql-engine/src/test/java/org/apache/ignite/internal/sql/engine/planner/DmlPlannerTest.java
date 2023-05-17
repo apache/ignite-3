@@ -42,7 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class DmlPlannerTest extends AbstractPlannerTest {
 
     /**
-     * INSERT .. VALUES when table has a single distribution.
+     * Test for INSERT .. VALUES when table has a single distribution.
      */
     @Test
     public void testInsertIntoSingleDistributedTable() throws Exception {
@@ -55,7 +55,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * INSERT .. VALUES when table has non single distribution.
+     * Test for INSERT .. VALUES when table has non single distribution.
      */
     @ParameterizedTest
     @MethodSource("nonSingleDistributions")
@@ -77,7 +77,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * INSERT .. FROM SELECT when tables has different distributions.
+     * Test for INSERT .. FROM SELECT when tables has different distributions.
      */
     @ParameterizedTest
     @MethodSource("distributions")
@@ -129,7 +129,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * UPDATE when table has non single distribution.
+     * Test for UPDATE when table has non single distribution.
      */
     @ParameterizedTest
     @MethodSource("nonSingleDistributions")
@@ -155,7 +155,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Check basic dml operators when table doesn't exist.
+     * Test for check basic dml operators when table doesn't exist.
      */
     @ParameterizedTest
     @MethodSource("basicStatements")
