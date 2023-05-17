@@ -47,14 +47,16 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
                     if (action.configuration() != null) {
                         return presentation.update(action.configuration())
                                 .thenApply(ignored -> action)
-                                .thenCompose(it -> it.nextAction().get());
+                                .thenCompose(it -> it.nextAction().get())
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.error("Failed to update the distributed configuration", e);
+                                    } else {
+                                        LOG.info("Distributed configuration is updated");
+                                    }
+                                });
                     } else {
                         return CompletableFuture.completedFuture(null);
-                    }
-                })
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to update the distributed configuration", e);
                     }
                 });
     }
