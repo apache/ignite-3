@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command to update a row specified by a row id.
@@ -31,5 +32,6 @@ public interface UpdateCommand extends PartitionCommand {
 
     UUID rowUuid();
 
+    @Nullable
     ByteBuffer rowBuffer();
 }

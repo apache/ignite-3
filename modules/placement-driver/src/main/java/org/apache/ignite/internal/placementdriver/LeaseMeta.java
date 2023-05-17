@@ -29,7 +29,7 @@ public interface LeaseMeta {
      *
      * @return Leaseholder or {@code null} if nothing holds the lease.
      */
-    ClusterNode getLeaseholder();
+    String getLeaseholder();
 
     /**
      * Gets a lease start timestamp.

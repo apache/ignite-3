@@ -73,7 +73,7 @@ public class LeaseNegotiator {
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
         clusterService.messagingService().invoke(
-                        lease.getLeaseholder().name(),
+                        lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
                                 .groupId(groupId)
                                 .leaseStartTime(lease.getStartTime())
@@ -89,7 +89,9 @@ public class LeaseNegotiator {
                                 + msg.getClass().getSimpleName() + ']';
                     }
 
-                    fut.complete((LeaseGrantedMessageResponse) msg);
+                    LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
+
+                    fut.complete(response);
 
                     triggerToRenewLeases();
 

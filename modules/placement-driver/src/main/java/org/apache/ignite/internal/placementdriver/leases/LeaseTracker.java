@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.placementdriver.LeaseMeta;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
@@ -118,7 +118,7 @@ public class LeaseTracker implements PlacementDriver {
                 key = key.replace(PLACEMENTDRIVER_PREFIX, "");
 
                 TablePartitionId grpId = TablePartitionId.fromString(key);
-                Lease lease = ByteUtils.fromBytes(entry.value());
+                Lease lease = fromBytes(entry.value());
 
                 leases.put(grpId, lease);
 
@@ -177,7 +177,7 @@ public class LeaseTracker implements PlacementDriver {
                     leases.remove(grpId);
                     tryRemoveTracker(grpId);
                 } else {
-                    Lease lease = ByteUtils.fromBytes(msEntry.value());
+                    Lease lease = fromBytes(msEntry.value());
 
                     assert lease.getExpirationTime() != MAX_VALUE : "INFINITE lease expiration time isn't expected";
 

@@ -19,14 +19,17 @@ package org.apache.ignite.internal.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test message used in {@link SerializationOrderTest}.
  */
 @Transferable(TestMessageTypes.SERIALIZATION_ORDER_MESSAGE)
 public interface SerializationOrderMessage extends NetworkMessage {
+    @Nullable
     String strB();
 
+    @Nullable
     String strD();
 
     int intC();

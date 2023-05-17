@@ -89,6 +89,20 @@ import org.jetbrains.annotations.Nullable;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
 
+    /** Placeholder for DEFAULT operator value. */
+    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+    public static final Object DEFAULT_VALUE_PLACEHOLDER = Placeholder.DEFAULT_VALUE;
+
+    /** Placeholder for values, which expressions are not specified. */
+    public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = Placeholder.UNSPECIFIED_VALUE;
+
+    // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
+    private enum Placeholder {
+        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+        DEFAULT_VALUE,
+        UNSPECIFIED_VALUE
+    }
+
     private static final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
             .<String, Scalar>build()
@@ -143,7 +157,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         return (o1, o2) -> {
             RowHandler<RowT> hnd = ctx.rowHandler();
-            Object unspecifiedVal = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER;
+            Object unspecifiedVal = UNSPECIFIED_VALUE_PLACEHOLDER;
 
             for (RelFieldCollation field : collation.getFieldCollations()) {
                 int fieldIdx = field.getFieldIndex();
@@ -425,7 +439,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Creates {@link SingleScalar}, a code-generated expressions evaluator.
      *
-     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link RexImpTable#UNSPECIFIED_VALUE_PLACEHOLDER}.
+     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link ExpressionFactoryImpl#UNSPECIFIED_VALUE_PLACEHOLDER}.
      * @param type Row type.
      * @return SingleScalar.
      */
@@ -498,14 +512,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, hnd).build(nodes);
 
-        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, rexBuilder, conformance,
-                builder, null, ctx, inputGetter, correlates);
+        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
+                builder, null, null, ctx, inputGetter, correlates);
 
         assert nodes.size() == projects.size();
 
         for (int i = 0; i < projects.size(); i++) {
             Expression val = unspecifiedValues.get(i)
-                    ? Expressions.field(null, RexImpTable.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
+                    ? Expressions.field(null, ExpressionFactoryImpl.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
                     : projects.get(i);
 
             builder.add(

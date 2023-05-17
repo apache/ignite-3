@@ -68,7 +68,7 @@ private:
     void consume(data_buffer_ref &data, size_t desired);
 
     /**
-     * Reset packet buffer.
+     * reset packet buffer.
      */
     void reset_buffer();
 

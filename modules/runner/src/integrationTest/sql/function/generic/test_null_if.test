@@ -67,4 +67,7 @@ SELECT CASE WHEN 24 + 1 = 26 - 1 THEN NULL ELSE 24 + 1 END
 ----
 NULL
 
-
+query T
+SELECT NULLIF(1, 1) IS NULL;
+----
+true

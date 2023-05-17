@@ -25,6 +25,7 @@ import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 public final class CliRequests {
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_REQUEST)
@@ -38,6 +39,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_RESPONSE)
     public interface AddPeerResponse extends Message {
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -54,6 +56,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.REMOVE_PEER_RESPONSE)
     public interface RemovePeerResponse extends Message {
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -70,6 +73,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)
     public interface ChangePeersResponse extends Message {
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -112,6 +116,7 @@ public final class CliRequests {
 
         String peerId();
 
+        @Nullable
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
@@ -130,6 +135,7 @@ public final class CliRequests {
     public interface GetLeaderRequest extends Message {
         String groupId();
 
+        @Nullable
         String peerId();
     }
 
@@ -144,6 +150,7 @@ public final class CliRequests {
     public interface GetPeersRequest extends Message {
         String groupId();
 
+        @Nullable
         String leaderId();
 
         boolean onlyAlive();
@@ -185,6 +192,7 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.LEARNERS_OP_RESPONSE)
     public interface LearnersOpResponse extends Message {
+        @Nullable
         Collection<String> oldLearnersList();
 
         Collection<String> newLearnersList();

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.KE
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.escape;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -113,7 +114,7 @@ public class ConfigurationFlattener {
 
         /** {@inheritDoc} */
         @Override
-        public Void doVisitLeafNode(String key, Serializable newVal) {
+        public Void doVisitLeafNode(Field field, String key, Serializable newVal) {
             // Read same value from old tree.
             Serializable oldVal = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
@@ -127,7 +128,7 @@ public class ConfigurationFlattener {
 
         /** {@inheritDoc} */
         @Override
-        public Void doVisitInnerNode(String key, InnerNode newNode) {
+        public Void doVisitInnerNode(Field field, String key, InnerNode newNode) {
             // Read same node from old tree.
             InnerNode oldNode = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.innerNodeVisitor(), true);
 
@@ -164,9 +165,10 @@ public class ConfigurationFlattener {
 
         /** {@inheritDoc} */
         @Override
-        public Void doVisitNamedListNode(String key, NamedListNode<?> newNode) {
+        public Void doVisitNamedListNode(Field field, String key, NamedListNode<?> newNode) {
             // Read same named list node from old tree.
-            NamedListNode<?> oldNode = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
+            NamedListNode<?> oldNode =
+                    oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
 
             // Skip subtree that has not changed.
             if (oldNode == newNode && !singleTreeTraversal) {

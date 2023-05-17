@@ -48,7 +48,7 @@ public:
     ~connecting_context();
 
     /**
-     * Reset connection context to it's initial state.
+     * reset connection context to it's initial state.
      */
     void reset();
 

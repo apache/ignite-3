@@ -61,17 +61,21 @@ public class ClientTable implements Table {
 
     private final ReliableChannel ch;
 
-    private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, CompletableFuture<ClientSchema>> schemas = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
-    private volatile int latestSchemaVer = -1;
+    private static final int UNKNOWN_SCHEMA_VERSION = -1;
+
+    private volatile int latestSchemaVer = UNKNOWN_SCHEMA_VERSION;
 
     private final Object latestSchemaLock = new Object();
 
-    private volatile List<String> partitionAssignment = null;
+    private final Object partitionAssignmentLock = new Object();
 
-    private volatile long partitionAssignmentVersion = -1;
+    private CompletableFuture<List<String>> partitionAssignment = null;
+
+    private long partitionAssignmentVersion = -1;
 
     /**
      * Constructor.
@@ -135,29 +139,29 @@ public class ClientTable implements Table {
     }
 
     private CompletableFuture<ClientSchema> getLatestSchema() {
-        if (latestSchemaVer >= 0) {
-            return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
-        }
-
-        return loadSchema(null);
+        // latestSchemaVer can be -1 (unknown) or a valid version.
+        // In case of unknown version, we request latest from the server and cache it with -1 key
+        // to avoid duplicate requests for latest schema.
+        return getSchema(latestSchemaVer);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
-        var schema = schemas.get(ver);
+        CompletableFuture<ClientSchema> fut = schemas.computeIfAbsent(ver, this::loadSchema);
 
-        if (schema != null) {
-            return CompletableFuture.completedFuture(schema);
+        if (fut.isCompletedExceptionally()) {
+            // Do not return failed future. Remove it from the cache and try again.
+            schemas.remove(ver, fut);
+            fut = schemas.computeIfAbsent(ver, this::loadSchema);
         }
 
-        return loadSchema(ver);
+        return fut;
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
-        // TODO IGNITE-19354 Same schema version is retrieved multiple times in concurrent scenarios
+    private CompletableFuture<ClientSchema> loadSchema(int ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
-            if (ver == null) {
+            if (ver == UNKNOWN_SCHEMA_VERSION) {
                 w.out().packNil();
             } else {
                 w.out().packArrayHeader(1);
@@ -214,7 +218,7 @@ public class ClientTable implements Table {
 
         var schema = new ClientSchema(schemaVer, columns);
 
-        schemas.put(schemaVer, schema);
+        schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
         synchronized (latestSchemaLock) {
             if (schemaVer > latestSchemaVer) {
@@ -372,37 +376,38 @@ public class ClientTable implements Table {
         if (schemas.get(schemaVer) == null) {
             // The schema is not needed for current response.
             // Load it in the background to keep the client up to date with the latest version.
-            loadSchema(schemaVer);
+            getSchema(schemaVer);
         }
     }
 
-    private CompletableFuture<List<String>> getPartitionAssignment() {
-        var cached = partitionAssignment;
+    private synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+        synchronized (partitionAssignmentLock) {
+            long currentVersion = ch.partitionAssignmentVersion();
 
-        if (cached != null && partitionAssignmentVersion == ch.partitionAssignmentVersion()) {
-            return CompletableFuture.completedFuture(cached);
+            if (partitionAssignmentVersion == currentVersion
+                    && partitionAssignment != null
+                    && !partitionAssignment.isCompletedExceptionally()) {
+                return partitionAssignment;
+            }
+
+            partitionAssignmentVersion = currentVersion;
+
+            // Load currentVersion or newer.
+            partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+                    w -> w.out().packUuid(id),
+                    r -> {
+                        int cnt = r.in().unpackArrayHeader();
+                        List<String> res = new ArrayList<>(cnt);
+
+                        for (int i = 0; i < cnt; i++) {
+                            res.add(r.in().unpackString());
+                        }
+
+                        return res;
+                    });
+
+            return partitionAssignment;
         }
-
-        return loadPartitionAssignment();
-    }
-
-    private CompletableFuture<List<String>> loadPartitionAssignment() {
-        partitionAssignmentVersion = ch.partitionAssignmentVersion();
-
-        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                w -> w.out().packUuid(id),
-                r -> {
-                    int cnt = r.in().unpackArrayHeader();
-                    List<String> res = new ArrayList<>(cnt);
-
-                    for (int i = 0; i < cnt; i++) {
-                        res.add(r.in().unpackString());
-                    }
-
-                    partitionAssignment = res;
-
-                    return res;
-                });
     }
 
     @Nullable

@@ -47,9 +47,10 @@ dependencies {
 description = 'ignite-jdbc'
 
 shadowJar {
-    minimize()
+    archiveClassifier.set('')
 
     [
+            'com.fasterxml',
             'com.google',
             'io.netty',
             'it.unimi',

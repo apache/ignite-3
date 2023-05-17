@@ -56,8 +56,7 @@ public class PlacementDriverTest {
     private static final TablePartitionId GROUP_1 = new TablePartitionId(UUID.randomUUID(), 0);
     private static final ByteArray MS_LEASE_KEY = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + GROUP_1);
 
-    private static final ClusterNode LEASEHOLDER_1 =
-            new ClusterNode("id0", "name0", new NetworkAddress("localhost", 1234));
+    private static final String LEASEHOLDER_1 = "leaseholder1";
     private static final Lease LEASE_FROM_1_TO_5 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
