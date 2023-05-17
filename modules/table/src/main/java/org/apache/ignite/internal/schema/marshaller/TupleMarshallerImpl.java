@@ -98,8 +98,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             return buildRow(schema, keyTuple0, valTuple0);
-        } catch (SchemaMismatchException ex) {
-            throw ex;
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
@@ -127,8 +125,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             return buildRow(schema, keyTuple0, valTuple0);
-        } catch (SchemaMismatchException ex) {
-            throw ex;
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
@@ -191,8 +187,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             return new Row(schema, rowBuilder.build());
-        } catch (SchemaMismatchException ex) {
-            throw ex;
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
