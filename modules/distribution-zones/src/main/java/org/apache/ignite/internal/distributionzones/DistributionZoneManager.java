@@ -240,7 +240,12 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private volatile Set<NodeWithAttributes> logicalTopology;
 
-    private volatile Map<String, Map<String, String>> nodesAttributes;
+    /**
+     * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
+     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-19491 properly clean up this map
+     */
+    private final Map<String, Map<String, String>> nodesAttributes;
 
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
@@ -1589,7 +1594,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         .thenApply(StatementResult::getAsBoolean)
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
-                                //TODO:
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
+                                // Currently we call clean up only on a node that successfully writes data nodes.
                                 zoneState.cleanUp(Math.min(scaleDownTriggerRevision, revision));
                             } else {
                                 LOG.debug("Updating data nodes for a zone has not succeeded [zoneId = {}]", zoneId);
@@ -1673,6 +1679,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         .thenApply(StatementResult::getAsBoolean)
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
+                                // Currently we call clean up only on a node that successfully writes data nodes.
                                 zoneState.cleanUp(Math.min(scaleUpTriggerRevision, revision));
                             } else {
                                 LOG.debug("Updating data nodes for a zone has not succeeded [zoneId = {}]", zoneId);
@@ -2087,6 +2095,12 @@ public class DistributionZoneManager implements IgniteComponent {
         });
     }
 
+    /**
+     * Returns local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
+     * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
+     *
+     * @return Mapping {@code nodeId} -> node's attributes.
+     */
     public Map<String, Map<String, String>> nodesAttributes() {
         return nodesAttributes;
     }
@@ -2097,7 +2111,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Structure that represents node with the attributes and which we store in Meta Storage.
+     * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
      * Light-weighted version of the {@link LogicalNode}.
      */
     public static class NodeWithAttributes implements Serializable {
