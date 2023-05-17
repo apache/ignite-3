@@ -588,8 +588,6 @@ public class ItRebalanceDistributedTest {
 
         private final CatalogManager catalogManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
         private List<IgniteComponent> nodeComponents;
 
         private final ConfigurationTreeGenerator generator;
