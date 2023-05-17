@@ -33,6 +33,11 @@ public interface SchemaAware {
     /**
      * Gets a value indicating whether fully matching schema is required.
      *
+     * <p>Tuples coming from the client connector must match the latest schema. If they don't,
+     * client should retry the operation with the latest schema.
+     *
+     * <p>However, tuples coming from the user code do not have this requirement - we upgrade them when possible.
+     *
      * @return True when underlying schema should match current latest table schema; false otherwise. If the schema does not match,
      * {@link SchemaMismatchException} is thrown.
      */
