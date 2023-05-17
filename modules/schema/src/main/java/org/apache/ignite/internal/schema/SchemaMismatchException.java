@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.util.UUID;
+
 /**
  * Invalid tuple invocation exception is thrown when tuple doesn't match the table schema.
  */
@@ -28,5 +30,17 @@ public class SchemaMismatchException extends SchemaException {
      */
     public SchemaMismatchException(String msg) {
         super(msg);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public SchemaMismatchException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }
