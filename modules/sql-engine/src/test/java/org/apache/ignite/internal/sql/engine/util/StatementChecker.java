@@ -336,7 +336,7 @@ public class StatementChecker {
         return this;
     }
 
-    /** Executes default checks. Runs before a check provide by {@link StatementChecker#check(Function)}. */
+    /** Executes default checks. Runs before a check provide by {@link StatementChecker#ok(Consumer)}. */
     protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
 
     }
