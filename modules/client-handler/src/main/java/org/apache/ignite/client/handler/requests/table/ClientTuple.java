@@ -61,7 +61,7 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
     @Override
     public boolean requireMatchingSchema() {
         // Tuples coming from the client connector must have the latest schema.
-        // Otherwise, data loss is possible, because some columns may be not serialized
+        // Otherwise, data loss is possible, because some columns may be not saved to the storage unexpectedly.
         // (client uses it's known latest schema to serialize matching columns and relies on the server for validation).
         return true;
     }
