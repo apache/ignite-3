@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -94,8 +94,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
@@ -125,11 +123,8 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes3, keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
-        topology.putNode(NODE_1);
-
         startDistributionZoneManager();
 
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
@@ -143,10 +138,10 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
                 new DistributionZoneConfigurationParameters.Builder(ZONE_1_NAME).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()
         ).get();
 
-        int zoneId = distributionZoneManager.getZoneId(ZONE_1_NAME);
+        topology.putNode(NODE_1);
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1), keyValueStorage);
-        assertDataNodesForZone(zoneId, Set.of(NODE_1), keyValueStorage);
+        assertDataNodesForZone(ZONE_1_ID, Set.of(NODE_1), keyValueStorage);
     }
 
     @Test
@@ -156,8 +151,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(NODE_2);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
 
         startDistributionZoneManager();
 
@@ -181,18 +174,23 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesPropagationForDefaultZoneAfterScaleUpTriggered() throws Exception {
         topology.putNode(NODE_1);
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
+
+        distributionZoneManager.alterZone(
+                DEFAULT_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .build()
+        ).get();
 
         topology.putNode(NODE_2);
 
@@ -211,7 +209,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes2, keyValueStorage);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
     @Test
     void testDataNodesPropagationForDefaultZoneAfterScaleDownTriggered() throws Exception {
         topology.putNode(NODE_1);
@@ -220,11 +217,17 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
         startDistributionZoneManager();
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, clusterNodes, keyValueStorage);
+
+        distributionZoneManager.alterZone(
+                DEFAULT_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .build()
+        ).get();
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -246,10 +249,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     @Test
     void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
         topology.putNode(NODE_1);
-
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
 
         startDistributionZoneManager();
 
@@ -282,10 +281,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(NODE_1);
 
         topology.putNode(NODE_2);
-
-        Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
 
         startDistributionZoneManager();
 
@@ -669,8 +664,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testUpdateZoneScaleDownTriggersDataNodePropagation() throws Exception {
         topology.putNode(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr);
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
@@ -761,8 +754,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testScaleDownSetToMaxInt() throws Exception {
         topology.putNode(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr);
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
@@ -830,11 +821,11 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     void testScaleDownDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
         topology.putNode(NODE_1);
 
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr);
-
         startDistributionZoneManager();
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
+
+        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1.name()), keyValueStorage);
 
         distributionZoneManager.createZone(
                 new DistributionZoneConfigurationParameters.Builder(ZONE_1_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()
@@ -1321,8 +1312,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.putNode(c);
 
         Set<LogicalNode> clusterNodes = Set.of(a, b, c);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
 
         startDistributionZoneManager();
 

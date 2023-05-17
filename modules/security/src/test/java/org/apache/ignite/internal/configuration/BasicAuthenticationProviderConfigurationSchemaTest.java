@@ -17,20 +17,22 @@
 
 package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import org.junit.jupiter.api.Test;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+class BasicAuthenticationProviderConfigurationSchemaTest {
 
-    /** Username. */
-    @Value
-    public String username;
+    @Test
+    public void passwordIsSecret() {
+        Field password = Arrays.stream(BasicAuthenticationProviderConfigurationSchema.class.getDeclaredFields())
+                .filter(it -> it.getName().equals("password"))
+                .findFirst()
+                .orElseThrow();
 
-    /** Password. */
-    @Secret
-    @Value
-    public String password;
+        assertTrue(password.isAnnotationPresent(Secret.class));
+    }
 }

@@ -15,22 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+/**
+ * Drop table event parameters contains an id of dropped table.
+ */
+public class DropTableEventParameters extends CatalogEventParameters {
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+    private final int tableId;
 
-    /** Username. */
-    @Value
-    public String username;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param tableId An id of dropped table.
+     */
+    public DropTableEventParameters(long causalityToken, int tableId) {
+        super(causalityToken);
 
-    /** Password. */
-    @Secret
-    @Value
-    public String password;
+        this.tableId = tableId;
+    }
+
+    /** Returns an id of dropped table. */
+    public int tableId() {
+        return tableId;
+    }
 }

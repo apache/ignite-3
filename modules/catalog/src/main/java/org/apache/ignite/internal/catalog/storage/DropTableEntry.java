@@ -15,22 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.tostring.S;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+/**
+ * Describes deletion of a table.
+ */
+public class DropTableEntry implements UpdateEntry {
+    private static final long serialVersionUID = 7727583734058987315L;
 
-    /** Username. */
-    @Value
-    public String username;
+    private final int tableId;
 
-    /** Password. */
-    @Secret
-    @Value
-    public String password;
+    /**
+     * Constructs the object.
+     *
+     * @param tableId An id of a table to drop.
+     */
+    public DropTableEntry(int tableId) {
+        this.tableId = tableId;
+    }
+
+    /** Returns an id of a table to drop. */
+    public int tableId() {
+        return tableId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 }

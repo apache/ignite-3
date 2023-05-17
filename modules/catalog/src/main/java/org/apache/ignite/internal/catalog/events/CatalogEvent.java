@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.manager.Event;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+/**
+ * Catalog management events.
+ */
+public enum CatalogEvent implements Event {
+    /** This event is fired, when a table was created in Catalog. */
+    TABLE_CREATE,
 
-    /** Username. */
-    @Value
-    public String username;
-
-    /** Password. */
-    @Secret
-    @Value
-    public String password;
+    /** This event is fired, when a table was dropped in Catalog. */
+    TABLE_DROP
 }

@@ -31,38 +31,47 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.annotation.Secret;
 
 /**
  * {@link ConfigurationVisitor} implementation that converts a configuration tree to a combination of {@link Map} and {@link List} objects.
  */
 public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
+
+    /** Leaf node value will be replaced with this string, if the {@link Field} of the value has {@link Secret} annotation. */
+    private static final String MASKED_VALUE = "********";
+
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
     /** Skip nulls, empty Maps and empty lists. */
     private final boolean skipEmptyValues;
 
+    /** Mask values, if their {@link Field} has {@link Secret} annotation. */
+    private final boolean maskSecretValues;
+
     /** Stack with intermediate results. Used to store values during recursive calls. */
     private final Deque<Object> deque = new ArrayDeque<>();
 
-    /**
-     * Constructor.
-     *
-     * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     * @param skipEmptyValues Skip empty values.
-     */
-    public ConverterToMapVisitor(boolean includeInternal, boolean skipEmptyValues) {
-        this.includeInternal = includeInternal;
-        this.skipEmptyValues = skipEmptyValues;
+    public static ConverterToMapVisitorBuilder builder() {
+        return new ConverterToMapVisitorBuilder();
     }
 
     /**
      * Constructor.
      *
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
+     * @param skipEmptyValues Skip empty values.
+     * @param maskSecretValues Mask values, if their {@link Field} has {@link Secret} annotation.
      */
-    public ConverterToMapVisitor(boolean includeInternal) {
-        this(includeInternal, false);
+    ConverterToMapVisitor(
+            boolean includeInternal,
+            boolean skipEmptyValues,
+            boolean maskSecretValues
+    ) {
+        this.includeInternal = includeInternal;
+        this.skipEmptyValues = skipEmptyValues;
+        this.maskSecretValues = maskSecretValues;
     }
 
     /** {@inheritDoc} */
@@ -73,7 +82,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         if (val instanceof Character || val instanceof UUID) {
             valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
-            valObj = toListOfObjects(val);
+            valObj = toListOfObjects(field, val);
+        } else if (val instanceof String) {
+            valObj = maskIfNeeded(field, (String) val);
         }
 
         addToParent(key, valObj);
@@ -162,10 +173,11 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /**
      * Converts array into a list of objects. Boxes array elements if they are primitive values.
      *
+     * @param field Field of the array
      * @param val Array of primitives or array of {@link String}s
      * @return List of objects corresponding to the passed array.
      */
-    private List<?> toListOfObjects(Serializable val) {
+    private List<?> toListOfObjects(Field field, Serializable val) {
         Stream<?> stream = IntStream.range(0, Array.getLength(val)).mapToObj(i -> Array.get(val, i));
 
         if (val.getClass().getComponentType() == char.class || val.getClass().getComponentType() == UUID.class) {
@@ -173,5 +185,25 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         }
 
         return stream.collect(Collectors.toList());
+    }
+
+    /**
+     * Returns {@link ConverterToMapVisitor#MASKED_VALUE} if the field is annotated with {@link Secret} and
+     * {@link ConverterToMapVisitor#maskSecretValues} is {@code true}.
+     *
+     * @param field Field to check
+     * @param val Value to mask
+     * @return Masked value
+     */
+    private Object maskIfNeeded(Field field, String val) {
+        if (!maskSecretValues) {
+            return val;
+        }
+
+        if (field != null && field.isAnnotationPresent(Secret.class)) {
+            return MASKED_VALUE;
+        } else {
+            return val;
+        }
     }
 }

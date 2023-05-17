@@ -20,6 +20,8 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
@@ -35,25 +37,37 @@ import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service implementation.
  * TODO: IGNITE-19081 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
-public class CatalogServiceImpl implements CatalogService, CatalogManager {
+public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
+
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
     /** Versioned catalog descriptors. */
     private final NavigableMap<Integer, Catalog> catalogByVer = new ConcurrentSkipListMap<>();
@@ -171,7 +185,21 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            return List.of(
+                    new DropTableEntry(table.id())
+            );
+        });
     }
 
     /** {@inheritDoc} */
@@ -229,9 +257,12 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public void handle(VersionedUpdate update) {
-            Catalog catalog = catalogByVer.get(update.version() - 1);
+            int version = update.version();
+            Catalog catalog = catalogByVer.get(version - 1);
 
             assert catalog != null;
+
+            List<CompletableFuture<?>> eventFutures = new ArrayList<>(update.entries().size());
 
             for (UpdateEntry entry : update.entries()) {
                 String schemaName = CatalogService.PUBLIC;
@@ -239,26 +270,53 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
                 if (entry instanceof NewTableEntry) {
                     catalog = new Catalog(
-                            update.version(),
+                            version,
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    update.version(),
+                                    version,
                                     ArrayUtils.concat(schema.tables(), ((NewTableEntry) entry).descriptor()),
                                     schema.indexes()
                             )
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.TABLE_CREATE,
+                            new CreateTableEventParameters(version, ((NewTableEntry) entry).descriptor())
+                    ));
+
+                } else if (entry instanceof DropTableEntry) {
+                    int tableId = ((DropTableEntry) entry).tableId();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(TableDescriptor[]::new),
+                                    schema.indexes()
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.TABLE_DROP,
+                            new DropTableEventParameters(version, tableId)
+                    ));
+
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
-                            update.version(),
+                            version,
                             System.currentTimeMillis(),
                             catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
                             new SchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    update.version(),
+                                    version,
                                     schema.tables(),
                                     schema.indexes()
                             )
@@ -270,7 +328,15 @@ public class CatalogServiceImpl implements CatalogService, CatalogManager {
 
             registerCatalog(catalog);
 
-            versionTracker.update(catalog.version(), null);
+            CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
+                    .thenRun(() -> versionTracker.update(version, null))
+                    .whenComplete((ignore, err) -> {
+                        if (err != null) {
+                            LOG.warn("Failed to apply catalog update.", err);
+                        } else {
+                            versionTracker.update(version, null);
+                        }
+                    });
         }
     }
 

@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.manager.EventParameters;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
-
-    /** Username. */
-    @Value
-    public String username;
-
-    /** Password. */
-    @Secret
-    @Value
-    public String password;
+/**
+ * Base class for Catalog event parameters.
+ */
+public abstract class CatalogEventParameters extends EventParameters {
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     */
+    public CatalogEventParameters(long causalityToken) {
+        super(causalityToken);
+    }
 }

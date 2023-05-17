@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
-
-    /** Username. */
-    @Value
-    public String username;
-
-    /** Password. */
+/**
+ * Checks that field annotated with {@link org.apache.ignite.configuration.annotation.Secret} must be {@link String}.
+ */
+@Config
+public class SecretMustBeStringConfigurationSchema {
     @Secret
-    @Value
-    public String password;
+    public int id;
 }
