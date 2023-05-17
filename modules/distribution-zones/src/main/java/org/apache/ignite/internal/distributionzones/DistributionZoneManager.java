@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filter;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.isZoneExist;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
@@ -57,7 +57,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -779,9 +778,10 @@ public class DistributionZoneManager implements IgniteComponent {
      * Returns the data nodes of the specified zone.
      *
      * @param zoneId Zone id.
-     * @return Future.
+     * @return The latest data nodes.
      */
-    private Set<String> dataNodes(int zoneId) {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
+    public Set<String> dataNodes(int zoneId) {
         return inBusyLock(busyLock, () -> {
             ZoneState zoneState = zonesState.get(zoneId);
 
@@ -1405,26 +1405,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.warn("Unable to process data nodes event", e);
             }
         };
-    }
-
-    /**
-     * Filters {@code dataNodes} according to the provided {@code filter}.
-     * Nodes' attributes are taken from {@code nodesAttributes} map.
-     *
-     * @param dataNodes Data nodes.
-     * @param filter Filter for data nodes.
-     * @param nodesAttributes Nodes' attributes which used for filtering.
-     * @return Filtered data nodes.
-     */
-    public static Set<String> filterDataNodes(
-            Set<Node> dataNodes,
-            String filter,
-            Map<String, Map<String, String>> nodesAttributes
-    ) {
-        return dataNodes.stream()
-                .filter(n -> filter(nodesAttributes.get(n.nodeId()), filter))
-                .map(Node::nodeName)
-                .collect(toSet());
     }
 
     /**
@@ -2085,21 +2065,6 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Returns a data nodes set for the specified zone.
-     *
-     * @param zoneId Zone id.
-     * @return Data nodes set.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
-    public Set<String> getDataNodesByZoneId(int zoneId) {
-        return inBusyLock(busyLock, () -> {
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            return zoneState.nodes();
-        });
-    }
-
-    /**
      * Returns local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
      * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
      *
@@ -2112,111 +2077,5 @@ public class DistributionZoneManager implements IgniteComponent {
     @TestOnly
     Map<Integer, ZoneState> zonesTimers() {
         return zonesState;
-    }
-
-    /**
-     * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
-     * Light-weighted version of the {@link LogicalNode}.
-     */
-    public static class NodeWithAttributes implements Serializable {
-        Node node;
-
-        Map<String, String> nodeAttributes;
-
-        public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes) {
-            this.node = new Node(nodeName, nodeId);
-            this.nodeAttributes = nodeAttributes;
-        }
-
-        @Override
-        public int hashCode() {
-            return node.hashCode();
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-
-            NodeWithAttributes that = (NodeWithAttributes) obj;
-
-            return node.equals(that.node);
-        }
-
-        public String nodeName() {
-            return node.nodeName();
-        }
-
-        public String nodeId() {
-            return node.nodeId();
-        }
-
-        public Node node() {
-            return node;
-        }
-
-        public Map<String, String> nodeAttributes() {
-            return nodeAttributes;
-        }
-
-        @Override
-        public String toString() {
-            return node.toString();
-        }
-    }
-
-    /**
-     * Node representation that we store in data nodes.
-     * Includes {@code nodeName} that is unique identifier of the node, that is not changing after a restart, and
-     * {@code nodeId} that is unique identifier of a node, that changes after a restart.
-     * {@code nodeId} is needed to get nodes' attributes from the local state of the distribution zone manager.
-     */
-    public static class Node implements Serializable {
-        String nodeName;
-
-        String nodeId;
-
-        public Node(String nodeName, String nodeId) {
-            this.nodeName = nodeName;
-            this.nodeId = nodeId;
-        }
-
-        @Override
-        public int hashCode() {
-            return nodeName.hashCode();
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-
-            Node that = (Node) obj;
-
-            return nodeName.equals(that.nodeName);
-        }
-
-        public String nodeName() {
-            return nodeName;
-        }
-
-        public String nodeId() {
-            return nodeId;
-        }
-
-        @Override
-        public String toString() {
-            return nodeName;
-        }
     }
 }

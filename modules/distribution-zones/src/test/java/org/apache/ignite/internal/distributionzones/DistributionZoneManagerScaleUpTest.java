@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +50,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -74,15 +74,15 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     private static final LogicalNode NODE_3 = new LogicalNode("3", "node3", new NetworkAddress("localhost", 123));
 
-    private static final Node A  = new Node("A", "A");
+    private static final Node A  = new Node("A", "id_A");
 
-    private static final Node B  = new Node("B", "B");
+    private static final Node B  = new Node("B", "id_B");
 
-    private static final Node C  = new Node("C", "C");
+    private static final Node C  = new Node("C", "id_C");
 
-    private static final Node D  = new Node("D", "D");
+    private static final Node D  = new Node("D", "id_D");
 
-    private static final Node E  = new Node("E", "E");
+    private static final Node E  = new Node("E", "id_E");
 
     private long prerequisiteRevision;
 
@@ -285,7 +285,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         topology.removeNodes(Set.of(NODE_2));
 
         Set<LogicalNode> clusterNodes2 = Set.of(NODE_1);
-        Set<String> clusterNodesNames2 = Set.of(NODE_1.name());
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
@@ -1275,7 +1274,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         List<Node> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
 
-        nodes.sort((a, b) -> a.nodeName.compareTo(b.nodeName()));
+        nodes.sort(Comparator.comparing(Node::nodeName));
 
         assertEquals(List.of(A, A, B, B), nodes);
 
@@ -1284,7 +1283,7 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         nodes = zoneState.nodesToBeRemovedFromDataNodes(2, 4);
 
-        nodes.sort((a, b) -> a.nodeName.compareTo(b.nodeName()));
+        nodes.sort(Comparator.comparing(Node::nodeName));
 
         assertEquals(List.of(C, C, D, D), nodes);
     }

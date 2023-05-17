@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;

@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.updatePendingAssignmentsKeys;
@@ -38,7 +39,7 @@ import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -174,7 +175,7 @@ public class DistributionZoneRebalanceEngine {
                         DistributionZoneConfiguration distributionZoneConfiguration =
                                 getZoneById(zonesConfiguration, tableZoneId);
 
-                        Set<String> filteredDataNodes = DistributionZoneManager.filterDataNodes(
+                        Set<String> filteredDataNodes = filterDataNodes(
                                 dataNodes,
                                 distributionZoneConfiguration.filter().value(),
                                 distributionZoneManager.nodesAttributes()
@@ -278,7 +279,7 @@ public class DistributionZoneRebalanceEngine {
                         futs[furCur++] = updatePendingAssignmentsKeys(
                                 tblCfg.name().value(),
                                 replicaGrpId,
-                                distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
+                                distributionZoneManager.dataNodes(zoneCfg.zoneId()),
                                 newReplicas,
                                 replicasCtx.storageRevision(),
                                 metaStorageManager,

@@ -41,8 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Node;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -486,5 +484,25 @@ public class DistributionZonesUtil {
         List<Map<String, Object>> res = JsonPath.read(convertedAttributes, filter);
 
         return !res.isEmpty();
+    }
+
+    /**
+     * Filters {@code dataNodes} according to the provided {@code filter}.
+     * Nodes' attributes are taken from {@code nodesAttributes} map.
+     *
+     * @param dataNodes Data nodes.
+     * @param filter Filter for data nodes.
+     * @param nodesAttributes Nodes' attributes which used for filtering.
+     * @return Filtered data nodes.
+     */
+    public static Set<String> filterDataNodes(
+            Set<Node> dataNodes,
+            String filter,
+            Map<String, Map<String, String>> nodesAttributes
+    ) {
+        return dataNodes.stream()
+                .filter(n -> filter(nodesAttributes.get(n.nodeId()), filter))
+                .map(Node::nodeName)
+                .collect(toSet());
     }
 }

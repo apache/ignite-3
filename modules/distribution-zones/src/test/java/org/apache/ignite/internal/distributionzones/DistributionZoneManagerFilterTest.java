@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockVaultZonesLogicalTopologyKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
@@ -57,63 +56,10 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
     );
 
     @Test
-    void testFilterOnStart() throws Exception {
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
-
-        topology.putNode(A);
-        topology.putNode(B);
-        topology.putNode(C);
-
-        Set<LogicalNode> clusterNodes = Set.of(A, B, C);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
-        startDistributionZoneManager();
-
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(filter)
-                        .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
-    }
-
-    @Test
     void testFilterOnScaleUp() throws Exception {
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
+        preparePrerequisites();
 
-        topology.putNode(A);
-        topology.putNode(B);
-        topology.putNode(C);
-
-        Set<LogicalNode> clusterNodes = Set.of(A, B, C);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
-        startDistributionZoneManager();
-
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(filter)
-                        .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        Set<String> nodes;
 
         topology.putNode(D);
 
@@ -127,32 +73,9 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
     @Test
     void testFilterOnScaleDown() throws Exception {
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
+        preparePrerequisites();
 
-        topology.putNode(A);
-        topology.putNode(B);
-        topology.putNode(C);
-
-        Set<LogicalNode> clusterNodes = Set.of(A, B, C);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
-        startDistributionZoneManager();
-
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(filter)
-                        .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        Set<String> nodes;
 
         topology.removeNodes(Set.of(C));
 
@@ -166,32 +89,9 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
     @Test
     void testFilterOnScaleUpWithNewAttributesAfterRestart() throws Exception {
-        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
+        preparePrerequisites();
 
-        topology.putNode(A);
-        topology.putNode(B);
-        topology.putNode(C);
-
-        Set<LogicalNode> clusterNodes = Set.of(A, B, C);
-
-        mockVaultZonesLogicalTopologyKey(clusterNodes, vaultMgr);
-
-        startDistributionZoneManager();
-
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(filter)
-                        .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
-
-        assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        Set<String> nodes;
 
         topology.removeNodes(Set.of(B));
 
@@ -208,5 +108,36 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         ).get(10_000, TimeUnit.MILLISECONDS);
 
         assertEquals(Set.of(A, newB, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+    }
+
+    /**
+     * Starts distribution zone manager with a zone and checks that two out of three nodes, which match filter,
+     * are presented in the zones data nodes.
+     *
+     * @throws Exception If failed
+     */
+    private void preparePrerequisites() throws Exception {
+        String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
+
+        topology.putNode(A);
+        topology.putNode(B);
+        topology.putNode(C);
+
+        startDistributionZoneManager();
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
+                        .filter(filter)
+                        .build()
+        ).get(10_000, TimeUnit.MILLISECONDS);
+
+        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
+                1,
+                topology.getLogicalTopology().version()
+        ).get(10_000, TimeUnit.MILLISECONDS);
+
+        assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
     }
 }

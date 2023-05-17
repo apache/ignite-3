@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfigurationSchema;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
@@ -490,8 +489,8 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
     void testInitializedDataNodesOnZoneManagerStart() throws Exception {
         Set<String> dataNodes0 = Set.of("node0", "node1");
 
-        Set<NodeWithAttributes> dataNodes = Set.of(new NodeWithAttributes("node0", "node0", emptyMap()),
-                new NodeWithAttributes("node1", "node1", emptyMap()));
+        Set<NodeWithAttributes> dataNodes = Set.of(new NodeWithAttributes("node0", "id_node0", emptyMap()),
+                new NodeWithAttributes("node1", "id_node1", emptyMap()));
 
         Map<ByteArray, byte[]> valEntries = new HashMap<>();
 
@@ -500,8 +499,8 @@ public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneMana
 
         assertThat(vaultMgr.putAll(valEntries), willCompleteSuccessfully());
 
-        topology.putNode(new LogicalNode(new ClusterNode("node0", "node0", new NetworkAddress("local", 1))));
-        topology.putNode(new LogicalNode(new ClusterNode("node1", "node1", new NetworkAddress("local", 1))));
+        topology.putNode(new LogicalNode(new ClusterNode("id_node0", "node0", new NetworkAddress("local", 1))));
+        topology.putNode(new LogicalNode(new ClusterNode("id_node1", "node1", new NetworkAddress("local", 1))));
 
         startZoneManager();
 
