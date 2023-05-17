@@ -58,10 +58,10 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
     /** Lazy annotations cache for configuration schema fields. */
     private final Map<MemberKey, Map<Annotation, Set<Validator<?, ?>>>> cachedAnnotations = new ConcurrentHashMap<>();
 
-
     /** Runtime implementations generator for node classes. */
     private final ConfigurationTreeGenerator generator;
 
+    /** Validators. */
     private final Set<? extends Validator<?, ?>> validators;
 
     /**
@@ -81,23 +81,24 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
     }
 
     /**
-     * Create {@link ConfigurationValidatorImpl} with the default validators ({@link DefaultValidators#validators()}) and the provided
-     * ones.
+     * Create {@link ConfigurationValidatorImpl} with the default validators ({@link DefaultValidators#DEFAULT_VALIDATORS})
+     * and the provided ones.
      *
      * @param validators Validators.
      * @return Configuration validator.
      */
     public static ConfigurationValidatorImpl withDefaultValidators(ConfigurationTreeGenerator generator,
             Set<? extends Validator<?, ?>> validators) {
-        HashSet<Validator<?, ?>> validators0 = new HashSet<>(DefaultValidators.validators());
+        HashSet<Validator<?, ?>> validators0 = new HashSet<>(DefaultValidators.DEFAULT_VALIDATORS);
         validators0.addAll(validators);
         return new ConfigurationValidatorImpl(generator, validators0);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public List<ValidationIssue> validate(String src) {
+    public List<ValidationIssue> validateHocon(String cfg) {
         try {
-            Config config = ConfigFactory.parseString(src);
+            Config config = ConfigFactory.parseString(cfg);
             return validate(HoconConverter.hoconSource(config.root()));
         } catch (ConfigException.Parse e) {
             throw new IllegalArgumentException(e);

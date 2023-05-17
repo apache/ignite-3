@@ -127,6 +127,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test

@@ -60,8 +60,7 @@ public class TestFactory {
         var configurationRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(),
+                generator,
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 

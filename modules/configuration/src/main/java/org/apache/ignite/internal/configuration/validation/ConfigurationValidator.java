@@ -27,8 +27,20 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
  */
 public interface ConfigurationValidator {
 
-    List<ValidationIssue> validate(String src);
+    /**
+     * Validate configuration.
+     *
+     * @param cfg configuration in HOCON format.
+     * @return List of validation results.
+     */
+    List<ValidationIssue> validateHocon(String cfg);
 
+    /**
+     * Validate configuration.
+     *
+     * @param src configuration.
+     * @return List of validation results.
+     */
     List<ValidationIssue> validate(ConfigurationSource src);
 
     /**

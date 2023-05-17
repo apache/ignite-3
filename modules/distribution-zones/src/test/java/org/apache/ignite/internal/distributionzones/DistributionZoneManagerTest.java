@@ -67,6 +67,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private static final String NEW_ZONE_NAME = "zone2";
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationRegistry registry;
 
     private DistributionZoneManager distributionZoneManager;
@@ -76,7 +78,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+        generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
@@ -108,6 +110,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test

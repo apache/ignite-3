@@ -344,8 +344,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         var clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 cfgStorage,
-                modules.distributed().internalSchemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions(),
+                new ConfigurationTreeGenerator(
+                        modules.distributed().rootKeys(),
+                        modules.distributed().internalSchemaExtensions(),
+                        modules.distributed().polymorphicSchemaExtensions()
+                ),
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 

@@ -39,10 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -84,40 +80,9 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     /** Runtime implementations generator for node classes. */
     private final ConfigurationTreeGenerator generator;
 
-    /** Flag that indicates if the {@link ConfigurationTreeGenerator} instance is owned by this object or not. */
-    private boolean ownConfigTreeGenerator = false;
-
     /** Configuration storage revision change listeners. */
     private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
             new ConfigurationListenerHolder<>();
-
-    /**
-     * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                    ConfigurationRoot} and {@link Config}).
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
-     */
-    public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
-            ConfigurationStorage storage,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions,
-            ConfigurationValidator configurationValidator
-    ) {
-        this(
-                rootKeys,
-                storage,
-                new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions),
-                configurationValidator
-        );
-
-        this.ownConfigTreeGenerator = true;
-    }
 
     /**
      * Constructor.
@@ -182,9 +147,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         storageRevisionListeners.clear();
 
-        if (ownConfigTreeGenerator) {
-            generator.close();
-        }
+        generator.close();
     }
 
     /**

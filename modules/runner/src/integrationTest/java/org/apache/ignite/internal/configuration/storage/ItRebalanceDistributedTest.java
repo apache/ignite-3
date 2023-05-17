@@ -690,16 +690,24 @@ public class ItRebalanceDistributedTest {
                             DistributionZonesConfiguration.KEY
                     ),
                     cfgStorage,
-                    List.of(ExtendedTableConfigurationSchema.class),
-                    List.of(
-                            VolatilePageMemoryDataStorageConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class,
-                            PersistentPageMemoryDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
-                            TestDataStorageConfigurationSchema.class
+                    new ConfigurationTreeGenerator(
+                            List.of(
+                                    PersistentPageMemoryStorageEngineConfiguration.KEY,
+                                    VolatilePageMemoryStorageEngineConfiguration.KEY,
+                                    TablesConfiguration.KEY,
+                                    DistributionZonesConfiguration.KEY
+                            ),
+                            List.of(ExtendedTableConfigurationSchema.class),
+                            List.of(
+                                    VolatilePageMemoryDataStorageConfigurationSchema.class,
+                                    UnsafeMemoryAllocatorConfigurationSchema.class,
+                                    PersistentPageMemoryDataStorageConfigurationSchema.class,
+                                    HashIndexConfigurationSchema.class,
+                                    ConstantValueDefaultConfigurationSchema.class,
+                                    FunctionCallDefaultConfigurationSchema.class,
+                                    NullValueDefaultConfigurationSchema.class,
+                                    TestDataStorageConfigurationSchema.class
+                            )
                     ),
                     new TestConfigurationValidator()
             );

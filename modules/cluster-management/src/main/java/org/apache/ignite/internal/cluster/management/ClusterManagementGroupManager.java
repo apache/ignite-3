@@ -349,11 +349,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private void validateConfiguration(@Nullable String configuration) {
         if (configuration != null) {
-            List<ValidationIssue> issues = clusterConfigurationValidator.validate(configuration);
+            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(configuration);
             if (!issues.isEmpty()) {
-                throw new IllegalInitArgumentException(
-                        "Invalid configuration: " + new ConfigurationValidationException(issues).getMessage()
-                );
+                throw new ConfigurationValidationException(issues);
             }
         }
     }

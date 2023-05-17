@@ -48,6 +48,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterAll;
@@ -210,10 +211,13 @@ public class HoconConverterTest {
         registry = new ConfigurationRegistry(
                 List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(
-                        HoconFirstPolymorphicInstanceConfigurationSchema.class,
-                        HoconSecondPolymorphicInstanceConfigurationSchema.class
+                new ConfigurationTreeGenerator(
+                        List.of(HoconRootConfiguration.KEY, HoconInjectedNameRootConfiguration.KEY),
+                        List.of(),
+                        List.of(
+                                HoconFirstPolymorphicInstanceConfigurationSchema.class,
+                                HoconSecondPolymorphicInstanceConfigurationSchema.class
+                        )
                 ),
                 new TestConfigurationValidator()
         );

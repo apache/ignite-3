@@ -29,7 +29,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
  */
 public class TestConfigurationValidator implements ConfigurationValidator {
     @Override
-    public List<ValidationIssue> validate(String src) {
+    public List<ValidationIssue> validateHocon(String cfg) {
         return Collections.emptyList();
     }
 

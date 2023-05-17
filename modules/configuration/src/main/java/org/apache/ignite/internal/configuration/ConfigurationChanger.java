@@ -264,27 +264,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         addDefaults(superRoot);
 
         // Validate the restored configuration.
-        validateConfiguration(new SuperRoot(rootCreator()), superRoot);
+        validateConfiguration(superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
         storage.registerConfigurationListener(configurationStorageListener());
-    }
-
-    /**
-     * Creates an empty configuration with defaults.
-     *
-     * @return Default configuration.
-     */
-    private SuperRoot defaultConfiguration() {
-        SuperRoot superRoot = new SuperRoot(rootCreator());
-        for (RootKey<?, ?> rootKey : rootKeys.values()) {
-            InnerNode rootNode = createRootNode(rootKey);
-
-            superRoot.addRoot(rootKey, rootNode);
-        }
-        addDefaults(superRoot);
-        return superRoot;
     }
 
     /**
@@ -615,6 +599,15 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             rwLock.readLock().unlock();
         }
     }
+
+    private void validateConfiguration(SuperRoot configuration) {
+        List<ValidationIssue> validationIssues = configurationValidator.validate(configuration);
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
+        }
+    }
+
 
     private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
         List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes);

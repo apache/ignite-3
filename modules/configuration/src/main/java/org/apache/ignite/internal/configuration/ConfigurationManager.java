@@ -53,33 +53,6 @@ public class ConfigurationManager implements IgniteComponent {
         );
     }
 
-    /**
-     * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                    ConfigurationRoot} and {@link Config}).
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
-     */
-    public ConfigurationManager(
-            Collection<RootKey<?, ?>> rootKeys,
-            ConfigurationStorage storage,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions,
-            ConfigurationValidator configurationValidator
-    ) {
-        registry = new ConfigurationRegistry(
-                rootKeys,
-                storage,
-                internalSchemaExtensions,
-                polymorphicSchemaExtensions,
-                configurationValidator
-        );
-    }
-
     /** {@inheritDoc} */
     @Override
     public void start() {

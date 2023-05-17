@@ -17,29 +17,20 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
-import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
  * Collection of default configuration validators.
  */
-public final class DefaultValidators {
+final class DefaultValidators {
 
-    /**
-     * Returns a set of default configuration validators.
-     *
-     * @return Set of default configuration validators.
-     */
-    public static Set<Validator<?, ?>> validators() {
-        Set<Validator<?, ?>> validators = new HashSet<>();
-
-        validators.add(new ImmutableValidator());
-        validators.add(new OneOfValidator());
-        validators.add(new ExceptKeysValidator());
-        validators.add(new PowerOfTwoValidator());
-        validators.add(new RangeValidator());
-
-        return validators;
-    }
+    /** Set of default configuration validators. */
+    static final Set<Validator<?, ?>> DEFAULT_VALIDATORS = Set.of(
+            new ImmutableValidator(),
+            new OneOfValidator(),
+            new ExceptKeysValidator(),
+            new PowerOfTwoValidator(),
+            new RangeValidator()
+    );
 }

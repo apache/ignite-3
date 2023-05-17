@@ -195,8 +195,7 @@ public class ItDistributedConfigurationPropertiesTest {
             distributedCfgManager = new ConfigurationManager(
                     List.of(DistributedConfiguration.KEY),
                     distributedCfgStorage,
-                    List.of(),
-                    List.of(),
+                    new ConfigurationTreeGenerator(DistributedConfiguration.KEY),
                     new TestConfigurationValidator()
             );
         }

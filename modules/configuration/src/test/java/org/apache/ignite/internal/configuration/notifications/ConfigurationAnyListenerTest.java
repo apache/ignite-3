@@ -53,6 +53,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterEach;
@@ -155,8 +156,11 @@ public class ConfigurationAnyListenerTest {
         registry = new ConfigurationRegistry(
                 List.of(RootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class),
+                new ConfigurationTreeGenerator(
+                        List.of(RootConfiguration.KEY),
+                        List.of(),
+                        List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
+                ),
                 new TestConfigurationValidator()
         );
 
