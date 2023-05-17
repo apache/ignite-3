@@ -19,10 +19,12 @@ package org.apache.ignite.internal.replicator.listener;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Replica listener.
  */
+@FunctionalInterface
 public interface ReplicaListener {
     /**
      * Invokes a replica listener to process request.
@@ -31,4 +33,13 @@ public interface ReplicaListener {
      * @return Listener response.
      */
     CompletableFuture<?> invoke(ReplicaRequest request);
+
+    /**
+     * Callback on leader election.
+     *
+     * @param clusterNode Leader node.
+     */
+    default void onLeaderElected(ClusterNode clusterNode) {
+        // No-op.
+    }
 }

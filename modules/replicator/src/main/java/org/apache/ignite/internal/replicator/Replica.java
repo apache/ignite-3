@@ -145,6 +145,8 @@ public class Replica {
         if (!leaderFuture.isDone()) {
             leaderFuture.complete(leaderRef);
         }
+
+        listener.onLeaderElected(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {

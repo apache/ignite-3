@@ -53,6 +53,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -76,10 +77,12 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
@@ -89,6 +92,7 @@ import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -139,6 +143,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     @InjectConfiguration
     private static DataStorageConfiguration dsCfg;
+
+    @InjectConfiguration("mock.tables.foo {}")
+    private static TablesConfiguration tablesConfig;
+
+    @InjectConfiguration
+    private static DistributionZoneConfiguration distributionZoneConfig;
 
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
@@ -423,7 +433,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             TablePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
-                var testMpPartStorage = new TestMvPartitionStorage(0);
+                var mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig);
+                var mvPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = txStateStorages.get(assignment);
                 var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
 
@@ -451,7 +462,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
-                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
 
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
@@ -487,9 +498,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tblId, partId),
-                                        CompletableFuture.completedFuture(null),
+                                        completedFuture(null),
                                         new PartitionReplicaListener(
-                                                testMpPartStorage,
+                                                mvPartStorage,
                                                 raftSvc,
                                                 txManagers.get(assignment),
                                                 txManagers.get(assignment).lockManager(),
@@ -498,15 +509,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 tblId,
                                                 () -> Map.of(pkLocker.id(), pkLocker),
                                                 pkStorage,
-                                                () -> Map.of(),
+                                                Map::of,
                                                 clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
                                                 placementDriver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
-                                                peer -> assignment.equals(peer.consistentId()),
-                                                completedFuture(schemaManager)
+                                                completedFuture(schemaManager),
+                                                consistentIdToNode.apply(assignment),
+                                                mvTableStorage,
+                                                mock(IndexBuilder.class)
                                         ),
                                         raftSvc,
                                         storageIndexTracker

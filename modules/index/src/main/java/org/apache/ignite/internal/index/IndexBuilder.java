@@ -51,6 +51,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class for managing the index building process.
  */
+// TODO: IGNITE-19177 удалить
 class IndexBuilder {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuilder.class);
 
