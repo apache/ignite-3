@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Future utils.
  */
-class ClientFutureUtils {
+public class ClientFutureUtils {
     static <T> @Nullable T getNowSafe(CompletableFuture<T> fut) {
         try {
             return fut.getNow(null);
@@ -35,7 +35,7 @@ class ClientFutureUtils {
         }
     }
 
-    static <T> CompletableFuture<T> doWithRetryAsync(
+    public static <T> CompletableFuture<T> doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
             @Nullable Predicate<T> resultValidator,
             Predicate<RetryContext> retryPredicate) {
@@ -92,12 +92,12 @@ class ClientFutureUtils {
         });
     }
 
-    static class RetryContext {
+    public static class RetryContext {
         int attempt;
 
         @Nullable ArrayList<Throwable> errors;
 
-        Throwable lastError() {
+        public Throwable lastError() {
             assert errors != null : "errors != null";
             assert !errors.isEmpty() : "!errors.isEmpty()";
 

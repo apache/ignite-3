@@ -31,6 +31,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.ClientFutureUtils;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -297,7 +299,39 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> doSchemaOutOpInternalAsync(opCode, writer, reader, provider),
+                null,
+                ctx -> {
+                    if (ctx.lastError().getCause() instanceof IgniteException
+                            && ((IgniteException)ctx.lastError().getCause()).code() == ErrorGroups.Table.SCHEMA_MISMATCH_ERR) {
+                        // TODO: Race condition?
+                        schemas.remove(UNKNOWN_SCHEMA_VERSION);
+                        latestSchemaVer = UNKNOWN_SCHEMA_VERSION;
 
+                        return true;
+                    }
+
+                    return false;
+                }
+        );
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    private  <T> CompletableFuture<T> doSchemaOutOpInternalAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider) {
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
