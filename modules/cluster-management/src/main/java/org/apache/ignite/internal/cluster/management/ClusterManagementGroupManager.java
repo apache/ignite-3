@@ -388,44 +388,47 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().whenComplete((service, e) -> {
-            if (e != null) {
-                LOG.error("Error when joining to the raft service", e);
-                updateDistributedConfigurationActionFuture.completeExceptionally(e);
-            } else {
-                service.readClusterState()
-                        .thenAccept(state -> {
-                            String configuration = state.clusterConfigurationToApply();
-                            if (configuration != null) {
-                                updateDistributedConfigurationActionFuture.complete(
-                                        new UpdateDistributedConfigurationAction(
-                                                configuration,
-                                                () -> removeClusterConfigFromClusterState(service)
-                                        ));
-                            } else {
-                                updateDistributedConfigurationActionFuture.cancel(true);
-                            }
-                        });
-            }
-        });
+        raftServiceAfterJoin().thenCompose(service -> service.readClusterState()
+                .thenAccept(state -> {
+                    String configuration = state.clusterConfigurationToApply();
+                    if (configuration != null) {
+                        updateDistributedConfigurationActionFuture.complete(
+                                new UpdateDistributedConfigurationAction(
+                                        configuration,
+                                        () -> removeClusterConfigFromClusterState(service)
+                                ));
+                    } else {
+                        updateDistributedConfigurationActionFuture.cancel(true);
+                    }
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Error when retrieving cluster configuration", e);
+                        updateDistributedConfigurationActionFuture.completeExceptionally(e);
+                    }
+                }));
     }
 
     private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
-                    ClusterState clusterState = msgFactory.clusterState()
-                            .cmgNodes(Set.copyOf(state.cmgNodes()))
-                            .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))
-                            .version(state.igniteVersion().toString())
-                            .clusterTag(state.clusterTag())
-                            .build();
-                    return service.updateClusterState(clusterState);
-                })
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Error when removing configuration from cluster state", e);
+                    if (state.clusterConfigurationToApply() != null) {
+                        ClusterState clusterState = msgFactory.clusterState()
+                                .cmgNodes(Set.copyOf(state.cmgNodes()))
+                                .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))
+                                .version(state.igniteVersion().toString())
+                                .clusterTag(state.clusterTag())
+                                .build();
+                        return service.updateClusterState(clusterState)
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.error("Error when removing configuration from cluster state", e);
+                                    } else {
+                                        LOG.info("Cluster configuration is removed from cluster state");
+                                    }
+                                });
                     } else {
-                        LOG.info("Cluster configuration is removed from cluster state");
+                        return completedFuture(null);
                     }
                 });
     }

@@ -45,12 +45,13 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
         cmgMgr.clusterConfigurationToUpdate()
                 .thenCompose(action -> {
                     if (action.configuration() != null) {
-                        return presentation.update(action.configuration()).thenApply(ignored -> action);
+                        return presentation.update(action.configuration())
+                                .thenApply(ignored -> action)
+                                .thenCompose(it -> it.nextAction().get());
                     } else {
-                        return CompletableFuture.completedFuture(action);
+                        return CompletableFuture.completedFuture(null);
                     }
                 })
-                .thenCompose(action -> action.nextAction().get())
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to update the distributed configuration", e);

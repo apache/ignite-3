@@ -371,16 +371,16 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertEquals(clusterConfiguration, leaderAction.configuration());
 
         // Execute the next action (remove the configuration from the cluster state)
-        leaderAction.nextAction().get().join();
+        assertThat(leaderAction.nextAction().get(), willCompleteSuccessfully());
 
-        // Stop the cluster leader.
+        // Stop the cluster leader to check the new leader is not going to update the configuration.
         stopNodes(List.of(leaderNode));
         cluster.remove(leaderNode);
 
         // Wait for a new leader to be elected.
         Awaitility.await().until(() -> findLeaderNode(cluster).isPresent());
 
-        // Find the new CMG leader and stop it.
+        // Find the new CMG leader.
         MockNode newLeaderNode = findLeaderNode(cluster).orElseThrow();
 
         // Check the new leader cancels the action.
