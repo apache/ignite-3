@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
@@ -39,8 +39,7 @@ public interface TimestampAware extends NetworkMessage {
      *
      * @return Gets a hybrid timestamp.
      */
-    //TODO IGNITE-19381 Remove @Nullable annotation and replace "nullableHybridTimestamp(...)" call with "hybridTimestamp(...)"
-    default @Nullable HybridTimestamp timestamp() {
-        return nullableHybridTimestamp(timestampLong());
+    default HybridTimestamp timestamp() {
+        return hybridTimestamp(timestampLong());
     }
 }
