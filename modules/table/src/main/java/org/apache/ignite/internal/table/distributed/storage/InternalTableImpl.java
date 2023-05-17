@@ -916,8 +916,7 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                Function.identity(),
-                partId);
+                Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -1269,26 +1268,6 @@ public class InternalTableImpl implements InternalTable {
         /** True when the publisher has a subscriber, false otherwise. */
         private AtomicBoolean subscribed;
 
-        private final int partId;
-
-        /**
-         * The constructor.
-         *
-         * @param retrieveBatch Closure that gets a new batch from the remote replica.
-         * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is finished.
-         */
-        PartitionScanPublisher(
-                BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
-                Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose,
-                int partId
-        ) {
-            this.retrieveBatch = retrieveBatch;
-            this.onClose = onClose;
-
-            this.subscribed = new AtomicBoolean(false);
-            this.partId = partId;
-        }
-
         /**
          * The constructor.
          *
@@ -1299,7 +1278,10 @@ public class InternalTableImpl implements InternalTable {
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
                 Function<CompletableFuture<Void>, CompletableFuture<Void>> onClose
         ) {
-            this(retrieveBatch, onClose, -1);
+            this.retrieveBatch = retrieveBatch;
+            this.onClose = onClose;
+
+            this.subscribed = new AtomicBoolean(false);
         }
 
         /** {@inheritDoc} */

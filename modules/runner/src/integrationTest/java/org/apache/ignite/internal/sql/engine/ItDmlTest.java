@@ -26,13 +26,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -50,7 +46,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected int nodes() {
-        return 1;
+        return 3;
     }
 
     /**
@@ -65,134 +61,6 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         dropAllTables();
 
         super.tearDownBase(testInfo);
-    }
-
-    @Test
-    public void timeoutTest() throws Exception {
-        int cols = 10;
-        sql("CREATE ZONE ZONE1 ENGINE aimem");
-
-        attempt("tab1", cols);
-        attempt("tab2", cols);
-        attempt("tab3", cols);
-        attempt("tab4", cols);
-        attempt("tab5", cols);
-        attempt("tab6", cols);
-    }
-
-    @Test
-    public void timeoutTestX() throws Exception {
-        int cols = 10;
-        sql("CREATE ZONE ZONE1 ENGINE aimem with partitions=8"); //
-
-        String tableName = "tab1";
-
-        attempt0(tableName, cols, 10_000);
-
-        AtomicInteger cntr = new AtomicInteger();
-        AtomicBoolean stop = new AtomicBoolean();
-        int step = 50 * 10;
-
-        Callable<Void> call = () -> {
-            int off = cntr.getAndIncrement() * step;
-
-            try {
-                for (int i = off; i < off + step && !stop.get(); i++) {
-                    System.out.println(">xxx> TRY #" + i);
-                    long start = System.currentTimeMillis();
-
-                    List<List<Object>> res = sql("select count(*) from " + tableName);
-
-                    System.out.println(">xxx> count(*) " + res + " time=" + (System.currentTimeMillis() - start));
-
-                    res = sql("select count(1) from " + tableName);
-
-                    System.out.println(">xxx> count(1) " + res + " time=" + (System.currentTimeMillis() - start));
-                }
-            } catch (Throwable t) {
-                stop.set(true);
-
-                throw t;
-            }
-
-            return null;
-        };
-
-//        call.call();
-        IgniteTestUtils.runMultiThreaded(call, 10, "worker");
-    }
-
-    private void attempt(String tableName, int cols) throws Exception {
-        attempt0(tableName, cols, 100_000);
-    }
-
-    private void attempt0(String tableName, int cols, int rowCnt) throws Exception {
-        String createSqk = getCreateSql(tableName, cols) + " WITH PRIMARY_ZONE='ZONE1'";
-
-        System.out.println(">xxx>" + createSqk);
-        sql(createSqk);
-
-//        AtomicInteger cntr = new AtomicInteger();
-//
-//        IgniteTestUtils.runMultiThreaded(() -> {
-
-            Object[] params = new Object[cols + 1];
-
-            long start1 = System.currentTimeMillis();
-
-//            int n = cntr.getAndIncrement() * rowCnt/2;
-
-            for (int i = 0; i < rowCnt; i++) {
-                for (int j = 0; j < params.length; j++) {
-                    if (j == 0)
-                        params[0] = i;
-                    else
-                        params[j] = "value" + i + "_" + j;
-                }
-
-                sql(getInsertSql(tableName, cols), params);
-
-                if (i != 0 && i % 5_000 == 0) {
-//                System.out.println(">xxx> );
-
-                    System.out.println(">xxx> done " + i + ", TIME: " + (System.currentTimeMillis() - start1));
-
-//                start1 = System.currentTimeMillis();
-
-//                long start = start1;
-//
-//                List<List<Object>> res = sql("select count(*) from " + tableName);
-//
-//                System.out.println(">xxx> count(*) " + res + " time=" + (System.currentTimeMillis() - start));
-                }
-            }
-
-//            return null;
-//        }, 2, "worker");
-    }
-
-    private static String getCreateSql(String tableName, int cols) {
-        StringBuilder sql = new StringBuilder("create table ").append(tableName).append(" (id int primary key");
-
-        for (int i = 0; i < cols; i++) {
-            sql.append(", col").append(i).append(" varchar NOT NULL");
-        }
-
-        sql.append(")");
-
-        return sql.toString();
-    }
-
-    private static String getInsertSql(String tableName, int cols) {
-        StringBuilder sql = new StringBuilder("insert into ").append(tableName).append(" values(?");
-
-        for (int i = 0; i < cols; i++) {
-            sql.append(", ?");
-        }
-
-        sql.append(")");
-
-        return sql.toString();
     }
 
     @Test
