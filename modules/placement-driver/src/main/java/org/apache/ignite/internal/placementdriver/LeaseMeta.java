@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.placementdriver;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Replica lease meta.
