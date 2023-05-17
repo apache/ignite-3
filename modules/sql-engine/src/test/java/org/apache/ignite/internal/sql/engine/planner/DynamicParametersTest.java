@@ -169,10 +169,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     }
 
     /**
-     * Dynamic params in UPDATE statement.
+     * UPDATE statement.
      */
     @TestFactory
-    public Stream<DynamicTest> testUpdateDynamicParams() {
+    public Stream<DynamicTest> testUpdate() {
         return Stream.of(
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
@@ -201,10 +201,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     }
 
     /**
-     * Dynamic params in NOT MATCHED arm of MERGE statement.
+     * NOT MATCHED arm of MERGE statement.
      */
     @TestFactory
-    public Stream<DynamicTest> testMergeNotMatchedDynamicParams() {
+    public Stream<DynamicTest> testMergeNotMatched() {
         return Stream.of(
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
@@ -242,9 +242,9 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         );
     }
 
-    /** Dynamic params in both arms of MERGE statement. */
+    /** Both arms of MERGE statement. */
     @TestFactory
-    public Stream<DynamicTest> testMergeFullDynamicParams() {
+    public Stream<DynamicTest> testMergeFull() {
         return Stream.of(
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
@@ -284,10 +284,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     }
 
     /**
-     * Custom data types dynamic params.
+     * Custom data types.
      */
     @TestFactory
-    public Stream<DynamicTest> testCustomTypeDynamicParams() {
+    public Stream<DynamicTest> testCustomType() {
         // IgniteCustomType: All dynamic parameters belong to the same SqlTypeFamily ANY.
         // Cast operations from/to ANY type considered legal in Calcite.
 
