@@ -43,6 +43,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -121,7 +122,10 @@ public class PlacementDriverManager implements IgniteComponent {
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
 
         this.raftClientFuture = new CompletableFuture<>();
-        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
+
+        long longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
+
+        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr, longLeaseInterval, busyLock);
         this.leaseUpdater = new LeaseUpdater(
                 clusterService,
                 vaultManager,
@@ -130,7 +134,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 tablesCfg,
                 distributionZonesConfiguration,
                 leaseTracker,
-                clock
+                clock,
+                longLeaseInterval
         );
     }
 

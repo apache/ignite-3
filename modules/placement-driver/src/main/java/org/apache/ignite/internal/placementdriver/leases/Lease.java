@@ -20,14 +20,18 @@ package org.apache.ignite.internal.placementdriver.leases;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 
 import java.io.Serializable;
+import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.LeaseMeta;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * A lease representation in memory.
  * The real lease is stored in Meta storage.
  */
-public class Lease implements Serializable {
+public class Lease implements LeaseMeta, Serializable {
+    private static final long serialVersionUID = 2365732998548566957L;
+
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE);
 
@@ -127,29 +131,17 @@ public class Lease implements Serializable {
         return new Lease(leaseholder, startTime, expirationTime, false, true);
     }
 
-    /**
-     * Get a leaseholder node.
-     *
-     * @return Leaseholder or {@code null} if nothing holds the lease.
-     */
+    @Override
     public ClusterNode getLeaseholder() {
         return leaseholder;
     }
 
-    /**
-     * Gets a lease start timestamp.
-     *
-     * @return Lease start timestamp.
-     */
+    @Override
     public HybridTimestamp getStartTime() {
         return startTime;
     }
 
-    /**
-     * Gets a lease expiration timestamp.
-     *
-     * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
-     */
+    @Override
     public HybridTimestamp getExpirationTime() {
         return expirationTime;
     }
@@ -181,5 +173,23 @@ public class Lease implements Serializable {
                 + ", expirationTime=" + expirationTime
                 + ", prolongable=" + prolongable
                 + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Lease lease = (Lease) o;
+        return accepted == lease.accepted && prolongable == lease.prolongable && Objects.equals(leaseholder, lease.leaseholder)
+                && Objects.equals(startTime, lease.startTime) && Objects.equals(expirationTime, lease.expirationTime);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(leaseholder, accepted, startTime, expirationTime, prolongable);
     }
 }

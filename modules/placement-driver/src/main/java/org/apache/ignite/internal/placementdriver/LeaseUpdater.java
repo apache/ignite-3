@@ -75,7 +75,7 @@ public class LeaseUpdater {
 
     private final AtomicBoolean active = new AtomicBoolean();
 
-    /** Long lease interval. The interval is used between lease granting attempts. */
+    /** Long lease interval in {@code TimeUnit.MILLISECONDS}. The interval is used between lease granting attempts. */
     private final long longLeaseInterval;
 
     /** Cluster service. */
@@ -118,6 +118,7 @@ public class LeaseUpdater {
      * @param tablesConfiguration Tables configuration.
      * @param leaseTracker Lease tracker.
      * @param clock Cluster clock.
+     * @param longLeaseInterval Long lease interval in {@code TimeUnit.MILLISECONDS}. The interval is used between lease granting attempts.
      */
     public LeaseUpdater(
             ClusterService clusterService,
@@ -127,14 +128,15 @@ public class LeaseUpdater {
             TablesConfiguration tablesConfiguration,
             DistributionZonesConfiguration distributionZonesConfiguration,
             LeaseTracker leaseTracker,
-            HybridClock clock
+            HybridClock clock,
+            long longLeaseInterval
     ) {
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
-        this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000L);
+        this.longLeaseInterval = longLeaseInterval;
         this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
