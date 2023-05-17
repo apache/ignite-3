@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.SCHEMA_MISMATCH_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -303,8 +304,7 @@ public class ClientTable implements Table {
                 () -> doSchemaOutOpInternalAsync(opCode, writer, reader, provider),
                 null,
                 ctx -> {
-                    if (ctx.lastError().getCause() instanceof IgniteException
-                            && ((IgniteException)ctx.lastError().getCause()).code() == ErrorGroups.Table.SCHEMA_MISMATCH_ERR) {
+                    if (IgniteException.getIgniteErrorCode(ctx.lastError().getCause()) == SCHEMA_MISMATCH_ERR) {
                         // TODO: Race condition?
                         schemas.remove(UNKNOWN_SCHEMA_VERSION);
                         latestSchemaVer = UNKNOWN_SCHEMA_VERSION;

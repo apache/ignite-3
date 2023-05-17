@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.SCHEMA_MISMATCH_ERR;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -568,8 +569,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** Determines whether specified operation should be retried. */
     private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
-        if (ctx.lastError().getCause() instanceof IgniteException
-                && ((IgniteException)ctx.lastError().getCause()).code() == Table.SCHEMA_MISMATCH_ERR) {
+        if (IgniteException.getIgniteErrorCode(ctx.lastError().getCause()) == SCHEMA_MISMATCH_ERR) {
             // Special case: propagate schema mismatch to the table.
             return false;
         }

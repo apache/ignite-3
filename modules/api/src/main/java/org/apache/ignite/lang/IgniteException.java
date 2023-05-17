@@ -294,7 +294,7 @@ public class IgniteException extends RuntimeException {
      * @param t Throwable.
      * @return Ignite error code or UNKNOWN_ERR.
      */
-    public static int getIgniteErrorCode(Throwable t) {
+    public static int getIgniteErrorCode(@Nullable Throwable t) {
         return (t instanceof IgniteException) ? ((IgniteException) t).code() : UNKNOWN_ERR;
     }
 }
