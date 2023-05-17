@@ -236,16 +236,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return planFut.thenApply(QueryPlan::copy);
     }
 
-    private static CacheKey createCacheKey(SqlNode sqlNode, PlanningContext ctx) {
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-
-        Class[] paramTypes = ctx.parameters().length == 0
-                ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
-
-        return new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
-    }
-
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
         var key = createCacheKey(sqlNode, ctx);
 
@@ -267,6 +257,16 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
+    }
+
+    private static CacheKey createCacheKey(SqlNode sqlNode, PlanningContext ctx) {
+        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+
+        Class[] paramTypes = ctx.parameters().length == 0
+                ? EMPTY_CLASS_ARRAY :
+                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
+
+        return new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(
