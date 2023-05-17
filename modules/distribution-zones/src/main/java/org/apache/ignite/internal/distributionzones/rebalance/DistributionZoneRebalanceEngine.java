@@ -164,6 +164,8 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
+                    Set<Node> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
+
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);
 
@@ -171,8 +173,6 @@ public class DistributionZoneRebalanceEngine {
 
                         DistributionZoneConfiguration distributionZoneConfiguration =
                                 getZoneById(zonesConfiguration, tableZoneId);
-
-                        Set<Node> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
 
                         Set<String> filteredDataNodes = DistributionZoneManager.filterDataNodes(
                                 dataNodes,
