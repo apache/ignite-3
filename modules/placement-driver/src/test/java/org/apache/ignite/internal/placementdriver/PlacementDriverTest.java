@@ -39,7 +39,6 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -334,10 +333,10 @@ public class PlacementDriverTest {
         assertEquals(LEASE_FROM_1_TO_15.getExpirationTime(), retrievedPrimaryReplicaTimeLtLeaseExpiration.get().getExpirationTime());
     }
 
-    private void publishLease(Lease leaseFrom1To5) {
+    private void publishLease(Lease lease) {
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(MS_LEASE_KEY, ByteUtils.toBytes(leaseFrom1To5)),
+                put(MS_LEASE_KEY, lease.bytes()),
                 noop()
         );
     }
