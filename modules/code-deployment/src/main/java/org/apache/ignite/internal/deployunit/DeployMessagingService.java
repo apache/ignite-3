@@ -108,13 +108,14 @@ public class DeployMessagingService {
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
      * @param unitContent Deployment unit file names and content.
+     * @param nodeId Node consistent identifier.
      * @return Future with deployment result.
      */
     public CompletableFuture<Boolean> startDeployAsyncToNode(
             String id,
             Version version,
             Map<String, byte[]> unitContent,
-            String node
+            String nodeId
     ) {
         DeployUnitRequest request = DeployUnitRequestImpl.builder()
                 .id(id)
@@ -122,7 +123,7 @@ public class DeployMessagingService {
                 .unitContent(unitContent)
                 .build();
 
-        return requestDeploy(clusterService.topologyService().getByConsistentId(node), request);
+        return requestDeploy(clusterService.topologyService().getByConsistentId(nodeId), request);
     }
 
     /**

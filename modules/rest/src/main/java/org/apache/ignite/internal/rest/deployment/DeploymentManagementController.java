@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.version.UnitVersion;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
@@ -87,7 +88,7 @@ public class DeploymentManagementController implements DeploymentCodeApi {
      * @param status Unit status.
      * @return Unit status DTO.
      */
-    private static UnitStatus fromUnitStatus(org.apache.ignite.internal.deployunit.UnitStatus status) {
+    private static UnitStatus fromUnitStatus(UnitStatuses status) {
         Map<String, DeploymentStatus> versionToDeploymentStatus = new HashMap<>();
         Set<Version> versions = status.versions();
         for (Version version : versions) {

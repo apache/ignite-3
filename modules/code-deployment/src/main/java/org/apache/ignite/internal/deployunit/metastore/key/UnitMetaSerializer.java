@@ -22,12 +22,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.UnitMeta;
+import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
- * Serializer for {@link UnitMeta}.
+ * Serializer for {@link UnitStatus}.
  */
 public final class UnitMetaSerializer {
     private static final String SEPARATOR = ";";
@@ -47,7 +47,7 @@ public final class UnitMetaSerializer {
      * @param meta Unit meta.
      * @return Serialized unit meta.
      */
-    public static byte[] serialize(UnitMeta meta) {
+    public static byte[] serialize(UnitStatus meta) {
         StringBuilder sb = new StringBuilder();
 
         appendWithEncoding(sb, meta.id());
@@ -63,7 +63,7 @@ public final class UnitMetaSerializer {
      * @param bytes Byte array.
      * @return Unit meta.
      */
-    public static UnitMeta deserialize(byte[] bytes) {
+    public static UnitStatus deserialize(byte[] bytes) {
         String s = new String(bytes, UTF_8);
         String[] split = s.split(SEPARATOR, -1);
 
@@ -72,7 +72,7 @@ public final class UnitMetaSerializer {
 
         DeploymentStatus status = DeploymentStatus.valueOf(decode(split[2]));
 
-        return new UnitMeta(id, Version.parseVersion(version), status);
+        return new UnitStatus(id, Version.parseVersion(version), status);
     }
 
     private static void appendWithEncoding(StringBuilder sb, String content) {

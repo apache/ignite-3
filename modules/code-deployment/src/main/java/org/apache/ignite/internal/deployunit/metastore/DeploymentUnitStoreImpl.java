@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -50,17 +50,17 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.lang.ByteArray;
 
 /**
- * Implementation of {@link DeploymentUnitMetastore} based on {@link MetaStorageManager}.
+ * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
  */
-public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
+public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     private final MetaStorageManager metaStorage;
 
-    public DeploymentUnitMetastoreImpl(MetaStorageManager metaStorage) {
+    public DeploymentUnitStoreImpl(MetaStorageManager metaStorage) {
         this.metaStorage = metaStorage;
     }
 
     @Override
-    public CompletableFuture<UnitMeta> getClusterStatus(String id, Version version) {
+    public CompletableFuture<UnitStatus> getClusterStatus(String id, Version version) {
         return metaStorage.get(clusterStatusKey(id, version)).thenApply(entry -> {
             byte[] value = entry.value();
             if (value == null) {
@@ -72,7 +72,7 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
     }
 
     @Override
-    public CompletableFuture<UnitMeta> getNodeStatus(String id, Version version, String nodeId) {
+    public CompletableFuture<UnitStatus> getNodeStatus(String id, Version version, String nodeId) {
         return metaStorage.get(nodeStatusKey(id, version, nodeId)).thenApply(entry -> {
             byte[] value = entry.value();
             if (value == null) {
@@ -84,21 +84,21 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> getAllClusterStatuses() {
-        CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
+    public CompletableFuture<List<UnitStatuses>> getAllClusterStatuses() {
+        CompletableFuture<List<UnitStatuses>> result = new CompletableFuture<>();
         metaStorage.prefix(allUnits()).subscribe(new UnitsAccumulator().toSubscriber(result));
         return result;
     }
 
-    private CompletableFuture<List<UnitStatus>> getClusterStatuses(Predicate<UnitMeta> filter) {
-        CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
+    private CompletableFuture<List<UnitStatuses>> getClusterStatuses(Predicate<UnitStatus> filter) {
+        CompletableFuture<List<UnitStatuses>> result = new CompletableFuture<>();
         metaStorage.prefix(allUnits()).subscribe(new UnitsAccumulator(filter).toSubscriber(result));
         return result;
     }
 
     @Override
-    public CompletableFuture<UnitStatus> getClusterStatuses(String id) {
-        CompletableFuture<UnitStatus> result = new CompletableFuture<>();
+    public CompletableFuture<UnitStatuses> getClusterStatuses(String id) {
+        CompletableFuture<UnitStatuses> result = new CompletableFuture<>();
         metaStorage.prefix(allUnits()).subscribe(new ClusterStatusAccumulator(id).toSubscriber(result));
         return result;
     }
@@ -106,7 +106,7 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
     @Override
     public CompletableFuture<Boolean> createClusterStatus(String id, Version version) {
         ByteArray key = clusterStatusKey(id, version);
-        byte[] value = serialize(new UnitMeta(id, version, UPLOADING));
+        byte[] value = serialize(new UnitStatus(id, version, UPLOADING));
 
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
@@ -114,7 +114,7 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
     @Override
     public CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
         ByteArray key = nodeStatusKey(id, version, nodeId);
-        byte[] value = serialize(new UnitMeta(id, version, status));
+        byte[] value = serialize(new UnitStatus(id, version, status));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 
@@ -129,7 +129,7 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> findAllByNodeConsistentId(String nodeId) {
+    public CompletableFuture<List<UnitStatuses>> findAllByNodeConsistentId(String nodeId) {
         CompletableFuture<List<String>> result = new CompletableFuture<>();
         metaStorage.prefix(nodes()).subscribe(new UnitsByNodeAccumulator(nodeId).toSubscriber(result));
         return result.thenCompose(ids -> getClusterStatuses(meta -> ids.contains(meta.id())));
@@ -146,15 +146,15 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
         );
     }
 
-    private Condition existsAll(ByteArray key, List<byte[]> keys) {
+    private static Condition existsAll(ByteArray key, List<byte[]> nodeKeys) {
         Condition result = exists(key);
-        for (byte[] keyArr : keys) {
+        for (byte[] keyArr : nodeKeys) {
             result = Conditions.and(result, exists(new ByteArray(keyArr)));
         }
         return result;
     }
 
-    private Collection<Operation> removeAll(ByteArray key, List<byte[]> keys) {
+    private static Collection<Operation> removeAll(ByteArray key, List<byte[]> keys) {
         List<Operation> operations = new ArrayList<>();
         operations.add(Operations.remove(key));
 
@@ -175,7 +175,7 @@ public class DeploymentUnitMetastoreImpl implements DeploymentUnitMetastore {
                     if (e.value() == null) {
                         return completedFuture(false);
                     }
-                    UnitMeta prev = deserialize(e.value());
+                    UnitStatus prev = deserialize(e.value());
 
                     if (status.compareTo(prev.status()) <= 0) {
                         return completedFuture(false);

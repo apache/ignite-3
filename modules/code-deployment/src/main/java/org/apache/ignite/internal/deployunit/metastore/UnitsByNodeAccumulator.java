@@ -20,7 +20,7 @@ package org.apache.ignite.internal.deployunit.metastore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.deployunit.UnitMeta;
+import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.key.UnitKey;
 import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -29,7 +29,8 @@ import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Units id accumulator for by node deployment.
+ * Units id accumulator by node deployment identifier,
+ *    only {@link DeploymentStatus#DEPLOYED} nodes accumulating.
  */
 public class UnitsByNodeAccumulator implements Accumulator<Entry, List<String>> {
     private final String consistentId;
@@ -47,7 +48,7 @@ public class UnitsByNodeAccumulator implements Accumulator<Entry, List<String>> 
         String nodeId = UnitKey.extractNodeId(key);
 
         if (Objects.equals(nodeId, consistentId)) {
-            UnitMeta meta = UnitMetaSerializer.deserialize(value);
+            UnitStatus meta = UnitMetaSerializer.deserialize(value);
             if (meta.status() == DeploymentStatus.DEPLOYED) {
                 result.add(meta.id());
             }

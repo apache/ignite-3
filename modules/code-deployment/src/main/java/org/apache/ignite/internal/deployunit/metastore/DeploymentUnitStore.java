@@ -21,15 +21,15 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UP
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Metastore for deployment units.
  */
-public interface DeploymentUnitMetastore {
+public interface DeploymentUnitStore {
     /**
      * Returns cluster status of deployment unit.
      *
@@ -37,7 +37,7 @@ public interface DeploymentUnitMetastore {
      * @param version Deployment unit version.
      * @return Cluster status of deployment unit.
      */
-    CompletableFuture<UnitMeta> getClusterStatus(String id, Version version);
+    CompletableFuture<UnitStatus> getClusterStatus(String id, Version version);
 
     /**
      * Returns node status of deployment unit.
@@ -47,14 +47,14 @@ public interface DeploymentUnitMetastore {
      * @param nodeId Node consistent identifier.
      * @return Node status of deployment unit.
      */
-    CompletableFuture<UnitMeta> getNodeStatus(String id, Version version, String nodeId);
+    CompletableFuture<UnitStatus> getNodeStatus(String id, Version version, String nodeId);
 
     /**
      * Returns cluster statuses of all existed deployment units.
      *
      * @return Cluster statuses of all existed deployment units.
      */
-    CompletableFuture<List<UnitStatus>> getAllClusterStatuses();
+    CompletableFuture<List<UnitStatuses>> getAllClusterStatuses();
 
     /**
      * Returns cluster status of deployment unit with provided identifier.
@@ -62,7 +62,7 @@ public interface DeploymentUnitMetastore {
      * @param id Deployment unit identifier.
      * @return Cluster status of deployment unit with provided identifier.
      */
-    CompletableFuture<UnitStatus> getClusterStatuses(String id);
+    CompletableFuture<UnitStatuses> getClusterStatuses(String id);
 
     /**
      * Create new cluster status for deployment unit.
@@ -125,7 +125,7 @@ public interface DeploymentUnitMetastore {
      * @param nodeId Node consistent identifier.
      * @return Cluster statuses of all deployment units which deployed on provided node.
      */
-    CompletableFuture<List<UnitStatus>> findAllByNodeConsistentId(String nodeId);
+    CompletableFuture<List<UnitStatuses>> findAllByNodeConsistentId(String nodeId);
 
     /**
      * Removes all data for deployment unit.

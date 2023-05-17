@@ -39,8 +39,8 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitMetastore;
-import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitMetastoreImpl;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -87,7 +87,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     /**
      * Deployment units metastore service.
      */
-    private final DeploymentUnitMetastore metastore;
+    private final DeploymentUnitStore metastore;
 
     /**
      * Deploy tracker.
@@ -113,7 +113,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         this.cmgManager = cmgManager;
         this.workDir = workDir;
         this.tracker = new DeployTracker();
-        metastore = new DeploymentUnitMetastoreImpl(metaStorage);
+        metastore = new DeploymentUnitStoreImpl(metaStorage);
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
     }
@@ -207,7 +207,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> unitsAsync() {
+    public CompletableFuture<List<UnitStatuses>> unitsAsync() {
         return metastore.getAllClusterStatuses();
     }
 
@@ -223,13 +223,13 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<UnitStatus> statusAsync(String id) {
+    public CompletableFuture<UnitStatuses> statusAsync(String id) {
         checkId(id);
         return metastore.getClusterStatuses(id);
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId) {
+    public CompletableFuture<List<UnitStatuses>> findUnitByConsistentIdAsync(String consistentId) {
         Objects.requireNonNull(consistentId);
 
         return metastore.findAllByNodeConsistentId(consistentId);

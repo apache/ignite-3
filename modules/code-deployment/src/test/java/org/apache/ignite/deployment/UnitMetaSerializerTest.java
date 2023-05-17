@@ -27,7 +27,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.deployunit.UnitMeta;
+import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
@@ -61,7 +61,7 @@ public class UnitMetaSerializerTest {
             DeploymentStatus status,
             List<String> consistentIdLocation
     ) {
-        UnitMeta meta = new UnitMeta(id, version, status);
+        UnitStatus meta = new UnitStatus(id, version, status);
 
         byte[] serialize = serialize(meta);
 

@@ -67,7 +67,7 @@ public interface IgniteDeployment extends IgniteComponent {
      *
      * @return Future with result.
      */
-    CompletableFuture<List<UnitStatus>> unitsAsync();
+    CompletableFuture<List<UnitStatuses>> unitsAsync();
 
     /**
      * List all deployed versions of the specified unit.
@@ -85,7 +85,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @return Future with unit status.
      *      Future will be failed if unit with specified identifier not exist.
      */
-    CompletableFuture<UnitStatus> statusAsync(String id);
+    CompletableFuture<UnitStatuses> statusAsync(String id);
 
     /**
      * Returns list with deployed units on node with provided consistent id.
@@ -93,5 +93,5 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param consistentId Node consistent id.
      * @return List with deployed units on node with provided consistent id.
      */
-    CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId);
+    CompletableFuture<List<UnitStatuses>> findUnitByConsistentIdAsync(String consistentId);
 }
