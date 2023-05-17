@@ -46,7 +46,9 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -122,6 +124,7 @@ import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
@@ -133,7 +136,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /** Partition replication listener. */
-// TODO: IGNITE-19177 don't forget stop/shutdown
 public class PartitionReplicaListener implements ReplicaListener {
     /** Factory to create RAFT command messages. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
@@ -213,7 +215,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final IndexBuilder indexBuilder;
 
     /** Listener for configuration indexes, {@code null} if the replica is not the leader. */
-    private volatile @Nullable ConfigurationNamedListListener<TableIndexView> indexesConfigurationListener;
+    private final AtomicReference<ConfigurationNamedListListener<TableIndexView>> indexesConfigurationListener = new AtomicReference<>();
+
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * The constructor.
@@ -2277,30 +2285,53 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
+    // TODO: IGNITE-19053 Must handle the change of leader
+    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
     public void onLeaderElected(ClusterNode clusterNode) {
-        if (!clusterNode.equals(localNode)) {
-            // We are not a leader.
+        inBusyLock(() -> {
+            if (!clusterNode.equals(localNode)) {
+                // We are not a leader.
+                return;
+            }
+
+            registerIndexesListener();
+
+            // Let's try to build an index for the previously created indexes for the table.
+            for (UUID indexId : collectIndexIds()) {
+                startBuildIndex(indexId);
+            }
+        });
+    }
+
+    @Override
+    public void onShutdown() {
+        if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
-        registerIndexesListener();
+        busyLock.block();
 
-        // Let's try to build an index for the previously created indexes for the table.
-        for (UUID indexId : collectIndexIds()) {
-            startBuildIndex(indexId);
+        ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
+
+        if (listener != null) {
+            mvTableStorage.tablesConfiguration().indexes().stopListenElements(listener);
         }
+
+        indexBuilder.stopBuildIndexes(tableId(), partId());
     }
 
     private void registerIndexesListener() {
-        // TODO: IGNITE-19177 исправить на туду с тикетом мол слушать не конфигурацию а что-то другое
-        ConfigurationNamedListListener<TableIndexView> indexesConfigurationListener = new ConfigurationNamedListListener<>() {
+        // TODO: IGNITE-19498 Might need to listen to something else
+        ConfigurationNamedListListener<TableIndexView> listener = new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-                TableIndexView tableIndexView = ctx.newValue();
+                inBusyLock(() -> {
+                    TableIndexView tableIndexView = ctx.newValue();
 
-                if (tableId().equals(tableIndexView.tableId())) {
-                    startBuildIndex(tableIndexView.id());
-                }
+                    if (tableId().equals(tableIndexView.tableId())) {
+                        startBuildIndex(tableIndexView.id());
+                    }
+                });
 
                 return completedFuture(null);
             }
@@ -2312,8 +2343,15 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             @Override
             public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
-                // TODO: IGNITE-19177 реализовать
-                return ConfigurationNamedListListener.super.onDelete(ctx);
+                inBusyLock(() -> {
+                    TableIndexView tableIndexView = ctx.oldValue();
+
+                    if (tableId().equals(tableIndexView.tableId())) {
+                        indexBuilder.stopBuildIndex(tableId(), partId(), tableIndexView.id());
+                    }
+                });
+
+                return completedFuture(null);
             }
 
             @Override
@@ -2322,12 +2360,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         };
 
-        this.indexesConfigurationListener = indexesConfigurationListener;
+        boolean casResult = indexesConfigurationListener.compareAndSet(null, listener);
 
-        mvTableStorage.tablesConfiguration().indexes().listenElements(indexesConfigurationListener);
+        assert casResult : replicationGroupId;
+
+        mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
     }
 
     private void startBuildIndex(UUID indexId) {
+        // TODO: IGNITE-19112 We only need to create the index storage once
         IndexStorage indexStorage = mvTableStorage.getOrCreateIndex(partId(), indexId);
 
         indexBuilder.startBuildIndex(tableId(), partId(), indexId, indexStorage, mvDataStorage, raftClient);
@@ -2350,5 +2391,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private boolean isLocalPeer(Peer peer) {
         return peer.consistentId().equals(localNode.name());
+    }
+
+    private void inBusyLock(Runnable runnable) {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            runnable.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

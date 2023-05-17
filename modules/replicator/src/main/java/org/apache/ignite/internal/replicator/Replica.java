@@ -269,4 +269,11 @@ public class Replica {
 
         return leased != null ? leased.consistentId() : localNode.name();
     }
+
+    /**
+     * Shutdowns the replica.
+     */
+    public void shutdown() {
+        listener.onShutdown();
+    }
 }

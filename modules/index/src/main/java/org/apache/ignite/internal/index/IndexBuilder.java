@@ -100,6 +100,10 @@ class IndexBuilder {
      * Initializes the build of the index.
      */
     void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
+        if (tableIndexView != null) {
+            return;
+        }
+
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
             // TODO: IGNITE-19112 We only need to create the index store once
             table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id());

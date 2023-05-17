@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -83,6 +85,7 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param partitionStorage Multi-versioned partition storage.
      * @param raftClient Raft client.
      */
+    // TODO: IGNITE-19498 Perhaps we need to start building the index only once
     public void startBuildIndex(
             UUID tableId,
             int partitionId,
@@ -115,6 +118,10 @@ public class IndexBuilder implements ManuallyCloseable {
 
     /**
      * Stops index building if it is in progress.
+     *
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
      */
     public void stopBuildIndex(UUID tableId, int partitionId, UUID indexId) {
         inBusyLock(() -> {
@@ -124,6 +131,34 @@ public class IndexBuilder implements ManuallyCloseable {
                 removed.stop();
             }
         });
+    }
+
+    /**
+     * Stops building all indexes (for a table partition) if they are in progress.
+     *
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     */
+    public void stopBuildIndexes(UUID tableId, int partitionId) {
+        for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
+            if (!busyLock.enterBusy()) {
+                return;
+            }
+
+            try {
+                Entry<IndexBuildTaskId, IndexBuildTask> entry = it.next();
+
+                IndexBuildTaskId taskId = entry.getKey();
+
+                if (tableId.equals(taskId.getTableId()) && partitionId == taskId.getPartitionId()) {
+                    it.remove();
+
+                    entry.getValue().stop();
+                }
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }
     }
 
     @Override

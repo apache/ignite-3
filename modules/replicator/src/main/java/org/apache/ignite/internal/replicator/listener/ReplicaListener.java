@@ -42,4 +42,11 @@ public interface ReplicaListener {
     default void onLeaderElected(ClusterNode clusterNode) {
         // No-op.
     }
+
+    /**
+     * Callback on replica shutdown.
+     */
+    default void onShutdown() {
+        // No-op.
+    }
 }
