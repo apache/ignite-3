@@ -569,11 +569,6 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** Determines whether specified operation should be retried. */
     private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
-        if (IgniteException.getIgniteErrorCode(ctx.lastError().getCause()) == SCHEMA_MISMATCH_ERR) {
-            // Special case: propagate schema mismatch to the table.
-            return false;
-        }
-
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
         boolean res = shouldRetry(opType, ctx);
