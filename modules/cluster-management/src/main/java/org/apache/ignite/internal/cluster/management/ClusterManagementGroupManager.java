@@ -389,24 +389,24 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
 
         raftServiceAfterJoin().thenCompose(service -> service.readClusterState()
-                .thenAccept(state -> {
-                    String configuration = state.clusterConfigurationToApply();
-                    if (configuration != null) {
-                        updateDistributedConfigurationActionFuture.complete(
-                                new UpdateDistributedConfigurationAction(
-                                        configuration,
-                                        () -> removeClusterConfigFromClusterState(service)
-                                ));
-                    } else {
-                        updateDistributedConfigurationActionFuture.cancel(true);
-                    }
-                })
-                .whenComplete((v, e) -> {
+                .whenComplete((state, e) -> {
                     if (e != null) {
                         LOG.error("Error when retrieving cluster configuration", e);
                         updateDistributedConfigurationActionFuture.completeExceptionally(e);
+                    } else {
+                        String configuration = state.clusterConfigurationToApply();
+                        if (configuration != null) {
+                            updateDistributedConfigurationActionFuture.complete(
+                                    new UpdateDistributedConfigurationAction(
+                                            configuration,
+                                            () -> removeClusterConfigFromClusterState(service)
+                                    ));
+                        } else {
+                            updateDistributedConfigurationActionFuture.cancel(true);
+                        }
                     }
-                }));
+                })
+        );
     }
 
     private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {

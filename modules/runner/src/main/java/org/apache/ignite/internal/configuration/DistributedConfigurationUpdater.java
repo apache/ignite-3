@@ -43,7 +43,7 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     @Override
     public void start() {
         cmgMgr.clusterConfigurationToUpdate()
-                .thenCompose(action -> {
+                .thenApply(action -> {
                     if (action.configuration() != null) {
                         return presentation.update(action.configuration())
                                 .thenApply(ignored -> action)
