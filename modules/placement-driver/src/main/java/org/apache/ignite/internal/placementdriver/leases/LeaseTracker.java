@@ -124,8 +124,8 @@ public class LeaseTracker implements PlacementDriver {
 
                 assert lease.getExpirationTime() != MAX_VALUE : "INFINITE lease expiration time isn't expected";
 
-                primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE)).
-                        update(lease.getExpirationTime(), lease);
+                primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
+                        .update(lease.getExpirationTime(), lease);
             }
         }
 
@@ -183,8 +183,8 @@ public class LeaseTracker implements PlacementDriver {
 
                     leases.put(grpId, lease);
 
-                    primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE)).
-                            update(lease.getExpirationTime(), lease);
+                    primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
+                            .update(lease.getExpirationTime(), lease);
                 }
             }
 
@@ -202,8 +202,8 @@ public class LeaseTracker implements PlacementDriver {
             return failedFuture(new NodeStoppingException("Component is stopping."));
         }
         try {
-            return primaryReplicaWaiters.computeIfAbsent(groupId, id -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE)).
-                    waitFor(timestamp);
+            return primaryReplicaWaiters.computeIfAbsent(groupId, id -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
+                    .waitFor(timestamp);
         } finally {
             busyLock.leaveBusy();
         }
