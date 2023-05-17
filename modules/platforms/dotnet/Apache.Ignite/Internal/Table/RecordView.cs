@@ -153,6 +153,7 @@ namespace Apache.Ignite.Internal.Table
                 return resultFactory(0);
             }
 
+            // TODO: Catch SchemaMismatch exception.
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
@@ -187,6 +188,7 @@ namespace Apache.Ignite.Internal.Table
                 return;
             }
 
+            // TODO: Catch SchemaMismatch exception.
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
@@ -229,6 +231,7 @@ namespace Apache.Ignite.Internal.Table
                 return Array.Empty<T>();
             }
 
+            // TODO: Catch SchemaMismatch exception.
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
@@ -264,6 +267,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
+            // TODO: Catch SchemaMismatch exception.
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
@@ -378,6 +382,7 @@ namespace Apache.Ignite.Internal.Table
                 return resultFactory(0);
             }
 
+            // TODO: Catch SchemaMismatch exception.
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
             var tx = transaction.ToInternal();
 
