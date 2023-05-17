@@ -54,7 +54,6 @@ import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Query checker.
