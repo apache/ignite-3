@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.configuration.annotation;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Secret;
-import org.apache.ignite.configuration.annotation.Value;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-    /** Username. */
-    @Value
-    public String username;
-
-    /** Password. */
-    @Secret
-    @Value
-    public String password;
+/**
+ * This annotation is used to mark a configuration field as sensitive information.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+@Documented
+public @interface Secret {
 }

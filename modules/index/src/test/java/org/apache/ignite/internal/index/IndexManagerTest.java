@@ -213,7 +213,13 @@ public class IndexManagerTest {
     private static Object toMap(Object obj) {
         assert obj instanceof TraversableTreeNode;
 
-        return ((TraversableTreeNode) obj).accept(null, null, new ConverterToMapVisitor(false));
+        return ((TraversableTreeNode) obj).accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
     }
 
     private static void assertSameObjects(Object expected, Object actual) {
