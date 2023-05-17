@@ -54,6 +54,7 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -567,6 +568,12 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** Determines whether specified operation should be retried. */
     private boolean shouldRetry(int opCode, ClientFutureUtils.RetryContext ctx) {
+        if (ctx.lastError().getCause() instanceof IgniteException
+                && ((IgniteException)ctx.lastError().getCause()).code() == Table.SCHEMA_MISMATCH_ERR) {
+            // Special case: propagate schema mismatch to the table.
+            return false;
+        }
+
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
         boolean res = shouldRetry(opType, ctx);

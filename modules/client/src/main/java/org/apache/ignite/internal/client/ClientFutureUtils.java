@@ -97,10 +97,11 @@ class ClientFutureUtils {
 
         @Nullable ArrayList<Throwable> errors;
 
-        @Nullable Throwable lastError() {
-            return errors == null || errors.isEmpty()
-                    ? null
-                    : errors.get(errors.size() - 1);
+        Throwable lastError() {
+            assert errors != null : "errors != null";
+            assert !errors.isEmpty() : "!errors.isEmpty()";
+
+            return errors.get(errors.size() - 1);
         }
     }
 }
