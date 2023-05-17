@@ -349,7 +349,7 @@ public abstract class QueryChecker {
      *
      * @return This.
      */
-    public QueryChecker withParam(@Nullable Object param) {
+    public QueryChecker withParam(Object param) {
         return this.withParams(param);
     }
 
