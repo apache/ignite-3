@@ -388,7 +388,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
      * Custom data types implicit casts.
      */
     @TestFactory
-    public Stream<DynamicTest> testCustomTypeDynamicParams() {
+    public Stream<DynamicTest> testCustomTypes() {
         Consumer<StatementChecker> setup = (checker) -> {
             checker.table("t1", "int_col", NativeTypes.INT32, "uuid_col", NativeTypes.UUID, "str_col", NativeTypes.STRING)
                     .table("t2", "int_col", NativeTypes.INT32, "uuid_col", NativeTypes.UUID, "str_col", NativeTypes.STRING);
@@ -415,6 +415,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .ok(),
 
                 // incompatible types.
+                // https://issues.apache.org/jira/browse/IGNITE-19503
                 /*
                 checkStatement(setup)
                         .table("t1", "int_col", NativeTypes.INT32)

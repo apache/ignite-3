@@ -183,13 +183,13 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT64)
                         .sql("UPDATE t1 SET c1 = ?", 1)
-                        .project("$t0", "CAST(?0):BIGINT]"),
+                        .project("$t0", "CAST(?0):BIGINT"),
 
                 // null
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("UPDATE t1 SET c1 = ?", new Object[]{null})
-                        .project("$t0", "CAST(?0):INTEGER]"),
+                        .project("$t0", "CAST(?0):INTEGER"),
 
                 // Incompatible types in dynamic params
 
