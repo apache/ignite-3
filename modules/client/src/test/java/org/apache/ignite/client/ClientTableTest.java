@@ -136,6 +136,22 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testPutWithOutdatedSchemaRetriesWithNewSchema() throws Exception {
+        FakeSchemaRegistry.setLastVer(1);
+        var table = defaultTable();
+
+        try (var client2 = startClient()) {
+            RecordView<Tuple> table2 = client2.tables().table(table.name()).recordView();
+            Tuple tuple = tuple();
+            table2.upsert(null, tuple);
+
+            // TODO: Extend test.
+            FakeSchemaRegistry.setLastVer(2);
+            table2.upsert(null, tuple);
+        }
+    }
+
+    @Test
     public void testOperationWithoutTupleResultRequestsNewSchema() throws Exception {
         AtomicLong idGen = new AtomicLong(1000L);
 
