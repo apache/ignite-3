@@ -29,4 +29,14 @@ public interface SchemaAware {
      * @return Schema descriptor or {@code null} if a schema is not set or inapplicable for the entity.
      */
     @Nullable SchemaDescriptor schema();
+
+    /**
+     * Gets a value indicating whether fully matching schema is required.
+     *
+     * @return True when underlying schema should match current latest table schema; false otherwise. If the schema does not match,
+     * {@link SchemaMismatchException} is thrown.
+     */
+    default boolean requireMatchingSchema() {
+        return false;
+    };
 }
