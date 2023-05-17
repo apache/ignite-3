@@ -19,7 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
-import static org.hamcrest.CoreMatchers.is;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -78,8 +78,7 @@ class DistributedConfigurationUpdaterTest {
         verify(presentation, times(1)).update(configuration);
 
         // Verify that next action is completed.
-        nextAction.join();
-        assertThat(nextAction.isDone(), is(true));
+        assertThat(nextAction, willCompleteSuccessfully());
     }
 
     @Test
