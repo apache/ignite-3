@@ -27,7 +27,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 /**
  * The catalog manager provides schema manipulation methods and is responsible for managing distributed operations.
  */
-public interface CatalogManager extends IgniteComponent {
+public interface CatalogManager extends IgniteComponent, CatalogService {
     /**
      * Creates new table.
      *
