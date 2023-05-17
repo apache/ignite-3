@@ -587,39 +587,30 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         if (node instanceof SqlDynamicParam) {
             RelDataType result = inferDynamicParamType(inferredType, (SqlDynamicParam) node);
 
-            // unknown type in inferred type indicates that we use calcite's behavior.
-            if (result.equals(unknownType)) {
-                super.inferUnknownTypes(inferredType, scope, node);
-            } else {
-                this.setValidatedNodeType(node, result);
-            }
+            this.setValidatedNodeType(node, result);
         } else {
             super.inferUnknownTypes(inferredType, scope, node);
         }
     }
 
-    /**
-     * Infers type of dynamic parameter if it is not known.
-     *
-     * <p>If inferredType is unknown - use a type of dynamic parameter since there is no other source of type information.
-     *
-     * <p>If parameter's type and the inferredType do not match - use parameter's type.
-     * This makes CAST operations to work correctly. Otherwise cast's operand is going to have
-     * the same type as a target type which is not correct as it
-     * makes every CAST operation eligible to redundant type conversion elimination
-     * at later stages:
-     * E.g: CAST(? AS INTEGER) where ?='hello' operand is going to be inferred as INTEGER
-     * although it is a string.
-     *
-     * <p>In other cases use the inferredType and we rely on type inference rules provided by
-     * operator's SqlOperandTypeInference and SqlOperandTypeCheckers.
-     *
-     * <p><b>NOTE: Returns {@code unknownType} to indicate that default calcite behaviour should be used.</b>
-     */
     private RelDataType inferDynamicParamType(RelDataType inferredType, SqlDynamicParam dynamicParam) {
         RelDataType type = getDynamicParamType(dynamicParam);
-
         RelDataType paramTypeToUse;
+
+        /*
+         * If inferredType is unknown - use a type of dynamic parameter since there is no other source of type information.
+         *
+         * If parameter's type and the inferredType do not match - use parameter's type.
+         * This makes CAST operations to work correctly. Otherwise cast's operand is going to have
+         * the same type as a target type which is not correct as it
+         * makes every CAST operation eligible to redundant type conversion elimination
+         * at later stages:
+         * E.g: CAST(? AS INTEGER) where ?='hello' operand is going to be inferred as INTEGER
+         * although it is a string.
+         *
+         * In other cases use the inferredType and we rely on type inference rules provided by
+         * operator's SqlOperandTypeInference and SqlOperandTypeCheckers.
+         */
 
         if (inferredType.equals(unknownType) || (!SqlTypeUtil.equalSansNullability(type, inferredType))) {
             paramTypeToUse = type;
