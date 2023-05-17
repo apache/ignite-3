@@ -179,6 +179,16 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
+        /// Invalidates latest schema, causing it to be reloaded on next request.
+        /// </summary>
+        internal void InvalidateLatestSchema()
+        {
+            // TODO: Race condition?
+            _schemas.TryRemove(UnknownSchemaVersion, out _);
+            _latestSchemaVersion = UnknownSchemaVersion;
+        }
+
+        /// <summary>
         /// Gets the preferred node by colocation hash.
         /// </summary>
         /// <param name="colocationHash">Colocation hash.</param>
