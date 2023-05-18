@@ -55,7 +55,7 @@ public class StatementCheckerTest {
 
     /** Validation check should fails. */
     @Test
-    public void testFail() throws Throwable {
+    public void testFails() throws Throwable {
         DynamicTest test = newChecker()
                 .sql("SELECT")
                 .fails(Matchers.nullValue());

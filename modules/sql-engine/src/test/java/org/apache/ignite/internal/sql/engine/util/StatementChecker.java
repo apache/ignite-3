@@ -83,7 +83,7 @@ import org.junit.jupiter.api.DynamicTest;
  * an SQL statement string, and dynamic parameters.
  * <pre>
  *     new StatementChecker().sql("SELECT 1").ok(); // OK SELECT 1
- *     new StatementChecker().sql("SELECT t").fail(); // ERR SELECT t
+ *     new StatementChecker().sql("SELECT t").fails(); // ERR SELECT t
  *     new StatementChecker().sql("SELECT ?", 1).ok(); // OK SELECT 1, params=1
  * </pre>
  *
