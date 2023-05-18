@@ -15,20 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.deployunit.metastore;
 
-import com.jakewharton.fliptables.FlipTable;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.util.subscription.AccumulateException;
+import org.apache.ignite.internal.util.subscription.Accumulator;
 
-/** Decorator for {@link UnitStatusRecord}. */
-public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
+/**
+ * All keys accumulator.
+ */
+public class KeyAccumulator implements Accumulator<Entry, List<byte[]>> {
+    private final List<byte[]> result = new ArrayList<>();
+
     @Override
-    public TerminalOutput decorate(UnitStatusRecord record) {
-        return () -> FlipTable.of(new String[]{"version", "status"},
-                record.versionToStatus().entrySet().stream()
-                .map(e -> new String[] {e.getKey(), e.getValue().getValue()}).toArray(String[][]::new)
-        );
+    public void accumulate(Entry item) {
+        result.add(item.key());
+    }
+
+    @Override
+    public List<byte[]> get() throws AccumulateException {
+        return result;
     }
 }

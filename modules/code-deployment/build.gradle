@@ -40,4 +40,9 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+    testImplementation project(':ignite-vault')
+    testImplementation project(':ignite-metastorage')
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-vault'))
 }

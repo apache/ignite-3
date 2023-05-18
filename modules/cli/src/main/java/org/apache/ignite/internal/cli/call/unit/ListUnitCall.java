@@ -60,7 +60,7 @@ public class ListUnitCall implements Call<UrlCallInput, List<UnitStatusRecord>> 
     private UnitStatusRecord toRecord(UnitStatus unitStatus) {
         return new UnitStatusRecord(
                 unitStatus.getId(),
-                unitStatus.getVersionToDeploymentInfo()
+                unitStatus.getVersionToStatus()
         );
     }
 }

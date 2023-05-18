@@ -19,24 +19,24 @@ package org.apache.ignite.internal.cli.call.unit;
 
 import java.util.Map;
 import java.util.Objects;
-import org.apache.ignite.rest.client.model.DeploymentInfo;
+import org.apache.ignite.rest.client.model.DeploymentStatus;
 
 /** Unit status record. */
 public class UnitStatusRecord {
     private final String id;
-    private final Map<String, DeploymentInfo> versionToDeploymentInfo;
+    private final Map<String, DeploymentStatus> versionToStatus;
 
-    UnitStatusRecord(String id, Map<String, DeploymentInfo> versionToDeploymentInfo) {
+    UnitStatusRecord(String id, Map<String, DeploymentStatus> versionToStatus) {
         this.id = id;
-        this.versionToDeploymentInfo = versionToDeploymentInfo;
+        this.versionToStatus = versionToStatus;
     }
 
     public String id() {
         return id;
     }
 
-    public Map<String, DeploymentInfo> versionToDeploymentInfo() {
-        return versionToDeploymentInfo;
+    public Map<String, DeploymentStatus> versionToStatus() {
+        return versionToStatus;
     }
 
     @Override
@@ -48,19 +48,19 @@ public class UnitStatusRecord {
             return false;
         }
         UnitStatusRecord that = (UnitStatusRecord) o;
-        return Objects.equals(id, that.id) && Objects.equals(versionToDeploymentInfo, that.versionToDeploymentInfo);
+        return Objects.equals(id, that.id) && Objects.equals(versionToStatus, that.versionToStatus);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, versionToDeploymentInfo);
+        return Objects.hash(id, versionToStatus);
     }
 
     @Override
     public String toString() {
         return "UnitStatusRecord{"
                 + "id='" + id + '\''
-                + ", versionToDeploymentInfo=" + versionToDeploymentInfo
+                + ", versionToStatus=" + versionToStatus
                 + '}';
     }
 }

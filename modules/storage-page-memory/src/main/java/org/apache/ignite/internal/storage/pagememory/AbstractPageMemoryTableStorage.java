@@ -40,8 +40,10 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
@@ -188,7 +190,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, SortedIndexDescriptor indexDescriptor) {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -196,12 +198,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            return partitionStorage.getOrCreateSortedIndex(indexId);
+            return partitionStorage.getOrCreateSortedIndex(indexDescriptor);
         });
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor indexDescriptor) {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -209,7 +211,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            return partitionStorage.getOrCreateHashIndex(indexId);
+            return partitionStorage.getOrCreateHashIndex(indexDescriptor);
         });
     }
 
