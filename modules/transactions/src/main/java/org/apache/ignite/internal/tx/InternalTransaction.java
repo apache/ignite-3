@@ -93,4 +93,12 @@ public interface InternalTransaction extends Transaction {
      * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
      */
     @Nullable HybridTimestamp readTimestamp();
+
+    /**
+     * Returns a timestamp that corresponds to the starting moment of the transaction.
+     * For RW transactions, this is the beginTimestamp; for RO transactions, it's {@link #readTimestamp()}.
+     *
+     * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
+     */
+    HybridTimestamp startTimestamp();
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -26,6 +27,7 @@ import org.apache.ignite.configuration.annotation.Value;
 @Config
 public class TestSubSensitiveConfigurationSchema {
 
+    @Secret
     @Value(hasDefault = true)
     public String password = "";
 }

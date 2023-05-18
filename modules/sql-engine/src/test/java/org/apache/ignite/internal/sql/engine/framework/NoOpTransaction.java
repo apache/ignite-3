@@ -84,6 +84,11 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public HybridTimestamp startTimestamp() {
+        return hybridTimestamp;
+    }
+
+    @Override
     public @NotNull UUID id() {
         return id;
     }

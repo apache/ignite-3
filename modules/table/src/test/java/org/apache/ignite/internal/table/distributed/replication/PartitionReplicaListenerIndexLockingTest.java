@@ -161,6 +161,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         IndexLocker sortedIndexLocker = new SortedIndexLocker(
                 SORTED_INDEX_ID,
+                PART_ID,
                 LOCK_MANAGER,
                 (SortedIndexStorage) sortedIndexStorage.storage(),
                 row2SortKeyConverter

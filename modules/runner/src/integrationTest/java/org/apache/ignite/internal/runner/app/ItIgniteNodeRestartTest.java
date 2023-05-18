@@ -59,7 +59,6 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -383,6 +382,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
+        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault));
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -410,10 +411,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
-
-        CatalogManager catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vault)
-        );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -455,11 +452,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
+                catalogManager,
                 schemaManager,
                 distributionZoneManager,
                 tableManager,
                 indexManager,
-                catalogManager,
                 qryEngine
         );
 

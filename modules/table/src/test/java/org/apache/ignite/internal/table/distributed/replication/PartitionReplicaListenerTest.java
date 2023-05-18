@@ -351,7 +351,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
 
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
-        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, lockManager, indexStorage, row2Tuple);
+        IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, partId, lockManager, indexStorage, row2Tuple);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);

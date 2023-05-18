@@ -673,7 +673,13 @@ public class ConfigurationUtilTest {
 
         addDefaults(innerNode);
 
-        Map<String, Object> config = (Map<String, Object>) innerNode.accept(null, null, new ConverterToMapVisitor(false));
+        Map<String, Object> config = (Map<String, Object>) innerNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
 
         // Check that no internal configuration will be received.
 
@@ -690,7 +696,13 @@ public class ConfigurationUtilTest {
 
         // Check that no internal configuration will be received.
 
-        config = (Map<String, Object>) innerNode.accept(null, null, new ConverterToMapVisitor(true));
+        config = (Map<String, Object>) innerNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(true)
+                        .build()
+        );
 
         assertEquals(7, config.size());
         assertNull(config.get("str0"));
@@ -739,12 +751,23 @@ public class ConfigurationUtilTest {
 
         assertNotNull(find(List.of(schemaKey.key()), superRoot, true));
 
-        Map<String, Object> config =
-                (Map<String, Object>) superRoot.accept(null, schemaKey.key(), new ConverterToMapVisitor(false));
+        Map<String, Object> config = (Map<String, Object>) superRoot.accept(
+                        null,
+                        schemaKey.key(),
+                        ConverterToMapVisitor.builder()
+                                .includeInternal(false)
+                                .build()
+                );
 
         assertTrue(config.isEmpty());
 
-        config = (Map<String, Object>) superRoot.accept(null, schemaKey.key(), new ConverterToMapVisitor(true));
+        config = (Map<String, Object>) superRoot.accept(
+                null,
+                schemaKey.key(),
+                ConverterToMapVisitor.builder()
+                        .includeInternal(true)
+                        .build()
+        );
 
         assertEquals(1, config.size());
         assertNotNull(config.get(schemaKey.key()));
