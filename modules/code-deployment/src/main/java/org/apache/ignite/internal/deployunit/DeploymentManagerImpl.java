@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OB
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
