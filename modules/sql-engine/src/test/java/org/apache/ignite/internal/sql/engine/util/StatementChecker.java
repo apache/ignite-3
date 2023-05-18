@@ -19,8 +19,6 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
