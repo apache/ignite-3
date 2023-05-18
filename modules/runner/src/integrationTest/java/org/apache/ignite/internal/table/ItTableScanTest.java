@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -77,6 +76,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Tests to check a scan internal command.
@@ -587,26 +588,23 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
-    public void testCompositeScanRequest() throws Exception {
-        int[][] demandPairs = {{3, 1}, {1, 3}};
+    @ParameterizedTest
+    @CsvSource({"3, 1", "1, 3"})
+    public void testCompositeScanRequest(int requestAmount1, int requestAmount2) throws Exception {
+        List<BinaryRow> scannedRows = new ArrayList<>();
+        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
 
-        for (int[] input : demandPairs) {
-            List<BinaryRow> scannedRows = new ArrayList<>();
-            Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
-            CompletableFuture<Void> scanned = new CompletableFuture<>();
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
 
-            Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+        subscription.request(requestAmount1);
+        subscription.request(requestAmount2);
 
-            subscription.request(input[0]);
-            subscription.request(input[1]);
+        int total = requestAmount1 + requestAmount2;
+        assertTrue(waitForCondition(() -> scannedRows.size() == total, 10_000),
+                "expected=" + total + ", actual=" + scannedRows.size());
 
-            int total = input[0] + input[1];
-            assertTrue(waitForCondition(() -> scannedRows.size() == total, 10_000),
-                    "expected=" + total + ", actual=" + scannedRows.size() + ", input=" + Arrays.toString(input));
-
-            subscription.cancel();
-        }
+        subscription.cancel();
     }
 
     /**
