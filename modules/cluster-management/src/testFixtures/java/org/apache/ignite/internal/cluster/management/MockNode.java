@@ -110,8 +110,6 @@ public class MockNode {
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
-        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
@@ -119,7 +117,6 @@ public class MockNode {
                 clusterStateStorage,
                 logicalTopologyService,
                 cmgConfiguration,
-                distributedConfigurationUpdater,
                 nodeAttributes
         );
 
@@ -127,7 +124,6 @@ public class MockNode {
         components.add(clusterService);
         components.add(raftManager);
         components.add(clusterStateStorage);
-        components.add(distributedConfigurationUpdater);
         components.add(clusterManager);
     }
 
