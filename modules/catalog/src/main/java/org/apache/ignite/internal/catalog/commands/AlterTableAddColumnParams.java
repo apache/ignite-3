@@ -23,6 +23,7 @@ import java.util.List;
  * ALTER TABLE ... ADD COLUMN statement.
  */
 public class AlterTableAddColumnParams extends AbstractTableCommandParams {
+    /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
@@ -33,6 +34,9 @@ public class AlterTableAddColumnParams extends AbstractTableCommandParams {
     /** Columns. */
     private List<ColumnParams> cols;
 
+    /**
+     * Gets columns that should be added to a table.
+     */
     public List<ColumnParams> columns() {
         return cols;
     }

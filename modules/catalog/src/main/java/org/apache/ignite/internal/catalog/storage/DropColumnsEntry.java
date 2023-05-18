@@ -15,31 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.catalog.storage;
 
-import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Hash index descriptor.
+ * Describes dropping of columns.
  */
-public class HashIndexDescriptor extends IndexDescriptor {
-    private static final long serialVersionUID = -6784028115063219759L;
+public class DropColumnsEntry implements UpdateEntry {
+    private static final long serialVersionUID = 2970125889493580121L;
+
+    private final int tableId;
+    private final Set<String> columns;
 
     /**
-     * Constructs a hash index descriptor.
+     * Constructs the object.
      *
-     * @param id Id of the index.
-     * @param name Name of the index.
-     * @param tableId Id of the table index belongs to.
-     * @param columns A list of indexed columns. Must not contains duplicates.
-     * @param unique Unique flag.
-     * @throws IllegalArgumentException If columns list contains duplicates.
+     * @param tableId Table id.
+     * @param columns Names of columns to drop.
      */
-    public HashIndexDescriptor(int id, String name, int tableId, List<String> columns, boolean unique) {
-        super(id, name, tableId, columns, unique);
+    public DropColumnsEntry(int tableId, Set<String> columns) {
+        this.tableId = tableId;
+        this.columns = columns;
     }
 
+    /** Returns table id. */
+    public int tableId() {
+        return tableId;
+    }
+
+    /** Returns name of columns to drop. */
+    public Set<String> columns() {
+        return columns;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -47,5 +56,3 @@ public class HashIndexDescriptor extends IndexDescriptor {
         return S.toString(this);
     }
 }
-
-

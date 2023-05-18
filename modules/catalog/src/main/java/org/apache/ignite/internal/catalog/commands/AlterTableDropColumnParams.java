@@ -25,12 +25,20 @@ import java.util.Set;
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class AlterTableDropColumnParams extends AbstractTableCommandParams {
+    /** Creates parameters builder. */
+    public static Builder builder() {
+        return new Builder();
+    }
+
     /** Quietly ignore this command if column is not exist. */
     private boolean ifColumnExists;
 
     /** Columns. */
     private Set<String> cols;
 
+    /**
+     * Gets columns that should be dropped from a table.
+     */
     public Set<String> columns() {
         return Collections.unmodifiableSet(cols);
     }

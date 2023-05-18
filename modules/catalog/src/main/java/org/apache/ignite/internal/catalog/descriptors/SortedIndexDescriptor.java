@@ -20,6 +20,8 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -28,7 +30,7 @@ import org.apache.ignite.internal.tostring.S;
 public class SortedIndexDescriptor extends IndexDescriptor {
     private static final long serialVersionUID = 2085714310150728611L;
 
-    private final List<IndexColumnDescriptor> columns;
+    private final List<IndexColumnDescriptor> columnDescriptors;
 
     /**
      * Constructs a sorted description.
@@ -36,17 +38,23 @@ public class SortedIndexDescriptor extends IndexDescriptor {
      * @param id Id of the index.
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
-     * @param columns A list of columns descriptors.
+     * @param unique Unique flag.
+     * @param columns A list of columns names.
+     * @param collations A list of columns collations.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
-    public SortedIndexDescriptor(int id, String name, int tableId, List<IndexColumnDescriptor> columns) {
-        super(id, name, tableId, false);
+    public SortedIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, List<ColumnCollation> collations) {
+        super(id, name, tableId, columns, unique);
 
-        this.columns = Objects.requireNonNull(columns, "columns");
+        assert collations.size() == columns.size();
+
+        this.columnDescriptors = IntStream.range(0, Objects.requireNonNull(collations, "collations").size())
+                .mapToObj(i -> new IndexColumnDescriptor(columns.get(i), collations.get(i)))
+                .collect(Collectors.toList());
     }
 
-    public List<IndexColumnDescriptor> columns() {
-        return columns;
+    public List<IndexColumnDescriptor> columnsDecsriptors() {
+        return columnDescriptors;
     }
 
     /** {@inheritDoc} */
