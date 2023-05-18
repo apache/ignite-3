@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,20 +31,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.sql.Session;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -147,7 +152,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry1.revision(), TIMEOUT_MILLIS));
 
         // We check that two nodes that pass the filter are presented in the stable key.
-
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
@@ -176,14 +180,13 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19443")
     void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
         String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
 
         // This node do not pass the filter.
         IgniteImpl node0 = node(0);
 
-        // This node pass the filter
+        // This node passes the filter
         @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
 
         IgniteImpl node1 = startNode(1, createStartConfig(firstNodeAttributes));
@@ -197,13 +200,18 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 0, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 0");
 
+        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
+                node0,
+                IgniteImpl.class,
+                "metaStorageMgr"
+        );
+
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
+
         String tableName = "table1";
 
         session.execute(null, "CREATE TABLE " + tableName + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
-
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
-                .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
@@ -211,48 +219,129 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
-                TIMEOUT_MILLIS
-        );
+        // Table was created after both nodes was up, so there wasn't any rebalance.
+        assertPendingStableAreNull(metaStorageManager, partId);
 
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(1),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
-                2,
-                TIMEOUT_MILLIS
-        );
-
-        Entry dataNodesEntry = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, MILLISECONDS);
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry.revision(), 5_000));
-
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
-                TIMEOUT_MILLIS
-        );
-
+        // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
 
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+
+        //Check that stable and pending are null, so there wasn't any rebalance.
+        assertPendingStableAreNull(metaStorageManager, partId);
+    }
+
+    @Test
+    void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
+        String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
+
+        // This node do not pass the filter.
+        IgniteImpl node0 = node(0);
+
+        // This node passes the filter
+        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+
+        startNode(1, createStartConfig(firstNodeAttributes));
+
+        Session session = node0.sql().createSession();
+
+        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
+                + "\"REPLICAS\" = 1, "
+                + "\"PARTITIONS\" = 1, "
+                + "\"DATA_NODES_FILTER\" = " + filter + ", "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 0, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 0");
+
+        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
+                node0,
+                IgniteImpl.class,
+                "metaStorageMgr"
+        );
+
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
+
+        String tableName = "table1";
+
+        session.execute(null, "CREATE TABLE " + tableName + "("
+                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+
+        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+
+        TableImpl table = (TableImpl) tableManager.table(tableName);
+
+        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+
+        // Table was created after both nodes was up, so there wasn't any rebalance.
+        assertPendingStableAreNull(metaStorageManager, partId);
+
+        // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
+        stopNode(1);
+
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+
+        //Check that stable and pending are null, so there wasn't any rebalance.
+        assertPendingStableAreNull(metaStorageManager, partId);
+
+        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
+                + "\"REPLICAS\" = 2");
+
+        DistributionZoneManager distributionZoneManager = (DistributionZoneManager) IgniteTestUtils.getFieldValue(
+                node0,
+                IgniteImpl.class,
+                "distributionZoneManager"
+        );
+
+        DistributionZonesConfiguration distributionZonesConfiguration = (DistributionZonesConfiguration) IgniteTestUtils.getFieldValue(
+                distributionZoneManager,
+                DistributionZoneManager.class,
+                "zonesConfiguration"
+        );
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        // We need to be sure, that the first asynchronous configuration change of replica was handled,
+        // so we create a listener with a latch, and change replica again and wait for latch, so we can be sure that the first
+        // replica was handled.
+        distributionZonesConfiguration.distributionZones().any().replicas().listen(ctx -> {
+            latch.countDown();
+
+            return CompletableFuture.completedFuture(null);
+        });
+
+        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET \"REPLICAS\" = 3");
+
+        latch.await(10_000, MILLISECONDS);
+
+        //Check that stable and pending are null, so there wasn't any rebalance.
+        assertPendingStableAreNull(metaStorageManager, partId);
+    }
+
+    private static void waitDataNodeAndListenersAreHandled(
+            MetaStorageManager metaStorageManager,
+            int expectedDataNodesSize
+    ) throws Exception {
         assertValueInStorage(
                 metaStorageManager,
                 zoneDataNodesKey(1),
                 (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
-                1,
+                expectedDataNodesSize,
                 TIMEOUT_MILLIS
         );
 
-        Entry newDataNodesEntry = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, MILLISECONDS);
+        ByteArray fakeKey = new ByteArray("Foo");
 
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= newDataNodesEntry.revision(), 5_000));
+        metaStorageManager.put(fakeKey, toBytes("Bar")).get(5_000, MILLISECONDS);
 
+        Entry fakeEntry = metaStorageManager.get(fakeKey).get(5_000, MILLISECONDS);
+
+        // We wait for all data nodes listeners are triggered and all their meta storage activity is done.
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= fakeEntry.revision(), 5_000));
+    }
+
+    private static void assertPendingStableAreNull(
+            MetaStorageManager metaStorageManager,
+            TablePartitionId partId
+    ) throws InterruptedException {
         assertValueInStorage(
                 metaStorageManager,
                 pendingPartAssignmentsKey(partId),

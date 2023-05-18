@@ -181,6 +181,10 @@ public class DistributionZoneRebalanceEngine {
                                 distributionZoneManager.nodesAttributes()
                         );
 
+                        if (filteredDataNodes.isEmpty()) {
+                            continue;
+                        }
+
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
@@ -261,7 +265,6 @@ public class DistributionZoneRebalanceEngine {
                 int furCur = 0;
 
                 for (TableConfiguration tblCfg : tblsCfg) {
-
                     LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
                             tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
 
@@ -273,13 +276,21 @@ public class DistributionZoneRebalanceEngine {
 
                     List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
 
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+
+                    if (dataNodes.isEmpty()) {
+                        futs[furCur++] = completedFuture(null);
+
+                        continue;
+                    }
+
                     for (int i = 0; i < partCnt; i++) {
                         TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                         futs[furCur++] = updatePendingAssignmentsKeys(
                                 tblCfg.name().value(),
                                 replicaGrpId,
-                                distributionZoneManager.dataNodes(zoneCfg.zoneId()),
+                                dataNodes,
                                 newReplicas,
                                 replicasCtx.storageRevision(),
                                 metaStorageManager,
