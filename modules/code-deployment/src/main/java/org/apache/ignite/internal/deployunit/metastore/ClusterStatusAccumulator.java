@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import org.apache.ignite.internal.deployunit.DeploymentInfo;
-import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
-import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
@@ -30,35 +29,31 @@ import org.apache.ignite.internal.util.subscription.Accumulator;
 /**
  * Unit status accumulator.
  */
-public class UnitStatusAccumulator implements Accumulator<Entry, UnitStatus> {
+public class ClusterStatusAccumulator implements Accumulator<Entry, UnitStatuses> {
     private final String id;
 
-    private UnitStatusBuilder builder;
+    private UnitStatusesBuilder builder;
 
     /**
      * Constructor.
      *
      * @param id Identifier of required unit.
      */
-    public UnitStatusAccumulator(String id) {
+    public ClusterStatusAccumulator(String id) {
         this.id = id;
     }
 
     @Override
     public void accumulate(Entry item) {
         if (builder == null) {
-            builder = UnitStatus.builder(id);
+            builder = UnitStatuses.builder(id);
         }
-        UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
-        builder.append(meta.version(),
-                DeploymentInfo.builder()
-                        .status(meta.status())
-                        .addConsistentIds(meta.consistentIdLocation()).build()
-        );
+        UnitStatus meta = UnitMetaSerializer.deserialize(item.value());
+        builder.append(meta.version(), meta.status()).build();
     }
 
     @Override
-    public UnitStatus get() throws AccumulateException {
+    public UnitStatuses get() throws AccumulateException {
         if (builder != null) {
             return builder.build();
         } else {

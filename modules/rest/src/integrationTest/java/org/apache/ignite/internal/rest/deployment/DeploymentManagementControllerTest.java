@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.deployment;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
@@ -27,7 +28,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -48,7 +48,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
@@ -106,8 +105,8 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
         assertThat(status.id(), is(id));
-        assertThat(status.versionToDeploymentInfo().keySet(), equalTo(Set.of(version)));
-        assertThat(status.versionToDeploymentInfo().get(version).consistentIds(), hasItem(CLUSTER_NODE_NAMES.get(0)));
+        assertThat(status.versionToStatus().keySet(), equalTo(Set.of(version)));
+        assertThat(status.versionToStatus().get(version), equalTo(DEPLOYED));
     }
 
     @Test
@@ -179,7 +178,12 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     @Test
     public void testVersionEmpty() {
         String id = "nonExisted";
-        assertThat(versions(id), equalTo(Collections.emptyList()));
+
+        HttpClientResponseException e = assertThrows(
+                HttpClientResponseException.class,
+                () -> versions(id));
+
+        assertThat(e.getResponse().code(), is(NOT_FOUND.code()));
     }
 
     @Test

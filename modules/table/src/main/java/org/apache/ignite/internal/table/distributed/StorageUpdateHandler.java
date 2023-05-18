@@ -376,14 +376,6 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Waits for indexes to be created.
-     */
-    // TODO: IGNITE-18619 Fix it, we should have already waited for the indexes to be created
-    public void waitIndexes() {
-        indexes.get();
-    }
-
-    /**
      * Builds an index for all versions of a row.
      *
      * <p>Index is expected to exist, skips the tombstones.
