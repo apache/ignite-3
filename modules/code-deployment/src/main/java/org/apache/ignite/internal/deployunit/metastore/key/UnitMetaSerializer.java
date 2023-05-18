@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.key;
+package org.apache.ignite.internal.deployunit.metastore.key;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.UnitMeta;
+import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
- * Serializer for {@link UnitMeta}.
+ * Serializer for {@link UnitStatus}.
  */
 public final class UnitMetaSerializer {
     private static final String SEPARATOR = ";";
@@ -49,14 +47,12 @@ public final class UnitMetaSerializer {
      * @param meta Unit meta.
      * @return Serialized unit meta.
      */
-    public static byte[] serialize(UnitMeta meta) {
+    public static byte[] serialize(UnitStatus meta) {
         StringBuilder sb = new StringBuilder();
 
         appendWithEncoding(sb, meta.id());
         appendWithEncoding(sb, meta.version().render());
-        appendWithEncoding(sb, meta.fileNames());
         appendWithEncoding(sb, meta.status().name());
-        appendWithEncoding(sb, meta.consistentIdLocation());
 
         return sb.toString().getBytes(UTF_8);
     }
@@ -67,19 +63,16 @@ public final class UnitMetaSerializer {
      * @param bytes Byte array.
      * @return Unit meta.
      */
-    public static UnitMeta deserialize(byte[] bytes) {
+    public static UnitStatus deserialize(byte[] bytes) {
         String s = new String(bytes, UTF_8);
         String[] split = s.split(SEPARATOR, -1);
 
         String id = decode(split[0]);
         String version = decode(split[1]);
-        List<String> fileNames = deserializeList(split[2]);
 
-        DeploymentStatus status = DeploymentStatus.valueOf(decode(split[3]));
+        DeploymentStatus status = DeploymentStatus.valueOf(decode(split[2]));
 
-        List<String> ids = deserializeList(split[4]);
-
-        return new UnitMeta(id, Version.parseVersion(version), fileNames, status, ids);
+        return new UnitStatus(id, Version.parseVersion(version), status);
     }
 
     private static void appendWithEncoding(StringBuilder sb, String content) {
@@ -91,16 +84,6 @@ public final class UnitMetaSerializer {
                 .map(UnitMetaSerializer::encode)
                 .collect(Collectors.joining(LIST_SEPARATOR));
         sb.append(list).append(SEPARATOR);
-    }
-
-    private static List<String> deserializeList(String data) {
-        if (data.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        return Arrays.stream(data.split(LIST_SEPARATOR))
-                .map(UnitMetaSerializer::decode)
-                .collect(Collectors.toList());
     }
 
     private static String encode(String s) {
