@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -117,6 +119,12 @@ public class StatementChecker {
     private Consumer<IgniteSchema> initSchema = (schema) -> {};
 
     private Consumer<StatementChecker> setup = (checker) -> {};
+
+    private BiFunction<String, RelNode, String> planToString = (header, plan) -> {
+        return RelOptUtil.dumpPlan(
+                header, plan,
+                SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES);
+    };
 
     public StatementChecker(SqlPrepare sqlPrepare) {
         this.sqlPrepare = sqlPrepare;
@@ -286,10 +294,10 @@ public class StatementChecker {
     /**
      * Checks that a topmost operator with a projection list has projections that match the provided projection list.
      * <ul>
-     *     <li>IgniteProject</li>
-     *     <li>igniteValues</li>
-     *     <li>IgniteTableScan</li>
-     *     <li>IgniteIndexScan</li>
+     *     <li>{@link IgniteProject}</li>
+     *     <li>{@link IgniteTableScan}</li>
+     *     <li>{@link IgniteIndexScan}</li>
+     *     <li>{@link IgniteValues} with exactly one row.</li>
      * </ul>
      */
     public DynamicTest project(String... exprs) {
@@ -309,7 +317,9 @@ public class StatementChecker {
                     expectProjection((IgniteProject) node, expected, IgniteProject::getProjects);
                     return;
                 } else if (node instanceof IgniteValues) {
-                    expectProjection((IgniteValues) node, expected, (in) -> in.tuples.get(0));
+                    IgniteValues values = ((IgniteValues) node);
+                    assertEquals(1, values.tuples.size(), "Unable check projection list. Number of rows does not match:\n" + values);
+                    expectProjection((IgniteValues) node, expected, (in) -> values.tuples.get(0));
                     return;
                 } else if (node instanceof IgniteIndexScan) {
                     expectProjection((IgniteIndexScan) node, expected, ProjectableFilterableTableScan::projects);
@@ -332,6 +342,12 @@ public class StatementChecker {
      */
     public StatementChecker dumpPlan() {
         this.dumpPlan = true;
+        return this;
+    }
+
+    /** Sets a function that convert plan into a string. A function accepts a header and a plan. */
+    public StatementChecker planToString(BiFunction<String, RelNode, String> planToString) {
+        this.planToString = planToString;
         return this;
     }
 
@@ -466,9 +482,7 @@ public class StatementChecker {
     private String buildPlanInfo(RelNode plan) {
         String header = formatSqlStatementForErrorMessage();
 
-        return RelOptUtil.dumpPlan(
-                header, plan,
-                SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES);
+        return planToString.apply(header, plan);
     }
 
     private String formatSqlStatementForErrorMessage() {
@@ -488,7 +502,7 @@ public class StatementChecker {
         List<? extends RexNode> projection = projectionFunc.apply(igniteRel);
         String projectionString = projection != null ? projection.toString() : null;
 
-        Assertions.assertEquals(expected, projectionString, "Projection list does not match");
+        assertEquals(expected, projectionString, "Projection list does not match");
     }
 }
 
