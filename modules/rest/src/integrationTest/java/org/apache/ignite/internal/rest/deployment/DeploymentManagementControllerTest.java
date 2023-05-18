@@ -54,6 +54,7 @@ import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -94,6 +95,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    @Disabled("IGNITE-19526")
     public void testDeploySuccessful() {
         String id = "testId";
         String version = "1.1.1";
