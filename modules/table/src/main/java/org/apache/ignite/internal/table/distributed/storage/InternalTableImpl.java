@@ -380,6 +380,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
+                .timestampLong(clock.nowLong())
                 .transactionId(tx.id())
                 .scanId(scanId)
                 .indexToUse(indexId)
@@ -388,8 +389,7 @@ public class InternalTableImpl implements InternalTable {
                 .upperBound(upperBound)
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
-                .batchSize(batchSize)
-                .timestampLong(clock.nowLong());
+                .batchSize(batchSize);
 
         if (primaryReplicaAndTerm != null) {
             ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
@@ -1011,6 +1011,7 @@ public class InternalTableImpl implements InternalTable {
 
                     ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
+                            .timestampLong(clock.nowLong())
                             .transactionId(txId)
                             .scanId(scanId)
                             .indexToUse(indexId)
