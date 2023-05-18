@@ -61,7 +61,6 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service implementation.
- * TODO: IGNITE-19081 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;

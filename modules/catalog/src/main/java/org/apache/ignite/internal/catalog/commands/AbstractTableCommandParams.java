@@ -30,10 +30,16 @@ public class AbstractTableCommandParams implements DdlCommandParams {
     /** Schema name where this new table will be created. */
     protected String schema;
 
+    /**
+     * Returns table simple name.
+     */
     public String tableName() {
         return tableName;
     }
 
+    /**
+     * Returns schema name.
+     */
     public String schemaName() {
         return schema;
     }
@@ -67,9 +73,9 @@ public class AbstractTableCommandParams implements DdlCommandParams {
         }
 
         /**
-         * Sets table schema.
+         * Sets table simple name.
          *
-         * @param tableName Table name.
+         * @param tableName Table simple name.
          * @return {@code this}.
          */
         public BuilderT tableName(String tableName) {
