@@ -51,7 +51,7 @@ class SchemaCompatValidator {
      * @param commitTimestamp Commit timestamp (or {@code null} if it's an abort).
      * @return Future of validation result.
      */
-    CompletableFuture<CompatValidationResult> validateForwards(
+    CompletableFuture<CompatValidationResult> validateForward(
             UUID txId,
             List<TablePartitionId> enlistedGroupIds,
             @Nullable HybridTimestamp commitTimestamp

@@ -1009,7 +1009,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         UUID txId = request.txId();
 
         if (request.commit()) {
-            return schemaCompatValidator.validateForwards(txId, aggregatedGroupIds, request.commitTimestamp())
+            return schemaCompatValidator.validateForward(txId, aggregatedGroupIds, request.commitTimestamp())
                     .thenCompose(validationResult -> {
                         return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId)
                                 .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult));
