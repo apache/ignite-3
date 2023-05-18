@@ -284,7 +284,7 @@ public class StatementChecker {
     }
 
     /**
-     * Checks that a topmost operator with a projection list has the projections that match the provided projection list string.
+     * Checks that a topmost operator with a projection list has projections that match the provided projection list.
      * <ul>
      *     <li>IgniteProject</li>
      *     <li>igniteValues</li>
@@ -343,7 +343,6 @@ public class StatementChecker {
     private IgniteSchema createSchema() {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
         this.initSchema.accept(schema);
-        // Allow calls to table(XXX)
         for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
             Function<TableBuilder, TestTable> addTable = entry.getValue();
@@ -364,7 +363,6 @@ public class StatementChecker {
                 checkRel(root, schema);
             } catch (Throwable e) {
                 String message = format("Failed to validate:\n{}\n", formatSqlStatementForErrorMessage());
-
                 RuntimeException error = new RuntimeException(message);
                 error.addSuppressed(exception);
 
