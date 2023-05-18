@@ -73,7 +73,7 @@ public class LeaseUpdater {
 
     private final AtomicBoolean active = new AtomicBoolean();
 
-    /** Long lease interval in {@code TimeUnit.MILLISECONDS}. The interval is used between lease granting attempts. */
+    /** The interval in milliseconds that is used in the beginning of lease granting process. */
     private final long longLeaseInterval;
 
     /** Cluster service. */
@@ -116,7 +116,7 @@ public class LeaseUpdater {
      * @param tablesConfiguration Tables configuration.
      * @param leaseTracker Lease tracker.
      * @param clock Cluster clock.
-     * @param longLeaseInterval Long lease interval in {@code TimeUnit.MILLISECONDS}. The interval is used between lease granting attempts.
+     * @param longLeaseInterval The interval in milliseconds that is used in the beginning of lease granting process.
      */
     public LeaseUpdater(
             ClusterService clusterService,
