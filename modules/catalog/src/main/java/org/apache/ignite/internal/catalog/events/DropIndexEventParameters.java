@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
-
 /**
- * Catalog management events.
+ * Drop index event parameters contains an id of dropped index.
  */
-public enum CatalogEvent implements Event {
-    /** This event is fired, when a table was created in Catalog. */
-    TABLE_CREATE,
+public class DropIndexEventParameters extends CatalogEventParameters {
 
-    /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP,
+    private final int indexId;
 
-    /** This event is fired, when a index was created in Catalog. */
-    INDEX_CREATE,
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexId An id of dropped index.
+     */
+    public DropIndexEventParameters(long causalityToken, int indexId) {
+        super(causalityToken);
 
-    /** This event is fired, when a index was dropped in Catalog. */
-    INDEX_DROP
+        this.indexId = indexId;
+    }
+
+    /** Returns an id of dropped index. */
+    public int indexId() {
+        return indexId;
+    }
 }

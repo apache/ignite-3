@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateIndexParams.Type;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
@@ -52,7 +54,9 @@ import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
@@ -67,6 +71,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -243,11 +248,13 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropTable() {
+    public void testDropTable() throws InterruptedException {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
 
         long beforeDropTimestamp = System.currentTimeMillis();
+
+        Thread.sleep(5);
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
 
@@ -530,8 +537,8 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateTableEvents() {
-        CreateTableParams params = CreateTableParams.builder()
-                .schemaName("PUBLIC")
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName(CatalogService.PUBLIC)
                 .tableName(TABLE_NAME)
                 .ifTableExists(true)
                 .zone("ZONE")
@@ -544,25 +551,80 @@ public class CatalogServiceSelfTest {
                 .colocationColumns(List.of("key2"))
                 .build();
 
+        DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
+
         EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
         service.listen(CatalogEvent.TABLE_CREATE, eventListener);
         service.listen(CatalogEvent.TABLE_DROP, eventListener);
 
-        CompletableFuture<Void> fut = service.createTable(params);
-
-        assertThat(fut, willBe((Object) null));
-
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
         verify(eventListener).notify(any(CreateTableEventParameters.class), ArgumentMatchers.isNull());
+
+        assertThat(service.dropTable(dropTableparams), willBe((Object) null));
+        verify(eventListener).notify(any(DropTableEventParameters.class), ArgumentMatchers.isNull());
+
+        verifyNoMoreInteractions(eventListener);
+    }
+
+    @Test
+    public void testCreateIndexEvents() {
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName(CatalogService.PUBLIC)
+                .tableName(TABLE_NAME)
+                .ifTableExists(true)
+                .zone("ZONE")
+                .columns(List.of(
+                        new ColumnParams("key1", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("key2", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), true)
+                ))
+                .primaryKeyColumns(List.of("key1", "key2"))
+                .colocationColumns(List.of("key2"))
+                .build();
 
         DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
 
-        fut = service.dropTable(dropTableparams);
+        CreateIndexParams createIndexParams = CreateIndexParams.builder()
+                .schemaName(CatalogService.PUBLIC)
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .ifIndexExists(true)
+                .type(Type.HASH)
+                .unique()
+                .columns(List.of("key2"))
+                .build();
 
-        assertThat(fut, willBe((Object) null));
+        DropIndexParams dropIndexParams = DropIndexParams.builder().indexName(INDEX_NAME).build();
 
-        verify(eventListener).notify(any(DropTableEventParameters.class), ArgumentMatchers.isNull());
+        EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
+        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+
+        service.listen(CatalogEvent.INDEX_CREATE, eventListener);
+        service.listen(CatalogEvent.INDEX_DROP, eventListener);
+
+        // Try to create index without table.
+        assertThat(service.createIndex(createIndexParams), willThrow(TableNotFoundException.class));
+        verifyNoInteractions(eventListener);
+
+        // Create table.
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
+
+        // Create index.
+        assertThat(service.createIndex(createIndexParams), willBe((Object) null));
+        verify(eventListener).notify(any(CreateIndexEventParameters.class), ArgumentMatchers.isNull());
+
+        // Drop index.
+        assertThat(service.dropIndex(dropIndexParams), willBe((Object) null));
+        verify(eventListener).notify(any(DropIndexEventParameters.class), ArgumentMatchers.isNull());
+
+        // Drop table.
+        assertThat(service.dropTable(dropTableparams), willBe((Object) null));
+
+        // Try drop index once again.
+        assertThat(service.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
+
         verifyNoMoreInteractions(eventListener);
     }
 

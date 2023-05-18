@@ -41,7 +41,9 @@ import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
@@ -125,7 +127,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public IndexDescriptor index(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(PUBLIC).index(indexName);
+        return catalogAt(timestamp).schema(CatalogService.PUBLIC).index(indexName);
     }
 
     /** {@inheritDoc} */
@@ -207,9 +209,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableNotFoundException(schemaName, params.tableName());
             }
 
-            return List.of(
-                    new DropTableEntry(table.id())
-            );
+            List<UpdateEntry> updateEntries = new ArrayList<>();
+
+            Arrays.stream(schema.indexes())
+                    .filter(index -> index.tableId() == table.id())
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
+
+            updateEntries.add(new DropTableEntry(table.id()));
+
+            return updateEntries;
         });
     }
 
@@ -379,6 +387,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
                             )
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.INDEX_CREATE,
+                            new CreateIndexEventParameters(version, ((NewIndexEntry) entry).descriptor())
+                    ));
                 } else if (entry instanceof DropIndexEntry) {
                     int indexId = ((DropIndexEntry) entry).indexId();
 
@@ -394,6 +407,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(IndexDescriptor[]::new)
                             )
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.INDEX_DROP,
+                            new DropIndexEventParameters(version, indexId)
+                    ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,

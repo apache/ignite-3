@@ -471,12 +471,14 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
-        return await(((TableManager) node.tables()).createTableAsync(
-                tableName,
-                DEFAULT_ZONE_NAME,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh)
-        ));
+        var tmpl  = "CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)";
+        var sql = String.format(tmpl, tableName);
+
+        try (Session ses = node.sql().createSession()) {
+            ses.execute(null, sql);
+        }
+
+        return node.tables().table(tableName);
     }
 
     /**
