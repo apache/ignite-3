@@ -483,7 +483,7 @@ public class StatementChecker {
         List<? extends RexNode> projection = projectionFunc.apply(igniteRel);
         String projectionString = projection != null ? projection.toString() : null;
 
-        Assertions.assertEquals(expected, projectionString, "projection");
+        Assertions.assertEquals(expected, projectionString, "Projection list does not match");
     }
 }
 
