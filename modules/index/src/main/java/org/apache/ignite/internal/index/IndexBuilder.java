@@ -39,6 +39,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -98,10 +99,10 @@ class IndexBuilder {
     /**
      * Initializes the build of the index.
      */
-    void startIndexBuild(TableIndexView tableIndexView, TableImpl table) {
+    void startIndexBuild(TableIndexView tableIndexView, TableImpl table, IndexDescriptor indexDescriptor) {
         for (int partitionId = 0; partitionId < table.internalTable().partitions(); partitionId++) {
             // TODO: IGNITE-19112 We only need to create the index store once
-            table.internalTable().storage().getOrCreateIndex(partitionId, tableIndexView.id());
+            table.internalTable().storage().getOrCreateIndex(partitionId, indexDescriptor);
 
             // TODO: IGNITE-19177 Add assignments check
             buildIndexTaskById.compute(
