@@ -602,8 +602,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             subscription.request(input[1]);
 
             int total = input[0] + input[1];
-            waitForCondition(() -> scannedRows.size() == total, 10_000);
-            assertEquals(total, scannedRows.size(), "input=" + Arrays.toString(input));
+            assertTrue(waitForCondition(() -> scannedRows.size() == total, 10_000),
+                    "expected=" + total + ", actual=" + scannedRows.size() + ", input=" + Arrays.toString(input));
 
             subscription.cancel();
         }
