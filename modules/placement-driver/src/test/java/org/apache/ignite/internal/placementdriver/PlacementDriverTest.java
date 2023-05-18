@@ -39,7 +39,6 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -89,8 +88,7 @@ public class PlacementDriverTest {
         placementDriver = new LeaseTracker(
                 vault,
                 metastore,
-                100,
-                new IgniteSpinBusyLock()
+                100
         );
 
         vault.start();

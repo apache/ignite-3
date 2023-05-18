@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
@@ -29,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -64,11 +64,14 @@ public class LeaseTracker implements PlacementDriver {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
-    /** Long lease interval in {@code TimeUnit.MILLISECONDS}. The interval is used between lease granting attempts. */
+    /** The interval in milliseconds that is used in the beginning of lease granting process. */
     private final long longLeaseInterval;
 
-    /** Busy lock to protect {@link PlacementDriver} methods on corresponding manager stop. */
-    private final IgniteSpinBusyLock busyLock;
+    /** Busy lock to linearize service public API calls and service stop. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping of the tracker. */
+    private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /** Leases cache. */
     private final Map<ReplicationGroupId, Lease> leases;
@@ -84,19 +87,16 @@ public class LeaseTracker implements PlacementDriver {
      *
      * @param vaultManager Vault manager.
      * @param msManager Meta storage manager.
-     * @param longLeaseInterval Long lease interval in {@code TimeUnit.MILLISECONDS}.  The interval is used between lease granting attempts.
-     * @param busyLock Busy lock to protect {@link PlacementDriver} methods on corresponding manager stop.
+     * @param longLeaseInterval The interval in milliseconds that is used in the beginning of lease granting process.
      */
     public LeaseTracker(
             VaultManager vaultManager,
             MetaStorageManager msManager,
-            long longLeaseInterval,
-            IgniteSpinBusyLock busyLock
+            long longLeaseInterval
     ) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
         this.longLeaseInterval = longLeaseInterval;
-        this.busyLock = busyLock;
 
         this.leases = new ConcurrentHashMap<>();
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
@@ -122,8 +122,6 @@ public class LeaseTracker implements PlacementDriver {
 
                 leases.put(grpId, lease);
 
-                assert lease.getExpirationTime() != MAX_VALUE : "INFINITE lease expiration time isn't expected";
-
                 primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                         .update(lease.getExpirationTime(), lease);
             }
@@ -136,6 +134,12 @@ public class LeaseTracker implements PlacementDriver {
      * Stops the tracker.
      */
     public void stopTrack() {
+        if (!isStopped.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         primaryReplicaWaiters.forEach((groupId, pendingTracker) -> pendingTracker.close());
         primaryReplicaWaiters.clear();
 
@@ -178,8 +182,6 @@ public class LeaseTracker implements PlacementDriver {
                     tryRemoveTracker(grpId);
                 } else {
                     Lease lease = fromBytes(msEntry.value());
-
-                    assert lease.getExpirationTime() != MAX_VALUE : "INFINITE lease expiration time isn't expected";
 
                     leases.put(grpId, lease);
 

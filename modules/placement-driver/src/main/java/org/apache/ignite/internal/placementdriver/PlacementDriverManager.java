@@ -125,7 +125,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         long longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
 
-        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr, longLeaseInterval, busyLock);
+        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr, longLeaseInterval);
         this.leaseUpdater = new LeaseUpdater(
                 clusterService,
                 vaultManager,
