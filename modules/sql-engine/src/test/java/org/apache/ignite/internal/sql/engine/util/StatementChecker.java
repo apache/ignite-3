@@ -55,6 +55,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AssertionFailureBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DynamicTest;
+import org.opentest4j.AssertionFailedError;
 
 /**
  * Constructs SQL statements checks as junit {@link DynamicTest}.
@@ -358,24 +359,31 @@ public class StatementChecker {
     private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check) {
         return DynamicTest.dynamicTest(name, () -> {
             IgniteSchema schema = initSchema(exception);
+            IgniteRel root;
 
-            IgniteRel root = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
-            checkRel(root, schema);
+            try {
+                root = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
+                checkRel(root, schema);
+            } catch (Throwable e) {
+                AssertionFailedError error = new AssertionFailedError("Failed to validate plan", e);
+                error.addSuppressed(exception);
+                throw error;
+            }
 
             reportPlan(root);
-
-            String planDump = buildPlanInfo(root);
-            String mismatchDescription = format("Plan does not match:\n\n{}", planDump);
 
             try {
                 check.accept(root);
             } catch (Throwable e) {
-                exception.addSuppressed(e);
+                String planDump = buildPlanInfo(root);
+                String mismatchDescription = format("Plan does not match:\n\n{}", planDump);
 
-                AssertionFailureBuilder.assertionFailure()
-                        .reason(mismatchDescription)
-                        .cause(exception)
-                        .buildAndThrow();
+                // dump SQL, dynamic params to std err
+                System.err.println(mismatchDescription);
+
+                // include test location
+                e.addSuppressed(exception);
+                throw e;
             }
         });
     }
@@ -389,6 +397,7 @@ public class StatementChecker {
             schema = createSchema();
         } catch (Exception e) {
             IllegalStateException err = new IllegalStateException("Failed to initialise", e);
+            // include test location
             err.addSuppressed(exception);
             throw err;
         }
@@ -411,40 +420,32 @@ public class StatementChecker {
             if (err != null) {
                 if (!matcher.matches(err)) {
                     StringDescription desc = new StringDescription();
-                    matcher.describeMismatch(err, desc);
+                    matcher.describeTo(desc);
 
-                    AssertionFailureBuilder.assertionFailure()
+                    AssertionFailedError error = AssertionFailureBuilder.assertionFailure()
                             .reason("Error does not match")
-                            .message(desc)
-                            // Include test location
-                            .cause(exception)
-                            .buildAndThrow();
+                            .actual(err)
+                            .expected(desc)
+                            .cause(err)
+                            .build();
+
+                    // Include test location
+                    error.addSuppressed(exception);
+
+                    throw error;
                 }
             } else {
                 String planDump = buildPlanInfo(unexpectedPlan);
-                String reason = format("Plan should not be possible:\n\n{}", planDump);
+                // dump SQL, dynamic params to std err
+                String mismatchDescription = format("Plan should not be possible:\n\n{}", planDump);
 
                 AssertionFailureBuilder.assertionFailure()
-                        .reason(reason)
+                        .reason(mismatchDescription)
                         // Include test location
                         .cause(exception)
                         .buildAndThrow();
             }
         });
-    }
-
-    private static String unsuccessfulTestErrorMessage(Throwable exception, String reason, @Nullable Throwable actualError) {
-
-        StringWriter out = new StringWriter();
-        PrintWriter pw = new PrintWriter(out);
-        out.append(reason);
-        // include test location.
-        if (actualError != null) {
-            exception.addSuppressed(actualError);
-        }
-        exception.printStackTrace(pw);
-        pw.flush();
-        return out.toString();
     }
 
     private String testName(boolean ok) {

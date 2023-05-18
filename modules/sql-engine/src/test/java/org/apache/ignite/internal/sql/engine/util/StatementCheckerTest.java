@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker.SqlPrepare;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -53,7 +57,7 @@ public class StatementCheckerTest {
         test.getExecutable().execute();
     }
 
-    /** Validation check should fails. */
+    /** Validation check should fail. */
     @Test
     public void testFails() throws Throwable {
         DynamicTest test = newChecker()
@@ -67,9 +71,7 @@ public class StatementCheckerTest {
                 .thenThrow(cause);
 
         Throwable t = assertThrows(AssertionFailedError.class, () -> test.getExecutable().execute());
-        // test location is included
-        assertEquals("Statement check failed", t.getCause().getMessage());
-
+        assertEquals("Statement check failed", t.getSuppressed()[0].getMessage(), "Test location is included");
     }
 
     /** Validation check that is expected to pass fails. */
@@ -84,8 +86,21 @@ public class StatementCheckerTest {
                 .thenReturn(dummyNode);
 
         AssertionFailedError t = assertThrows(AssertionFailedError.class, () -> test.getExecutable().execute());
-        // test location is included
-        assertEquals("Statement check failed", t.getCause().getMessage());
+        expectTestLocationIsPresent(t);
+    }
+
+    private static void expectTestLocationIsPresent(AssertionFailedError t) {
+        Throwable[] suppressed = t.getSuppressed();
+
+        if (suppressed.length < 1) {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            t.printStackTrace(pw);
+
+            Assertions.fail("Test location is missing:\n" + sw);
+        }
+
+        assertEquals("Statement check failed", suppressed[0].getMessage(), "Test location");
     }
 
     private StatementChecker newChecker() {
