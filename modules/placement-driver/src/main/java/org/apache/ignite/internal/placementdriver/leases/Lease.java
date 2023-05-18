@@ -25,8 +25,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.placementdriver.LeaseMeta;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * A lease representation in memory.
