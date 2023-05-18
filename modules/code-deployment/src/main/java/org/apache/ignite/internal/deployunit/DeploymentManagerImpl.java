@@ -146,8 +146,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     private CompletableFuture<Boolean> doDeploy(String id, Version version, DeploymentUnit deploymentUnit) {
         Map<String, byte[]> unitContent;
         try {
-            unitContent = deploymentUnit.content().entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> readContent(entry.getValue())));
+            unitContent = readContent(deploymentUnit);
         } catch (DeploymentUnitReadException e) {
             return failedFuture(e);
         }
@@ -254,12 +253,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         }
     }
 
-    private static byte[] readContent(InputStream inputStream) {
-        try (inputStream) {
-            return inputStream.readAllBytes();
-        } catch (IOException e) {
-            LOG.error("Error reading deployment unit content", e);
-            throw new DeploymentUnitReadException(e);
-        }
+    private static Map<String, byte[]> readContent(DeploymentUnit deploymentUnit) {
+        return deploymentUnit.content().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+                    try {
+                        return entry.getValue().readAllBytes();
+                    } catch (IOException e) {
+                        LOG.error("Error reading deployment unit content", e);
+                        throw new DeploymentUnitReadException(e);
+                    }
+                }));
     }
 }

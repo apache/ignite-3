@@ -24,7 +24,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusBuilder;
+import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
@@ -34,7 +34,7 @@ import org.apache.ignite.internal.util.subscription.Accumulator;
  * Units accumulator with filtering mechanism.
  */
 public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatuses>> {
-    private final Map<String, UnitStatusBuilder> map = new HashMap<>();
+    private final Map<String, UnitStatusesBuilder> map = new HashMap<>();
 
     private final Predicate<UnitStatus> filter;
 
@@ -57,6 +57,6 @@ public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatuses>> 
 
     @Override
     public List<UnitStatuses> get() throws AccumulateException {
-        return map.values().stream().map(UnitStatusBuilder::build).collect(Collectors.toList());
+        return map.values().stream().map(UnitStatusesBuilder::build).collect(Collectors.toList());
     }
 }

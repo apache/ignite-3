@@ -48,7 +48,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusBuilder;
+import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.version.Version;
@@ -248,7 +248,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private UnitStatuses buildStatus(String id, Unit... units) {
-        UnitStatusBuilder builder = UnitStatuses.builder(id);
+        UnitStatusesBuilder builder = UnitStatuses.builder(id);
         for (Unit unit : units) {
             builder.append(unit.version, DEPLOYED);
         }

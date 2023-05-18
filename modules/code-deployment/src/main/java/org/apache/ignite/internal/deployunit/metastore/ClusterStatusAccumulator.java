@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit.metastore;
 
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusBuilder;
+import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -32,7 +32,7 @@ import org.apache.ignite.internal.util.subscription.Accumulator;
 public class ClusterStatusAccumulator implements Accumulator<Entry, UnitStatuses> {
     private final String id;
 
-    private UnitStatusBuilder builder;
+    private UnitStatusesBuilder builder;
 
     /**
      * Constructor.

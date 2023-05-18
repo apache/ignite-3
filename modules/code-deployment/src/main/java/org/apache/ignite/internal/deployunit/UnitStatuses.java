@@ -78,12 +78,12 @@ public class UnitStatuses {
      * Builder provider.
      *
      * @param id Identifier of unit. Not null and not blank.
-     * @return Instance of {@link UnitStatusBuilder}.
+     * @return Instance of {@link UnitStatusesBuilder}.
      */
-    public static UnitStatusBuilder builder(String id) {
+    public static UnitStatusesBuilder builder(String id) {
         Objects.requireNonNull(id);
 
-        return new UnitStatusBuilder(id);
+        return new UnitStatusesBuilder(id);
     }
 
     /** {@inheritDoc} */
@@ -107,7 +107,7 @@ public class UnitStatuses {
 
     @Override
     public String toString() {
-        return "UnitStatus{"
+        return "UnitStatuses{"
                 + "id='" + id + '\''
                 + ", versionToStatus=" + versionToStatus
                 + '}';
@@ -116,9 +116,9 @@ public class UnitStatuses {
     /**
      * Builder for {@link UnitStatuses}.
      */
-    public static class UnitStatusBuilder {
-
+    public static class UnitStatusesBuilder {
         private final String id;
+
         private final Map<Version, DeploymentStatus> versionToStatus = new ConcurrentHashMap<>();
 
         /**
@@ -126,7 +126,7 @@ public class UnitStatuses {
          *
          * @param id unit identifier.
          */
-        public UnitStatusBuilder(String id) {
+        public UnitStatusesBuilder(String id) {
             this.id = id;
         }
 
@@ -137,7 +137,7 @@ public class UnitStatuses {
          * @param deploymentInfo Node consistent ids.
          * @return {@code this} builder for use in a chained invocation.
          */
-        public UnitStatusBuilder append(Version version, DeploymentStatus deploymentInfo) {
+        public UnitStatusesBuilder append(Version version, DeploymentStatus deploymentInfo) {
             versionToStatus.put(version, deploymentInfo);
             return this;
         }

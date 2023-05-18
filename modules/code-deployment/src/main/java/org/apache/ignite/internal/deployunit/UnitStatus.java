@@ -108,7 +108,7 @@ public class UnitStatus {
 
     @Override
     public String toString() {
-        return "UnitMeta{"
+        return "UnitStatus{"
                 + "id='" + id + '\''
                 + ", version=" + version
                 + ", status=" + status
