@@ -464,9 +464,12 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, SortedIndexDescriptor indexDescriptor) {
         return inBusyLock(busyLock, () -> {
-            SortedIndex storages = sortedIndices.computeIfAbsent(indexId, this::createSortedIndex);
+            SortedIndex storages = sortedIndices.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> createSortedIndex(indexDescriptor)
+            );
 
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -478,10 +481,8 @@ public class RocksDbTableStorage implements MvTableStorage {
         });
     }
 
-    private SortedIndex createSortedIndex(UUID indexId) {
-        var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
-
-        ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexId), indexDescriptor);
+    private SortedIndex createSortedIndex(SortedIndexDescriptor indexDescriptor) {
+        ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexDescriptor.id()), indexDescriptor);
 
         ColumnFamily columnFamily;
         try {
@@ -496,13 +497,12 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor indexDescriptor) {
         return inBusyLock(busyLock, () -> {
-            HashIndex storages = hashIndices.computeIfAbsent(indexId, id -> {
-                var indexDescriptor = new HashIndexDescriptor(indexId, tablesCfg.value());
-
-                return new HashIndex(hashIndexCf, indexDescriptor, meta);
-            });
+            HashIndex storages = hashIndices.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> new HashIndex(hashIndexCf, indexDescriptor, meta)
+            );
 
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 

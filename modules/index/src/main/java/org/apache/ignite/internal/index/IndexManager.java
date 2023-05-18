@@ -49,6 +49,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -418,13 +420,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            return createIndexLocally(evt.storageRevision(), tableId, evt.newValue());
+            return createIndexLocally(evt.storageRevision(), tableId, evt.newValue(), evt.newValue(TablesView.class));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
+    private CompletableFuture<?> createIndexLocally(
+            long causalityToken,
+            UUID tableId,
+            TableIndexView tableIndexView,
+            TablesView tablesView
+    ) {
         assert tableIndexView != null;
 
         UUID indexId = tableIndexView.id();
@@ -433,6 +440,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 tableIndexView.name(), indexId, tableId, causalityToken);
 
         IndexDescriptor descriptor = newDescriptor(tableIndexView);
+
+        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createStorageIndexDescriptor(tablesView, indexId);
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, descriptor));
@@ -448,9 +457,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             );
 
             if (descriptor instanceof SortedIndexDescriptor) {
-                table.registerSortedIndex(indexId, tableRowConverter::convert);
+                table.registerSortedIndex(
+                        (org.apache.ignite.internal.storage.index.SortedIndexDescriptor) storageIndexDescriptor,
+                        tableRowConverter::convert
+                );
             } else {
-                table.registerHashIndex(indexId, tableIndexView.uniq(), tableRowConverter::convert);
+                table.registerHashIndex(
+                        (HashIndexDescriptor) storageIndexDescriptor,
+                        tableIndexView.uniq(),
+                        tableRowConverter::convert
+                );
 
                 if (tableIndexView.uniq()) {
                     table.pkId(indexId);
@@ -609,5 +625,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
         }
+    }
+
+    private org.apache.ignite.internal.storage.index.IndexDescriptor createStorageIndexDescriptor(TablesView tablesView, UUID indexId) {
+        TableIndexView indexView = tablesView.indexes().get(indexId);
+
+        if (indexView instanceof HashIndexView) {
+            return new HashIndexDescriptor(indexId, tablesView);
+        } else if (indexView instanceof SortedIndexView) {
+            return new org.apache.ignite.internal.storage.index.SortedIndexDescriptor(indexId, tablesView);
+        }
+
+        throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
     }
 }

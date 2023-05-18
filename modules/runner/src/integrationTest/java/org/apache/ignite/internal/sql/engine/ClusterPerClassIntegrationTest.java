@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,7 +38,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -52,12 +52,19 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -247,10 +254,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @return  An index configuration.
      */
     public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
+        return getTablesConfiguration(node).indexes().get(indexName.toUpperCase());
     }
 
     /**
@@ -505,8 +509,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
             );
 
-            UUID indexId = getIndexConfiguration(clusterNode, indexName).id().value();
-
             for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                 RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
 
@@ -517,7 +519,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
+                IndexStorage index = internalTable.storage().getOrCreateIndex(
+                        partitionId,
+                        createIndexDescription(getTablesConfiguration(clusterNode).value(), indexName)
+                );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
 
@@ -526,5 +531,28 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         }
 
         return partitionIdToNodes;
+    }
+
+    /**
+     * Returns tables configuration.
+     *
+     * @param node Node.
+     */
+    public static TablesConfiguration getTablesConfiguration(Ignite node) {
+        return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
+    }
+
+    private static IndexDescriptor createIndexDescription(TablesView tablesView, String indexName) {
+        TableIndexView indexView = tablesView.indexes().get(indexName.toUpperCase());
+
+        assertNotNull(indexView, indexName);
+
+        if (indexView instanceof HashIndexView) {
+            return new HashIndexDescriptor(indexView.id(), tablesView);
+        } else if (indexView instanceof SortedIndexView) {
+            return new SortedIndexDescriptor(indexView.id(), tablesView);
+        }
+
+        return fail(indexView.getClass().getName());
     }
 }
