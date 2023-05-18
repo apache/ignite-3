@@ -387,7 +387,11 @@ public class ReplicaManager implements IgniteComponent {
         CompletableFuture<Replica> removed = replicas.remove(replicaGrpId);
 
         if (removed != null) {
-            removed.whenComplete((replica, throwable) -> replica.shutdown());
+            removed.whenComplete((replica, throwable) -> {
+                if (throwable != null) {
+                    replica.shutdown();
+                }
+            });
 
             return true;
         }

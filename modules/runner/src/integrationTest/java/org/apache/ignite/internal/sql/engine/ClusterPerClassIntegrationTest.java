@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -515,10 +516,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
                 TablesView tablesView = getTablesConfiguration(clusterNode).value();
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(
-                        partitionId,
-                        createIndexDescriptor(tablesView, tablesView.indexes().get(indexName.toUpperCase()).id())
-                );
+                UUID indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
+
+                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, createIndexDescriptor(tablesView, indexId));
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
 

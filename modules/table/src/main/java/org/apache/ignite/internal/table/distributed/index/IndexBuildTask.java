@@ -95,14 +95,16 @@ class IndexBuildTask {
             return;
         }
 
-        LOG.info("Start building the index: [{}]", getCommonIndexInfo());
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Start building the index: [{}]", createCommonIndexInfo());
+        }
 
         try {
             supplyAsync(this::handleNextBatch, executor)
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            LOG.error("Index build error: [{}]", throwable, getCommonIndexInfo());
+                            LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
 
                             taskFuture.completeExceptionally(throwable);
                         } else {
@@ -196,12 +198,12 @@ class IndexBuildTask {
     }
 
     private boolean enterBusy() {
-        if (!taskBusyLock.enterBusy()) {
+        if (!busyLock.enterBusy()) {
             return false;
         }
 
-        if (!busyLock.enterBusy()) {
-            taskBusyLock.leaveBusy();
+        if (!taskBusyLock.enterBusy()) {
+            busyLock.leaveBusy();
 
             return false;
         }
@@ -214,7 +216,7 @@ class IndexBuildTask {
         busyLock.leaveBusy();
     }
 
-    private String getCommonIndexInfo() {
+    private String createCommonIndexInfo() {
         return IgniteStringFormatter.format(
                 "tableId={}, partitionId={}, indexId={}",
                 taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
