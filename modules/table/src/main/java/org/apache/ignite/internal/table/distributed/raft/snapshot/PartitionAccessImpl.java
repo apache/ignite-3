@@ -192,9 +192,6 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        // TODO: IGNITE-18619 Fix it, we should have already waited for the indexes to be created
-        storageUpdateHandler.waitIndexes();
-
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
         return mvGc.removeStorage(toTablePartitionId(partitionKey))
