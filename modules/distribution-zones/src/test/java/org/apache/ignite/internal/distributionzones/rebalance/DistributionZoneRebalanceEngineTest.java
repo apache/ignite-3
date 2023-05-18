@@ -319,16 +319,16 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
-        nodes = emptySet();
+        Set<String> emptyNodes = emptySet();
 
-        watchListenerOnUpdate(1, nodes, 3);
+        watchListenerOnUpdate(1, emptyNodes, 3);
 
         zoneNodes.clear();
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(1, null);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
     }
 
     @Test
