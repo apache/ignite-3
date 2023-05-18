@@ -82,6 +82,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
+    private final HybridClock clock = new HybridClockImpl();
+
     private final TestInfo testInfo;
 
     private ReplicaService replicaService;
@@ -91,8 +93,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private ClusterService clusterService;
 
     private NetworkAddress networkAddress;
-
-    private HybridClock clock = new HybridClockImpl();
 
     private String name = "client";
 
