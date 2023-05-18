@@ -192,6 +192,8 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
+        storageUpdateHandler.waitIndexes();
+
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
         return mvGc.removeStorage(toTablePartitionId(partitionKey))
