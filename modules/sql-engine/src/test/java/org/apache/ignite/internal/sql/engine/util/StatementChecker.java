@@ -434,7 +434,6 @@ public class StatementChecker {
                 }
             } else {
                 String planDump = buildPlanInfo(unexpectedPlan);
-                // dump SQL, dynamic params to std err
                 String mismatchDescription = format("Plan should not be possible:\n\n{}", planDump);
 
                 AssertionFailureBuilder.assertionFailure()
