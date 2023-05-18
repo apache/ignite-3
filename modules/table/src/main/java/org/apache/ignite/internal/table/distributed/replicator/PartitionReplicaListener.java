@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
+import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -2297,8 +2300,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             registerIndexesListener();
 
             // Let's try to build an index for the previously created indexes for the table.
-            for (UUID indexId : collectIndexIds()) {
-                startBuildIndex(indexId);
+            TablesView tablesView = mvTableStorage.tablesConfiguration().value();
+
+            for (UUID indexId : collectIndexIds(tablesView)) {
+                startBuildIndex(createIndexDescriptor(tablesView, indexId));
             }
         });
     }
@@ -2329,7 +2334,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     TableIndexView tableIndexView = ctx.newValue();
 
                     if (tableId().equals(tableIndexView.tableId())) {
-                        startBuildIndex(tableIndexView.id());
+                        startBuildIndex(createIndexDescriptor(ctx.newValue(TablesView.class), tableIndexView.id()));
                     }
                 });
 
@@ -2367,15 +2372,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
     }
 
-    private void startBuildIndex(UUID indexId) {
+    private void startBuildIndex(IndexDescriptor indexDescriptor) {
         // TODO: IGNITE-19112 We only need to create the index storage once
-        IndexStorage indexStorage = mvTableStorage.getOrCreateIndex(partId(), indexId);
+        IndexStorage indexStorage = mvTableStorage.getOrCreateIndex(partId(), indexDescriptor);
 
-        indexBuilder.startBuildIndex(tableId(), partId(), indexId, indexStorage, mvDataStorage, raftClient);
+        indexBuilder.startBuildIndex(tableId(), partId(), indexDescriptor.id(), indexStorage, mvDataStorage, raftClient);
     }
 
-    private List<UUID> collectIndexIds() {
-        return mvTableStorage.tablesConfiguration().indexes().value().stream()
+    private List<UUID> collectIndexIds(TablesView tablesView) {
+        return tablesView.indexes().stream()
                 .filter(tableIndexView -> replicationGroupId.tableId().equals(tableIndexView.tableId()))
                 .map(TableIndexView::id)
                 .collect(toList());

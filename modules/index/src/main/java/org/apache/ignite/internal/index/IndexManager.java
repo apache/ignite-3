@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
@@ -441,7 +442,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         IndexDescriptor descriptor = newDescriptor(tableIndexView);
 
-        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createStorageIndexDescriptor(tablesView, indexId);
+        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(tablesView, indexId);
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, descriptor));
@@ -625,17 +626,5 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
         }
-    }
-
-    private org.apache.ignite.internal.storage.index.IndexDescriptor createStorageIndexDescriptor(TablesView tablesView, UUID indexId) {
-        TableIndexView indexView = tablesView.indexes().get(indexId);
-
-        if (indexView instanceof HashIndexView) {
-            return new HashIndexDescriptor(indexId, tablesView);
-        } else if (indexView instanceof SortedIndexView) {
-            return new org.apache.ignite.internal.storage.index.SortedIndexDescriptor(indexId, tablesView);
-        }
-
-        throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
     }
 }
