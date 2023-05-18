@@ -338,36 +338,6 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Ensures that multiple consecutive scan requests with different requested rows amount
-     * return the expected total number of requested rows.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCompositeScanRequest() throws Exception {
-        int[][] demandPairs = {{3, 1}, {1, 3}};
-
-        for (int[] input : demandPairs) {
-            List<BinaryRow> scannedRows = new ArrayList<>();
-            Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
-            CompletableFuture<Void> scanned = new CompletableFuture<>();
-
-            Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
-
-            subscription.request(input[0]);
-            subscription.request(input[1]);
-
-            int total = input[0] + input[1];
-            waitForCondition(() -> scannedRows.size() == total, 10_000);
-            assertEquals(total, scannedRows.size(), "input=" + Arrays.toString(input));
-
-            // Close the publisher.
-            subscription.request(1_000);
-            IgniteTestUtils.await(scanned);
-        }
-    }
-
-    /**
      * The method executes an operation, encapsulated in closure, during a pure table scan.
      *
      * @param txOperationAction An closure to apply during the scan operation.
@@ -608,6 +578,34 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             if (i != iterations - 1) {
                 loadData(table);
             }
+        }
+    }
+
+    /**
+     * Ensures that multiple consecutive scan requests with different requested rows amount
+     * return the expected total number of requested rows.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testCompositeScanRequest() throws Exception {
+        int[][] demandPairs = {{3, 1}, {1, 3}};
+
+        for (int[] input : demandPairs) {
+            List<BinaryRow> scannedRows = new ArrayList<>();
+            Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+            CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+            Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+            subscription.request(input[0]);
+            subscription.request(input[1]);
+
+            int total = input[0] + input[1];
+            waitForCondition(() -> scannedRows.size() == total, 10_000);
+            assertEquals(total, scannedRows.size(), "input=" + Arrays.toString(input));
+
+            subscription.cancel();
         }
     }
 
