@@ -52,8 +52,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT NULL + ?", 1).project("null:INTEGER"),
                 sql("SELECT ? + NULL", 1).project("null:INTEGER"),
 
-                sql("SELECT 1 + ?", "1").fail("Values passed to + operator must have compatible types."),
-                sql("SELECT ? + 1", "1").fail("Values passed to + operator must have compatible types."),
+                sql("SELECT 1 + ?", "1").fails("Values passed to + operator must have compatible types."),
+                sql("SELECT ? + 1", "1").fails("Values passed to + operator must have compatible types."),
 
                 // NULL is allowed in arithmetic expressions
                 sql("SELECT ? * 2", new Object[]{null}).ok()
@@ -67,8 +67,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 // comparison
                 sql("SELECT ? > 1", 1).ok(),
 
-                sql("SELECT ? > 1", "1").fail("Values passed to > operator must have compatible types."),
-                sql("SELECT 1 > ?", "1").fail("Values passed to > operator must have compatible types."),
+                sql("SELECT ? > 1", "1").fails("Values passed to > operator must have compatible types."),
+                sql("SELECT 1 > ?", "1").fails("Values passed to > operator must have compatible types."),
 
                 sql("SELECT ? > NULL", 1).project("null:BOOLEAN"),
                 sql("SELECT NULL = ?", 1).project("null:BOOLEAN"),
@@ -88,14 +88,14 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast.";
         return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).project("OR(=(?0, 1), =(?0, 2))"),
-                sql("SELECT ? IN (1, 2)", "1").fail(error),
+                sql("SELECT ? IN (1, 2)", "1").fails(error),
                 sql("SELECT ? IN ('1', 2)", 2).project("OR(=(?0, 1), =(?0, 2))"),
 
                 sql("SELECT (?,?) IN ((1,2))", 1, 2).project("AND(=(?0, 1), =(?1, 2))"),
 
-                sql("SELECT (?,?) IN ((1,2))", "1", "2").fail(error),
-                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fail(error),
-                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fail(error)
+                sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(error),
+                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(error),
+                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(error)
         );
     }
 
@@ -109,12 +109,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("CASE(=(?0, _UTF-8'1'), CAST(?1):DOUBLE, ?2)"),
 
                 sql("SELECT CASE ? = ? WHEN true THEN 1 ELSE 2 END", 1, "1")
-                        .fail("Values passed to = operator must have compatible types"),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 sql("SELECT CASE WHEN ? = '1' THEN ? ELSE ? END", "1", "2", 2.5)
-                        .fail("Illegal mixing of types in CASE or COALESCE statement"),
+                        .fails("Illegal mixing of types in CASE or COALESCE statement"),
 
-                sql("SELECT CASE WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", 1, 2).fail("Expected a boolean type")
+                sql("SELECT CASE WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", 1, 2).fails("Expected a boolean type")
         );
     }
 
@@ -127,11 +127,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
-                        .sql("SELECT * FROM t1 WHERE int_col = ?", "1").fail("Values passed to = operator must have compatible types"),
+                        .sql("SELECT * FROM t1 WHERE int_col = ?", "1").fails("Values passed to = operator must have compatible types"),
 
                 checkStatement()
                         .table("t1", "str_col", NativeTypes.STRING)
-                        .sql("SELECT * FROM t1 WHERE str_col = ?", 1).fail("Values passed to = operator must have compatible types")
+                        .sql("SELECT * FROM t1 WHERE str_col = ?", 1).fails("Values passed to = operator must have compatible types")
         );
     }
 
@@ -158,13 +158,13 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("INSERT INTO t1 VALUES (?)", "10")
-                        .fail("Values passed to VALUES operator must have compatible types"),
+                        .fails("Values passed to VALUES operator must have compatible types"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .sql("INSERT INTO t1 (c1, c2) SELECT c1, ? FROM t2", "10")
-                        .fail("Values passed to VALUES operator must have compatible types")
+                        .fails("Values passed to VALUES operator must have compatible types")
         );
     }
 
@@ -196,7 +196,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
                         .sql("UPDATE t1 SET c1 = ?", "10")
-                        .fail("Assignment from VARCHAR to INTEGER can not be performed")
+                        .fails("Assignment from VARCHAR to INTEGER can not be performed")
         );
     }
 
@@ -238,7 +238,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                                     + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, ?)";
                             return sql;
                         }, "1")
-                        .fail("Values passed to VALUES operator must have compatible types")
+                        .fails("Values passed to VALUES operator must have compatible types")
         );
     }
 
@@ -268,7 +268,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                                     + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, 1)";
                             return sql;
                         }, "1")
-                        .fail("Assignment from VARCHAR to INTEGER can not be performed"),
+                        .fails("Assignment from VARCHAR to INTEGER can not be performed"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32, "c3", NativeTypes.INT32)
@@ -279,7 +279,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                                     + "WHEN NOT MATCHED THEN INSERT (c1, c2, c3) VALUES (src.c1, src.c2, ?)";
                             return sql;
                         }, 1, "1")
-                        .fail("Values passed to VALUES operator must have compatible types")
+                        .fails("Values passed to VALUES operator must have compatible types")
         );
     }
 
@@ -298,11 +298,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement(setup)
                         .sql("SELECT uuid_col = ? FROM t1", "uuid_str")
-                        .fail("Values passed to = operator must have compatible types"),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 checkStatement(setup)
                         .sql("SELECT ? = uuid_col FROM t1", "uuid_str")
-                        .fail("Values passed to = operator must have compatible types"),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 // IN
 
@@ -318,11 +318,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT CASE WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", new UUID(0, 1), new UUID(0, 2))
-                        .fail("Expected a boolean type"),
+                        .fails("Expected a boolean type"),
 
                 checkStatement(setup)
                         .sql("SELECT CASE RAND_UUID() WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END", new UUID(0, 1), 2)
-                        .fail("Values passed to = operator must have compatible types"),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 // Set operations
 
@@ -332,11 +332,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
 
                 checkStatement(setup)
                         .sql("SELECT ? UNION SELECT uuid_col FROM t1", 1)
-                        .fail("Type mismatch in column 1 of UNION"),
+                        .fails("Type mismatch in column 1 of UNION"),
 
                 checkStatement(setup)
                         .sql("SELECT ? UNION SELECT uuid_col FROM t1", "str")
-                        .fail("Type mismatch in column 1 of UNION")
+                        .fails("Type mismatch in column 1 of UNION")
         );
     }
 }

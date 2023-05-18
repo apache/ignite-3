@@ -58,7 +58,7 @@ public class StatementCheckerTest {
     public void testFail() throws Throwable {
         DynamicTest test = newChecker()
                 .sql("SELECT")
-                .fail(Matchers.nullValue());
+                .fails(Matchers.nullValue());
 
         assertEquals("ERR SELECT", test.getDisplayName(), "display name");
 

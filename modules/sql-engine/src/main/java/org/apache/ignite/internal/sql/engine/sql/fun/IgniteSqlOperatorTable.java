@@ -105,7 +105,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      */
     public static final SqlFunction SUBSTR = new SqlFunction("SUBSTR", SqlKind.OTHER_FUNCTION,
             ReturnTypes.ARG0_NULLABLE_VARYING, null,
-            OperandTypes.STRING_INTEGER.or(OperandTypes.STRING_INTEGER_INTEGER),
+            OperandTypes.STRING_INTEGER,
             SqlFunctionCategory.STRING);
 
     /**

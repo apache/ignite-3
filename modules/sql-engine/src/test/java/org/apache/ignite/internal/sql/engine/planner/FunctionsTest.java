@@ -61,14 +61,14 @@ public class FunctionsTest extends AbstractPlannerTest {
         String canNotApplyToTypes = "Cannot apply 'SUBSTR' to arguments of type ";
 
         return Stream.of(
-                expr("SUBSTR('abcd', 1.1)").fail(canNotApplyToTypes),
-                expr("SUBSTR('abcd', ?)", new BigDecimal("3")).fail(canNotApplyToTypes + "'SUBSTR(<CHAR(4)>, <DECIMAL(32767, 0)>)"),
-                expr("SUBSTR('abcd', ?)", new BigDecimal("3.0")).fail(canNotApplyToTypes + "'SUBSTR(<CHAR(4)>, <DECIMAL(32767, 0)>)"),
-                expr("SUBSTR('abcd', ?)", 3.0f).fail(canNotApplyToTypes + "'SUBSTR(<CHAR(4)>, <REAL>)"),
+                expr("SUBSTR('abcd', 1.1)").fails(canNotApplyToTypes),
+                expr("SUBSTR('abcd', ?)", new BigDecimal("3")).fails(canNotApplyToTypes + "'SUBSTR(<CHAR(4)>, <DECIMAL(32767, 0)>)"),
+                expr("SUBSTR('abcd', ?)", new BigDecimal("3.0")).fails(canNotApplyToTypes + "'SUBSTR(<CHAR(4)>, <DECIMAL(32767, 0)>)"),
+                expr("SUBSTR('abcd', ?)", 3.0f).fails(canNotApplyToTypes + "'SUBSTR(<CHAR(4)>, <REAL>)"),
 
-                expr("SUBSTR(?, 1)", 100).fail(incompatibleTypes),
-                expr("SUBSTR('12345678', ?)", "abcd").fail(incompatibleTypes),
-                expr("SUBSTR('12345678', 1, ?)", "abcd").fail(incompatibleTypes)
+                expr("SUBSTR(?, 1)", 100).fails(incompatibleTypes),
+                expr("SUBSTR('12345678', ?)", "abcd").fails(incompatibleTypes),
+                expr("SUBSTR('12345678', 1, ?)", "abcd").fails(incompatibleTypes)
         );
     }
 
@@ -80,13 +80,13 @@ public class FunctionsTest extends AbstractPlannerTest {
         String canNotApplyToTypes = "Cannot apply 'SUBSTR' to arguments of type ";
 
         return Stream.of(
-                expr("SUBSTR(100, 1)").fail(canNotApplyToTypes),
-                expr("SUBSTR('123456789', '1')").fail(canNotApplyToTypes),
-                expr("SUBSTR('123456789', 1, '2')").fail(canNotApplyToTypes),
+                expr("SUBSTR(100, 1)").fails(canNotApplyToTypes),
+                expr("SUBSTR('123456789', '1')").fails(canNotApplyToTypes),
+                expr("SUBSTR('123456789', 1, '2')").fails(canNotApplyToTypes),
 
-                expr("SUBSTR('0000'::UUID, 1)").fail(canNotApplyToTypes),
-                expr("SUBSTR('asdasdsa', ?, 1)", new UUID(0, 0)).fail(canNotApplyToTypes),
-                expr("SUBSTR('asdasdsa', 1, ?)", new UUID(0, 0)).fail(canNotApplyToTypes)
+                expr("SUBSTR('0000'::UUID, 1)").fails(canNotApplyToTypes),
+                expr("SUBSTR('asdasdsa', ?, 1)", new UUID(0, 0)).fails(canNotApplyToTypes),
+                expr("SUBSTR('asdasdsa', 1, ?)", new UUID(0, 0)).fails(canNotApplyToTypes)
         );
     }
 

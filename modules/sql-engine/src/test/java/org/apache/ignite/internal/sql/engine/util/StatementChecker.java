@@ -70,10 +70,10 @@ import org.junit.jupiter.api.DynamicTest;
  *     });
  *
  *     // Checks that plan validation fails.
- *     new StatementChecker().sql("SELECT").fail();
+ *     new StatementChecker().sql("SELECT").fails();
  *
  *     // Checks that plan validation fails and a error message contains the given string.
- *     new StatementChecker().sql("SELECT").fail("Parse error);
+ *     new StatementChecker().sql("SELECT").fails("Parse error);
  *
  * </pre>
  *
@@ -242,7 +242,7 @@ public class StatementChecker {
     }
 
     /** Validation is expected to fail with an error that contains a the given message. */
-    public DynamicTest fail() {
+    public DynamicTest fails() {
         String name = testName(false);
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
@@ -251,7 +251,7 @@ public class StatementChecker {
     }
 
     /** Validation is expected to fail and error should match. */
-    public DynamicTest fail(Matcher<? super Throwable> matcher) {
+    public DynamicTest fails(Matcher<? super Throwable> matcher) {
         String name = testName(false);
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
@@ -260,7 +260,7 @@ public class StatementChecker {
     }
 
     /** Validation is expected to fail with an error that contains a the given message. */
-    public DynamicTest fail(String errorMessage) {
+    public DynamicTest fails(String errorMessage) {
         String name = testName(false);
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
