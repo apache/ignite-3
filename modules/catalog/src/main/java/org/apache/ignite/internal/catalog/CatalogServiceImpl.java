@@ -41,9 +41,11 @@ import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
@@ -414,6 +416,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             )
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.COLUMN_ADD,
+                            new AddColumnEventParameters(version, tableId, columnDescriptors)
+                    ));
                 } else if (entry instanceof DropColumnsEntry) {
                     int tableId = ((DropColumnsEntry) entry).tableId();
                     Set<String> columns = ((DropColumnsEntry) entry).columns();
@@ -441,6 +448,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             )
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.COLUMN_DROP,
+                            new DropColumnEventParameters(version, tableId, columns)
+                    ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,
