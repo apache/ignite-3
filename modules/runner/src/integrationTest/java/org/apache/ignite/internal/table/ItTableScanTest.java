@@ -586,6 +586,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * Ensures that multiple consecutive scan requests with different requested rows amount
      * return the expected total number of requested rows.
      *
+     * @param requestAmount1 Number of rows in the first request.
+     * @param requestAmount2 Number of rows in the second request.
+     *
      * @throws Exception If failed.
      */
     @ParameterizedTest
