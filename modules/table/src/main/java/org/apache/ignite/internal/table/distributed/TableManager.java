@@ -2265,7 +2265,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partitionId Partition ID.
      * @return Future of creating or getting partition stores.
      */
-    // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     // TODO: IGNITE-18939 Create storages only once, then only get them
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
