@@ -394,10 +394,10 @@ public class StatementChecker {
 
             schema = createSchema();
         } catch (Exception e) {
-            IllegalStateException err = new IllegalStateException("Failed to initialise", e);
+            IllegalStateException error = new IllegalStateException("Failed to initialise", e);
             // include test location
-            err.addSuppressed(exception);
-            throw err;
+            error.addSuppressed(exception);
+            throw error;
         }
 
         return schema;
