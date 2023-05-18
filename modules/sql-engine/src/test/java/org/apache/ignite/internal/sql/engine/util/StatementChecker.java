@@ -363,8 +363,11 @@ public class StatementChecker {
                 root = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
                 checkRel(root, schema);
             } catch (Throwable e) {
-                AssertionFailedError error = new AssertionFailedError("Failed to validate plan", e);
+                String message = format("Failed to validate:\n{}\n", formatSqlStatementForErrorMessage());
+
+                RuntimeException error = new RuntimeException(message);
                 error.addSuppressed(exception);
+
                 throw error;
             }
 
@@ -463,6 +466,14 @@ public class StatementChecker {
     }
 
     private String buildPlanInfo(RelNode plan) {
+        String header = formatSqlStatementForErrorMessage();
+
+        return RelOptUtil.dumpPlan(
+                header, plan,
+                SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES);
+    }
+
+    private String formatSqlStatementForErrorMessage() {
         String header;
 
         if (!dynamicParams.isEmpty()) {
@@ -470,10 +481,7 @@ public class StatementChecker {
         } else {
             header = format("{}\n", sqlStatement);
         }
-
-        return RelOptUtil.dumpPlan(
-                header, plan,
-                SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES);
+        return header;
     }
 
     private static <T extends IgniteRel> void expectProjection(T igniteRel, @Nullable String expected,

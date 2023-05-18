@@ -56,9 +56,21 @@ public class StatementCheckerTest {
         test.getExecutable().execute();
     }
 
-    /** Validation check should fail. */
+    /** Validation check should pass - error any error is accepted. */
     @Test
-    public void testFails() throws Throwable {
+    public void testFailAnyError() throws Throwable {
+        DynamicTest test = newChecker().sql("SELECT").fails();
+        assertEquals("ERR SELECT", test.getDisplayName(), "display name");
+
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+                .thenThrow(new RuntimeException());
+
+        test.getExecutable().execute();
+    }
+
+    /** Validation fails - error mismatch. */
+    @Test
+    public void testFailErrorMismatch() throws Throwable {
         DynamicTest test = newChecker()
                 .sql("SELECT")
                 .fails(Matchers.nullValue());
@@ -69,11 +81,11 @@ public class StatementCheckerTest {
         when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
                 .thenThrow(cause);
 
-        Throwable t = assertThrows(AssertionFailedError.class, () -> test.getExecutable().execute());
-        assertEquals("Statement check failed", t.getSuppressed()[0].getMessage(), "Test location is included");
+        AssertionFailedError t = assertThrows(AssertionFailedError.class, () -> test.getExecutable().execute());
+        expectTestLocationIsPresent(t);
     }
 
-    /** Validation check that is expected to pass fails. */
+    /** Validation success check fails - plan does not match. */
     @Test
     public void testOkCheckThrows() throws Exception {
         DynamicTest test = newChecker().sql("SELECT 1").ok(((node) -> {
@@ -88,7 +100,21 @@ public class StatementCheckerTest {
         expectTestLocationIsPresent(t);
     }
 
-    private static void expectTestLocationIsPresent(AssertionFailedError t) {
+    /** Validation success check fails - prepare throws an error. */
+    @Test
+    public void testOkPrepareThrows() throws Exception {
+        DynamicTest test = newChecker().sql("SELECT 1").ok();
+
+        assertEquals("OK SELECT 1", test.getDisplayName(), "display name");
+
+        when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
+                .thenThrow(new RuntimeException("Invalid statement"));
+
+        RuntimeException t = assertThrows(RuntimeException.class, () -> test.getExecutable().execute());
+        expectTestLocationIsPresent(t);
+    }
+
+    private static void expectTestLocationIsPresent(Throwable t) {
         Throwable[] suppressed = t.getSuppressed();
 
         if (suppressed.length < 1) {
