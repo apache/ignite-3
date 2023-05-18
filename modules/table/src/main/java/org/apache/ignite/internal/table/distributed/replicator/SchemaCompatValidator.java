@@ -116,9 +116,14 @@ class SchemaCompatValidator {
     }
 
     /**
-     * Performs backward compatibility validation. That is, for a tuple that was just read in a transaction,
-     * checks that, if the tuple was written with a schema version later than the initial schema version
-     * of the transaction, the initial schema version is backward compatible with the tuple schema version.
+     * Performs backward compatibility validation of a tuple that was just read in the transaction.
+     *
+     * <ul>
+     *     <li>If the tuple was written with a schema version earlier or same as the initial schema version of the transaction,
+     *     the read is valid.</li>
+     *     <li>If the tuple was written with a schema version later than the initial schema version of the transaction,
+     *     the read is valid only if the initial schema version is backward compatible with the tuple schema version.</li>
+     * </ul>
      *
      * @param tupleSchemaVersion Schema version ID of the tuple.
      * @param tableId ID of the table to which the tuple belongs.
