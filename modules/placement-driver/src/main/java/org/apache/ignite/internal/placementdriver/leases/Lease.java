@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.placementdriver.LeaseMeta;
 
 /**
@@ -216,13 +217,7 @@ public class Lease implements LeaseMeta {
 
     @Override
     public String toString() {
-        return "Lease{"
-                + "leaseholder=" + leaseholder
-                + ", accepted=" + accepted
-                + ", startTime=" + startTime
-                + ", expirationTime=" + expirationTime
-                + ", prolongable=" + prolongable
-                + '}';
+        return S.toString(Lease.class, this);
     }
 
     @Override
