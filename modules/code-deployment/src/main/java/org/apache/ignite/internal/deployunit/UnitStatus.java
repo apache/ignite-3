@@ -23,7 +23,7 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 /**
  * Unit meta data class.
  */
-public class UnitStatus {
+public abstract class UnitStatus {
     /**
      * Unit id.
      */

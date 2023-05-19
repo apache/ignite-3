@@ -18,131 +18,222 @@
 package org.apache.ignite.internal.deployunit.metastore;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitKey.allUnits;
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitKey.clusterStatusKey;
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitKey.nodeStatusKey;
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitKey.nodes;
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer.deserialize;
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer.serialize;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.metastore.accumulator.KeyAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.accumulator.NodesAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.accumulator.UnitsAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.accumulator.UnitsByNodeAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
+import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.ByteArray;
 
 /**
  * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
  */
 public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitStoreImpl.class);
+
     private final MetaStorageManager metaStorage;
 
-    public DeploymentUnitStoreImpl(MetaStorageManager metaStorage) {
+
+    private final ExecutorService executor = Executors.newFixedThreadPool(
+            4, new NamedThreadFactory("deployment", LOG));
+
+    /**
+     * Constructor.
+     *
+     * @param metaStorage Meta storage manager.
+     * @param localNodeProvider Cluster service.
+     * @param listener Node events listener.
+     */
+    public DeploymentUnitStoreImpl(MetaStorageManager metaStorage,
+            Supplier<String> localNodeProvider,
+            NodeEventListener listener
+    ) {
         this.metaStorage = metaStorage;
+
+        metaStorage.registerPrefixWatch(NodeStatusKey.builder().build().toKey(), new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                for (EntryEvent e : event.entryEvents()) {
+                    Entry entry = e.newEntry();
+
+                    byte[] key = entry.key();
+                    byte[] value = entry.value();
+
+                    NodeStatusKey nodeStatusKey = NodeStatusKey.fromKey(key);
+
+                    if (!Objects.equals(localNodeProvider.get(), nodeStatusKey.nodeId())
+                            || value == null) {
+                        continue;
+                    }
+
+                    UnitNodeStatus nodeStatus = UnitNodeStatus.deserialize(value);
+
+                    CompletableFuture.supplyAsync(() -> nodeStatus, executor)
+                            .thenCompose(status1 -> getAllNodes(status1.id(), status1.version()))
+                            .thenAccept(nodes -> listener.call(nodeStatus, new HashSet<>(nodes)));
+                }
+                return completedFuture(null);
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Failed to process metastore deployment unit event. ", e);
+            }
+        });
     }
 
     @Override
-    public CompletableFuture<UnitStatus> getClusterStatus(String id, Version version) {
-        return metaStorage.get(clusterStatusKey(id, version)).thenApply(entry -> {
+    public CompletableFuture<UnitClusterStatus> getClusterStatus(String id, Version version) {
+        return metaStorage.get(ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey()).thenApply(entry -> {
             byte[] value = entry.value();
             if (value == null) {
                 return null;
             }
 
-            return deserialize(value);
+            return UnitClusterStatus.deserialize(value);
         });
     }
 
     @Override
-    public CompletableFuture<UnitStatus> getNodeStatus(String id, Version version, String nodeId) {
-        return metaStorage.get(nodeStatusKey(id, version, nodeId)).thenApply(entry -> {
-            byte[] value = entry.value();
-            if (value == null) {
-                return null;
-            }
+    public CompletableFuture<UnitNodeStatus> getNodeStatus(String id, Version version, String nodeId) {
+        return metaStorage.get(NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey())
+                .thenApply(entry -> {
+                    byte[] value = entry.value();
+                    if (value == null) {
+                        return null;
+                    }
 
-            return deserialize(value);
-        });
+                    return UnitNodeStatus.deserialize(value);
+                });
     }
 
     @Override
-    public CompletableFuture<List<UnitStatuses>> getAllClusterStatuses() {
-        CompletableFuture<List<UnitStatuses>> result = new CompletableFuture<>();
-        metaStorage.prefix(allUnits()).subscribe(new UnitsAccumulator().toSubscriber(result));
-        return result;
-    }
-
-    private CompletableFuture<List<UnitStatuses>> getClusterStatuses(Predicate<UnitStatus> filter) {
-        CompletableFuture<List<UnitStatuses>> result = new CompletableFuture<>();
-        metaStorage.prefix(allUnits()).subscribe(new UnitsAccumulator(filter).toSubscriber(result));
+    public CompletableFuture<List<UnitClusterStatus>> getAllClusterStatuses() {
+        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
+                .subscribe(new UnitsAccumulator().toSubscriber(result));
         return result;
     }
 
     @Override
-    public CompletableFuture<UnitStatuses> getClusterStatuses(String id) {
-        CompletableFuture<UnitStatuses> result = new CompletableFuture<>();
-        metaStorage.prefix(allUnits()).subscribe(new ClusterStatusAccumulator(id).toSubscriber(result));
+    public CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(String id) {
+        return getClusterStatuses(status -> Objects.equals(status.id(), id));
+    }
+
+    private CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(Predicate<UnitClusterStatus> filter) {
+        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
+                .subscribe(new UnitsAccumulator(filter).toSubscriber(result));
         return result;
     }
 
     @Override
-    public CompletableFuture<Boolean> createClusterStatus(String id, Version version) {
-        ByteArray key = clusterStatusKey(id, version);
-        byte[] value = serialize(new UnitStatus(id, version, UPLOADING));
+    public CompletableFuture<Boolean> createClusterStatus(String id, Version version, Set<String> nodes) {
+        ByteArray key = ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey();
+        byte[] value = UnitClusterStatus.serialize(new UnitClusterStatus(id, version, UPLOADING, nodes));
 
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 
     @Override
     public CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
-        ByteArray key = nodeStatusKey(id, version, nodeId);
-        byte[] value = serialize(new UnitStatus(id, version, status));
+        ByteArray key = NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey();
+        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 
     @Override
     public CompletableFuture<Boolean> updateClusterStatus(String id, Version version, DeploymentStatus status) {
-        return updateStatus(clusterStatusKey(id, version), status);
+        return updateStatus(ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey(), bytes -> {
+            UnitClusterStatus prev = UnitClusterStatus.deserialize(bytes);
+
+            if (prev == null || status.compareTo(prev.status()) <= 0) {
+                return null;
+            }
+
+            prev.updateStatus(status);
+            return UnitClusterStatus.serialize(prev);
+        }, status == DEPLOYED);
     }
 
     @Override
     public CompletableFuture<Boolean> updateNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
-        return updateStatus(nodeStatusKey(id, version, nodeId), status);
+        return updateStatus(NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey(), bytes -> {
+            UnitNodeStatus prev = UnitNodeStatus.deserialize(bytes);
+
+            if (prev == null || status.compareTo(prev.status()) <= 0) {
+                return null;
+            }
+
+            prev.updateStatus(status);
+            return UnitNodeStatus.serialize(prev);
+        }, status == DEPLOYED);
     }
 
     @Override
-    public CompletableFuture<List<UnitStatuses>> findAllByNodeConsistentId(String nodeId) {
+    public CompletableFuture<List<UnitClusterStatus>> findAllByNodeConsistentId(String nodeId) {
         CompletableFuture<List<String>> result = new CompletableFuture<>();
-        metaStorage.prefix(nodes()).subscribe(new UnitsByNodeAccumulator(nodeId).toSubscriber(result));
+        metaStorage.prefix(NodeStatusKey.builder().build().toKey())
+                .subscribe(new UnitsByNodeAccumulator(nodeId).toSubscriber(result));
         return result.thenCompose(ids -> getClusterStatuses(meta -> ids.contains(meta.id())));
     }
 
     @Override
+    public CompletableFuture<List<String>> getAllNodes(String id, Version version) {
+        CompletableFuture<List<String>> result = new CompletableFuture<>();
+        ByteArray nodes = NodeStatusKey.builder().withId(id).withVersion(version).build().toKey();
+        metaStorage.prefix(nodes).subscribe(new NodesAccumulator(status -> status.status() == DEPLOYED).toSubscriber(result));
+        return result;
+    }
+
+    @Override
     public CompletableFuture<Boolean> remove(String id, Version version) {
-        ByteArray key = clusterStatusKey(id, version);
+        ByteArray key = ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey();
         CompletableFuture<List<byte[]>> nodesFuture = new CompletableFuture<>();
-        metaStorage.prefix(nodes(id, version)).subscribe(new KeyAccumulator().toSubscriber(nodesFuture));
+        metaStorage.prefix(NodeStatusKey.builder().withId(id).withVersion(version).build().toKey())
+                .subscribe(new KeyAccumulator().toSubscriber(nodesFuture));
 
         return nodesFuture.thenCompose(nodes ->
-            metaStorage.invoke(existsAll(key, nodes), removeAll(key, nodes), Collections.emptyList())
+                metaStorage.invoke(existsAll(key, nodes), removeAll(key, nodes), Collections.emptyList())
         );
     }
 
@@ -166,32 +257,31 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
      * Update deployment unit meta.
      *
      * @param key Status key.
-     * @param status Deployment unit meta transformer.
+     * @param mapper Status map function.
+     * @param force Force update.
      * @return Future with update result.
      */
-    private CompletableFuture<Boolean> updateStatus(ByteArray key, DeploymentStatus status) {
+    private CompletableFuture<Boolean> updateStatus(ByteArray key, Function<byte[], byte[]> mapper, boolean force) {
         return metaStorage.get(key)
                 .thenCompose(e -> {
-                    if (e.value() == null) {
+                    byte[] value = e.value();
+                    if (value == null) {
                         return completedFuture(false);
                     }
-                    UnitStatus prev = deserialize(e.value());
+                    byte[] newValue = mapper.apply(value);
 
-                    if (status.compareTo(prev.status()) <= 0) {
+
+                    if (newValue == null) {
                         return completedFuture(false);
                     }
-
-                    prev.updateStatus(status);
-
-                    boolean force = status == DeploymentStatus.OBSOLETE;
 
                     return metaStorage.invoke(
                                     force ? exists(key) : revision(key).le(e.revision()),
-                                    put(key, serialize(prev)),
+                                    put(key, newValue),
                                     noop())
                             .thenCompose(finished -> {
                                 if (!finished && !force) {
-                                    return updateStatus(key, status);
+                                    return updateStatus(key, mapper, false);
                                 }
                                 return completedFuture(finished);
                             });

@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
+import org.apache.ignite.internal.deployunit.UnitContent;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Deploy unit response.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
-public interface DeployUnitResponse extends NetworkMessage {
+@Transferable(DeployUnitMessageTypes.DOWNLOAD_UNIT_RESPONSE)
+public interface DownloadUnitResponse extends NetworkMessage {
+
     /**
-     * Shows success or not deploy process.
+     * Returns map from file names of deployment unit to their content.
      *
-     * @return success or not deploy process.
+     * @return map from file names of deployment unit to their content.
      */
-    boolean success();
+    @Marshallable
+    UnitContent unitContent();
 }

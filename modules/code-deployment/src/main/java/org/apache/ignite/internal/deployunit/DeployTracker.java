@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static org.apache.ignite.internal.deployunit.metastore.key.UnitKey.clusterStatusKey;
-
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.lang.ByteArray;
@@ -45,7 +44,8 @@ public class DeployTracker {
      * @return {@param trackableAction}.
      */
     public <T> CompletableFuture<T> track(String id, Version version, CompletableFuture<T> trackableAction) {
-        return inFlightFutures.computeIfAbsent(clusterStatusKey(id, version), k -> new InFlightFutures()).registerFuture(trackableAction);
+        ByteArray key = ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey();
+        return inFlightFutures.computeIfAbsent(key, k -> new InFlightFutures()).registerFuture(trackableAction);
     }
 
     /**
@@ -55,7 +55,7 @@ public class DeployTracker {
      * @param version Deployment version identifier.
      */
     public void cancelIfDeploy(String id, Version version) {
-        InFlightFutures futureTracker = inFlightFutures.get(clusterStatusKey(id, version));
+        InFlightFutures futureTracker = inFlightFutures.get(ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey());
         if (futureTracker != null) {
             futureTracker.cancelInFlightFutures();
         }

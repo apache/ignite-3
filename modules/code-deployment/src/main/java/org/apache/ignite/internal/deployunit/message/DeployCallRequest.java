@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
-import java.util.Map;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Deploy unit request.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_REQUEST)
-public interface DeployUnitRequest extends NetworkMessage {
+//TODO: Remove and add metastore listener.
+@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_CALL)
+public interface DeployCallRequest extends NetworkMessage {
     /**
      * Returns id of deployment unit.
      *
@@ -39,12 +39,4 @@ public interface DeployUnitRequest extends NetworkMessage {
      * @return version of deployment unit.
      */
     String version();
-
-    /**
-     * Returns map from file names of deployment unit to their content.
-     *
-     * @return map from file names of deployment unit to their content.
-     */
-
-    Map<String, byte[]> unitContent();
 }

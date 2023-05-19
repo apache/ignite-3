@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.deployunit.metastore.accumulator;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
-import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
@@ -33,30 +28,35 @@ import org.apache.ignite.internal.util.subscription.Accumulator;
 /**
  * Units accumulator with filtering mechanism.
  */
-public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatuses>> {
-    private final Map<String, UnitStatusesBuilder> map = new HashMap<>();
+public class UnitsAccumulator implements Accumulator<Entry, List<UnitClusterStatus>> {
 
-    private final Predicate<UnitStatus> filter;
+    private final List<UnitClusterStatus> result = new ArrayList<>();
+
+    private final Predicate<UnitClusterStatus> filter;
 
     public UnitsAccumulator() {
         this(t -> true);
     }
 
-    public UnitsAccumulator(Predicate<UnitStatus> filter) {
+    public UnitsAccumulator(Predicate<UnitClusterStatus> filter) {
         this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
-        UnitStatus meta = UnitMetaSerializer.deserialize(item.value());
-        if (filter.test(meta)) {
-            map.computeIfAbsent(meta.id(), UnitStatuses::builder)
-                    .append(meta.version(), meta.status()).build();
+        byte[] value = item.value();
+        if (value == null) {
+            return;
+        }
+
+        UnitClusterStatus status = UnitClusterStatus.deserialize(value);
+        if (filter.test(status)) {
+            result.add(status);
         }
     }
 
     @Override
-    public List<UnitStatuses> get() throws AccumulateException {
-        return map.values().stream().map(UnitStatusesBuilder::build).collect(Collectors.toList());
+    public List<UnitClusterStatus> get() throws AccumulateException {
+        return result;
     }
 }

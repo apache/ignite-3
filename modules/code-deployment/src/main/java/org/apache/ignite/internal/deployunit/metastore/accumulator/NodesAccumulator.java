@@ -15,48 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.deployunit.metastore.accumulator;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.metastore.key.UnitKey;
-import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Units id accumulator by node deployment identifier,
- *    only {@link DeploymentStatus#DEPLOYED} nodes accumulating.
+ * Node consistent ids accumulator with filter mechanism.
  */
-public class UnitsByNodeAccumulator implements Accumulator<Entry, List<String>> {
-    private final String consistentId;
+public class NodesAccumulator implements Accumulator<Entry, List<String>> {
+    private final List<String> nodes = new ArrayList<>();
 
-    private final List<String> result = new ArrayList<>();
+    private final Predicate<UnitNodeStatus> filter;
 
-    public UnitsByNodeAccumulator(String consistentId) {
-        this.consistentId = consistentId;
+    public NodesAccumulator() {
+        this(status -> true);
+    }
+
+    public NodesAccumulator(Predicate<UnitNodeStatus> filter) {
+        this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
         byte[] key = item.key();
-        byte[] value = item.value();
-        String nodeId = UnitKey.extractNodeId(key);
+        NodeStatusKey nodeStatusKey = NodeStatusKey.fromKey(key);
 
-        if (Objects.equals(nodeId, consistentId)) {
-            UnitStatus meta = UnitMetaSerializer.deserialize(value);
-            if (meta.status() == DeploymentStatus.DEPLOYED) {
-                result.add(meta.id());
-            }
+        byte[] value = item.value();
+        if (value != null && filter.test(UnitNodeStatus.deserialize(value))) {
+            nodes.add(nodeStatusKey.nodeId());
         }
+
     }
 
     @Override
     public List<String> get() throws AccumulateException {
-        return result;
+        return nodes;
     }
 }

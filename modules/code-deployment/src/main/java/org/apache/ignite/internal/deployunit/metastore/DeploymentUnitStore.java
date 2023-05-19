@@ -20,9 +20,10 @@ package org.apache.ignite.internal.deployunit.metastore;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
@@ -30,6 +31,22 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
  * Metastore for deployment units.
  */
 public interface DeploymentUnitStore {
+
+    /**
+     * Returns cluster statuses of all existed deployment units.
+     *
+     * @return Cluster statuses of all existed deployment units.
+     */
+    CompletableFuture<List<UnitClusterStatus>> getAllClusterStatuses();
+
+    /**
+     * Returns cluster status of deployment unit with provided identifier.
+     *
+     * @param id Deployment unit identifier.
+     * @return Cluster status of deployment unit with provided identifier.
+     */
+    CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(String id);
+
     /**
      * Returns cluster status of deployment unit.
      *
@@ -37,7 +54,7 @@ public interface DeploymentUnitStore {
      * @param version Deployment unit version.
      * @return Cluster status of deployment unit.
      */
-    CompletableFuture<UnitStatus> getClusterStatus(String id, Version version);
+    CompletableFuture<UnitClusterStatus> getClusterStatus(String id, Version version);
 
     /**
      * Returns node status of deployment unit.
@@ -47,22 +64,7 @@ public interface DeploymentUnitStore {
      * @param nodeId Node consistent identifier.
      * @return Node status of deployment unit.
      */
-    CompletableFuture<UnitStatus> getNodeStatus(String id, Version version, String nodeId);
-
-    /**
-     * Returns cluster statuses of all existed deployment units.
-     *
-     * @return Cluster statuses of all existed deployment units.
-     */
-    CompletableFuture<List<UnitStatuses>> getAllClusterStatuses();
-
-    /**
-     * Returns cluster status of deployment unit with provided identifier.
-     *
-     * @param id Deployment unit identifier.
-     * @return Cluster status of deployment unit with provided identifier.
-     */
-    CompletableFuture<UnitStatuses> getClusterStatuses(String id);
+    CompletableFuture<UnitNodeStatus> getNodeStatus(String id, Version version, String nodeId);
 
     /**
      * Create new cluster status for deployment unit.
@@ -72,7 +74,7 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status created successfully
      *          or with {@code false} if status with provided {@param id} and {@param version} already existed.
      */
-    CompletableFuture<Boolean> createClusterStatus(String id, Version version);
+    CompletableFuture<Boolean> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
 
     /**
      * Create new node status for deployment unit with {@link DeploymentStatus#UPLOADING} deployment status.
@@ -125,7 +127,16 @@ public interface DeploymentUnitStore {
      * @param nodeId Node consistent identifier.
      * @return Cluster statuses of all deployment units which deployed on provided node.
      */
-    CompletableFuture<List<UnitStatuses>> findAllByNodeConsistentId(String nodeId);
+    CompletableFuture<List<UnitClusterStatus>> findAllByNodeConsistentId(String nodeId);
+
+    /**
+     * Returns all nodes list where deployed unit with provided identifier and version.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return All nodes list where deployed unit with provided identifier and version or empty list.
+     */
+    CompletableFuture<List<String>> getAllNodes(String id, Version version);
 
     /**
      * Removes all data for deployment unit.
