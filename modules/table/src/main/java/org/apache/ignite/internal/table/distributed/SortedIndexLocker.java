@@ -150,17 +150,21 @@ public class SortedIndexLocker implements IndexLocker {
 
         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
+        IndexRow nextRow = null;
+
         // Find next key.
         try (Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER)) {
-            IndexRow nextRow = cursor.hasNext() ? cursor.next() : null;
-
-            var nextLockKey = new LockKey(indexId, indexKey(nextRow));
-
-            return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
-                    lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
-                            new Lock(nextLockKey, LockMode.IX, txId)
-                    ));
+            if (cursor.hasNext()) {
+                nextRow = cursor.next();
+            }
         }
+
+        var nextLockKey = new LockKey(indexId, indexKey(nextRow));
+
+        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
+                lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
+                        new Lock(nextLockKey, LockMode.IX, txId)
+                ));
     }
 
     /** {@inheritDoc} */
