@@ -1431,7 +1431,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                int intTableId = tablesChange.globalIdCounter() + 1;
+                int id = tablesChange.globalIdCounter() + 1;
+
+                extConfCh.changeId(id);
+
+                int intTableId = id + 1;
                 tablesChange.changeGlobalIdCounter(intTableId);
 
                 extConfCh.changeTableId(intTableId);
