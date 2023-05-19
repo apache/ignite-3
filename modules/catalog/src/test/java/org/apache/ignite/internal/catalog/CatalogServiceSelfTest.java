@@ -39,8 +39,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -58,6 +61,8 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -74,6 +79,7 @@ import org.mockito.Mockito;
  * Catalog service self test.
  */
 public class CatalogServiceSelfTest {
+    private static final String ZONE_NAME = "myZone";
     private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
 
@@ -234,11 +240,13 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropTable() {
+    public void testDropTable() throws InterruptedException {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
 
         long beforeDropTimestamp = System.currentTimeMillis();
+
+        Thread.sleep(5);
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
 
@@ -391,6 +399,114 @@ public class CatalogServiceSelfTest {
 
         verify(eventListener).notify(any(DropTableEventParameters.class), ArgumentMatchers.isNull());
         verifyNoMoreInteractions(eventListener);
+    }
+
+    @Test
+    public void testCreateZone() {
+        CreateZoneParams params = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+
+        CompletableFuture<Void> fut = service.createDistributionZone(params);
+
+        assertThat(fut, willBe((Object) null));
+
+        // Validate catalog version from the past.
+        assertNull(service.zone(ZONE_NAME, 0));
+        assertNull(service.zone(1, 0));
+        assertNull(service.zone(ZONE_NAME, 123L));
+        assertNull(service.zone(1, 123L));
+
+        // Validate actual catalog
+        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
+
+        assertNotNull(zone);
+        assertSame(zone, service.zone(1, System.currentTimeMillis()));
+
+        // Validate newly created table
+        assertEquals(1L, zone.id());
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(42, zone.partitions());
+        assertEquals(15, zone.replicas());
+    }
+
+    @Test
+    public void testDropZone() throws InterruptedException {
+        CreateZoneParams createZoneParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        assertThat(service.createDistributionZone(createZoneParams), willBe((Object) null));
+
+        long beforeDropTimestamp = System.currentTimeMillis();
+
+        Thread.sleep(5);
+
+        DropZoneParams params = DropZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        CompletableFuture<Void> fut = service.dropDistributionZone(params);
+
+        assertThat(fut, willBe((Object) null));
+
+        // Validate catalog version from the past.
+        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
+
+        assertNotNull(zone);
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(1, zone.id());
+
+        assertSame(zone, service.zone(1, beforeDropTimestamp));
+
+        // Validate actual catalog
+        assertNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
+        assertNull(service.zone(1, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testCreateZoneIfExistsFlag() {
+        CreateZoneParams params = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .ifZoneExists(true)
+                .build();
+
+        assertThat(service.createDistributionZone(params), willBe((Object) null));
+        assertThat(service.createDistributionZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
+
+        CompletableFuture<?> fut = service.createDistributionZone(
+                CreateZoneParams.builder()
+                        .zoneName(ZONE_NAME)
+                        .ifZoneExists(false)
+                        .build());
+
+        assertThat(fut, willThrowFast(DistributionZoneAlreadyExistsException.class));
+    }
+
+    @Test
+    public void testDropZoneIfExistsFlag() {
+        CreateZoneParams createZoneParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        assertThat(service.createDistributionZone(createZoneParams), willBe((Object) null));
+
+        DropZoneParams params = DropZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .ifZoneExists(true)
+                .build();
+
+        assertThat(service.dropDistributionZone(params), willBe((Object) null));
+        assertThat(service.dropDistributionZone(params), willThrowFast(DistributionZoneNotFoundException.class));
+
+        params = DropZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .ifZoneExists(false)
+                .build();
+
+        assertThat(service.dropDistributionZone(params), willThrowFast(DistributionZoneNotFoundException.class));
     }
 
     private static CreateTableParams simpleTable(String name) {

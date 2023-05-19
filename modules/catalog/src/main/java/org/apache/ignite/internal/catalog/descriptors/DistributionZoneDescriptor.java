@@ -17,52 +17,52 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.Serializable;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Base class for catalog objects.
- * TODO: IGNITE-19082 Implement custom effective serialization instead.
+ * Distribution zone descriptor base class.
  */
-public abstract class ObjectDescriptor implements Serializable {
-    private static final long serialVersionUID = -6525237234280004860L;
-    private final int id;
-    private final String name;
-    private final Type type;
+public class DistributionZoneDescriptor extends ObjectDescriptor {
+    private static final long serialVersionUID = 1093607327002694066L;
 
-    ObjectDescriptor(int id, Type type, String name) {
-        this.id = id;
-        this.type = Objects.requireNonNull(type, "type");
-        this.name = Objects.requireNonNull(name, "name");
+    /** Amount of zone partitions. */
+    public int partitions;
+
+    /** Amount of zone replicas. */
+    public int replicas;
+
+    /**
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Amount of partitions in distributions zone.
+     * @param replicas Amount of partition replicas.
+     */
+    public DistributionZoneDescriptor(int id, String name, int partitions, int replicas) {
+        super(id, Type.ZONE, name);
+
+        this.partitions = partitions;
+        this.replicas = replicas;
     }
 
-    /** Returns id of the described object. */
-    public int id() {
-        return id;
+    /**
+     * Returns amount of zone partitions.
+     */
+    public int partitions() {
+        return partitions;
     }
 
-    /** Returns name of the described object. */
-    public String name() {
-        return name;
-    }
-
-    /** Return schema-object type. */
-    public Type type() {
-        return type;
+    /**
+     * Return amount of zone replicas.
+     */
+    public int replicas() {
+        return replicas;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /** Catalog object type. */
-    enum Type {
-        SCHEMA,
-        TABLE,
-        INDEX,
-        ZONE
     }
 }

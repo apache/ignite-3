@@ -21,7 +21,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -59,4 +61,21 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Operation future.
      */
     CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params);
+
+    /**
+     * Creates new distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> createDistributionZone(CreateZoneParams params);
+
+    /**
+     * Drops distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> dropDistributionZone(DropZoneParams params);
+
 }

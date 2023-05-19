@@ -21,12 +21,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
@@ -53,6 +57,20 @@ class DdlToCatalogCommandConverter {
         return DropTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
+                .build();
+    }
+
+    static CreateZoneParams convert(CreateZoneCommand cmd) {
+        return CreateZoneParams.builder()
+                .zoneName(cmd.zoneName())
+                .partitions(cmd.partitions())
+                .replicas(cmd.replicas())
+                .build();
+    }
+
+    static DropZoneParams convert(DropZoneCommand cmd) {
+        return DropZoneParams.builder()
+                .zoneName(cmd.zoneName())
                 .build();
     }
 

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.Collection;
+import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
@@ -43,9 +43,11 @@ public interface CatalogService {
 
     IndexDescriptor index(int indexId, long timestamp);
 
-    Collection<IndexDescriptor> tableIndexes(int tableId, long timestamp);
-
     SchemaDescriptor schema(int version);
+
+    DistributionZoneDescriptor zone(String zoneName, long timestamp);
+
+    DistributionZoneDescriptor zone(int zoneId, long timestamp);
 
     SchemaDescriptor activeSchema(long timestamp);
 

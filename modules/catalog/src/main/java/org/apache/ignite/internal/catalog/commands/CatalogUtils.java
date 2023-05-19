@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 
@@ -38,6 +39,22 @@ public class CatalogUtils {
                 params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
                 params.primaryKeyColumns(),
                 params.colocationColumns()
+        );
+    }
+
+    /**
+     * Converts DropZone command params to descriptor.
+     *
+     * @param id Distribution zone id.
+     * @param params Parameters.
+     * @return Distribution zone descriptor.
+     */
+    public static DistributionZoneDescriptor fromParams(int id, CreateZoneParams params) {
+        return new DistributionZoneDescriptor(
+                id,
+                params.zoneName(),
+                params.partitions(),
+                params.replicas()
         );
     }
 

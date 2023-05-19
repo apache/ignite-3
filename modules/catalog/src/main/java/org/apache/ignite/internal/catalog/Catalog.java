@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
@@ -38,41 +39,48 @@ public class Catalog {
     private final int objectIdGen;
     private final long activationTimestamp;
     private final Map<String, SchemaDescriptor> schemas;
+    private final Map<String, DistributionZoneDescriptor> zones;
 
     @IgniteToStringExclude
     private final Map<Integer, TableDescriptor> tablesMap;
     @IgniteToStringExclude
     private final Map<Integer, IndexDescriptor> indexesMap;
+    @IgniteToStringExclude
+    private final Map<Integer, DistributionZoneDescriptor> zonesMap;
 
     /**
      * Constructor.
      *
      * @param version A version of the catalog.
      * @param activationTimestamp A timestamp when this version becomes active (i.e. available for use).
-     * @param objectIdGen Current state of identifier generator. This value should be used to assign an
-     *      id to a new object in the next version of the catalog.
-     * @param descriptors Enumeration of schemas available in the current version of catalog.
+     * @param objectIdGen Current state of identifier generator. This value should be used to assign an id to a new object in the
+     *         next version of the catalog.
+     * @param zones Distribution zones descriptors.
+     * @param schemas Enumeration of schemas available in the current version of catalog.
      */
     public Catalog(
             int version,
             long activationTimestamp,
             int objectIdGen,
-            SchemaDescriptor... descriptors
+            Collection<DistributionZoneDescriptor> zones,
+            SchemaDescriptor... schemas
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
         this.objectIdGen = objectIdGen;
 
-        Objects.requireNonNull(descriptors, "schemas");
+        Objects.requireNonNull(schemas, "schemas");
 
-        assert descriptors.length > 0 : "No schemas found";
-        assert Arrays.stream(descriptors).allMatch(t -> t.version() == version) : "Invalid schema version";
+        assert schemas.length > 0 : "No schemas found";
+        assert Arrays.stream(schemas).allMatch(t -> t.version() == version) : "Invalid schema version";
 
-        schemas = Arrays.stream(descriptors).collect(Collectors.toUnmodifiableMap(SchemaDescriptor::name, t -> t));
+        this.schemas = Arrays.stream(schemas).collect(Collectors.toUnmodifiableMap(SchemaDescriptor::name, t -> t));
+        this.zones = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::name, t -> t));
+        zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::id, t -> t));
 
-        tablesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.tables()))
+        tablesMap = this.schemas.values().stream().flatMap(s -> Arrays.stream(s.tables()))
                 .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
-        indexesMap = schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes()))
+        indexesMap = this.schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes()))
                 .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
     }
 
@@ -100,8 +108,16 @@ public class Catalog {
         return indexesMap.get(indexId);
     }
 
-    public Collection<IndexDescriptor> tableIndexes(int tableId) {
-        return indexesMap.values().stream().filter(desc -> desc.tableId() == tableId).collect(Collectors.toList());
+    public DistributionZoneDescriptor zone(String name) {
+        return zones.get(name);
+    }
+
+    public DistributionZoneDescriptor zone(int zoneId) {
+        return zonesMap.get(zoneId);
+    }
+
+    public Collection<DistributionZoneDescriptor> zones() {
+        return zones.values();
     }
 
     /** {@inheritDoc} */
