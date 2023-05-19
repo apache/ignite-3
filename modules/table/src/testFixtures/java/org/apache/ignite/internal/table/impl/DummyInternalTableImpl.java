@@ -71,8 +71,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -306,18 +304,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
-                new Schemas() {
-                    @Override
-                    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
-                        return completedFuture(null);
-                    }
-
-                    @Override
-                    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding,
-                            HybridTimestamp toIncluding) {
-                        return List.of(new FullTableSchema(1, 1, List.of(), List.of()));
-                    }
-                },
+                new DummySchemas(schemaManager),
                 peer -> true,
                 completedFuture(schemaManager)
         );
