@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneRenameParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
+import org.apache.ignite.internal.catalog.storage.RenameZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -270,6 +272,25 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
+    @Override
+    public CompletableFuture<Void> renameDistributionZone(AlterZoneRenameParams params) {
+        if (DEFAULT_ZONE_NAME.equals(params.newZoneName())) {
+            return failedFuture(new IllegalArgumentException("Default zone can't be renamed."));
+        }
+
+        return saveUpdate(catalog -> {
+            String zoneName = Objects.requireNonNull(params.newZoneName(), "newZoneName");
+
+            DistributionZoneDescriptor zone = catalog.zone(params.zoneName());
+
+            if (zone == null) {
+                throw new DistributionZoneNotFoundException(zoneName);
+            }
+
+            return List.of(new RenameZoneEntry(zone.id(), params.newZoneName()));
+        });
+    }
+
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
@@ -393,6 +414,21 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             CatalogEvent.ZONE_DROP,
                             new DropZoneEventParameters(version, zoneId)
                     ));
+                } else if (entry instanceof RenameZoneEntry) {
+                    int zoneId = ((RenameZoneEntry) entry).zoneId();
+                    String newZoneName = ((RenameZoneEntry) entry).newZoneName();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            catalog.zones().stream()
+                                    .map(z -> z.id() == zoneId
+                                            ? new DistributionZoneDescriptor(z.id(), newZoneName, z.partitions(), z.replicas()) : z)
+                                    .collect(Collectors.toList()),
+                            schema.copy(version)
+                    );
+
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,
