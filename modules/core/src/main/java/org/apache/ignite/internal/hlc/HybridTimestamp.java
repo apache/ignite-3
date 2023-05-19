@@ -225,7 +225,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     @Override
     public String toString() {
-        return S.toString(HybridTimestamp.class, this);
+        return S.toString(HybridTimestamp.class, this, "physical", getPhysical(), "logical", getLogical());
     }
 
     /**

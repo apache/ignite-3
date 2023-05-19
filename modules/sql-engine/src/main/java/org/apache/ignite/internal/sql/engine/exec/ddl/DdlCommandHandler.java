@@ -230,6 +230,10 @@ public class DdlCommandHandler {
             zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
         }
 
+        if (cmd.replicas() != null) {
+            zoneCfgBuilder.replicas(cmd.replicas());
+        }
+
         return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }

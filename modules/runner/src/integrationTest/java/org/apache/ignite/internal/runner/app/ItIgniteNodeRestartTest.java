@@ -62,7 +62,6 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -292,8 +291,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -301,7 +298,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                distributedConfigurationUpdater,
                 nodeAttributes
         );
 
@@ -449,7 +445,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
-                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
                 catalogManager,

@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.table.distributed.replicator;
 
-import com.jakewharton.fliptables.FlipTable;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.tx.TransactionException;
 
-/** Decorator for {@link UnitStatusRecord}. */
-public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(UnitStatusRecord record) {
-        return () -> FlipTable.of(new String[]{"version", "status"},
-                record.versionToStatus().entrySet().stream()
-                .map(e -> new String[] {e.getKey(), e.getValue().getValue()}).toArray(String[][]::new)
-        );
+/**
+ * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
+ * because an incompatible schema change has happened.
+ */
+public class IncompatibleSchemaException extends TransactionException {
+    public IncompatibleSchemaException(String message) {
+        super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
     }
 }

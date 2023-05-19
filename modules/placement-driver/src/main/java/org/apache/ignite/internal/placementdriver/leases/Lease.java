@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * A lease representation in memory.
@@ -226,12 +227,6 @@ public class Lease {
 
     @Override
     public String toString() {
-        return "Lease{"
-                + "leaseholder=" + leaseholder
-                + ", accepted=" + accepted
-                + ", startTime=" + startTime
-                + ", expirationTime=" + expirationTime
-                + ", prolongable=" + prolongable
-                + '}';
+        return S.toString(Lease.class, this);
     }
 }
