@@ -49,7 +49,9 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -507,6 +509,38 @@ public class CatalogServiceSelfTest {
                 .build();
 
         assertThat(service.dropDistributionZone(params), willThrowFast(DistributionZoneNotFoundException.class));
+    }
+
+    @Test
+    public void testCreateZoneEvents() {
+        CreateZoneParams createZoneParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        DropZoneParams dropZoneParams = DropZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .ifZoneExists(true)
+                .build();
+
+
+        EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
+        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+
+        service.listen(CatalogEvent.ZONE_CREATE, eventListener);
+        service.listen(CatalogEvent.ZONE_DROP, eventListener);
+
+        CompletableFuture<Void> fut = service.createDistributionZone(createZoneParams);
+
+        assertThat(fut, willBe((Object) null));
+
+        verify(eventListener).notify(any(CreateZoneEventParameters.class), ArgumentMatchers.isNull());
+
+        fut = service.dropDistributionZone(dropZoneParams);
+
+        assertThat(fut, willBe((Object) null));
+
+        verify(eventListener).notify(any(DropZoneEventParameters.class), ArgumentMatchers.isNull());
+        verifyNoMoreInteractions(eventListener);
     }
 
     private static CreateTableParams simpleTable(String name) {

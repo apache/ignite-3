@@ -43,7 +43,9 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
@@ -74,6 +76,8 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
+    private static final String DEFAULT_ZONE_NAME = "Default";
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
@@ -101,7 +105,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
         // TODO: IGNITE-19082 Fix default descriptors.
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
-        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, "Default", 25, 1);
+        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, DEFAULT_ZONE_NAME, 25, 1);
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
@@ -367,14 +371,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             CollectionUtils.concat(catalog.zones(), List.of(((NewZoneEntry) entry).descriptor())),
-                            new SchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    version,
-                                    schema.tables(),
-                                    schema.indexes()
-                            )
+                            schema.copy(version)
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ZONE_CREATE,
+                            new CreateZoneEventParameters(version, ((NewZoneEntry) entry).descriptor())
+                    ));
                 } else if (entry instanceof DropZoneEntry) {
                     int zoneId = ((DropZoneEntry) entry).zoneId();
 
@@ -383,14 +386,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones().stream().filter(z -> z.id() != zoneId).collect(Collectors.toList()),
-                            new SchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    version,
-                                    schema.tables(),
-                                    schema.indexes()
-                            )
+                            schema.copy(version)
                     );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ZONE_DROP,
+                            new DropZoneEventParameters(version, zoneId)
+                    ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,

@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
-
 /**
- * Catalog management events.
+ * Drop distribution zone event parameters contains an id of dropped distribution zone.
  */
-public enum CatalogEvent implements Event {
-    /** This event is fired, when a table was created in Catalog. */
-    TABLE_CREATE,
+public class DropZoneEventParameters extends CatalogEventParameters {
 
-    /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP,
+    private final int zoneId;
 
-    /** This event is fired, when a distribution zone was created in Catalog. */
-    ZONE_CREATE,
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param zoneId An id of dropped distribution zone.
+     */
+    public DropZoneEventParameters(long causalityToken, int zoneId) {
+        super(causalityToken);
 
-    /** This event is fired, when a distribution zone was dropped in Catalog. */
-    ZONE_DROP
+        this.zoneId = zoneId;
+    }
+
+    /** Returns an id of dropped distribution zone. */
+    public int zoneId() {
+        return zoneId;
+    }
 }

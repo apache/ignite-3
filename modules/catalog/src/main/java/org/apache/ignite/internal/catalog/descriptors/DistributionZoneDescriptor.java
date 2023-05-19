@@ -26,10 +26,10 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
     private static final long serialVersionUID = 1093607327002694066L;
 
     /** Amount of zone partitions. */
-    public int partitions;
+    private final int partitions;
 
     /** Amount of zone replicas. */
-    public int replicas;
+    private final int replicas;
 
     /**
      * Constructs a distribution zone descriptor.

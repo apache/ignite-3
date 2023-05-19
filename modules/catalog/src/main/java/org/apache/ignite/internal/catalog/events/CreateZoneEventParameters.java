@@ -17,21 +17,31 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 
 /**
- * Catalog management events.
+ * Create table event parameters contains a distribution zone descriptor for newly created distribution zone.
  */
-public enum CatalogEvent implements Event {
-    /** This event is fired, when a table was created in Catalog. */
-    TABLE_CREATE,
+public class CreateZoneEventParameters extends CatalogEventParameters {
 
-    /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP,
+    private final DistributionZoneDescriptor zoneDescriptor;
 
-    /** This event is fired, when a distribution zone was created in Catalog. */
-    ZONE_CREATE,
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param zoneDescriptor Newly created distribution zone descriptor.
+     */
+    public CreateZoneEventParameters(long causalityToken, DistributionZoneDescriptor zoneDescriptor) {
+        super(causalityToken);
 
-    /** This event is fired, when a distribution zone was dropped in Catalog. */
-    ZONE_DROP
+        this.zoneDescriptor = zoneDescriptor;
+    }
+
+    /**
+     * Gets distribution zone descriptor for newly created distribution zone.
+     */
+    public DistributionZoneDescriptor zoneDescriptor() {
+        return zoneDescriptor;
+    }
 }

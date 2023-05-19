@@ -60,6 +60,16 @@ public class SchemaDescriptor extends ObjectDescriptor {
         rebuildMaps();
     }
 
+    private SchemaDescriptor(int id, String name, int version, TableDescriptor[] tables, IndexDescriptor[] indexes,
+            Map<String, TableDescriptor> tablesMap, Map<String, IndexDescriptor> indexesMap) {
+        super(id, Type.SCHEMA, name);
+        this.version = version;
+        this.tables = Objects.requireNonNull(tables, "tables");
+        this.indexes = Objects.requireNonNull(indexes, "indexes");
+        this.tablesMap = tablesMap;
+        this.indexesMap = indexesMap;
+    }
+
     public int version() {
         return version;
     }
@@ -87,8 +97,21 @@ public class SchemaDescriptor extends ObjectDescriptor {
     }
 
     private void rebuildMaps() {
-        tablesMap = Arrays.stream(tables).collect(Collectors.toMap(ObjectDescriptor::name, Function.identity()));
-        indexesMap = Arrays.stream(indexes).collect(Collectors.toMap(ObjectDescriptor::name, Function.identity()));
+        tablesMap = Arrays.stream(tables).collect(Collectors.toUnmodifiableMap(ObjectDescriptor::name, Function.identity()));
+        indexesMap = Arrays.stream(indexes).collect(Collectors.toUnmodifiableMap(ObjectDescriptor::name, Function.identity()));
+    }
+
+    /** Creates new schema descriptor with new version. */
+    public SchemaDescriptor copy(int version) {
+        return new SchemaDescriptor(
+                id(),
+                name(),
+                version,
+                tables,
+                indexes,
+                tablesMap,
+                indexesMap
+        );
     }
 
     /** {@inheritDoc} */
