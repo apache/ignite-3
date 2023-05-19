@@ -89,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -192,7 +193,8 @@ public class PartitionCommandListenerTest {
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
                 dsCfg,
                 safeTimeTracker,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)))
         ));
 
         commandListener = new PartitionListener(
@@ -288,7 +290,8 @@ public class PartitionCommandListenerTest {
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
                 dsCfg,
                 safeTimeTracker,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)))
         );
 
         PartitionListener testCommandListener = new PartitionListener(

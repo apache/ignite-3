@@ -45,6 +45,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -133,7 +134,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes),
                 dsCfg,
                 new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes))
         );
     }
 

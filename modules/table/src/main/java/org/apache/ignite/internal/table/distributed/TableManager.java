@@ -2418,7 +2418,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexes,
                 dsCfg,
                 safeTimeTracker,
-                lowWatermark
+                lowWatermark,
+                indexUpdateHandler
         );
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);

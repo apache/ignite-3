@@ -32,7 +32,6 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -65,6 +65,9 @@ public class StorageUpdateHandler {
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
+    /** Partition index update handler. */
+    private final IndexUpdateHandler indexUpdateHandler;
+
     /**
      * The constructor.
      *
@@ -73,6 +76,7 @@ public class StorageUpdateHandler {
      * @param indexes Indexes supplier.
      * @param dsCfg Data storage configuration.
      * @param safeTimeTracker Partition safe time tracker.
+     * @param indexUpdateHandler Partition index update handler.
      */
     public StorageUpdateHandler(
             int partitionId,
@@ -80,7 +84,8 @@ public class StorageUpdateHandler {
             TableIndexStoragesSupplier indexes,
             DataStorageConfiguration dsCfg,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            IndexUpdateHandler indexUpdateHandler
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
@@ -88,6 +93,7 @@ public class StorageUpdateHandler {
         this.dsCfg = dsCfg;
         this.safeTimeTracker = safeTimeTracker;
         this.lowWatermark = lowWatermark;
+        this.indexUpdateHandler = indexUpdateHandler;
     }
 
     /**
@@ -128,7 +134,7 @@ public class StorageUpdateHandler {
                 tryRemovePreviousWritesIndex(rowId, oldRow);
             }
 
-            addToIndexes(row, rowId);
+            indexUpdateHandler.addToIndexes(row, rowId);
 
             if (onReplication != null) {
                 onReplication.accept(rowId);
@@ -178,7 +184,7 @@ public class StorageUpdateHandler {
                     }
 
                     rowIds.add(rowId);
-                    addToIndexes(row, rowId);
+                    indexUpdateHandler.addToIndexes(row, rowId);
                 }
 
                 if (onReplication != null) {
@@ -214,7 +220,7 @@ public class StorageUpdateHandler {
                 return;
             }
 
-            tryRemoveFromIndexes(previousRow, rowId, cursor);
+            indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor);
         }
     }
 
@@ -244,7 +250,7 @@ public class StorageUpdateHandler {
                         continue;
                     }
 
-                    tryRemoveFromIndexes(rowToRemove, rowId, cursor);
+                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
                 }
             }
 
@@ -254,59 +260,6 @@ public class StorageUpdateHandler {
 
             return null;
         });
-    }
-
-    /**
-     * Tries removing indexed row from every index.
-     * Removes the row only if no previous value's index matches index of the row to remove, because if it matches, then the index
-     * might still be in use.
-     *
-     * @param rowToRemove Row to remove from indexes.
-     * @param rowId Row id.
-     * @param previousValues Cursor with previous version of the row.
-     */
-    private void tryRemoveFromIndexes(BinaryRow rowToRemove, RowId rowId, Cursor<ReadResult> previousValues) {
-        TableSchemaAwareIndexStorage[] indexes = this.indexes.get().values().toArray(new TableSchemaAwareIndexStorage[0]);
-
-        ByteBuffer[] indexValues = new ByteBuffer[indexes.length];
-
-        // Precalculate value for every index.
-        for (int i = 0; i < indexes.length; i++) {
-            TableSchemaAwareIndexStorage index = indexes[i];
-
-            indexValues[i] = index.resolveIndexRow(rowToRemove).byteBuffer();
-        }
-
-        while (previousValues.hasNext()) {
-            ReadResult previousVersion = previousValues.next();
-
-            BinaryRow previousRow = previousVersion.binaryRow();
-
-            // No point in cleaning up indexes for tombstone, they should not exist.
-            if (previousRow != null) {
-                for (int i = 0; i < indexes.length; i++) {
-                    TableSchemaAwareIndexStorage index = indexes[i];
-
-                    if (index == null) {
-                        continue;
-                    }
-
-                    // If any of the previous versions' index value equals the index value of
-                    // the row to remove, then we can't remove that index as it can still be used.
-                    BinaryTuple previousRowIndex = index.resolveIndexRow(previousRow);
-
-                    if (indexValues[i].equals(previousRowIndex.byteBuffer())) {
-                        indexes[i] = null;
-                    }
-                }
-            }
-        }
-
-        for (TableSchemaAwareIndexStorage index : indexes) {
-            if (index != null) {
-                index.remove(rowToRemove, rowId);
-            }
-        }
     }
 
     /**
@@ -356,23 +309,10 @@ public class StorageUpdateHandler {
         RowId rowId = vacuumed.rowId();
 
         try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-            tryRemoveFromIndexes(binaryRow, rowId, cursor);
+            indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor);
         }
 
         return true;
-    }
-
-    /**
-     * Adds a binary row to the indexes, if the tombstone then skips such operation.
-     */
-    public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
-        if (binaryRow == null) { // skip removes
-            return;
-        }
-
-        for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
-            index.put(binaryRow, rowId);
-        }
     }
 
     /**
@@ -384,6 +324,7 @@ public class StorageUpdateHandler {
      * @param rowUuids Row uuids.
      * @param finish Index build completion flag.
      */
+    // TODO: IGNITE-19396 вот тут подумать как сделать
     public void buildIndex(UUID indexId, List<UUID> rowUuids, boolean finish) {
         // TODO: IGNITE-19082 Need another way to wait for index creation
         indexes.addIndexToWaitIfAbsent(indexId);
@@ -412,9 +353,9 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Returns the partition safe time tracker.
+     * Returns partition index update handler.
      */
-    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
-        return safeTimeTracker;
+    public IndexUpdateHandler getIndexUpdateHandler() {
+        return indexUpdateHandler;
     }
 }

@@ -107,6 +107,7 @@ import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
@@ -376,7 +377,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage())),
                         dsCfg,
                         safeTimeClock,
-                        mock(LowWatermark.class)
+                        mock(LowWatermark.class),
+                        new IndexUpdateHandler(
+                                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+                        )
                 ),
                 schemas,
                 peer -> localNode.name().equals(peer.consistentId()),
