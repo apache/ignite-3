@@ -1043,7 +1043,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private static void throwIfValidationFailed(ForwardValidationResult validationResult) {
+    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
         if (!validationResult.isSuccessful()) {
             throw new IncompatibleSchemaAbortException("Commit failed because schema "
                     + validationResult.fromSchemaVersion() + " is not forward-compatible with "
@@ -2115,7 +2115,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(row);
         }
 
-        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId, txId)
+        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
                 .thenCompose(validationResult -> {
                     if (validationResult.isSuccessful()) {
                         return completedFuture(row);
