@@ -24,5 +24,8 @@ description = 'ignite-affinity'
 dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-network-api')
     implementation libs.jetbrains.annotations
+
+    annotationProcessor project(":ignite-network-annotation-processor")
 }

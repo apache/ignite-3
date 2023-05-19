@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -163,8 +164,8 @@ public class AssignmentsTracker {
             LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
                     assignmentsCtx.storageRevision(), tblId);
 
-            List<Set<Assignment>> tableAssignments =
-                    assignmentsCtx.newValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.newValue());
+            Assignments tableAssignments =
+                    assignmentsCtx.newValue() == null ? null : Assignments.fromBytes(assignmentsCtx.newValue());
 
             boolean leaseRenewalRequired = false;
 

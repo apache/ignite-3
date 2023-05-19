@@ -77,6 +77,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
@@ -619,9 +620,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         long causalityToken = assignmentsCtx.storageRevision();
 
-        List<Set<Assignment>> oldAssignments = assignmentsCtx.oldValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.oldValue());
+        Assignments oldAssignments = assignmentsCtx.oldValue() == null ? null : Assignments.fromBytes(assignmentsCtx.oldValue());
 
-        List<Set<Assignment>> newAssignments = ByteUtils.fromBytes(assignmentsCtx.newValue());
+        Assignments newAssignments = Assignments.fromBytes(assignmentsCtx.newValue());
 
         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
         // configuration, which is not supported now.
@@ -1434,10 +1435,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // Affinity assignments calculation.
                 extConfCh.changeAssignments(
-                        ByteUtils.toBytes(AffinityUtils.calculateAssignments(
+                        new Assignments(AffinityUtils.calculateAssignments(
                                 dataNodes,
                                 distributionZoneConfiguration.partitions().value(),
-                                distributionZoneConfiguration.replicas().value())));
+                                distributionZoneConfiguration.replicas().value())).bytes());
             });
         })).exceptionally(t -> {
             Throwable ex = getRootCause(t);
