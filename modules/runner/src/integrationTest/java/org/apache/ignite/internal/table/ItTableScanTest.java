@@ -32,9 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -622,7 +619,12 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             Publisher<BinaryRow> publisher;
 
             if (readOnly) {
-                ClusterNode node0 = CLUSTER_NODES.get(0).clusterNodes().stream().findFirst().orElseThrow(); // Any node will do it.
+                List<String> assignments = internalTable.assignments();
+
+                // Any node from assignments will do it.
+                ClusterNode node0 = CLUSTER_NODES.get(0).clusterNodes().stream().filter(clusterNode -> {
+                    return assignments.contains(clusterNode.name());
+                }).findFirst().orElseThrow();
 
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
@@ -632,24 +634,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
             }
 
-            if (readOnly) {
-                CompletableFuture.runAsync(() -> {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException ignore) {
-                        return;
-                    }
-
-                    ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-                    ThreadInfo[] infos = bean.dumpAllThreads(true, true);
-                    for (ThreadInfo info : infos) {
-                        System.out.println(info);
-                    }
-                });
-            }
             List<BinaryRow> scannedRows = scanAllRows(publisher);
-
-            log.info("Result: " + scannedRows.stream().map(ItTableScanTest::rowToString).collect(Collectors.joining(", ")));
 
             // Two rows are removed, one changed.
             assertThat(scannedRows, hasSize(ROW_IDS.size() - 2));
