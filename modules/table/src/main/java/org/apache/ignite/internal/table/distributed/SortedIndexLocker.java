@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SortedIndexLocker implements IndexLocker {
     /** Index INF+ value object. */
-    private final Integer positiveInf;
+    private final Object positiveInf;
 
     private final UUID indexId;
     private final LockManager lockManager;
@@ -67,8 +67,7 @@ public class SortedIndexLocker implements IndexLocker {
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
-
-        this.positiveInf = new Integer(partId);
+        this.positiveInf = Integer.valueOf(partId);
     }
 
     /** {@inheritDoc} */
@@ -152,16 +151,16 @@ public class SortedIndexLocker implements IndexLocker {
         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         // Find next key.
-        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+        try (Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER)) {
+            IndexRow nextRow = cursor.hasNext() ? cursor.next() : null;
 
-        IndexRow nextRow = cursor.hasNext() ? cursor.next() : null;
+            var nextLockKey = new LockKey(indexId, indexKey(nextRow));
 
-        var nextLockKey = new LockKey(indexId, indexKey(nextRow));
-
-        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
-                lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
-                        new Lock(nextLockKey, LockMode.IX, txId)
-                ));
+            return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
+                    lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
+                            new Lock(nextLockKey, LockMode.IX, txId)
+                    ));
+        }
     }
 
     /** {@inheritDoc} */
