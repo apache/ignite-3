@@ -34,9 +34,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -255,48 +252,6 @@ public class StorageUpdateHandler {
 
             return null;
         });
-    }
-
-    /**
-     * Tries removing {@code count} oldest stale entries and their indexes.
-     * If there's less entries that can be removed, then exits prematurely.
-     *
-     * @param lowWatermark Low watermark for the vacuum.
-     * @param count Count of entries to GC.
-     */
-    void vacuumBatch(HybridTimestamp lowWatermark, int count) {
-        for (int i = 0; i < count; i++) {
-            if (!storage.runConsistently(locker -> internalVacuum(lowWatermark))) {
-                break;
-            }
-        }
-    }
-
-    /**
-     * Executes garbage collection. Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
-     *
-     * @param lowWatermark Low watermark for the vacuum.
-     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
-     */
-    private boolean internalVacuum(HybridTimestamp lowWatermark) {
-        BinaryRowAndRowId vacuumed = storage.pollForVacuum(lowWatermark);
-
-        if (vacuumed == null) {
-            // Nothing was garbage collected.
-            return false;
-        }
-
-        BinaryRow binaryRow = vacuumed.binaryRow();
-
-        assert binaryRow != null;
-
-        RowId rowId = vacuumed.rowId();
-
-        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-            indexUpdateHandler.tryRemoveFromIndexes(binaryRow, rowId, cursor);
-        }
-
-        return true;
     }
 
     /**
