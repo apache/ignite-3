@@ -187,7 +187,6 @@ public class SortedIndexLocker implements IndexLocker {
 
         // Find next key.
         Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
-        IndexRow nextRow = cursor.hasNext() ? cursor.next() : null;
 
         BinaryTuple nextKey;
         if (cursor.hasNext()) {
