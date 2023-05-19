@@ -374,7 +374,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage())),
                         dsCfg,
                         safeTimeClock,
                         mock(LowWatermark.class),

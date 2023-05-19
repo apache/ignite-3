@@ -196,7 +196,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new StorageUpdateHandler(
                         PART_ID,
                         new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg,
                         safeTime,
                         mock(LowWatermark.class),

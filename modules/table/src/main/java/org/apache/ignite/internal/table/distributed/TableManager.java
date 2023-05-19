@@ -2415,7 +2415,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
-                indexes,
                 dsCfg,
                 safeTimeTracker,
                 lowWatermark,

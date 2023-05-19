@@ -131,7 +131,6 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 new TestPartitionDataStorage(storage),
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes),
                 dsCfg,
                 new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
                 mock(LowWatermark.class),

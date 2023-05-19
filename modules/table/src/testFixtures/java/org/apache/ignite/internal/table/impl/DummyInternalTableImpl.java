@@ -283,7 +283,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PART_ID,
                 partitionDataStorage,
-                indexes,
                 dsCfg,
                 safeTime,
                 mock(LowWatermark.class),

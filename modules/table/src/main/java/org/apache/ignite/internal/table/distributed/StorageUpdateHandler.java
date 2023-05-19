@@ -55,8 +55,6 @@ public class StorageUpdateHandler {
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
-    private final TableIndexStoragesSupplier indexes;
-
     private final DataStorageConfiguration dsCfg;
 
     /** Partition safe time tracker. */
@@ -73,7 +71,6 @@ public class StorageUpdateHandler {
      *
      * @param partitionId Partition id.
      * @param storage Partition data storage.
-     * @param indexes Indexes supplier.
      * @param dsCfg Data storage configuration.
      * @param safeTimeTracker Partition safe time tracker.
      * @param indexUpdateHandler Partition index update handler.
@@ -81,7 +78,6 @@ public class StorageUpdateHandler {
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
-            TableIndexStoragesSupplier indexes,
             DataStorageConfiguration dsCfg,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             LowWatermark lowWatermark,
@@ -89,7 +85,6 @@ public class StorageUpdateHandler {
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
-        this.indexes = indexes;
         this.dsCfg = dsCfg;
         this.safeTimeTracker = safeTimeTracker;
         this.lowWatermark = lowWatermark;
@@ -313,43 +308,6 @@ public class StorageUpdateHandler {
         }
 
         return true;
-    }
-
-    /**
-     * Builds an index for all versions of a row.
-     *
-     * <p>Index is expected to exist, skips the tombstones.
-     *
-     * @param indexId Index ID.
-     * @param rowUuids Row uuids.
-     * @param finish Index build completion flag.
-     */
-    // TODO: IGNITE-19396 вот тут подумать как сделать
-    public void buildIndex(UUID indexId, List<UUID> rowUuids, boolean finish) {
-        // TODO: IGNITE-19082 Need another way to wait for index creation
-        indexes.addIndexToWaitIfAbsent(indexId);
-
-        TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
-
-        RowId lastRowId = null;
-
-        for (UUID rowUuid : rowUuids) {
-            lastRowId = new RowId(partitionId, rowUuid);
-
-            try (Cursor<ReadResult> cursor = storage.scanVersions(lastRowId)) {
-                while (cursor.hasNext()) {
-                    ReadResult next = cursor.next();
-
-                    if (!next.isEmpty()) {
-                        index.put(next.binaryRow(), lastRowId);
-                    }
-                }
-            }
-        }
-
-        assert lastRowId != null || finish : "indexId=" + indexId + ", partitionId=" + partitionId;
-
-        index.storage().setNextRowIdToBuild(finish ? null : lastRowId.increment());
     }
 
     /**

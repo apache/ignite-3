@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import java.nio.ByteBuffer;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -49,7 +51,7 @@ public class IndexUpdateHandler {
      *
      * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
      *
-     * @param binaryRow Table row.
+     * @param binaryRow Binary row to insert.
      * @param rowId Row ID.
      */
     public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
@@ -115,6 +117,28 @@ public class IndexUpdateHandler {
                 index.remove(rowToRemove, rowId);
             }
         }
+    }
+
+    /**
+     * Builds an index for all versions of a row.
+     *
+     * <p>Index is expected to exist, skips the tombstones.
+     *
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     *
+     * @param indexId Index ID.
+     * @param rowStream Stream of rows to build the index.
+     * @param nextRowIdToBuild Row ID for which the index needs to be build next, {@code null} means that the index is build.
+     */
+    public void buildIndex(UUID indexId, Stream<BuildIndexRow> rowStream, @Nullable RowId nextRowIdToBuild) {
+        // TODO: IGNITE-19082 Need another way to wait for index creation
+        indexes.addIndexToWaitIfAbsent(indexId);
+
+        TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
+
+        rowStream.forEach(buildIndexRow -> index.put(buildIndexRow.getBinaryRow(), buildIndexRow.getRowId()));
+
+        index.storage().setNextRowIdToBuild(nextRowIdToBuild);
     }
 
     /**

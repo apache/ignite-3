@@ -67,7 +67,7 @@ public interface IndexStorage {
     @Nullable RowId getNextRowIdToBuild() throws StorageException;
 
     /**
-     * Sets the row ID for which the index needs to be built, {@code null} means that the index is built.
+     * Sets the row ID for which the index needs to be build, {@code null} means that the index is build.
      *
      * @apiNote This method <b>must</b> always be called inside the corresponding partition's
      *      {@link MvPartitionStorage#runConsistently} closure.

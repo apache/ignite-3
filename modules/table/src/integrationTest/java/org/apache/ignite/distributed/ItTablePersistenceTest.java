@@ -385,7 +385,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
-                            DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                             zoneCfg.dataStorage(),
                             safeTime,
                             mock(LowWatermark.class),

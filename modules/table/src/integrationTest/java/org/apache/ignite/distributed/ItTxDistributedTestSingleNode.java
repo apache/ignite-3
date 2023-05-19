@@ -457,7 +457,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg,
                         safeTime,
                         mock(LowWatermark.class),

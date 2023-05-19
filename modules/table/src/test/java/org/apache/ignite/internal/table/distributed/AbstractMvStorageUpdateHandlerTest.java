@@ -97,7 +97,6 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                 distributionZoneConfig.dataStorage(),
                 new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
                 mock(LowWatermark.class),
