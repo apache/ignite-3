@@ -252,8 +252,8 @@ void binary_tuple_builder::append_uuid(uuid value) {
 
     if (size != 0) {
         assert(size == 16);
-        bytes::store<endian::LITTLE>(next_value, value.getMostSignificantBits());
-        bytes::store<endian::LITTLE>(next_value + 8, value.getLeastSignificantBits());
+        bytes::store<endian::LITTLE>(next_value, value.get_most_significant_bits());
+        bytes::store<endian::LITTLE>(next_value + 8, value.get_least_significant_bits());
         next_value += size;
     }
 

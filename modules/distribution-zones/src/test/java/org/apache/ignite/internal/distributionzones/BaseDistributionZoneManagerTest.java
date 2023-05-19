@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -25,12 +26,17 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -39,6 +45,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -55,7 +62,6 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;
 
-    @InjectConfiguration
     protected DistributionZonesConfiguration zonesConfiguration;
 
     protected DistributionZoneManager distributionZoneManager;
@@ -84,6 +90,20 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         components.add(metaStorageManager);
 
+        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultMgr);
+
+        ConfigurationManager cfgMgr = new ConfigurationManager(
+                List.of(DistributionZonesConfiguration.KEY),
+                Set.of(),
+                cfgStorage,
+                List.of(),
+                List.of(TestPersistStorageConfigurationSchema.class)
+        );
+
+        components.add(cfgMgr);
+
+        ConfigurationRegistry registry = cfgMgr.configurationRegistry();
+
         clusterStateStorage = new TestClusterStateStorage();
 
         components.add(clusterStateStorage);
@@ -93,6 +113,8 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
+
+        zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
@@ -117,5 +139,11 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
         IgniteUtils.closeAll(components.stream().map(c -> c::stop));
+    }
+
+    void startDistributionZoneManager() throws Exception {
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
+
+        distributionZoneManager.start();
     }
 }

@@ -53,7 +53,7 @@ struct tcp_range {
         , range(range) {}
 
     /**
-     * Compare to another instance.
+     * compare to another instance.
      *
      * @param other Another instance.
      * @return Negative value if less, positive if larger and

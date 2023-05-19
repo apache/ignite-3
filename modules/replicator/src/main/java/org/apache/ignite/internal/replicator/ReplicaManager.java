@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -418,7 +420,15 @@ public class ReplicaManager implements IgniteComponent {
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
 
-        assert replicas.isEmpty() : "There are replicas alive [replicas=" + replicas.keySet() + ']';
+        assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
+                : "There are replicas alive [replicas="
+                    + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+
+        for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
+            if (!replicaFuture.isDone()) {
+                replicaFuture.completeExceptionally(new NodeStoppingException());
+            }
+        }
     }
 
     /**

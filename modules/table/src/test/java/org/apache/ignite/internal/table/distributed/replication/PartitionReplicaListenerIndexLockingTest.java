@@ -72,6 +72,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.table.impl.DummySchemas;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
@@ -160,6 +161,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         IndexLocker sortedIndexLocker = new SortedIndexLocker(
                 SORTED_INDEX_ID,
+                PART_ID,
                 LOCK_MANAGER,
                 (SortedIndexStorage) sortedIndexStorage.storage(),
                 row2SortKeyConverter
@@ -198,6 +200,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         safeTime,
                         mock(LowWatermark.class)
                 ),
+                new DummySchemas(schemaManager),
                 peer -> true,
                 CompletableFuture.completedFuture(schemaManager)
         );

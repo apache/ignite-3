@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -199,7 +200,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
-        lenient().doReturn(CompletableFuture.completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
@@ -303,8 +304,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
+                new DummySchemas(schemaManager),
                 peer -> true,
-                CompletableFuture.completedFuture(schemaManager)
+                completedFuture(schemaManager)
         );
 
         partitionListener = new PartitionListener(
@@ -398,7 +400,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return CompletableFuture.completedFuture(mock(ClusterNode.class));
+        return completedFuture(mock(ClusterNode.class));
     }
 
     @Override

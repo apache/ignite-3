@@ -110,7 +110,7 @@ public interface TxManager extends IgniteComponent {
      * @param tablePartitionIds Table partition ids with raft terms.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
-     * @param commitTimestamp Commit timestamp.
+     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
@@ -118,7 +118,7 @@ public interface TxManager extends IgniteComponent {
             List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
             UUID txId,
             boolean commit,
-            HybridTimestamp commitTimestamp
+            @Nullable HybridTimestamp commitTimestamp
     );
 
     /**

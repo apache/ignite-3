@@ -59,11 +59,9 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -293,8 +291,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -302,7 +298,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                distributedConfigurationUpdater,
                 nodeAttributes
         );
 
@@ -383,6 +378,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
+        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault));
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -410,10 +407,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         );
 
         var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
-
-        CatalogManager catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vault)
-        );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -452,14 +445,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
-                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
+                catalogManager,
                 schemaManager,
                 distributionZoneManager,
                 tableManager,
                 indexManager,
-                catalogManager,
                 qryEngine
         );
 

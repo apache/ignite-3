@@ -27,7 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
@@ -55,9 +55,12 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
+        TablesView tablesView = tablesCfg.value();
 
-        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id());
+        return tableStorage.getOrCreateHashIndex(
+                TEST_PARTITION,
+                new HashIndexDescriptor(tablesView.indexes().get(indexDefinition.name()).id(), tablesView)
+        );
     }
 
     @Override

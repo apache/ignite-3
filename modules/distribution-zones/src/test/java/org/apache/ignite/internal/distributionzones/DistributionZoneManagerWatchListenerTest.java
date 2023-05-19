@@ -20,17 +20,13 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockVaultZonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setLogicalTopologyInMetaStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
-import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.timeout;
@@ -38,11 +34,10 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,63 +45,13 @@ import org.junit.jupiter.api.Test;
  */
 //TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
 public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZoneManagerTest {
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19255")
-    @Test
-    void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws Exception {
-        startDistributionZoneManager();
-
-        // First invoke happens on distributionZoneManager start.
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
-
-        distributionZoneManager.alterZone(
-                DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(0)
-                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                        .build()
-        ).get();
-
-        //first event
-
-        Set<String> nodes = Set.of("node1", "node2");
-
-        setLogicalTopologyInMetaStorage(nodes);
-
-        // saveDataNodesToMetaStorageOnScaleUp
-        verify(keyValueStorage, timeout(1000).times(3)).invoke(any(), any());
-
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-
-        //second event
-
-        nodes = Set.of("node1", "node3");
-
-        setLogicalTopologyInMetaStorage(nodes);
-
-        verify(keyValueStorage, timeout(1000).times(4)).invoke(any(), any());
-
-        nodes = Set.of("node1", "node2", "node3");
-
-        // Scale up just adds node to data nodes
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-
-        //third event
-
-        nodes = Collections.emptySet();
-
-        setLogicalTopologyInMetaStorage(nodes);
-
-        verify(keyValueStorage, timeout(1000).times(4)).invoke(any(), any());
-
-        nodes = Set.of("node1", "node2", "node3");
-
-        // Scale up wasn't triggered
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
-    }
+    private static final LogicalNode NODE_1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_3 = new LogicalNode("node3", "node3", new NetworkAddress("localhost", 123));
 
     @Test
     void testStaleWatchEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of());
+        mockVaultZonesLogicalTopologyKey(Set.of(), vaultMgr);
 
         startDistributionZoneManager();
 
@@ -122,12 +67,9 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         keyValueStorage.put(zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
 
-        Set<String> nodes = Set.of("node1", "node2");
+        Set<LogicalNode> nodes = Set.of(NODE_1, NODE_2);
 
-        setLogicalTopologyInMetaStorage(nodes);
-
-        // two invokes on start, and invoke for update scale up won't be triggered, because revision == zoneScaleUpChangeTriggerKey
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        setLogicalTopologyInMetaStorage(nodes, 100, metaStorageManager);
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(), keyValueStorage);
     }
@@ -138,9 +80,12 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
 
-        Set<String> nodes = Set.of("node1", "node2");
+        Set<LogicalNode> nodes = Set.of(
+                new LogicalNode(new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
+                new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
+        );
 
-        mockVaultZonesLogicalTopologyKey(nodes);
+        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
 
         startDistributionZoneManager();
 
@@ -151,13 +96,14 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
     @Test
     void testDataNodesUpdatedOnZoneManagerStart() throws Exception {
-        Set<String> nodes = Set.of("node1", "node2");
+        Set<LogicalNode> nodes = Set.of(
+                new LogicalNode(new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
+                new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
+        );
 
-        mockVaultZonesLogicalTopologyKey(nodes);
+        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
 
         startDistributionZoneManager();
-
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
     }
@@ -171,27 +117,5 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         assertNull(keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value());
         assertNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value());
-    }
-
-    private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
-        byte[] newLogicalTopology = toBytes(nodes);
-
-        assertThat(vaultMgr.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
-    }
-
-    private void setLogicalTopologyInMetaStorage(Set<String> nodes) {
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
-                Conditions.exists(zonesLogicalTopologyKey()),
-                Operations.put(zonesLogicalTopologyKey(), toBytes(nodes)),
-                Operations.noop()
-        );
-
-        assertThat(invokeFuture, willBe(true));
-    }
-
-    private void startDistributionZoneManager() throws Exception {
-        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
-
-        distributionZoneManager.start();
     }
 }

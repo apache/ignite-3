@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -143,6 +144,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -826,6 +828,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             txStateStorage,
                                                             placementDriver,
                                                             storageUpdateHandler,
+                                                            new NonHistoricSchemas(schemaManager),
                                                             this::isLocalPeer,
                                                             schemaManager.schemaRegistry(causalityToken, tblId)
                                                     ),
@@ -2014,7 +2017,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                pendingAssignmentsEntry.key(), partId, tbl.name(), localMember.address());
+                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
 
         CompletableFuture<Void> localServicesStartFuture;
 
@@ -2098,6 +2101,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             txStatePartitionStorage,
                                             placementDriver,
                                             storageUpdateHandler,
+                                            new NonHistoricSchemas(schemaManager),
                                             this::isLocalPeer,
                                             completedFuture(schemaManager.schemaRegistry(tblId))
                                     ),
@@ -2261,7 +2265,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partitionId Partition ID.
      * @return Future of creating or getting partition stores.
      */
-    // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     // TODO: IGNITE-18939 Create storages only once, then only get them
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
