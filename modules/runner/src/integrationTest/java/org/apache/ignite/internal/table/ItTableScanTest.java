@@ -76,6 +76,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Tests to check a scan internal command.
@@ -578,6 +580,34 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 loadData(table);
             }
         }
+    }
+
+    /**
+     * Ensures that multiple consecutive scan requests with different requested rows amount
+     * return the expected total number of requested rows.
+     *
+     * @param requestAmount1 Number of rows in the first request.
+     * @param requestAmount2 Number of rows in the second request.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @CsvSource({"3, 1", "1, 3"})
+    public void testCompositeScanRequest(int requestAmount1, int requestAmount2) throws Exception {
+        List<BinaryRow> scannedRows = new ArrayList<>();
+        Publisher<BinaryRow> publisher = internalTable.scan(0, null, null, null, null, 0, null);
+        CompletableFuture<Void> scanned = new CompletableFuture<>();
+
+        Subscription subscription = subscribeToPublisher(scannedRows, publisher, scanned);
+
+        subscription.request(requestAmount1);
+        subscription.request(requestAmount2);
+
+        int total = requestAmount1 + requestAmount2;
+        assertTrue(waitForCondition(() -> scannedRows.size() == total, 10_000),
+                "expected=" + total + ", actual=" + scannedRows.size());
+
+        subscription.cancel();
     }
 
     /**

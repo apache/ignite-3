@@ -48,6 +48,11 @@ public class DummySchemas implements Schemas {
     }
 
     @Override
+    public CompletableFuture<?> waitForSchemaAvailability(UUID tableId, int schemaVersion) {
+        return completedFuture(null);
+    }
+
+    @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
 
@@ -69,5 +74,12 @@ public class DummySchemas implements Schemas {
         );
 
         return List.of(fullSchema);
+    }
+
+    @Override
+    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, int toIncluding) {
+        // Returning an empty list makes sure that backward validation never fails, which is what we want before
+        // we switch to CatalogService completely.
+        return List.of();
     }
 }
