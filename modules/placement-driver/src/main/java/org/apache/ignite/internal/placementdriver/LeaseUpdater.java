@@ -49,6 +49,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -66,7 +67,7 @@ public class LeaseUpdater {
     private static final long UPDATE_LEASE_MS = 500L;
 
     /** Lease holding interval. */
-    public static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is active. */
     private final IgniteSpinBusyLock stateActorLock = new IgniteSpinBusyLock();
@@ -116,7 +117,6 @@ public class LeaseUpdater {
      * @param tablesConfiguration Tables configuration.
      * @param leaseTracker Lease tracker.
      * @param clock Cluster clock.
-     * @param longLeaseInterval The interval in milliseconds that is used in the beginning of lease granting process.
      */
     public LeaseUpdater(
             ClusterService clusterService,
@@ -126,15 +126,14 @@ public class LeaseUpdater {
             TablesConfiguration tablesConfiguration,
             DistributionZonesConfiguration distributionZonesConfiguration,
             LeaseTracker leaseTracker,
-            HybridClock clock,
-            long longLeaseInterval
+            HybridClock clock
     ) {
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
-        this.longLeaseInterval = longLeaseInterval;
+        this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();

@@ -40,7 +40,7 @@ public interface PlacementDriver {
 
     /**
      * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp)} despite the fact that given method await logic is bounded.
-     * It will wait for a primary replica for a reasonable period of time, and complete a future with {@code TimeoutException} if a matching
+     * It will wait for a primary replica for a reasonable period of time, and complete a future with null if a matching
      * lease isn't found. Generally speaking reasonable here means enough for distribution across cluster nodes.
      *
      * @param replicationGroupId Replication group id.

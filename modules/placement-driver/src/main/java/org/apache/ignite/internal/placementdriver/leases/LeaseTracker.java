@@ -23,11 +23,11 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -64,9 +64,6 @@ public class LeaseTracker implements PlacementDriver {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
-    /** The interval in milliseconds that is used in the beginning of lease granting process. */
-    private final long longLeaseInterval;
-
     /** Busy lock to linearize service public API calls and service stop. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -87,16 +84,10 @@ public class LeaseTracker implements PlacementDriver {
      *
      * @param vaultManager Vault manager.
      * @param msManager Meta storage manager.
-     * @param longLeaseInterval The interval in milliseconds that is used in the beginning of lease granting process.
      */
-    public LeaseTracker(
-            VaultManager vaultManager,
-            MetaStorageManager msManager,
-            long longLeaseInterval
-    ) {
+    public LeaseTracker(VaultManager vaultManager, MetaStorageManager msManager) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
-        this.longLeaseInterval = longLeaseInterval;
 
         this.leases = new ConcurrentHashMap<>();
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
@@ -217,8 +208,23 @@ public class LeaseTracker implements PlacementDriver {
             return failedFuture(new NodeStoppingException("Component is stopping."));
         }
         try {
-            // There's no sense in awaiting previously detected primary replica more than lease interval.
-            return awaitPrimaryReplica(replicationGroupId, timestamp).orTimeout(longLeaseInterval, TimeUnit.MILLISECONDS);
+            Lease lease = leases.get(replicationGroupId);
+
+            if (lease.getExpirationTime().after(timestamp)) {
+                return completedFuture(lease);
+            }
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19532 Race between meta storage safe time publication and listeners.
+            return msManager.clusterTime().waitFor(timestamp).thenApply(ignored -> inBusyLock(
+                    busyLock, () -> {
+                        Lease lease0 = leases.get(replicationGroupId);
+
+                        if (lease.getExpirationTime().after(timestamp)) {
+                            return lease0;
+                        } else {
+                            return null;
+                        }
+                    }));
         } finally {
             busyLock.leaveBusy();
         }

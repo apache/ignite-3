@@ -30,6 +30,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -161,4 +162,11 @@ public interface MetaStorageManager extends IgniteComponent {
      * <p>Should be called after all Ignite components have registered required watches and they are ready to process Meta Storage events.
      */
     void deployWatches() throws NodeStoppingException;
+
+    /**
+     * Returns cluster time with a hybrid clock instance and access to safe time.
+     *
+     * @return Cluster time.
+     */
+    ClusterTime clusterTime();
 }

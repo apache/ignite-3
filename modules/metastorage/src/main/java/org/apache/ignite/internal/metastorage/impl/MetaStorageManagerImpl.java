@@ -626,8 +626,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    @TestOnly
-    ClusterTime clusterTime() {
+    @Override
+    public ClusterTime clusterTime() {
         return clusterTime;
     }
 

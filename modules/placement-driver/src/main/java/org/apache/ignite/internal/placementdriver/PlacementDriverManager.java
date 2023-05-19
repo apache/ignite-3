@@ -123,9 +123,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        long longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
-
-        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr, longLeaseInterval);
+        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
                 clusterService,
                 vaultManager,
@@ -134,8 +132,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 tablesCfg,
                 distributionZonesConfiguration,
                 leaseTracker,
-                clock,
-                longLeaseInterval
+                clock
         );
     }
 
