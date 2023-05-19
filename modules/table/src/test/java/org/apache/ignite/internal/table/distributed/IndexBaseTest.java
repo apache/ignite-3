@@ -145,9 +145,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 dsCfg,
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
                 mock(LowWatermark.class),
-                indexUpdateHandler
+                indexUpdateHandler,
+                gcUpdateHandler
         );
     }
 

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -94,13 +95,19 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
 
         partitionDataStorage = new TestPartitionDataStorage(partitionStorage);
 
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()));
+
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
                 distributionZoneConfig.dataStorage(),
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
                 mock(LowWatermark.class),
-                new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()))
+                indexUpdateHandler,
+                new GcUpdateHandler(
+                        partitionDataStorage,
+                        new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
+                        indexUpdateHandler
+                )
         );
     }
 

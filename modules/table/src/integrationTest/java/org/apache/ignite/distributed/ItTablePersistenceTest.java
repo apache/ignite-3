@@ -76,6 +76,7 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -382,13 +383,17 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new HybridTimestamp(1, 0)
                     );
 
+                    IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                            DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of())
+                    );
+
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
                             zoneCfg.dataStorage(),
-                            safeTime,
                             mock(LowWatermark.class),
-                            new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()))
+                            indexUpdateHandler,
+                            new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                     );
 
                     PartitionListener listener = new PartitionListener(

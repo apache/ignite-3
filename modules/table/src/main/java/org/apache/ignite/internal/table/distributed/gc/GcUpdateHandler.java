@@ -64,6 +64,21 @@ public class GcUpdateHandler {
     }
 
     /**
+     * Tries removing {@code count} oldest stale entries and their indexes.
+     * If there's less entries that can be removed, then exits prematurely.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     * @param count Count of entries to GC.
+     */
+    public void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        for (int i = 0; i < count; i++) {
+            if (!storage.runConsistently(locker -> internalVacuum(lowWatermark))) {
+                break;
+            }
+        }
+    }
+
+    /**
      * Tries removing partition's oldest stale entry and its indexes.
      *
      * @param lowWatermark Low watermark for the vacuum.

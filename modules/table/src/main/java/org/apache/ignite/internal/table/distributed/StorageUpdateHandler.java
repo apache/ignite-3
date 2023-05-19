@@ -39,10 +39,10 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,14 +57,14 @@ public class StorageUpdateHandler {
 
     private final DataStorageConfiguration dsCfg;
 
-    /** Partition safe time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
-
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
     /** Partition index update handler. */
     private final IndexUpdateHandler indexUpdateHandler;
+
+    /** Partition gc update handler. */
+    private final GcUpdateHandler gcUpdateHandler;
 
     /**
      * The constructor.
@@ -72,23 +72,23 @@ public class StorageUpdateHandler {
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param dsCfg Data storage configuration.
-     * @param safeTimeTracker Partition safe time tracker.
      * @param indexUpdateHandler Partition index update handler.
+     * @param gcUpdateHandler Partition gc update handler.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
             DataStorageConfiguration dsCfg,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             LowWatermark lowWatermark,
-            IndexUpdateHandler indexUpdateHandler
+            IndexUpdateHandler indexUpdateHandler,
+            GcUpdateHandler gcUpdateHandler
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.dsCfg = dsCfg;
-        this.safeTimeTracker = safeTimeTracker;
         this.lowWatermark = lowWatermark;
         this.indexUpdateHandler = indexUpdateHandler;
+        this.gcUpdateHandler = gcUpdateHandler;
     }
 
     /**
@@ -196,11 +196,11 @@ public class StorageUpdateHandler {
     void executeBatchGc() {
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
-        if (lwm == null || safeTimeTracker.current().compareTo(lwm) < 0) {
+        if (lwm == null || gcUpdateHandler.getSafeTimeTracker().current().compareTo(lwm) < 0) {
             return;
         }
 
-        vacuumBatch(lwm, dsCfg.gcOnUpdateBatchSize().value());
+        gcUpdateHandler.vacuumBatch(lwm, dsCfg.gcOnUpdateBatchSize().value());
     }
 
     /**

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -137,13 +138,15 @@ public class StorageUpdateHandlerTest {
     }
 
     private StorageUpdateHandler createStorageUpdateHandler(PartitionDataStorage partitionStorage, TableIndexStoragesSupplier indexes) {
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
         return new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionStorage,
                 dataStorageConfig,
-                safeTimeTracker,
                 lowWatermark,
-                new IndexUpdateHandler(indexes)
+                indexUpdateHandler,
+                new GcUpdateHandler(partitionStorage, safeTimeTracker, indexUpdateHandler)
         );
     }
 

@@ -89,6 +89,7 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -197,9 +198,9 @@ public class PartitionCommandListenerTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 dsCfg,
-                safeTimeTracker,
                 mock(LowWatermark.class),
-                indexUpdateHandler
+                indexUpdateHandler,
+                new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler)
         ));
 
         commandListener = new PartitionListener(
@@ -289,13 +290,17 @@ public class PartitionCommandListenerTest {
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration DataStorageConfiguration dsCfg) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
+        IndexUpdateHandler indexUpdateHandler1 = new IndexUpdateHandler(
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
+        );
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
                 dsCfg,
-                safeTimeTracker,
                 mock(LowWatermark.class),
-                new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)))
+                indexUpdateHandler1,
+                new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler1)
         );
 
         PartitionListener testCommandListener = new PartitionListener(
