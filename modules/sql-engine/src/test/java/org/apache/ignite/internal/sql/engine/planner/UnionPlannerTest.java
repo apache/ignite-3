@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.util.UUID;
+import java.util.Random;
 import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
@@ -88,7 +88,7 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
                         .build(),
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+                IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID)
         );
 
         createTable(publicSchema,
@@ -98,7 +98,7 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
                         .build(),
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+                IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID)
         );
 
 
@@ -109,9 +109,13 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                         .add("NAME", f.createJavaType(String.class))
                         .add("SALARY", f.createJavaType(Double.class))
                         .build(),
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+                IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID)
         );
 
         return publicSchema;
+    }
+
+    private static int randomTableId() {
+        return new Random().nextInt();
     }
 }

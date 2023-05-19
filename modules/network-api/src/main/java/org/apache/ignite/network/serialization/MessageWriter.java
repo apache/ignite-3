@@ -27,6 +27,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Stateful message writer.
@@ -82,6 +83,15 @@ public interface MessageWriter {
      * @return Whether a value was fully written.
      */
     public boolean writeInt(String name, int val);
+
+    /**
+     * Writes an {@code Integer} value.
+     *
+     * @param name Field name.
+     * @param val  {@code Integer} value.
+     * @return Whether a value was fully written.
+     */
+    public boolean writeInteger(String name, @Nullable Integer val);
 
     /**
      * Writes a {@code long} value.

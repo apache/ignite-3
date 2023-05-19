@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Descriptor for creating a Sorted Index Storage.
@@ -151,7 +153,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
             ));
         }
 
-        TableView tableConfig = tablesConfig.tables().get(indexConfig.tableId());
+        TableView tableConfig = findTableById(indexConfig.tableId(), tablesConfig.tables());
 
         if (tableConfig == null) {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
@@ -178,6 +180,17 @@ public class SortedIndexDescriptor implements IndexDescriptor {
                 .toArray(Element[]::new);
 
         return BinaryTupleSchema.create(elements);
+    }
+
+    @Nullable
+    private static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
+        for (TableView table : tablesView) {
+            if (((ExtendedTableView) table).id() == tableId) {
+                return table;
+            }
+        }
+
+        return null;
     }
 
     @Override

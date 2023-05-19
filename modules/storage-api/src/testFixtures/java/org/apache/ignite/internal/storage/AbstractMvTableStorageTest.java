@@ -49,7 +49,6 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -57,6 +56,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
@@ -99,6 +99,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     /** Partition id for 1 storage. */
     protected static final int PARTITION_ID_1 = 1 << 8;
+
+    protected static final int COMMIT_TABLE_ID = 999;
 
     protected MvTableStorage tableStorage;
 
@@ -189,7 +191,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData0, txId, UUID.randomUUID(), 0);
+            return partitionStorage0.addWrite(rowId0, testData0, txId, COMMIT_TABLE_ID, 0);
         });
 
         assertThat(unwrap(partitionStorage0.read(rowId0, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData0))));
@@ -202,7 +204,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         partitionStorage1.runConsistently(locker -> {
             locker.lock(rowId1);
 
-            return partitionStorage1.addWrite(rowId1, testData1, txId, UUID.randomUUID(), 0);
+            return partitionStorage1.addWrite(rowId1, testData1, txId, COMMIT_TABLE_ID, 0);
         });
 
         assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, HybridTimestamp.MAX_VALUE));
@@ -828,7 +830,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                         .build()
         );
 
-        UUID tableId = ConfigurationUtil.internalId(tablesConfig.tables().value(), "foo");
+        int tableId = ((ExtendedTableView) tablesConfig.tables().value().get("foo")).id();
 
         CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
                 indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
@@ -883,7 +885,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), partId));
+        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
         assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
@@ -1042,7 +1044,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 locker.lock(rowId);
 
                 if ((finalI % 2) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), rowId.partitionId());
+                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);
                 } else {

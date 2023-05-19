@@ -773,7 +773,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
-                    UUID tableId = rel.getTable().unwrap(IgniteTable.class).id();
+                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
 
                     enlist(tableId, assignments);
@@ -781,7 +781,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(UUID tableId, List<NodeWithTerm> assignments) {
+                private void enlist(int tableId, List<NodeWithTerm> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -799,7 +799,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
 
                 private void enlist(SourceAwareIgniteRel rel) {
-                    UUID tableId = rel.getTable().unwrap(IgniteTable.class).id();
+                    int tableId = rel.getTable().unwrap(IgniteTable.class).id();
                     List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
                             .map(l -> l.get(0))
                             .collect(Collectors.toList());

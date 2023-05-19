@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.jetbrains.annotations.NotNull;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Should be refactored to ZonePartitionId.
 /**
@@ -29,7 +27,7 @@ public class TablePartitionId implements ReplicationGroupId {
     private static final long serialVersionUID = -2428659904367844831L;
 
     /** Table id. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Partition id. */
     private final int partId;
@@ -40,7 +38,7 @@ public class TablePartitionId implements ReplicationGroupId {
      * @param tableId Table id.
      * @param partId Partition id.
      */
-    public TablePartitionId(@NotNull UUID tableId, int partId) {
+    public TablePartitionId(int tableId, int partId) {
         this.tableId = tableId;
         this.partId = partId;
     }
@@ -54,7 +52,7 @@ public class TablePartitionId implements ReplicationGroupId {
     public static TablePartitionId fromString(String str) {
         String[] parts = str.split("_part_");
 
-        return new TablePartitionId(UUID.fromString(parts[0]), Integer.valueOf(parts[1]));
+        return new TablePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }
 
     /**
@@ -71,7 +69,7 @@ public class TablePartitionId implements ReplicationGroupId {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 
@@ -87,12 +85,12 @@ public class TablePartitionId implements ReplicationGroupId {
 
         TablePartitionId that = (TablePartitionId) o;
 
-        return partId == that.partId && tableId.equals(that.tableId);
+        return partId == that.partId && tableId == that.tableId;
     }
 
     @Override
     public int hashCode() {
-        return tableId.hashCode() ^ partId;
+        return tableId ^ partId;
     }
 
     @Override

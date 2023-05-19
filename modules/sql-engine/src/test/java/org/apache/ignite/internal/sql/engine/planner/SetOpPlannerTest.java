@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Random;
 import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -74,11 +74,15 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         createTable(publicSchema, "BROADCAST_TBL2", type, IgniteDistributions.broadcast());
         createTable(publicSchema, "SINGLE_TBL1", type, IgniteDistributions.single());
         createTable(publicSchema, "SINGLE_TBL2", type, IgniteDistributions.single());
-        createTable(publicSchema, "AFFINITY_TBL1", type, IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID));
+        createTable(publicSchema, "AFFINITY_TBL1", type, IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID));
         createTable(publicSchema, "HASH_TBL1", type, IgniteDistributions.hash(List.of(0)));
-        createTable(publicSchema, "AFFINITY_TBL2", type, IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID));
-        createTable(publicSchema, "AFFINITY_TBL3", type, IgniteDistributions.affinity(1, UUID.randomUUID(), DEFAULT_ZONE_ID));
-        createTable(publicSchema, "AFFINITY_TBL4", type, IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID + 1));
+        createTable(publicSchema, "AFFINITY_TBL2", type, IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID));
+        createTable(publicSchema, "AFFINITY_TBL3", type, IgniteDistributions.affinity(1, randomTableId(), DEFAULT_ZONE_ID));
+        createTable(publicSchema, "AFFINITY_TBL4", type, IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID + 1));
+    }
+
+    private static int randomTableId() {
+        return new Random().nextInt();
     }
 
     /**
@@ -247,7 +251,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
                 .and(input(isInstanceOf(setOp.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))
+                        .and(hasDistribution(IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID)))
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isTableScan("affinity_tbl2")))
                 ))
@@ -271,7 +275,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
                 .and(input(isInstanceOf(setOp.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)))
+                        .and(hasDistribution(IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID)))
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isInstanceOf(IgniteTrimExchange.class)
                                 .and(input(isTableScan("broadcast_tbl1")))

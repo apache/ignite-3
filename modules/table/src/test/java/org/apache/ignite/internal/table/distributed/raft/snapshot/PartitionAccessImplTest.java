@@ -69,7 +69,7 @@ public class PartitionAccessImplTest {
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 txStateTableStorage,
                 mock(MvGc.class),
@@ -102,6 +102,10 @@ public class PartitionAccessImplTest {
         assertEquals(20, partitionAccess.maxLastAppliedIndex());
     }
 
+    private static PartitionKey testPartitionKey() {
+        return new PartitionKey(1, TEST_PARTITION_ID);
+    }
+
     @Test
     void testMinMaxLastAppliedTerm() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig,
@@ -112,7 +116,7 @@ public class PartitionAccessImplTest {
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 txStateTableStorage,
                 mock(MvGc.class),
@@ -155,7 +159,7 @@ public class PartitionAccessImplTest {
         IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 new TestTxStateTableStorage(),
                 mock(MvGc.class),
@@ -166,7 +170,7 @@ public class PartitionAccessImplTest {
         RowId rowId = new RowId(TEST_PARTITION_ID);
         BinaryRow binaryRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();
-        UUID commitTableId = UUID.randomUUID();
+        int commitTableId = 999;
 
         partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID);
 
@@ -196,7 +200,7 @@ public class PartitionAccessImplTest {
         IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
-                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                testPartitionKey(),
                 mvTableStorage,
                 new TestTxStateTableStorage(),
                 mock(MvGc.class),

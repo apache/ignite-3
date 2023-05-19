@@ -38,9 +38,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -470,7 +470,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TablePartitionId createTableAssignment() throws Exception {
-        AtomicReference<UUID> tblIdRef = new AtomicReference<>();
+        AtomicInteger tblIdRef = new AtomicInteger();
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(List.of(nodeName, anotherNodeName), 1, 2);
 

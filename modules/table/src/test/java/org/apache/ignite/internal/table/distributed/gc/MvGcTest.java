@@ -34,7 +34,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -367,7 +366,7 @@ public class MvGcTest {
     }
 
     private TablePartitionId createTablePartitionId() {
-        return new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+        return new TablePartitionId(1, PARTITION_ID);
     }
 
     private GcUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {

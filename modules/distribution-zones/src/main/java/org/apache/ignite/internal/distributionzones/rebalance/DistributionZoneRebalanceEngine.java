@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -195,7 +194,7 @@ public class DistributionZoneRebalanceEngine {
                                     : ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+                                int tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 

@@ -401,7 +401,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         return busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
@@ -436,8 +436,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         byte[] valueHeaderBytes = new byte[VALUE_HEADER_SIZE];
 
                         putUuidToBytes(txId, valueHeaderBytes, TX_ID_OFFSET);
-                        putUuidToBytes(commitTableId, valueHeaderBytes, TABLE_ID_OFFSET);
-                        putShort(valueHeaderBytes, PARTITION_ID_OFFSET, (short) commitPartitionId);
+                        putInt(valueHeaderBytes, TABLE_ID_OFFSET, commitTableId);
 
                         writeBatch.put(helper.partCf, keyBytes, valueHeaderBytes);
                     }
@@ -460,7 +459,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @param txId Transaction id.
      * @throws RocksDBException If write failed.
      */
-    private void writeUnversioned(byte[] keyArray, BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    private void writeUnversioned(byte[] keyArray, BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws RocksDBException {
         @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
@@ -470,7 +469,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         byte[] array = value.array();
 
         putUuidToBytes(txId, array, TX_ID_OFFSET);
-        putUuidToBytes(commitTableId, array, TABLE_ID_OFFSET);
+        putInt(array, TABLE_ID_OFFSET, commitTableId);
         putShort(array, PARTITION_ID_OFFSET, (short) commitPartitionId);
 
         value.position(VALUE_OFFSET).put(rowBytes);
@@ -1065,6 +1064,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         GridUnsafe.putShort(array, GridUnsafe.BYTE_ARR_OFF + off, value);
     }
 
+    private static void putInt(byte[] array, int off, int value) {
+        GridUnsafe.putInt(array, GridUnsafe.BYTE_ARR_OFF + off, value);
+    }
+
     private static void validateTxId(byte[] valueBytes, UUID txId) {
         long msb = bytesToLong(valueBytes);
         long lsb = bytesToLong(valueBytes, Long.BYTES);
@@ -1121,7 +1124,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     private static ReadResult wrapUncommittedValue(RowId rowId, byte[] valueBytes, @Nullable HybridTimestamp newestCommitTs) {
         UUID txId = bytesToUuid(valueBytes, TX_ID_OFFSET);
-        UUID commitTableId = bytesToUuid(valueBytes, TABLE_ID_OFFSET);
+        int commitTableId = GridUnsafe.getInt(valueBytes, GridUnsafe.BYTE_ARR_OFF + TABLE_ID_OFFSET);
         int commitPartitionId = GridUnsafe.getShort(valueBytes, GridUnsafe.BYTE_ARR_OFF + PARTITION_ID_OFFSET) & 0xFFFF;
 
         BinaryRow row;

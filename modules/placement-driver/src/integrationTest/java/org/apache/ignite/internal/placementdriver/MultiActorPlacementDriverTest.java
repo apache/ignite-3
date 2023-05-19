@@ -36,7 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -571,7 +571,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TablePartitionId createTableAssignment() throws Exception {
-        AtomicReference<UUID> tblIdRef = new AtomicReference<>();
+        AtomicInteger tblIdRef = new AtomicInteger();
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
 

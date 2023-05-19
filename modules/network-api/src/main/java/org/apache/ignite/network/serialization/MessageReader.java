@@ -28,6 +28,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Stateful message reader.
@@ -94,6 +95,15 @@ public interface MessageReader {
      * @return {@code int} value.
      */
     public int readInt(String name, int dflt);
+
+    /**
+     * Reads an {@code Integer} value.
+     *
+     * @param name Field name.
+     * @return {@code Integer} value.
+     */
+    @Nullable
+    public Integer readInteger(String name);
 
     /**
      * Reads a {@code long} value.

@@ -24,7 +24,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -43,7 +42,7 @@ public class InternalTableImplTest {
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
-                UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.emptyMap(),
                 1,
                 s -> mock(ClusterNode.class),

@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -80,7 +81,7 @@ public class IndexManagerTest {
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
+        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
@@ -139,7 +140,7 @@ public class IndexManagerTest {
                         "name", indexName,
                         "type", "SORTED",
                         "uniq", false,
-                        "tableId", tableId().toString()
+                        "tableId", tableId()
                 )
         );
 
@@ -295,7 +296,7 @@ public class IndexManagerTest {
         }
     }
 
-    private UUID tableId() {
+    private int tableId() {
         return ((ExtendedTableConfiguration) tablesConfig.tables().get("tName")).id().value();
     }
 }

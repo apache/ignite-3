@@ -109,7 +109,7 @@ public class StorageUpdateHandlerTest {
         storageUpdateHandler.handleUpdate(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                new TablePartitionId(UUID.randomUUID(), PARTITION_ID),
+                new TablePartitionId(1, PARTITION_ID),
                 null,
                 null
         );
@@ -130,7 +130,7 @@ public class StorageUpdateHandlerTest {
         storageUpdateHandler.handleUpdateAll(
                 UUID.randomUUID(),
                 Map.of(),
-                new TablePartitionId(UUID.randomUUID(), PARTITION_ID),
+                new TablePartitionId(1, PARTITION_ID),
                 null
         );
 

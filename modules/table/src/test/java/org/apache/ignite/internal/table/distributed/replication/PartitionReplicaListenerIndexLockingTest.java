@@ -104,7 +104,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ExtendWith(ConfigurationExtension.class)
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
-    private static final UUID TABLE_ID = new UUID(0L, 0L);
+    private static final int TABLE_ID = 1;
     private static final UUID PK_INDEX_ID = new UUID(0L, 1L);
     private static final UUID HASH_INDEX_ID = new UUID(0L, 2L);
     private static final UUID SORTED_INDEX_ID = new UUID(0L, 3L);

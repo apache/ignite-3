@@ -108,7 +108,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final HybridClock CLOCK = new HybridClockImpl();
 
-    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
+    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
 
     private PartitionListener partitionListener;
 
@@ -184,7 +184,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 "test",
-                UUID.randomUUID(),
+                111,
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
@@ -257,7 +257,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        UUID tableId = tableId();
+        int tableId = tableId();
         UUID indexId = UUID.randomUUID();
 
         Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);

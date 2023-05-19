@@ -252,6 +252,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    @Override
+    public void writeInteger(Integer val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + 5;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeInt(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeLong(long val) {
@@ -907,6 +922,24 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         buf.position(pos);
 
         return val;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Integer readInteger() {
+        int pos = buf.position();
+
+        int limit = buf.limit();
+
+        if (limit - pos >= 5) {
+            if (readBoolean()) {
+                return readInt();
+            } else {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */

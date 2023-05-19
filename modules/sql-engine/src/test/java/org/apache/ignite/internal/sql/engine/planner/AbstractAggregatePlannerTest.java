@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
+import java.util.Random;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -541,7 +541,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     private static IgniteDistribution hash() {
-        return IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID);
+        return IgniteDistributions.affinity(0, new Random().nextInt(), DEFAULT_ZONE_ID);
     }
 
     private static Consumer<org.apache.ignite.internal.sql.engine.framework.TestTable> index(String name, int... cols) {

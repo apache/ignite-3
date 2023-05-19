@@ -35,7 +35,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -194,7 +193,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         table = new InternalTableImpl(
                 "table",
-                UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
@@ -235,7 +234,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
-                        .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
+                        .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
                         .safeTimeLong(hybridClock.nowLong())
@@ -249,7 +248,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .txId(req0.txId())
                         .commit(req0.commit())
                         .commitTimestampLong(req0.commitTimestampLong())
-                        .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0))))
+                        .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(1, 0))))
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 

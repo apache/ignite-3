@@ -44,7 +44,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -364,7 +363,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        TablePartitionId partId = new TablePartitionId(new UUID(0, 0), 0);
+        TablePartitionId partId = new TablePartitionId(1, 0);
 
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
@@ -379,7 +378,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         tablesConfiguration.tables().value().forEach(tableView -> {
             ExtendedTableView extendedTableView = (ExtendedTableView) tableView;
 
-            UUID tableId = extendedTableView.id();
+            int tableId = extendedTableView.id();
 
             DistributionZoneConfiguration distributionZoneConfiguration =
                     getZoneById(distributionZonesConfiguration, tableView.zoneId());

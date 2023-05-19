@@ -23,14 +23,15 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Index configuration validator implementation.
@@ -58,9 +59,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
 
             TableIndexView idxView = indexView.get(key);
 
-            UUID tableId = idxView.tableId();
-
-            TableView tableView = tablesView.get(tableId);
+            TableView tableView = findTableById(idxView.tableId(), tablesView);
 
             if (tableView == null) {
                 ctx.addIssue(new ValidationIssue(key, "Unable to create index [name=" + key + "]. Table not found."));
@@ -125,6 +124,17 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
         if (!indexedColumns.isEmpty()) {
             ctx.addIssue(new ValidationIssue(indexView.name(), "Columns don't exist [columns=" + indexedColumns + "]"));
         }
+    }
+
+    @Nullable
+    private static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
+        for (TableView table : tablesView) {
+            if (((ExtendedTableView) table).id() == tableId) {
+                return table;
+            }
+        }
+
+        return null;
     }
 
     private List<String> newKeys(NamedListView<?> before, NamedListView<?> after) {

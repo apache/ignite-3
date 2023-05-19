@@ -807,7 +807,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final TableDescriptor desc;
 
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
         /** Constructor. */
         public TestTable(RelDataType type) {
@@ -835,7 +835,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1197,7 +1197,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     static class TestSortedIndex implements SortedIndex {
         private final UUID id = UUID.randomUUID();
 
-        private final UUID tableId = UUID.randomUUID();
+        private final int tableId = 1;
 
         private final SortedIndexDescriptor descriptor;
 
@@ -1237,7 +1237,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 
@@ -1278,12 +1278,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     public static class TestHashIndex implements Index<IndexDescriptor> {
         private final UUID id = UUID.randomUUID();
 
-        private UUID tableId = UUID.randomUUID();
+        private int tableId = 1;
 
         private final IndexDescriptor descriptor;
 
         /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
+        public static TestHashIndex create(List<String> indexedColumns, String name, int tableId) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
             TestHashIndex idx = new TestHashIndex(descriptor);
@@ -1318,7 +1318,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 

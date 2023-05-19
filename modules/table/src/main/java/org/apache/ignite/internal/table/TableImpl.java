@@ -106,7 +106,7 @@ public class TableImpl implements Table {
      *
      * @return Table id as UUID.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tbl.tableId();
     }
 

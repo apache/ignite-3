@@ -72,7 +72,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class SqlSchemaManagerTest {
-    private final UUID tableId = UUID.randomUUID();
+    private final int tableId = 1;
 
     private final UUID indexId = UUID.randomUUID();
 

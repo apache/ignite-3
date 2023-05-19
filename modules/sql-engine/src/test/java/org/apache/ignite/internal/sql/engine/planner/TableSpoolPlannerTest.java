@@ -19,12 +19,13 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.UUID;
+import java.util.Random;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -54,7 +55,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
                         .build(),
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+                affinity()
         );
 
         createTable(publicSchema,
@@ -64,7 +65,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
                         .build(),
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+                affinity()
         );
 
         String sql = "select * "
@@ -81,5 +82,9 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(tblSpool, "Invalid plan:\n" + RelOptUtil.toString(phys));
 
         checkSplitAndSerialization(phys, publicSchema);
+    }
+
+    private static IgniteDistribution affinity() {
+        return IgniteDistributions.affinity(0, new Random().nextInt(), DEFAULT_ZONE_ID);
     }
 }

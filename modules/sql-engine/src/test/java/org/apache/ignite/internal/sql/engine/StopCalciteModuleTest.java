@@ -39,7 +39,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
@@ -149,7 +148,7 @@ public class StopCalciteModuleTest {
 
     private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
 
-    private UUID tblId = UUID.randomUUID();
+    private final int tblId = 1;
 
     /**
      * Before.

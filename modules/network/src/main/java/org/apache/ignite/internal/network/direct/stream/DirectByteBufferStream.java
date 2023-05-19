@@ -28,6 +28,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageReader;
 import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Direct marshalling I/O stream.
@@ -74,6 +75,13 @@ public interface DirectByteBufferStream {
      * @param val Value.
      */
     void writeInt(int val);
+
+    /**
+     * Writes {@code Integer}.
+     *
+     * @param val Value.
+     */
+    void writeInteger(@Nullable Integer val);
 
     /**
      * Writes {@code long}.
@@ -289,6 +297,14 @@ public interface DirectByteBufferStream {
      * @return Value.
      */
     int readInt();
+
+    /**
+     * Reads {@code Integer}.
+     *
+     * @return Value.
+     */
+    @Nullable
+    Integer readInteger();
 
     /**
      * Reads {@code long}.

@@ -23,13 +23,14 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Random;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +44,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                affinity(),
                 "ID", Integer.class,
                 "VAL", Integer.class
         );
@@ -64,13 +65,17 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, scan.indexName(), equalTo(indexName));
     }
 
+    private static IgniteDistribution affinity() {
+        return IgniteDistributions.affinity(0, new Random().nextInt(), DEFAULT_ZONE_ID);
+    }
+
     @Test
     public void hashIndexIsNotAppliedForRangeCondition() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                affinity(),
                 "ID", Integer.class,
                 "VAL", Integer.class
         );
