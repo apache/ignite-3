@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -34,18 +31,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,35 +51,11 @@ public class StorageUpdateHandlerTest {
     @InjectConfiguration
     private DataStorageConfiguration dataStorageConfig;
 
-    private final HybridClock clock = new HybridClockImpl();
-
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
             new HybridTimestamp(1, 0)
     ));
 
     private final LowWatermark lowWatermark = mock(LowWatermark.class);
-
-    @Test
-    void testVacuum() {
-        PartitionDataStorage partitionStorage = createPartitionDataStorage();
-
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler(partitionStorage, mock(TableIndexStoragesSupplier.class));
-
-        HybridTimestamp lowWatermark = new HybridTimestamp(100, 100);
-
-        assertFalse(storageUpdateHandler.vacuum(lowWatermark));
-        verify(partitionStorage).pollForVacuum(lowWatermark);
-        // Let's check that StorageUpdateHandler#vacuumBatch returns true.
-        clearInvocations(partitionStorage);
-
-        BinaryRowAndRowId binaryRowAndRowId = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
-
-        when(partitionStorage.scanVersions(any(RowId.class))).thenReturn(CursorUtils.emptyCursor());
-        when(partitionStorage.pollForVacuum(lowWatermark)).thenReturn(binaryRowAndRowId);
-
-        assertTrue(storageUpdateHandler.vacuum(lowWatermark));
-        verify(partitionStorage).pollForVacuum(lowWatermark);
-    }
 
     @Test
     void testExecuteBatchGc() {

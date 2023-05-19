@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
@@ -50,28 +51,28 @@ public class IndexUpdateHandlerTest {
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
 
-        BuildIndexRow buildIndexRow0 = new BuildIndexRow(new RowId(PARTITION_ID), mock(BinaryRow.class));
-        BuildIndexRow buildIndexRow1 = new BuildIndexRow(new RowId(PARTITION_ID), mock(BinaryRow.class));
+        BinaryRowAndRowId row0 = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
+        BinaryRowAndRowId row1 = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
 
-        indexUpdateHandler.buildIndex(indexId, Stream.of(buildIndexRow0, buildIndexRow1), buildIndexRow1.getRowId().increment());
+        indexUpdateHandler.buildIndex(indexId, Stream.of(row0, row1), row1.rowId().increment());
 
         verify(indexes).addIndexToWaitIfAbsent(indexId);
 
-        verify(indexStorage).put(buildIndexRow0.getBinaryRow(), buildIndexRow0.getRowId());
-        verify(indexStorage).put(buildIndexRow1.getBinaryRow(), buildIndexRow1.getRowId());
+        verify(indexStorage).put(row0.binaryRow(), row0.rowId());
+        verify(indexStorage).put(row1.binaryRow(), row1.rowId());
 
-        verify(indexStorage.storage()).setNextRowIdToBuild(buildIndexRow1.getRowId().increment());
+        verify(indexStorage.storage()).setNextRowIdToBuild(row1.rowId().increment());
 
         // Let's check one more batch - it will be the finishing one.
         clearInvocations(indexes, indexStorage);
 
-        BuildIndexRow buildIndexRow2 = new BuildIndexRow(new RowId(PARTITION_ID), mock(BinaryRow.class));
+        BinaryRowAndRowId row2 = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
 
-        indexUpdateHandler.buildIndex(indexId, Stream.of(buildIndexRow2), null);
+        indexUpdateHandler.buildIndex(indexId, Stream.of(row2), null);
 
         verify(indexes).addIndexToWaitIfAbsent(indexId);
 
-        verify(indexStorage).put(buildIndexRow2.getBinaryRow(), buildIndexRow2.getRowId());
+        verify(indexStorage).put(row2.binaryRow(), row2.rowId());
 
         verify(indexStorage.storage()).setNextRowIdToBuild(null);
     }

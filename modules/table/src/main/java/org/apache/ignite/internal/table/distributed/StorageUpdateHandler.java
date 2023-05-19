@@ -258,17 +258,6 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Tries removing partition's oldest stale entry and its indexes.
-     *
-     * @param lowWatermark Low watermark for the vacuum.
-     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
-     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
-     */
-    public boolean vacuum(HybridTimestamp lowWatermark) {
-        return storage.runConsistently(locker -> internalVacuum(lowWatermark));
-    }
-
-    /**
      * Tries removing {@code count} oldest stale entries and their indexes.
      * If there's less entries that can be removed, then exits prematurely.
      *

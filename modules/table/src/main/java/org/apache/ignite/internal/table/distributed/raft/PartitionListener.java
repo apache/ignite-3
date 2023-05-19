@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -65,7 +66,6 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.table.distributed.index.BuildIndexRow;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -474,7 +474,7 @@ public class PartitionListener implements RaftGroupListener {
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
 
-            Stream<BuildIndexRow> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
 
             RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
 
@@ -504,7 +504,7 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    private Stream<BuildIndexRow> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
+    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
         return rowUuids.stream()
                 .map(this::toRowId)
                 .peek(locker::lock)
@@ -513,7 +513,7 @@ public class PartitionListener implements RaftGroupListener {
                         return cursor.stream()
                                 .filter(not(ReadResult::isEmpty))
                                 .map(ReadResult::binaryRow)
-                                .map(binaryRow -> new BuildIndexRow(rowId, binaryRow))
+                                .map(binaryRow -> new BinaryRowAndRowId(binaryRow, rowId))
                                 .collect(toList());
                     }
                 })

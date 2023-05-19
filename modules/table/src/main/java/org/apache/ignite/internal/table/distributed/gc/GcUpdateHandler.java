@@ -57,6 +57,13 @@ public class GcUpdateHandler {
     }
 
     /**
+     * Returns the partition safe time tracker.
+     */
+    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
+        return safeTimeTracker;
+    }
+
+    /**
      * Tries removing partition's oldest stale entry and its indexes.
      *
      * @param lowWatermark Low watermark for the vacuum.
@@ -68,14 +75,9 @@ public class GcUpdateHandler {
     }
 
     /**
-     * Returns the partition safe time tracker.
-     */
-    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
-        return safeTimeTracker;
-    }
-
-    /**
-     * Executes garbage collection. Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     * Executes garbage collection.
+     *
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
