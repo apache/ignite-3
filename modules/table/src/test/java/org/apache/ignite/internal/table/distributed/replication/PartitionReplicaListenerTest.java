@@ -113,7 +113,9 @@ import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
@@ -381,6 +383,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
+        );
+
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
@@ -399,10 +406,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage())),
                         dsCfg,
-                        safeTimeClock,
-                        mock(LowWatermark.class)
+                        mock(LowWatermark.class),
+                        indexUpdateHandler,
+                        new GcUpdateHandler(partitionDataStorage, safeTimeClock, indexUpdateHandler)
                 ),
                 schemas,
                 completedFuture(schemaManager),

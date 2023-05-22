@@ -74,9 +74,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
@@ -205,7 +206,7 @@ public class IncomingSnapshotCopierTest {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
-        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
 
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
         TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
@@ -300,8 +301,9 @@ public class IncomingSnapshotCopierTest {
                         new PartitionKey(tableId, TEST_PARTITION),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
-                        mock(StorageUpdateHandler.class),
-                        mvGc
+                        mvGc,
+                        mock(IndexUpdateHandler.class),
+                        mock(GcUpdateHandler.class)
                 )),
                 mock(SnapshotMeta.class),
                 executorService
@@ -602,7 +604,7 @@ public class IncomingSnapshotCopierTest {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
-        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
     }
 
     @Test

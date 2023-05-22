@@ -92,7 +92,9 @@ import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -464,13 +466,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
 
+                IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+                );
+
                 StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
                         dsCfg,
-                        safeTime,
-                        mock(LowWatermark.class)
+                        mock(LowWatermark.class),
+                        indexUpdateHandler,
+                        new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                 );
 
                 TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(

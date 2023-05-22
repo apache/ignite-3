@@ -131,8 +131,10 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -683,20 +685,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                                 internalTbl, partId));
 
-                CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
+                CompletableFuture<PartitionUpdateHandlers> partitionUpdateHandlersFut = partitionDataStorageFut
                         .thenApply(storage -> {
-                            StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                                     partId,
                                     storage,
-                                    table.indexStorageAdapters(partId),
+                                    table,
                                     dsCfg,
-                                    safeTimeTracker,
-                                    lowWatermark
+                                    safeTimeTracker
                             );
 
-                            mvGc.addStorage(replicaGrpId, storageUpdateHandler);
+                            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                            return storageUpdateHandler;
+                            return partitionUpdateHandlers;
                         });
 
                 CompletableFuture<Void> startGroupFut;
@@ -741,15 +742,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return partitionDataStorageFut.thenAcceptBothAsync(storageUpdateHandlerFut,
-                                    (partitionDataStorage, storageUpdateHandler) -> inBusyLock(busyLock, () -> {
+                            return partitionDataStorageFut.thenAcceptBothAsync(partitionUpdateHandlersFut,
+                                    (partitionDataStorage, partitionUpdateHandlers) -> inBusyLock(busyLock, () -> {
                                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler
+                                                partitionUpdateHandlers
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -763,7 +764,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     newConfiguration,
                                                     new PartitionListener(
                                                             partitionDataStorage,
-                                                            storageUpdateHandler,
+                                                            partitionUpdateHandlers.storageUpdateHandler,
                                                             txStatePartitionStorage,
                                                             safeTimeTracker,
                                                             storageIndexTracker
@@ -805,8 +806,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return partitionStoragesFut.thenAcceptBoth(storageUpdateHandlerFut,
-                                    (partitionStorages, storageUpdateHandler) -> {
+                            return partitionStoragesFut.thenAcceptBoth(partitionUpdateHandlersFut,
+                                    (partitionStorages, partitionUpdateHandlers) -> {
                                         MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
                                         TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
@@ -832,7 +833,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             safeTimeTracker,
                                                             txStateStorage,
                                                             placementDriver,
-                                                            storageUpdateHandler,
+                                                            partitionUpdateHandlers.storageUpdateHandler,
                                                             new NonHistoricSchemas(schemaManager),
                                                             schemaManager.schemaRegistry(causalityToken, tblId),
                                                             localNode(),
@@ -910,7 +911,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler
+            PartitionUpdateHandlers partitionUpdateHandlers
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -930,8 +931,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionKey,
                         mvTableStorage,
                         txStateTableStorage,
-                        storageUpdateHandler,
-                        mvGc
+                        mvGc,
+                        partitionUpdateHandlers.indexUpdateHandler,
+                        partitionUpdateHandlers.gcUpdateHandler
                 ),
                 incomingSnapshotsExecutor
         ));
@@ -2035,25 +2037,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-                        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+
+                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                                 partId,
                                 partitionDataStorage,
-                                tbl.indexStorageAdapters(partId),
+                                tbl,
                                 dstZoneCfg.dataStorage(),
-                                safeTimeTracker,
-                                lowWatermark
+                                safeTimeTracker
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler
+                                partitionUpdateHandlers
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
                                 partitionDataStorage,
-                                storageUpdateHandler,
+                                partitionUpdateHandlers.storageUpdateHandler,
                                 txStatePartitionStorage,
                                 safeTimeTracker,
                                 storageIndexTracker
@@ -2107,7 +2109,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             safeTimeTracker,
                                             txStatePartitionStorage,
                                             placementDriver,
-                                            storageUpdateHandler,
+                                            partitionUpdateHandlers.storageUpdateHandler,
                                             new NonHistoricSchemas(schemaManager),
                                             completedFuture(schemaManager.schemaRegistry(tblId)),
                                             localNode(),
@@ -2408,5 +2410,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private ClusterNode localNode() {
         return clusterService.topologyService().localMember();
+    }
+
+    private PartitionUpdateHandlers createPartitionUpdateHandlers(
+            int partitionId,
+            PartitionDataStorage partitionDataStorage,
+            TableImpl table,
+            DataStorageConfiguration dsCfg,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker
+    ) {
+        TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
+
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
+        GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
+
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                partitionId,
+                partitionDataStorage,
+                dsCfg,
+                lowWatermark,
+                indexUpdateHandler,
+                gcUpdateHandler
+        );
+
+        return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
 }

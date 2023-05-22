@@ -67,7 +67,9 @@ import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -278,13 +280,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
         lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PART_ID,
                 partitionDataStorage,
-                indexes,
                 dsCfg,
-                safeTime,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                indexUpdateHandler,
+                new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);

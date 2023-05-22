@@ -70,7 +70,9 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -179,6 +181,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
 
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+        );
+
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE);
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -203,11 +211,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(PlacementDriver.class),
                 new StorageUpdateHandler(
                         PART_ID,
-                        new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
+                        partitionDataStorage,
                         dsCfg,
-                        safeTime,
-                        mock(LowWatermark.class)
+                        mock(LowWatermark.class),
+                        indexUpdateHandler,
+                        new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                 ),
                 new DummySchemas(schemaManager),
                 CompletableFuture.completedFuture(schemaManager),
