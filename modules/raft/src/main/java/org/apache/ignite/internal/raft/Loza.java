@@ -149,6 +149,8 @@ public class Loza implements RaftManager {
     public void start() {
         opts.setRpcInstallSnapshotTimeout(raftConfiguration.rpcInstallSnapshotTimeout().value());
 
+        opts.getRaftOptions().setSync(raftConfiguration.fsync().value());
+
         raftServer.start();
     }
 
