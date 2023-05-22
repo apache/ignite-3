@@ -139,6 +139,9 @@ public class ConfigurationAnyListenerTest {
         public String strVal;
     }
 
+    /** Configuration generator. */
+    private ConfigurationTreeGenerator generator;
+
     /** Configuration registry. */
     private ConfigurationRegistry registry;
 
@@ -153,14 +156,15 @@ public class ConfigurationAnyListenerTest {
      */
     @BeforeEach
     public void before() throws Exception {
+        generator = new ConfigurationTreeGenerator(
+                List.of(RootConfiguration.KEY),
+                List.of(),
+                List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
+        );
         registry = new ConfigurationRegistry(
                 List.of(RootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                new ConfigurationTreeGenerator(
-                        List.of(RootConfiguration.KEY),
-                        List.of(),
-                        List.of(FirstPolyAnyConfigurationSchema.class, SecondPolyAnyConfigurationSchema.class)
-                ),
+                generator,
                 new TestConfigurationValidator()
         );
 
@@ -236,6 +240,7 @@ public class ConfigurationAnyListenerTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test

@@ -146,8 +146,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         changer.stop();
 
         storageRevisionListeners.clear();
-
-        generator.close();
     }
 
     /**

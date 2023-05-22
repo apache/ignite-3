@@ -110,6 +110,8 @@ public class ItDistributedConfigurationPropertiesTest {
 
         private final MetaStorageManager metaStorageManager;
 
+        private final ConfigurationTreeGenerator generator;
+
         private final ConfigurationManager distributedCfgManager;
 
         /** Flag that disables storage updates. */
@@ -186,10 +188,11 @@ public class ItDistributedConfigurationPropertiesTest {
                 }
             };
 
+            generator = new ConfigurationTreeGenerator(DistributedConfiguration.KEY);
             distributedCfgManager = new ConfigurationManager(
                     List.of(DistributedConfiguration.KEY),
                     distributedCfgStorage,
-                    new ConfigurationTreeGenerator(DistributedConfiguration.KEY),
+                    generator,
                     new TestConfigurationValidator()
             );
         }
@@ -233,6 +236,8 @@ public class ItDistributedConfigurationPropertiesTest {
             for (IgniteComponent component : components) {
                 component.stop();
             }
+
+            generator.close();
         }
 
         /**

@@ -154,6 +154,8 @@ public class ConfigurationListenerTest {
 
     private ConfigurationStorage storage;
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationRegistry registry;
 
     private ParentConfiguration config;
@@ -165,14 +167,15 @@ public class ConfigurationListenerTest {
     public void before() {
         storage = new TestConfigurationStorage(LOCAL);
 
+        generator = new ConfigurationTreeGenerator(
+                List.of(ParentConfiguration.KEY),
+                List.of(InternalChildConfigurationSchema.class),
+                List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)
+        );
         registry = new ConfigurationRegistry(
                 List.of(ParentConfiguration.KEY),
                 storage,
-                new ConfigurationTreeGenerator(
-                        List.of(ParentConfiguration.KEY),
-                        List.of(InternalChildConfigurationSchema.class),
-                        List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)
-                ),
+                generator,
                 new TestConfigurationValidator()
         );
 
@@ -186,6 +189,7 @@ public class ConfigurationListenerTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test

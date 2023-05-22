@@ -15,22 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.validation;
+package org.apache.ignite.internal.runner.app;
 
-import java.util.Set;
-import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
- * Collection of default configuration validators.
+ * Adapter for {@link ManuallyCloseable} to {@link IgniteComponent}.
  */
-final class DefaultValidators {
+public class ComponentAdapter<T extends ManuallyCloseable> implements IgniteComponent {
 
-    /** Set of default configuration validators. */
-    static final Set<Validator<?, ?>> DEFAULT_VALIDATORS = Set.of(
-            new ImmutableValidator(),
-            new OneOfValidator(),
-            new ExceptKeysValidator(),
-            new PowerOfTwoValidator(),
-            new RangeValidator()
-    );
+    private final T closeable;
+
+    public ComponentAdapter(T closeable) {
+        this.closeable = closeable;
+    }
+
+
+    @Override
+    public void start() {
+
+    }
+
+    @Override
+    public void stop() throws Exception {
+        closeable.close();
+    }
 }

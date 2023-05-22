@@ -266,6 +266,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 modules.local().polymorphicSchemaExtensions()
         );
 
+        partialNode.add(new ComponentAdapter<>(localConfigurationGenerator));
+
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 new LocalFileConfigurationStorage(configFile, localConfigurationGenerator),
@@ -336,14 +338,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
+        partialNode.add(new ComponentAdapter<>(distributedConfigurationGenerator));
+
         var clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 cfgStorage,
-                new ConfigurationTreeGenerator(
-                        modules.distributed().rootKeys(),
-                        modules.distributed().internalSchemaExtensions(),
-                        modules.distributed().polymorphicSchemaExtensions()
-                ),
+                distributedConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 

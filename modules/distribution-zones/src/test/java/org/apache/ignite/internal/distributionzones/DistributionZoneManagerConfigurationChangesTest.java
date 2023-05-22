@@ -83,6 +83,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationManager clusterCfgMgr;
 
     private VaultManager vaultMgr;
@@ -94,7 +96,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @BeforeEach
     public void setUp() throws Exception {
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+        generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
@@ -102,11 +104,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 new TestConfigurationStorage(DISTRIBUTED),
-                new ConfigurationTreeGenerator(
-                        List.of(DistributionZonesConfiguration.KEY),
-                        List.of(),
-                        List.of(TestPersistStorageConfigurationSchema.class)
-                ),
+                generator,
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
         );
 
@@ -159,6 +157,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         metaStorageManager.stop();
         clusterCfgMgr.stop();
         vaultMgr.stop();
+        generator.close();
     }
 
     @Test

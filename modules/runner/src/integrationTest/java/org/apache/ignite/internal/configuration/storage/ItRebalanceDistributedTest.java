@@ -591,7 +591,9 @@ public class ItRebalanceDistributedTest {
 
         private List<IgniteComponent> nodeComponents;
 
-        private final ConfigurationTreeGenerator generator;
+        private final ConfigurationTreeGenerator nodeCfgGenerator;
+
+        private final ConfigurationTreeGenerator clusterCfgGenerator;
 
         private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
                 = new ConcurrentHashMap<>();
@@ -610,7 +612,7 @@ public class ItRebalanceDistributedTest {
 
             vaultManager = createVault(name, dir);
 
-            generator = new ConfigurationTreeGenerator(
+            nodeCfgGenerator = new ConfigurationTreeGenerator(
                     NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
             );
 
@@ -619,8 +621,8 @@ public class ItRebalanceDistributedTest {
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
-                    new LocalFileConfigurationStorage(configPath, generator),
-                    generator,
+                    new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
+                    nodeCfgGenerator,
                     new TestConfigurationValidator()
             );
 
@@ -681,6 +683,25 @@ public class ItRebalanceDistributedTest {
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
 
+            clusterCfgGenerator = new ConfigurationTreeGenerator(
+                    List.of(
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY,
+                            TablesConfiguration.KEY,
+                            DistributionZonesConfiguration.KEY
+                    ),
+                    List.of(ExtendedTableConfigurationSchema.class),
+                    List.of(
+                            VolatilePageMemoryDataStorageConfigurationSchema.class,
+                            UnsafeMemoryAllocatorConfigurationSchema.class,
+                            PersistentPageMemoryDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            TestDataStorageConfigurationSchema.class
+                    )
+            );
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
@@ -689,25 +710,7 @@ public class ItRebalanceDistributedTest {
                             DistributionZonesConfiguration.KEY
                     ),
                     cfgStorage,
-                    new ConfigurationTreeGenerator(
-                            List.of(
-                                    PersistentPageMemoryStorageEngineConfiguration.KEY,
-                                    VolatilePageMemoryStorageEngineConfiguration.KEY,
-                                    TablesConfiguration.KEY,
-                                    DistributionZonesConfiguration.KEY
-                            ),
-                            List.of(ExtendedTableConfigurationSchema.class),
-                            List.of(
-                                    VolatilePageMemoryDataStorageConfigurationSchema.class,
-                                    UnsafeMemoryAllocatorConfigurationSchema.class,
-                                    PersistentPageMemoryDataStorageConfigurationSchema.class,
-                                    HashIndexConfigurationSchema.class,
-                                    ConstantValueDefaultConfigurationSchema.class,
-                                    FunctionCallDefaultConfigurationSchema.class,
-                                    NullValueDefaultConfigurationSchema.class,
-                                    TestDataStorageConfigurationSchema.class
-                            )
-                    ),
+                    clusterCfgGenerator,
                     new TestConfigurationValidator()
             );
 
@@ -876,7 +879,8 @@ public class ItRebalanceDistributedTest {
             });
 
 
-            generator.close();
+            nodeCfgGenerator.close();
+            clusterCfgGenerator.close();
         }
 
         NetworkAddress address() {

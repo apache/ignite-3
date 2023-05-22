@@ -84,7 +84,7 @@ public class ClusterManagementController implements ClusterManagementApi {
                     initCommand.cmgNodes());
         }
 
-        return CompletableFuture.runAsync(() -> validateConfiguration(initCommand.clusterConfiguration()))
+        return validateConfiguration(initCommand.clusterConfiguration())
                 .thenCompose(ignored -> clusterInitializer.initCluster(
                         initCommand.metaStorageNodes(),
                         initCommand.cmgNodes(),
@@ -96,13 +96,15 @@ public class ClusterManagementController implements ClusterManagementApi {
                 });
     }
 
-    private void validateConfiguration(@Nullable String configuration) {
+    private CompletableFuture<Void> validateConfiguration(@Nullable String configuration) {
         if (configuration != null) {
             List<ValidationIssue> validationIssues = clusterCfgValidator.validateHocon(configuration);
             if (!validationIssues.isEmpty()) {
-                throw new ConfigurationValidationException(validationIssues);
+                return CompletableFuture.failedFuture(new ConfigurationValidationException(validationIssues));
             }
         }
+
+        return CompletableFuture.completedFuture(null);
     }
 
     private ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {

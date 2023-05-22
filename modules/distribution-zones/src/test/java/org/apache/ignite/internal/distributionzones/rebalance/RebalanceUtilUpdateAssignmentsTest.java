@@ -85,6 +85,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationManager clusterCfgMgr;
 
     private ClusterService clusterService;
@@ -106,14 +108,15 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
+        generator = new ConfigurationTreeGenerator(
+                List.of(DistributionZonesConfiguration.KEY),
+                List.of(),
+                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
+        );
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 new TestConfigurationStorage(DISTRIBUTED),
-                new ConfigurationTreeGenerator(
-                        List.of(DistributionZonesConfiguration.KEY),
-                        List.of(),
-                        List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
-                ),
+                generator,
                 new TestConfigurationValidator()
         );
 
@@ -200,6 +203,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         clusterCfgMgr.stop();
 
         keyValueStorage.close();
+
+        generator.close();
     }
 
     /**

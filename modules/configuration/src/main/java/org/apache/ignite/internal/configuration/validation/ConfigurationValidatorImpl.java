@@ -55,6 +55,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ConfigurationValidatorImpl implements ConfigurationValidator {
 
+    /** Set of default configuration validators. */
+    private static final Set<Validator<?, ?>> DEFAULT_VALIDATORS = Set.of(
+            new ImmutableValidator(),
+            new OneOfValidator(),
+            new ExceptKeysValidator(),
+            new PowerOfTwoValidator(),
+            new RangeValidator()
+    );
+
     /** Lazy annotations cache for configuration schema fields. */
     private final Map<MemberKey, Map<Annotation, Set<Validator<?, ?>>>> cachedAnnotations = new ConcurrentHashMap<>();
 
@@ -81,15 +90,15 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
     }
 
     /**
-     * Create {@link ConfigurationValidatorImpl} with the default validators ({@link DefaultValidators#DEFAULT_VALIDATORS})
-     * and the provided ones.
+     * Create {@link ConfigurationValidatorImpl} with the default validators ({@link ConfigurationValidatorImpl#DEFAULT_VALIDATORS}) and the
+     * provided ones.
      *
      * @param validators Validators.
      * @return Configuration validator.
      */
     public static ConfigurationValidatorImpl withDefaultValidators(ConfigurationTreeGenerator generator,
             Set<? extends Validator<?, ?>> validators) {
-        HashSet<Validator<?, ?>> validators0 = new HashSet<>(DefaultValidators.DEFAULT_VALIDATORS);
+        HashSet<Validator<?, ?>> validators0 = new HashSet<>(DEFAULT_VALIDATORS);
         validators0.addAll(validators);
         return new ConfigurationValidatorImpl(generator, validators0);
     }

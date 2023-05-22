@@ -63,6 +63,8 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;
 
+    private ConfigurationTreeGenerator generator;
+
     protected DistributionZonesConfiguration zonesConfiguration;
 
     protected DistributionZoneManager distributionZoneManager;
@@ -93,14 +95,15 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultMgr);
 
+        generator = new ConfigurationTreeGenerator(
+                List.of(DistributionZonesConfiguration.KEY),
+                List.of(),
+                List.of(TestPersistStorageConfigurationSchema.class)
+        );
         ConfigurationManager cfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
                 cfgStorage,
-                new ConfigurationTreeGenerator(
-                        List.of(DistributionZonesConfiguration.KEY),
-                        List.of(),
-                        List.of(TestPersistStorageConfigurationSchema.class)
-                ),
+                generator,
                 new TestConfigurationValidator()
         );
 
@@ -143,6 +146,8 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
         IgniteUtils.closeAll(components.stream().map(c -> c::stop));
+
+        generator.close();
     }
 
     void startDistributionZoneManager() throws Exception {

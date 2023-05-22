@@ -378,6 +378,15 @@ public class IgniteImpl implements Ignite {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
+                modules.distributed().rootKeys(),
+                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions()
+        );
+
+        distributedConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
@@ -415,7 +424,6 @@ public class IgniteImpl implements Ignite {
                 distributedConfigurationGenerator,
                 distributedConfigurationValidator
         );
-
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,

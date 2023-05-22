@@ -58,6 +58,8 @@ import org.mockito.Mockito;
  * Test server.
  */
 public class TestServer implements AutoCloseable {
+    private final ConfigurationTreeGenerator generator;
+
     private final ConfigurationRegistry cfg;
 
     private final IgniteComponent module;
@@ -114,10 +116,11 @@ public class TestServer implements AutoCloseable {
             UUID clusterId,
             @Nullable AuthenticationConfiguration authenticationConfiguration
     ) {
+        generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
+                generator,
                 new TestConfigurationValidator()
         );
 
@@ -229,6 +232,7 @@ public class TestServer implements AutoCloseable {
         module.stop();
         bootstrapFactory.stop();
         cfg.stop();
+        generator.close();
     }
 
     private ClusterNode getClusterNode(String name) {

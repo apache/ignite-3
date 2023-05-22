@@ -47,6 +47,8 @@ import org.mockito.Mockito;
 
 /** Test server that can be started with SSL configuration. */
 public class TestServer {
+    private final ConfigurationTreeGenerator generator;
+
     private final ConfigurationManager configurationManager;
 
     private NettyBootstrapFactory bootstrapFactory;
@@ -68,10 +70,11 @@ public class TestServer {
         this.authenticationConfiguration = authenticationConfiguration == null
                 ? mock(AuthenticationConfiguration.class)
                 : authenticationConfiguration;
+        this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
-                new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
+                generator,
                 new TestConfigurationValidator()
         );
 
@@ -85,6 +88,7 @@ public class TestServer {
     void tearDown() throws Exception {
         configurationManager.stop();
         bootstrapFactory.stop();
+        generator.close();
     }
 
     ClientHandlerModule start(TestInfo testInfo) {

@@ -336,7 +336,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> doInit(CmgRaftService service, CmgInitMessage msg) {
-        return CompletableFuture.runAsync(() -> validateConfiguration(msg.clusterConfigurationToApply()))
+        return validateConfiguration(msg.clusterConfigurationToApply())
                 .thenCompose(ignored -> service.initClusterState(createClusterState(msg)))
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
@@ -346,13 +346,15 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
     }
 
-    private void validateConfiguration(@Nullable String configuration) {
+    private CompletableFuture<Void> validateConfiguration(@Nullable String configuration) {
         if (configuration != null) {
             List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(configuration);
             if (!issues.isEmpty()) {
-                throw new ConfigurationValidationException(issues);
+                return failedFuture(new ConfigurationValidationException(issues));
             }
         }
+
+        return completedFuture(null);
     }
 
     private ClusterState createClusterState(CmgInitMessage msg) {

@@ -51,6 +51,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,7 +80,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private static final String ZONE_NAME = "zone1";
 
-    private final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
             List.of(DistributionZonesConfiguration.KEY),
             List.of(),
             List.of(TestPersistStorageConfigurationSchema.class)
@@ -126,6 +127,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        generator.close();
     }
 
     @Test
