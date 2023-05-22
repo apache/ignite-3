@@ -780,8 +780,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Zone id.
      * @return The latest data nodes.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
-    public Set<String> dataNodes(int zoneId) {
+    private Set<String> dataNodes(int zoneId) {
         return inBusyLock(busyLock, () -> {
             ZoneState zoneState = zonesState.get(zoneId);
 
@@ -791,6 +790,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 throw new DistributionZoneWasRemovedException(zoneId);
             }
         });
+    }
+
+    public CompletableFuture<Set<String>> versionedDataNodes(int zoneId, long revision) {
+        return null;
     }
 
     /**

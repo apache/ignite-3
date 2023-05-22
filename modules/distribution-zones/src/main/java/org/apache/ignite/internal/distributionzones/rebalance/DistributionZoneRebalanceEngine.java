@@ -262,44 +262,47 @@ public class DistributionZoneRebalanceEngine {
 
                 CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
 
-                int furCur = 0;
+                return distributionZoneManager.versionedDataNodes(zoneCfg.zoneId(), replicasCtx.storageRevision())
+                        .thenCompose(dataNodes -> {
+                            int futCur = 0;
 
-                for (TableConfiguration tblCfg : tblsCfg) {
-                    LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                            tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
+                            for (TableConfiguration tblCfg : tblsCfg) {
+                                LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
+                                        tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
 
-                    int partCnt = zoneCfg.partitions();
+                                int partCnt = zoneCfg.partitions();
 
-                    int newReplicas = replicasCtx.newValue();
+                                int newReplicas = replicasCtx.newValue();
 
-                    byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+                                byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
 
-                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+                                List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
 
-                    Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+                                if (dataNodes.isEmpty()) {
+                                    futs[futCur++] = completedFuture(null);
 
-                    if (dataNodes.isEmpty()) {
-                        futs[furCur++] = completedFuture(null);
+                                    continue;
+                                }
 
-                        continue;
-                    }
+                                for (int i = 0; i < partCnt; i++) {
+                                    TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(),
+                                            i);
 
-                    for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
+                                    futs[futCur++] = updatePendingAssignmentsKeys(
+                                            tblCfg.name().value(),
+                                            replicaGrpId,
+                                            dataNodes,
+                                            newReplicas,
+                                            replicasCtx.storageRevision(),
+                                            metaStorageManager,
+                                            i,
+                                            tableAssignments.get(i)
+                                    );
+                                }
+                            }
 
-                        futs[furCur++] = updatePendingAssignmentsKeys(
-                                tblCfg.name().value(),
-                                replicaGrpId,
-                                dataNodes,
-                                newReplicas,
-                                replicasCtx.storageRevision(),
-                                metaStorageManager,
-                                i,
-                                tableAssignments.get(i)
-                        );
-                    }
-                }
-                return allOf(futs);
+                            return allOf(futs);
+                        });
             } else {
                 return completedFuture(null);
             }
