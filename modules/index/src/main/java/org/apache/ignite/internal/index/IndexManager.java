@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
@@ -70,7 +71,6 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -96,29 +96,21 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Index builder. */
-    private final IndexBuilder indexBuilder;
-
     /**
      * Constructor.
      *
-     * @param nodeName Node name.
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
-     * @param clusterService Cluster service.
      */
     public IndexManager(
-            String nodeName,
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
-            TableManager tableManager,
-            ClusterService clusterService
+            TableManager tableManager
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
-        this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);
     }
 
     /** {@inheritDoc} */
@@ -174,8 +166,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         busyLock.block();
-
-        indexBuilder.stop();
 
         LOG.info("Index manager stopped");
     }
@@ -400,8 +390,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(causalityToken, tableId)
                     .thenAccept(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
-                            indexBuilder.stopIndexBuild(tableIndexView, table);
-
                             table.unregisterIndex(idxId);
                         }
                     });
@@ -454,7 +442,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         IndexDescriptor descriptor = newDescriptor(tableIndexView);
 
-        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createStorageIndexDescriptor(tablesView, indexId);
+        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(tablesView, indexId);
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, descriptor));
@@ -485,8 +473,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     table.pkId(indexId);
                 }
             }
-
-            indexBuilder.startIndexBuild(tableIndexView, table, storageIndexDescriptor);
         });
 
         return allOf(createIndexFuture, fireEventFuture);
@@ -640,17 +626,5 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
         }
-    }
-
-    private org.apache.ignite.internal.storage.index.IndexDescriptor createStorageIndexDescriptor(TablesView tablesView, UUID indexId) {
-        TableIndexView indexView = tablesView.indexes().get(indexId);
-
-        if (indexView instanceof HashIndexView) {
-            return new HashIndexDescriptor(indexId, tablesView);
-        } else if (indexView instanceof SortedIndexView) {
-            return new org.apache.ignite.internal.storage.index.SortedIndexDescriptor(indexId, tablesView);
-        }
-
-        throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
     }
 }

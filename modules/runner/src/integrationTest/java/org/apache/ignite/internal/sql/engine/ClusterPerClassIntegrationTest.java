@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -30,13 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -52,18 +54,12 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -487,9 +483,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param tableName Table name.
      * @param indexName Index name.
+     * @return Nodes on which the partition index was built.
      * @throws Exception If failed.
      */
-    public static void waitForIndexBuild(String tableName, String indexName) throws Exception {
+    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
+        Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
+
         // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
             CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
@@ -515,14 +514,19 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(
-                        partitionId,
-                        createIndexDescription(getTablesConfiguration(clusterNode).value(), indexName)
-                );
+                TablesView tablesView = getTablesConfiguration(clusterNode).value();
+
+                UUID indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
+
+                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, createIndexDescriptor(tablesView, indexId));
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
+
+                partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
             }
         }
+
+        return partitionIdToNodes;
     }
 
     /**
@@ -532,19 +536,5 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     public static TablesConfiguration getTablesConfiguration(Ignite node) {
         return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
-    }
-
-    private static IndexDescriptor createIndexDescription(TablesView tablesView, String indexName) {
-        TableIndexView indexView = tablesView.indexes().get(indexName.toUpperCase());
-
-        assertNotNull(indexView, indexName);
-
-        if (indexView instanceof HashIndexView) {
-            return new HashIndexDescriptor(indexView.id(), tablesView);
-        } else if (indexView instanceof SortedIndexView) {
-            return new SortedIndexDescriptor(indexView.id(), tablesView);
-        }
-
-        return fail(indexView.getClass().getName());
     }
 }

@@ -15,30 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
-
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+package org.apache.ignite.internal.placementdriver;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
- * Message with a timestamp to adjust a hybrid logical clock.
+ * Replica lease meta.
  */
-public interface TimestampAware extends NetworkMessage {
+public interface LeaseMeta {
     /**
-     * Gets a hybrid timestamp.
+     * Get a leaseholder node.
      *
-     * @return Gets a hybrid timestamp.
+     * @return Leaseholder or {@code null} if nothing holds the lease.
      */
-    long timestampLong();
+    String getLeaseholder();
 
     /**
-     * Gets a hybrid timestamp.
+     * Gets a lease start timestamp.
      *
-     * @return Gets a hybrid timestamp.
+     * @return Lease start timestamp.
      */
-    default HybridTimestamp timestamp() {
-        return hybridTimestamp(timestampLong());
-    }
+    HybridTimestamp getStartTime();
+
+    /**
+     * Gets a lease expiration timestamp.
+     *
+     * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
+     */
+    HybridTimestamp getExpirationTime();
 }
