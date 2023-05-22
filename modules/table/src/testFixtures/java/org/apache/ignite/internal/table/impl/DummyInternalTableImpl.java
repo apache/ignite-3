@@ -67,6 +67,7 @@ import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -305,8 +306,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                peer -> true,
-                completedFuture(schemaManager)
+                completedFuture(schemaManager),
+                mock(ClusterNode.class),
+                mock(MvTableStorage.class),
+                mock(IndexBuilder.class)
         );
 
         partitionListener = new PartitionListener(

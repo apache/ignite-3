@@ -132,6 +132,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -322,6 +323,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final LowWatermark lowWatermark;
 
+    private final IndexBuilder indexBuilder;
+
     /**
      * Creates a new table manager.
      *
@@ -432,6 +435,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc = new MvGc(nodeName, tablesCfg);
 
         lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
+
+        indexBuilder = new IndexBuilder(nodeName, cpus);
     }
 
     @Override
@@ -635,7 +640,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             futures[i] = new CompletableFuture<>();
         }
 
-        String localMemberName = clusterService.topologyService().localMember().name();
+        String localMemberName = localNode().name();
 
         // Create new raft nodes according to new assignments.
         return tablesByIdVv.update(causalityToken, (tablesById, e) -> inBusyLock(busyLock, () -> {
@@ -829,8 +834,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             placementDriver,
                                                             storageUpdateHandler,
                                                             new NonHistoricSchemas(schemaManager),
-                                                            this::isLocalPeer,
-                                                            schemaManager.schemaRegistry(causalityToken, tblId)
+                                                            schemaManager.schemaRegistry(causalityToken, tblId),
+                                                            localNode(),
+                                                            table.internalTable().storage(),
+                                                            indexBuilder
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -854,7 +861,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(clusterService.topologyService().localMember().name());
+        return peer.consistentId().equals(localNode().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -950,7 +957,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc, indexBuilder);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }
@@ -2000,7 +2007,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
 
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        ClusterNode localMember = localNode();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()
@@ -2102,8 +2109,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             placementDriver,
                                             storageUpdateHandler,
                                             new NonHistoricSchemas(schemaManager),
-                                            this::isLocalPeer,
-                                            completedFuture(schemaManager.schemaRegistry(tblId))
+                                            completedFuture(schemaManager.schemaRegistry(tblId)),
+                                            localNode(),
+                                            internalTable.storage(),
+                                            indexBuilder
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                     storageIndexTracker
@@ -2316,7 +2325,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? Set.of()
                             : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
-                    String localMemberName = clusterService.topologyService().localMember().name();
+                    String localMemberName = localNode().name();
 
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
@@ -2395,5 +2404,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (tracker != null) {
             tracker.close();
         }
+    }
+
+    private ClusterNode localNode() {
+        return clusterService.topologyService().localMember();
     }
 }

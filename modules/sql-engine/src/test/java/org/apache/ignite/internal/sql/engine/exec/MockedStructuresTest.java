@@ -290,7 +290,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(NODE_NAME, tblsCfg, schemaManager, tblManager, cs);
+        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
 
         idxManager.start();
 

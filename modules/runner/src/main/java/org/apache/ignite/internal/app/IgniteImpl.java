@@ -512,7 +512,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager
         );
 
-        indexManager = new IndexManager(name, tablesConfiguration, schemaManager, distributedTblMgr, clusterSvc);
+        indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
