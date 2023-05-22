@@ -69,7 +69,7 @@ public class Replica {
     /** Instance of the local node. */
     private final ClusterNode localNode;
 
-    // TODO IGNITE-18960 after replica inoperability logic is introduced, this future should be replaced with something like
+    // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
     private CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
 

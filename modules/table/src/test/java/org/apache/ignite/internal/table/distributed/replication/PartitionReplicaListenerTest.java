@@ -363,14 +363,17 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
         )));
 
-        sortedIndexStorage = new TableSchemaAwareIndexStorage(sortedIndexId, indexStorage, row -> null);
+        // 2 is the index of "intVal" in the list of all columns.
+        Function<BinaryRow, BinaryTuple> columnsExtractor = BinaryRowConverter.columnsExtractor(schemaDescriptor, 2);
+
+        sortedIndexStorage = new TableSchemaAwareIndexStorage(sortedIndexId, indexStorage, columnsExtractor);
 
         hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
                 new TestHashIndexStorage(partId, new HashIndexDescriptor(hashIndexId, List.of(
                         new HashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
                 ))),
-                row -> null
+                columnsExtractor
         );
 
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
