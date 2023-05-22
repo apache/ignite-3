@@ -2226,7 +2226,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return onUpdateAssignments(evt).thenCompose(notUsed -> handleChangeStableAssignmentEvent(evt));
+//                    return onUpdateAssignments(evt).thenCompose(notUsed -> handleChangeStableAssignmentEvent(evt));
+                    return handleChangeStableAssignmentEvent(evt);
                 } finally {
                     busyLock.leaveBusy();
                 }
