@@ -77,9 +77,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /** Runtime implementations generator for node classes. */
-    private final ConfigurationTreeGenerator generator;
-
     /** Configuration storage revision change listeners. */
     private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
             new ConfigurationListenerHolder<>();
@@ -98,8 +95,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
-        this.generator = generator;
-
         checkConfigurationType(rootKeys, storage);
 
         this.rootKeys = rootKeys;
