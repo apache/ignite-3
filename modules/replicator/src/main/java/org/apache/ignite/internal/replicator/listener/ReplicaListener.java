@@ -35,11 +35,11 @@ public interface ReplicaListener {
     CompletableFuture<?> invoke(ReplicaRequest request);
 
     /**
-     * Callback on leader election.
+     * Callback on becoming the primary replica.
      *
-     * @param clusterNode Leader node.
+     * @param clusterNode Primary replica node.
      */
-    default void onLeaderElected(ClusterNode clusterNode) {
+    default void onBecomePrimary(ClusterNode clusterNode) {
         // No-op.
     }
 

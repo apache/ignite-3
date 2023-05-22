@@ -2359,10 +2359,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     @Override
     // TODO: IGNITE-19053 Must handle the change of leader
     // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
-    public void onLeaderElected(ClusterNode clusterNode) {
+    public void onBecomePrimary(ClusterNode clusterNode) {
         inBusyLock(() -> {
             if (!clusterNode.equals(localNode)) {
-                // We are not a leader.
+                // We are not the primary replica.
                 return;
             }
 
