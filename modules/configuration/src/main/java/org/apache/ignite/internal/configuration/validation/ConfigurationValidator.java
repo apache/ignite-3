@@ -44,7 +44,7 @@ public interface ConfigurationValidator {
     List<ValidationIssue> validate(ConfigurationSource src);
 
     /**
-     * Validate configuration changes.
+     * Validate configuration.
      *
      * @param newRoots New roots.
      * @return List of validation results.
