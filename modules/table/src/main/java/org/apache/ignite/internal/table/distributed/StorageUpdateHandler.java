@@ -260,12 +260,4 @@ public class StorageUpdateHandler {
     public IndexUpdateHandler getIndexUpdateHandler() {
         return indexUpdateHandler;
     }
-
-    /**
-     * Waits for indexes to be created.
-     */
-    // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
-    public void waitIndexes() {
-        indexes.get();
-    }
 }
