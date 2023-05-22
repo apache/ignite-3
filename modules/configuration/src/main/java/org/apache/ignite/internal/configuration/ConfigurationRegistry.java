@@ -86,6 +86,8 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      *
      * @param rootKeys                    Configuration root keys.
      * @param storage                     Configuration storage.
+     * @param generator                   Configuration tree generator.
+     * @param configurationValidator      Configuration validator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
