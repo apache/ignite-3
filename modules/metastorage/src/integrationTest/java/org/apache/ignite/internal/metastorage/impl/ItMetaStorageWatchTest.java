@@ -38,7 +38,6 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -92,8 +91,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
         Node(ClusterService clusterService, Path dataPath) {
             var vaultManager = new VaultManager(new InMemoryVaultService());
 
@@ -121,10 +118,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
-            components.add(distributedConfigurationUpdater);
-
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -132,7 +125,6 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater,
                     nodeAttributes,
                     new TestConfigurationValidator());
 

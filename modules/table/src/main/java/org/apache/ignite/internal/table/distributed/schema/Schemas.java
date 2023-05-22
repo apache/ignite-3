@@ -37,6 +37,15 @@ public interface Schemas {
     CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts);
 
     /**
+     * Obtains a future that completes when the given schema version becomes available.
+     *
+     * @param tableId ID of the table of interest.
+     * @param schemaVersion ID of the schema version.
+     * @return Future that completes when the given schema version becomes available.
+     */
+    CompletableFuture<?> waitForSchemaAvailability(UUID tableId, int schemaVersion);
+
+    /**
      * Returns all schema versions between (including) the two that were effective at the given timestamps.
      *
      * @param tableId ID of the table which schemas need to be considered.
@@ -45,4 +54,16 @@ public interface Schemas {
      * @return All schema versions between (including) the two that were effective at the given timestamps.
      */
     List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding);
+
+    /**
+     * Returns all schema versions between (including) the one that was effective at the given timestamp and
+     * the one identified by a schema version ID. If the starting schema (the one effective at fromIncluding)
+     * is actually a later schema than the one identified by toIncluding, then an empty list is returned.
+     *
+     * @param tableId ID of the table which schemas need to be considered.
+     * @param fromIncluding Start timestamp.
+     * @param toIncluding End schema version ID.
+     * @return All schema versions between (including) the given timestamp and schema version.
+     */
+    List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, int toIncluding);
 }

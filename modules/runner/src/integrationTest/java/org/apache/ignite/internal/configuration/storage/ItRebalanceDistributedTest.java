@@ -68,8 +68,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -585,7 +587,7 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+        private final CatalogManager catalogManager;
 
         private List<IgniteComponent> nodeComponents;
 
@@ -635,8 +637,6 @@ public class ItRebalanceDistributedTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -644,7 +644,6 @@ public class ItRebalanceDistributedTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
                     nodeAttributes,
                     new TestConfigurationValidator());
 
@@ -741,6 +740,8 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
+            catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager));
+
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -830,14 +831,14 @@ public class ItRebalanceDistributedTest {
                     cmgManager,
                     metaStorageManager,
                     clusterCfgMgr,
+                    catalogManager,
                     distributionZoneManager,
                     replicaManager,
                     txManager,
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager,
-                    distributedConfigurationUpdater
+                    tableManager
             );
 
             nodeComponents.forEach(IgniteComponent::start);

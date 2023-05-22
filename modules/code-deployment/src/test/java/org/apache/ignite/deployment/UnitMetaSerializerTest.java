@@ -17,8 +17,8 @@
 
 package org.apache.ignite.deployment;
 
-import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.deserialize;
-import static org.apache.ignite.internal.deployunit.key.UnitMetaSerializer.serialize;
+import static org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer.deserialize;
+import static org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer.serialize;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -27,8 +27,8 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.deployunit.UnitMeta;
-import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -61,7 +61,7 @@ public class UnitMetaSerializerTest {
             DeploymentStatus status,
             List<String> consistentIdLocation
     ) {
-        UnitMeta meta = new UnitMeta(id, version, fileNames, status, consistentIdLocation);
+        UnitStatus meta = new UnitStatus(id, version, status);
 
         byte[] serialize = serialize(meta);
 

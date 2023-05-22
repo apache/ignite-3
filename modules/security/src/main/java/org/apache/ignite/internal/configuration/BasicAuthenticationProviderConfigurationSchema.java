@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 
 /** Basic authentication configuration. */
@@ -29,6 +30,7 @@ public class BasicAuthenticationProviderConfigurationSchema extends Authenticati
     public String username;
 
     /** Password. */
+    @Secret
     @Value
     public String password;
 }

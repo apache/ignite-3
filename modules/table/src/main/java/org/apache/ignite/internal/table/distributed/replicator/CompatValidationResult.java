@@ -22,12 +22,12 @@ import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of forward schema compatibility validation.
+ * Result of a schema compatibility validation.
  */
-public class ForwardValidationResult {
-    private static final ForwardValidationResult SUCCESS = new ForwardValidationResult(true, null, -1, -1);
+public class CompatValidationResult {
+    private static final CompatValidationResult SUCCESS = new CompatValidationResult(true, null, -1, -1);
 
-    private final boolean ok;
+    private final boolean successful;
     @Nullable
     private final UUID failedTableId;
     private final int fromSchemaVersion;
@@ -38,7 +38,7 @@ public class ForwardValidationResult {
      *
      * @return A successful validation result.
      */
-    public static ForwardValidationResult success() {
+    public static CompatValidationResult success() {
         return SUCCESS;
     }
 
@@ -50,12 +50,12 @@ public class ForwardValidationResult {
      * @param toSchemaVersion Version number of the schema to which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static ForwardValidationResult failure(UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
-        return new ForwardValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
+    public static CompatValidationResult failure(UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+        return new CompatValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
     }
 
-    private ForwardValidationResult(boolean ok, @Nullable UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
-        this.ok = ok;
+    private CompatValidationResult(boolean successful, @Nullable UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+        this.successful = successful;
         this.failedTableId = failedTableId;
         this.fromSchemaVersion = fromSchemaVersion;
         this.toSchemaVersion = toSchemaVersion;
@@ -67,7 +67,7 @@ public class ForwardValidationResult {
      * @return Whether the validation was successful
      */
     public boolean isSuccessful() {
-        return ok;
+        return successful;
     }
 
     /**
@@ -81,31 +81,23 @@ public class ForwardValidationResult {
     }
 
     /**
-     * Returns version number of the schema from which an incompatible transition tried to be made. Should only be called for a failed
-     * validation result, otherwise an exception is thrown.
+     * Returns version number of the schema from which an incompatible transition tried to be made.
      *
      * @return Version number of the schema from which an incompatible transition tried to be made.
      */
     public int fromSchemaVersion() {
-        throwIfSuccessful();
+        assert !successful : "Should not be called on a successful result";
 
         return fromSchemaVersion;
     }
 
-    private void throwIfSuccessful() {
-        if (ok) {
-            throw new IllegalStateException("Should not be called on a successful result");
-        }
-    }
-
     /**
-     * Returns version number of the schema to which an incompatible transition tried to be made. Should only be called for a failed
-     *      * validation result, otherwise an exception is thrown.
+     * Returns version number of the schema to which an incompatible transition tried to be made.
      *
      * @return Version number of the schema to which an incompatible transition tried to be made.
      */
     public int toSchemaVersion() {
-        throwIfSuccessful();
+        assert !successful : "Should not be called on a successful result";
 
         return toSchemaVersion;
     }

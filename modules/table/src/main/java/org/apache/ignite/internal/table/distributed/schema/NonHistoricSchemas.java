@@ -57,6 +57,11 @@ public class NonHistoricSchemas implements Schemas {
     }
 
     @Override
+    public CompletableFuture<?> waitForSchemaAvailability(UUID tableId, int schemaVersion) {
+        return completedFuture(null);
+    }
+
+    @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
@@ -79,6 +84,13 @@ public class NonHistoricSchemas implements Schemas {
         );
 
         return List.of(fullSchema);
+    }
+
+    @Override
+    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, int toIncluding) {
+        // Returning an empty list makes sure that backward validation never fails, which is what we want before
+        // we switch to CatalogService completely.
+        return List.of();
     }
 
     /**

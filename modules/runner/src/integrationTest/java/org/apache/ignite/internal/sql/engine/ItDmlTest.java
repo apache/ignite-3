@@ -137,6 +137,24 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
+     * Test ensures inserts are possible after read lock on a range.
+     */
+    @Test
+    public void rangeReadAndExclusiveInsert() {
+        sql("CREATE TABLE test (id INT, aff_key INT, val INT, PRIMARY KEY (id, aff_key)) COLOCATE BY (aff_key) ");
+        sql("CREATE INDEX test_val_asc_idx ON test (val ASC)");
+        sql("INSERT INTO test VALUES (1, 1, 1), (2, 1, 2), (3, 1, 3)");
+
+        log.info("Data was loaded.");
+
+        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+
+        sql(tx, "SELECT * FROM test WHERE val <= 1 ORDER BY val");
+
+        sql("INSERT INTO test VALUES (4, 1, 4)"); // <-- this INSERT uses implicit transaction
+    }
+
+    /**
      * Test ensures that big insert although being split to several chunks will share the same implicit transaction.
      */
     @Test

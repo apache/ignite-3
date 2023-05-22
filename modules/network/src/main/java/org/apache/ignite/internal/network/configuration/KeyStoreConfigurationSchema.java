@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 
 /** Keystore configuration schema. */
@@ -32,6 +33,7 @@ public class KeyStoreConfigurationSchema {
     public String path = "";
 
     /** Keystore password. */
+    @Secret
     @Value(hasDefault = true)
     public String password = "";
 }

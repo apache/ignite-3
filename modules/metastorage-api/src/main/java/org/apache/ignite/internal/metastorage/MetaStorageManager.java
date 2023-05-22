@@ -65,6 +65,11 @@ public interface MetaStorageManager extends IgniteComponent {
     CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys);
 
     /**
+     * Inserts or updates an entry with the given key and the given value.
+     */
+    CompletableFuture<Void> put(ByteArray key, byte[] val);
+
+    /**
      * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
      * {@code revUpperBound = LATEST_REVISION}.
      *

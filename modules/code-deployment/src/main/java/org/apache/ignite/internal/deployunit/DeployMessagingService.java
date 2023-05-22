@@ -17,13 +17,8 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
@@ -113,35 +108,22 @@ public class DeployMessagingService {
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
      * @param unitContent Deployment unit file names and content.
+     * @param nodeId Node consistent identifier.
      * @return Future with deployment result.
      */
-    public CompletableFuture<List<String>> startDeployAsyncToCmg(String id, Version version, Map<String, byte[]> unitContent) {
+    public CompletableFuture<Boolean> startDeployAsyncToNode(
+            String id,
+            Version version,
+            Map<String, byte[]> unitContent,
+            String nodeId
+    ) {
         DeployUnitRequest request = DeployUnitRequestImpl.builder()
                 .id(id)
                 .version(version.render())
                 .unitContent(unitContent)
                 .build();
-        return cmgManager.cmgNodes()
-                .thenCompose(nodes -> deploy(nodes, request));
-    }
 
-    private CompletableFuture<List<String>> deploy(Set<String> nodes, DeployUnitRequest request) {
-        CompletableFuture<List<String>> resultFuture = new CompletableFuture<>();
-        Map<String, Boolean> results = new ConcurrentHashMap<>();
-        CompletableFuture<Void> allDeployment = CompletableFuture.allOf(
-                nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
-                        .map(node -> requestDeploy(node, request)
-                                .thenAccept(deployed -> results.put(node.name(), deployed)))
-                        .toArray(CompletableFuture[]::new));
-
-        allDeployment.thenAccept(v -> resultFuture.complete(
-                results.entrySet().stream()
-                        .filter(Entry::getValue)
-                        .map(Entry::getKey)
-                        .collect(Collectors.toList()))
-        );
-
-        return resultFuture;
+        return requestDeploy(clusterService.topologyService().getByConsistentId(nodeId), request);
     }
 
     /**
