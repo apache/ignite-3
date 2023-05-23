@@ -33,9 +33,9 @@ public class TableColumnDescriptor implements Serializable {
     private final ColumnType type;
     private final boolean nullable;
     /** Max length constraint. */
-    private int length;
-    private int precision;
-    private int scale;
+    private int length = -1;
+    private int precision = -1;
+    private int scale = Integer.MIN_VALUE;
     private final DefaultValue defaultValue;
 
     /**
@@ -62,6 +62,24 @@ public class TableColumnDescriptor implements Serializable {
 
     public ColumnType type() {
         return type;
+    }
+
+    public TableColumnDescriptor precision(int precision) {
+        this.precision = precision;
+
+        return this;
+    }
+
+    public TableColumnDescriptor scale(int scale) {
+        this.scale = scale;
+
+        return this;
+    }
+
+    public TableColumnDescriptor length(int length) {
+        this.length = length;
+
+        return this;
     }
 
     public int precision() {

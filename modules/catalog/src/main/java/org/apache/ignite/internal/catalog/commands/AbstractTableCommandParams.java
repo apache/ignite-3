@@ -51,7 +51,7 @@ public class AbstractTableCommandParams implements DdlCommandParams {
     protected abstract static class AbstractBuilder<ParamT extends AbstractTableCommandParams, BuilderT> {
         protected ParamT params;
 
-        AbstractBuilder(ParamT params) {
+        protected AbstractBuilder(ParamT params) {
             this.params = params;
         }
 

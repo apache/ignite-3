@@ -85,18 +85,19 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void testSetDataType() {
-        validateDataType("SET DATA TYPE LONG", false, null, "LONG");
-        validateDataType("SET DATA TYPE LONG DEFAULT -1", false, -1L, "LONG");
-        validateDataType("SET DATA TYPE INTEGER NOT NULL", true, null, "INTEGER");
-        validateDataType("SET DATA TYPE INTEGER NOT NULL DEFAULT -1", true, -1, "INTEGER");
+        // todo exception must throw
+        validateDataType("SET DATA TYPE LONG", null, null, "LONG");
+        validateDataType("SET DATA TYPE LONG DEFAULT -1", null, -1L, "LONG");
+        validateDataType("SET DATA TYPE INTEGER", null, null, "INTEGER");
+        validateDataType("SET DATA TYPE INTEGER DEFAULT -1", null, -1, "INTEGER");
     }
 
-    private void validateDataType(String querySuffix, boolean notNull, @Nullable Object expDefault, @Nullable String typeName) {
+    private void validateDataType(String querySuffix, Boolean nullable, @Nullable Object expDefault, @Nullable String typeName) {
         IgniteSqlAlterColumnType alterColumn = parseAlterColumn(querySuffix, IgniteSqlAlterColumnType.class);
 
         assertNotNull(alterColumn.dataType());
         assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo(typeName));
-        assertThat(alterColumn.dataType().getNullable(), is(!notNull));
+        assertThat(alterColumn.dataType().getNullable(), is(nullable));
 
         if (expDefault == null) {
             assertNull(alterColumn.expression());

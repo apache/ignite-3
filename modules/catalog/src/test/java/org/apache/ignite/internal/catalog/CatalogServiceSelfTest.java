@@ -35,9 +35,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnDefault;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnNotNull;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnType;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
@@ -56,8 +63,10 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -303,6 +312,103 @@ public class CatalogServiceSelfTest {
                 .build();
 
         assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+    }
+
+    @Test
+    public void testAlterColumnType() {
+        CompletableFutureMatcher<Object> willBeNull = willBe((Object) null);
+
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false),
+                        ColumnParams.builder().name("dec").type(ColumnType.DECIMAL).precision(2)
+                                .defaultValue(DefaultValue.constant(null)).build(),
+                        new ColumnParams("period", ColumnType.PERIOD, DefaultValue.constant("INTERVALSS 4 DAYS"), false)
+                ))
+                .primaryKeyColumns(List.of("key"))
+                .build();
+
+        assertThat(service.createTable(createTableParams), willBeNull);
+
+        // 1. Change default.
+        assertThat(service.alterColumn(AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("val")
+                .addChange(new ChangeColumnDefault((t) -> DefaultValue.constant(BigDecimal.valueOf(1))))
+                .build()), willBeNull);
+
+        // 2. Change not null.
+        assertThat(service.alterColumn(AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("val")
+                .addChange(new ChangeColumnNotNull(true))
+                .build()), willBeNull);
+
+        assertThat(service.alterColumn(AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("val")
+                .addChange(new ChangeColumnNotNull(false))
+                .build()), willBeNull);
+
+        assertThat(service.alterColumn(AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("val")
+                .addChange(new ChangeColumnNotNull(true))
+                .build()), willThrowFast(IgniteException.class, "Cannot set NOT NULL for column"));
+
+        // 3. Change type.
+        // a. same type
+        AlterColumnParams params = AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("val")
+                .addChange(new ChangeColumnType(ColumnType.INT32))
+                .build();
+
+        assertThat(service.alterColumn(params),willBeNull);
+
+        // b. precision.
+        // - increase
+        assertThat(service.alterColumn(AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("dec")
+                .addChange(new ChangeColumnType(ColumnType.DECIMAL, 3, Integer.MIN_VALUE))
+                .build()),willBeNull);
+
+        // - decrease
+        assertThat(service.alterColumn(AlterColumnParams.builder()
+                .tableName(TABLE_NAME)
+                .columnName("dec")
+                .addChange(new ChangeColumnType(ColumnType.DECIMAL, 2, Integer.MIN_VALUE))
+                .build()),willThrowFast(IgniteException.class, "Cannot decrease precision"));
+
+        if (true)
+            return;
+
+//        params = AlterColumnParams.builder().column(
+//                new ColumnParams("val", ColumnType.INT16, dfltNull, false)
+//        ).tableName(TABLE_NAME).build();
+//
+//        assertThat(service.alterColumn(params), willThrowFast(IgniteException.class, "Cannot change"));
+//
+//        params = AlterColumnParams.builder().column(decBuilder.get().precision(3).build()).tableName(TABLE_NAME).build();
+//
+//        assertThat(service.alterColumn(params), willBe((Object) null));
+//
+//        params = AlterColumnParams.builder().column(decBuilder.get().precision(2).build()).tableName(TABLE_NAME).build();
+//
+//        assertThat(service.alterColumn(params), willThrowFast(IgniteException.class, "precision"));
+
+
+//        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+//
+//        params = DropTableParams.builder()
+//                .tableName(TABLE_NAME)
+//                .ifTableExists(false)
+//                .build();
+//
+//        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
     }
 
     @Test

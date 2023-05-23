@@ -23,24 +23,31 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChanger;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -53,6 +60,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -214,6 +222,51 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                if (params.ifTableExists()) {
+                    return Collections.emptyList();
+                }
+
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            String columnName = params.columnName();
+
+            TableColumnDescriptor source = null;
+
+            for (TableColumnDescriptor descriptor : table.columns()) {
+                if (descriptor.name().equals(columnName)) {
+                    source = descriptor;
+
+                    break;
+                }
+            }
+
+            if (source == null) {
+                throw new ColumnNotFoundException(columnName);
+            }
+
+            TableColumnDescriptor result = params.action().apply(source);
+
+            if (result == null) {
+                // No-op.
+                return Collections.emptyList();
+            }
+
+            return List.of(new AlterColumnEntry(table.id(), result));
+        });
+    }
+
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
@@ -321,6 +374,40 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                     schema.indexes()
                             )
                     );
+                } else if (entry instanceof AlterColumnEntry) {
+                    int tableId = ((AlterColumnEntry) entry).tableId();
+                    TableColumnDescriptor target = ((AlterColumnEntry) entry).descriptor();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    Arrays.stream(schema.tables())
+                                            .map(table -> table.id() != tableId
+                                                    ? table
+                                                    : new TableDescriptor(
+                                                            table.id(),
+                                                            table.name(),
+                                                            table.columns().stream()
+                                                                    .map(source -> source.name().equals(target.name())
+                                                                            ? target
+                                                                            : source).collect(Collectors.toList()),
+                                                            table.primaryKeyColumns(),
+                                                            table.colocationColumns())
+                                            )
+                                            .toArray(TableDescriptor[]::new),
+                                    schema.indexes()
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ALTER_COLUMN,
+                            new AlterColumnEventParameters(version, tableId, target)
+                    ));
                 } else {
                     assert false : entry;
                 }

@@ -98,5 +98,30 @@ public class DefaultValue implements Serializable {
         public @Nullable Serializable value() {
             return value;
         }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ConstantValue that = (ConstantValue) o;
+
+            if (type != that.type) {
+                return false;
+            }
+
+            return Objects.equals(value, that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(type, value);
+        }
     }
 }

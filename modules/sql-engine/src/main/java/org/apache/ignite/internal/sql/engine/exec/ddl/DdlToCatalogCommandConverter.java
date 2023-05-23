@@ -19,10 +19,13 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
@@ -54,6 +57,16 @@ class DdlToCatalogCommandConverter {
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
                 .build();
+    }
+
+    static AlterColumnParams convert(AlterColumnCommand cmd) {
+        Builder builder = AlterColumnParams.builder().schemaName(cmd.schemaName()).tableName(cmd.tableName()).columnName(cmd.columnName());
+
+        for (AlterColumnCommand.Action action : cmd.actions()) {
+            builder.addChange(action.toParams());
+        }
+
+        return builder.build();
     }
 
     private static ColumnParams convert(ColumnDefinition def) {

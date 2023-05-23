@@ -118,7 +118,7 @@ SqlNode ColumnDataType(SqlIdentifier id) :
         }
     )
     {
-        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
+        return SqlDdlNodes.column(s.add(id).end(this), id, type, dflt, strategy);
     }
 }
 
