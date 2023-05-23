@@ -34,61 +34,10 @@ import org.apache.ignite.sql.ColumnType;
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class AlterColumnCommand extends AbstractTableDdlCommand {
-    public interface Action {
-        ColumnChanger toParams();
-    }
-
-    static class ChangeType implements Action {
-        private final RelDataType type;
-
-        public ChangeType(RelDataType type) {
-            this.type = type;
-        }
-
-        public RelDataType type() {
-            return type;
-        }
-
-        @Override
-        public ColumnChanger toParams() {
-            return new ChangeColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale());
-        }
-    }
-
-    static class ChangeDefault implements Action {
-        private final Function<ColumnType, DefaultValue> resolveDfltFunc;
-
-        public ChangeDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-            this.resolveDfltFunc = resolveDfltFunc;
-        }
-
-        @Override
-        public ColumnChanger toParams() {
-            return new ChangeColumnDefault(resolveDfltFunc);
-        }
-    }
-
-    static class ChangeNotNull implements Action {
-        private final boolean notNull;
-
-        public ChangeNotNull(boolean notNull) {
-            this.notNull = notNull;
-        }
-
-        public boolean notNull() {
-            return notNull;
-        }
-
-        @Override
-        public ColumnChanger toParams() {
-            return new ChangeColumnNotNull(notNull);
-        }
-    }
-
     /** Column. */
     private String columnName;
 
-    private List<Action> actions = new ArrayList<>(1);
+    private List<ColumnChanger> actions = new ArrayList<>(1);
 
     public String columnName() {
         return columnName;
@@ -99,18 +48,18 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
     }
 
     public void addChange(RelDataType type) {
-        actions.add(new ChangeType(type));
+        actions.add(new ChangeColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale()));
     }
 
     public void addChange(boolean notNull) {
-        actions.add(new ChangeNotNull(notNull));
+        actions.add(new ChangeColumnNotNull(notNull));
     }
 
     public void addChange(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-        actions.add(new ChangeDefault(resolveDfltFunc));
+        actions.add(new ChangeColumnDefault(resolveDfltFunc));
     }
 
-    public List<Action> actions() {
+    public List<ColumnChanger> actions() {
         return actions;
     }
 }

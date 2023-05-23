@@ -61,6 +61,11 @@ public class ChangeColumnType implements ColumnChanger {
     }
 
     @Override
+    public Priority priority() {
+        return Priority.DATA_TYPE;
+    }
+
+    @Override
     public @Nullable TableColumnDescriptor apply(TableColumnDescriptor source) {
         if (source.type() == type && source.precision() == precision && source.scale() == scale) {
             // No-op.

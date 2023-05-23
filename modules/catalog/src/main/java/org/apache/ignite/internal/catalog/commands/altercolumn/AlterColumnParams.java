@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.catalog.commands.altercolumn;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 
@@ -29,7 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 public class AlterColumnParams extends AbstractTableCommandParams {
     private String columnName;
 
-    private final List<ColumnChanger> changeActions = new ArrayList<>(1);
+    private List<ColumnChanger> changeActions = new ArrayList<>(1);
 
     public String columnName() {
         return columnName;
@@ -70,11 +72,11 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         /**
          * todo
          *
-         * @param colChanger Column changer.
+         * @param colChanger Column changes.
          * @return {@code this}.
          */
-        public Builder addChange(ColumnChanger colChanger) {
-            params.changeActions.add(colChanger);
+        public Builder changeActions(List<ColumnChanger> changes) {
+            params.changeActions = changes.stream().sorted(Comparator.comparing(ColumnChanger::priority)).collect(Collectors.toList());
 
             return this;
         }

@@ -60,13 +60,12 @@ class DdlToCatalogCommandConverter {
     }
 
     static AlterColumnParams convert(AlterColumnCommand cmd) {
-        Builder builder = AlterColumnParams.builder().schemaName(cmd.schemaName()).tableName(cmd.tableName()).columnName(cmd.columnName());
-
-        for (AlterColumnCommand.Action action : cmd.actions()) {
-            builder.addChange(action.toParams());
-        }
-
-        return builder.build();
+        return AlterColumnParams.builder()
+                .schemaName(cmd.schemaName())
+                .tableName(cmd.tableName())
+                .columnName(cmd.columnName())
+                .changeActions(cmd.actions())
+                .build();
     }
 
     private static ColumnParams convert(ColumnDefinition def) {

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.commands.altercolumn;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
-import java.math.BigDecimal;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
@@ -48,5 +47,10 @@ public class ChangeColumnDefault implements ColumnChanger {
         }
 
         return new TableColumnDescriptor(origin.name(), origin.type(), origin.nullable(), dflt);
+    }
+
+    @Override
+    public Priority priority() {
+        return Priority.DEFAULT;
     }
 }

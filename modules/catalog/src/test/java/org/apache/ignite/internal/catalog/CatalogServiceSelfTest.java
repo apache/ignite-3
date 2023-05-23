@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -336,26 +337,26 @@ public class CatalogServiceSelfTest {
         assertThat(service.alterColumn(AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("val")
-                .addChange(new ChangeColumnDefault((t) -> DefaultValue.constant(BigDecimal.valueOf(1))))
+                .changeActions(Collections.singletonList(new ChangeColumnDefault((t) -> DefaultValue.constant(BigDecimal.valueOf(1)))))
                 .build()), willBeNull);
 
         // 2. Change not null.
         assertThat(service.alterColumn(AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("val")
-                .addChange(new ChangeColumnNotNull(true))
+                .changeActions(Collections.singletonList(new ChangeColumnNotNull(true)))
                 .build()), willBeNull);
 
         assertThat(service.alterColumn(AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("val")
-                .addChange(new ChangeColumnNotNull(false))
+                .changeActions(Collections.singletonList(new ChangeColumnNotNull(false)))
                 .build()), willBeNull);
 
         assertThat(service.alterColumn(AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("val")
-                .addChange(new ChangeColumnNotNull(true))
+                .changeActions(Collections.singletonList(new ChangeColumnNotNull(true)))
                 .build()), willThrowFast(IgniteException.class, "Cannot set NOT NULL for column"));
 
         // 3. Change type.
@@ -363,7 +364,7 @@ public class CatalogServiceSelfTest {
         AlterColumnParams params = AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("val")
-                .addChange(new ChangeColumnType(ColumnType.INT32))
+                .changeActions(Collections.singletonList(new ChangeColumnType(ColumnType.INT32)))
                 .build();
 
         assertThat(service.alterColumn(params),willBeNull);
@@ -373,14 +374,14 @@ public class CatalogServiceSelfTest {
         assertThat(service.alterColumn(AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("dec")
-                .addChange(new ChangeColumnType(ColumnType.DECIMAL, 3, Integer.MIN_VALUE))
+                .changeActions(Collections.singletonList(new ChangeColumnType(ColumnType.DECIMAL, 3, Integer.MIN_VALUE)))
                 .build()),willBeNull);
 
         // - decrease
         assertThat(service.alterColumn(AlterColumnParams.builder()
                 .tableName(TABLE_NAME)
                 .columnName("dec")
-                .addChange(new ChangeColumnType(ColumnType.DECIMAL, 2, Integer.MIN_VALUE))
+                .changeActions(Collections.singletonList(new ChangeColumnType(ColumnType.DECIMAL, 2, Integer.MIN_VALUE)))
                 .build()),willThrowFast(IgniteException.class, "Cannot decrease precision"));
 
         if (true)

@@ -43,4 +43,9 @@ public class ChangeColumnNotNull implements ColumnChanger {
 
         throw new IgniteException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot set NOT NULL for column " + source.name());
     }
+
+    @Override
+    public Priority priority() {
+        return notNull ? Priority.SET_NOT_NULL : Priority.DROP_NOT_NULL;
+    }
 }
