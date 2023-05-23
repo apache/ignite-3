@@ -497,7 +497,7 @@ public class TraitUtils {
             case DESC_NULLS_FIRST:
                 return new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.FIRST);
             default:
-                throw new IgniteInternalException(Common.UNEXPECTED_ERR, format("Unknown collation [collation={}]", collation));
+                throw new IgniteInternalException(Common.INTERNAL_ERR, format("Unknown collation [collation={}]", collation));
         }
     }
 

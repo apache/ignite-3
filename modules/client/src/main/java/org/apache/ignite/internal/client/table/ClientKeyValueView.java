@@ -19,7 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.BitSet;
 import java.util.Collection;
@@ -438,7 +438,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
             s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
             s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
 
         w.out().packBinaryTuple(builder, noValueSet);
@@ -469,7 +469,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
             return res;
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 }

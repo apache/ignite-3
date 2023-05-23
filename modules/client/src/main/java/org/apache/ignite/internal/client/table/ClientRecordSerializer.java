@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -113,7 +113,7 @@ public class ClientRecordSerializer<R> {
 
             out.packBinaryTuple(builder, noValueSet);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 
@@ -190,7 +190,7 @@ public class ClientRecordSerializer<R> {
                 }
             }
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
 
         return res;
@@ -208,7 +208,7 @@ public class ClientRecordSerializer<R> {
         try {
             return (R) marshaller.readObject(reader, null);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 
@@ -225,7 +225,7 @@ public class ClientRecordSerializer<R> {
         try {
             return (R) valMarshaller.readObject(reader, null);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 
