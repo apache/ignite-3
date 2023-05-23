@@ -31,5 +31,5 @@ interface StreamerBatchSender<T> {
      * @param batch Batch.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> send(Collection<T> batch);
+    CompletableFuture<Void> sendAsync(Collection<T> batch);
 }

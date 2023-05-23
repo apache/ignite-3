@@ -36,6 +36,12 @@ class StreamerSubscriber<T> implements Subscriber<T> {
 
     private @Nullable Flow.Subscription subscription;
 
+    /**
+     * Constructor.
+     *
+     * @param batchSender Batch sender.
+     * @param options Data streamer options.
+     */
     StreamerSubscriber(StreamerBatchSender<T> batchSender, @Nullable DataStreamerOptions options) {
         assert batchSender != null;
 
@@ -43,6 +49,7 @@ class StreamerSubscriber<T> implements Subscriber<T> {
         this.options = options == null ? new DataStreamerOptions() : null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onSubscribe(Subscription subscription) {
         this.subscription = subscription;
@@ -50,20 +57,32 @@ class StreamerSubscriber<T> implements Subscriber<T> {
         subscription.request(options.batchSize());
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onNext(T item) {
         // TODO: Update per-node buffers.
         // TODO: Request more data once current batch is processed.
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onError(Throwable throwable) {
         close();
     }
 
+    /** {@inheritDoc} */
     @Override
     public void onComplete() {
         close();
+    }
+
+    /**
+     * Returns a future that will be completed once all the data is sent.
+     *
+     * @return Completion future.
+     */
+    CompletableFuture<Void> completionFuture() {
+        return completionFut;
     }
 
     private void close() {
@@ -74,9 +93,5 @@ class StreamerSubscriber<T> implements Subscriber<T> {
         }
 
         completionFut.complete(null);
-    }
-
-    CompletableFuture<Void> completionFuture() {
-        return completionFut;
     }
 }
