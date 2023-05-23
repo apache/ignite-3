@@ -89,12 +89,12 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     @SuppressWarnings("ThrowableNotThrown")
     public void testSetDataType() {
         Class<IgniteSqlAlterColumnType> expCls = IgniteSqlAlterColumnType.class;
-        String query = "SET DATA TYPE LONG";
+        String query = "SET DATA TYPE INTEGER";
 
         IgniteSqlAlterColumnType alterColumn = parseSingleAction(query, expCls);
 
         assertNotNull(alterColumn.dataType());
-        assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo("LONG"));
+        assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo("INTEGER"));
 
         IgniteTestUtils.assertThrowsWithCause(() -> parseSingleAction(query + " NOT NULL", expCls), SqlParseException.class, "Encountered");
         IgniteTestUtils.assertThrowsWithCause(() -> parseSingleAction(query + " DEFAULT 1", expCls), SqlParseException.class, "Encountered");

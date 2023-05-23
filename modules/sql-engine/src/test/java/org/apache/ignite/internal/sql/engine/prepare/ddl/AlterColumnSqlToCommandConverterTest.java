@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,12 +34,17 @@ import org.junit.jupiter.api.Test;
  */
 public class AlterColumnSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     @Test
-    public void testChangeColumnType() throws SqlParseException {
-        SqlNode node = parse("ALTER TABLE T1 ALTER COLUMN C1 SET DATA TYPE INT, SET DATA TYPE LONG, SET NOT NULL");
+    public void testDuplicatedActions() throws SqlParseException {
+        ensureDuplicateActionExceptionIsThrown("ALTER TABLE T1 ALTER COLUMN C1 SET DATA TYPE INT, SET DATA TYPE DOUBLE");
+        ensureDuplicateActionExceptionIsThrown("ALTER TABLE T1 ALTER COLUMN C1 SET NOT NULL, DROP NOT NULL");
+        ensureDuplicateActionExceptionIsThrown("ALTER TABLE T1 ALTER COLUMN C1 DROP DEFAULT, SET DATA TYPE DOUBLE, SET DEFAULT 1");
+    }
 
-        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, instanceOf(AlterColumnCommand.class));
+    private void ensureDuplicateActionExceptionIsThrown(String query) throws SqlParseException {
+        SqlNode node = parse(query);
 
-//        AlterColumnCommand alterColCmd = (AlterColumnCommand) cmd;
+        SqlException ex = assertThrows(SqlException.class, () -> converter.convert((SqlDdl) node, createContext()));
+        assertThat(ex.code(), equalTo(UNSUPPORTED_DDL_OPERATION_ERR));
+        assertThat(ex.getMessage(), containsString("Duplicate ALTER COLUMN action"));
     }
 }
