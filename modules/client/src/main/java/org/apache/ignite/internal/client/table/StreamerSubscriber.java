@@ -28,13 +28,18 @@ import org.jetbrains.annotations.Nullable;
  * Data streamer subscriber.
  */
 class StreamerSubscriber<T> implements Subscriber<T> {
+    private final StreamerBatchSender<T> batchSender;
+
     private final DataStreamerOptions options;
 
     private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
 
     private @Nullable Flow.Subscription subscription;
 
-    StreamerSubscriber(@Nullable DataStreamerOptions options) {
+    StreamerSubscriber(StreamerBatchSender<T> batchSender, @Nullable DataStreamerOptions options) {
+        assert batchSender != null;
+
+        this.batchSender = batchSender;
         this.options = options == null ? new DataStreamerOptions() : null;
     }
 

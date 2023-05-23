@@ -361,10 +361,10 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(options);
-        publisher.subscribe(subscriber);
+        StreamerBatchSender<Tuple> batchSender = items -> upsertAllAsync(null, items);
+        StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(batchSender, options);
 
+        publisher.subscribe(subscriber);
         return subscriber.completionFuture();
     }
-
 }
