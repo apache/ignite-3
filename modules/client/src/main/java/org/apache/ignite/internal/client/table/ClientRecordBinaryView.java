@@ -23,16 +23,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
-import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.StreamReceiver;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -366,58 +361,10 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        StreamerSubscriber subscriber = new StreamerSubscriber(options);
+        StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(options);
         publisher.subscribe(subscriber);
 
         return subscriber.completionFuture();
     }
 
-    private class StreamerSubscriber implements Subscriber<Tuple> {
-        private final DataStreamerOptions options;
-
-        private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
-
-        private @Nullable Flow.Subscription subscription;
-
-        private StreamerSubscriber(@Nullable DataStreamerOptions options) {
-            this.options = options == null ? new DataStreamerOptions() : null;
-        }
-
-        @Override
-        public void onSubscribe(Subscription subscription) {
-            this.subscription = subscription;
-
-            subscription.request(options.batchSize());
-        }
-
-        @Override
-        public void onNext(Tuple objects) {
-            // TODO: Update per-node buffers.
-            // TODO: Request more data once current batch is processed.
-        }
-
-        @Override
-        public void onError(Throwable throwable) {
-            close();
-        }
-
-        @Override
-        public void onComplete() {
-            close();
-        }
-
-        private void close() {
-            var s = subscription;
-
-            if (s != null) {
-                s.cancel();
-            }
-
-            completionFut.complete(null);
-        }
-
-        CompletableFuture<Void> completionFuture() {
-            return completionFut;
-        }
-    }
 }
