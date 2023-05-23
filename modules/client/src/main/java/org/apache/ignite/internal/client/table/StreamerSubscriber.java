@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,6 +39,10 @@ class StreamerSubscriber<T> implements Subscriber<T> {
 
     private @Nullable Flow.Subscription subscription;
 
+    private Collection<T> batch;
+
+    private final AtomicInteger itemsPending = new AtomicInteger();
+
     /**
      * Constructor.
      *
@@ -44,6 +51,10 @@ class StreamerSubscriber<T> implements Subscriber<T> {
      */
     StreamerSubscriber(StreamerBatchSender<T> batchSender, @Nullable DataStreamerOptions options) {
         assert batchSender != null;
+
+        if (options != null && options.batchSize() <= 0) {
+            throw new IllegalArgumentException("Batch size must be positive: " + options.batchSize());
+        }
 
         this.batchSender = batchSender;
         this.options = options == null ? new DataStreamerOptions() : null;
@@ -54,14 +65,36 @@ class StreamerSubscriber<T> implements Subscriber<T> {
     public void onSubscribe(Subscription subscription) {
         this.subscription = subscription;
 
-        subscription.request(options.batchSize());
+        requestNextBatch(subscription);
     }
 
     /** {@inheritDoc} */
     @Override
     public void onNext(T item) {
+        if (itemsPending.decrementAndGet() == 0) {
+            requestNextBatch(subscription);
+        }
+
         // TODO: Update per-node buffers.
         // TODO: Request more data once current batch is processed.
+        if (batch == null) {
+            batch = new ArrayList<>(options.batchSize());
+        }
+
+        batch.add(item);
+
+        if (batch.size() == options.batchSize()) {
+            batchSender.sendAsync(batch).whenComplete((res, err) -> {
+                if (err != null) {
+                    onError(err);
+                }
+                else {
+                    batch = null;
+
+                    subscription.request(options.batchSize());
+                }
+            });
+        }
     }
 
     /** {@inheritDoc} */
@@ -92,6 +125,17 @@ class StreamerSubscriber<T> implements Subscriber<T> {
             s.cancel();
         }
 
+        // TODO: Flush remaining data, only then complete the future.
         completionFut.complete(null);
+    }
+
+    private void requestNextBatch(@Nullable Subscription subscription) {
+        if (subscription == null) {
+            return;
+        }
+
+        int batchSize = options.batchSize();
+        subscription.request(batchSize);
+        itemsPending.addAndGet(batchSize);
     }
 }
