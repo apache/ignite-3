@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -36,7 +34,6 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -275,42 +272,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
         return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull R keyRec,
-            InvokeProcessor<R, R, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> Map<R, T> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
