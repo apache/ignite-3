@@ -91,36 +91,6 @@ SqlTypeNameSpec UuidType(Span s) :
     }
 }
 
-SqlNode ColumnDataType(SqlIdentifier id) :
-{
-    SqlDataTypeSpec type = null;
-    SqlNode dflt = null;
-    boolean nullable = true;
-    ColumnStrategy strategy = null;
-    final Span s = Span.of();
-}
-{
-    type = DataTypeEx()
-    [
-        <NOT> <NULL> {
-            nullable = false;
-        }
-    ]
-    (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
-            strategy = ColumnStrategy.DEFAULT;
-        }
-    |
-        {
-            dflt = null;
-            strategy = nullable ? ColumnStrategy.NULLABLE
-                : ColumnStrategy.NOT_NULLABLE;
-        }
-    )
-    {
-        return SqlDdlNodes.column(s.add(id).end(this), id, type, dflt, strategy);
-    }
-}
 
 void TableElement(List<SqlNode> list) :
 {
@@ -401,8 +371,25 @@ SqlNode ColumnWithType() :
 }
 {
     id = SimpleIdentifier()
+    type = DataTypeEx()
+    [
+        <NOT> <NULL> {
+            nullable = false;
+        }
+    ]
+    (
+        <DEFAULT_> { s.add(this); } dflt = Literal() {
+            strategy = ColumnStrategy.DEFAULT;
+        }
+    |
     {
-        return ColumnDataType(id);
+            dflt = null;
+            strategy = nullable ? ColumnStrategy.NULLABLE
+                : ColumnStrategy.NOT_NULLABLE;
+        }
+    )
+    {
+        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
 }
 
@@ -447,14 +434,14 @@ SqlNode SqlAlterTable() :
 SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
 {
     SqlIdentifier id;
-    SqlNode col;
+    final SqlDataTypeSpec type;
     SqlNode dflt;
 }
 {
     id = SimpleIdentifier()
     (
-        <SET> <DATA> <TYPE> { s.add(this); } col = ColumnDataType(id) {
-            return new IgniteSqlAlterColumnType(s.end(this), ifExists, tableId, col);
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() {
+            return new IgniteSqlAlterColumnType(s.end(this), ifExists, tableId, id, type);
         }
     |
         <SET> <NOT> <NULL> {

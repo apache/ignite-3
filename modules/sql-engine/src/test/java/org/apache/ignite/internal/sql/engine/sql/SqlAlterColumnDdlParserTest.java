@@ -27,10 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.List;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.pretty.SqlFormatOptions;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -80,31 +81,22 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
      *
      * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumnType} class with the specified {@link
-     * IgniteSqlAlterColumnType#name() table name}, {@link IgniteSqlAlterColumnType#columnName() column name}, column {@link
-     * IgniteSqlAlterColumnType#dataType() data type} and an optional {@link IgniteSqlAlterColumnType#expression() default expression}.
+     * IgniteSqlAlterColumnType#name() table name}, {@link IgniteSqlAlterColumnType#columnName() column name} and column {@link
+     * IgniteSqlAlterColumnType#dataType() data type}.
      */
     @Test
+    @SuppressWarnings("ThrowableNotThrown")
     public void testSetDataType() {
-        // todo exception must throw
-        validateDataType("SET DATA TYPE LONG", null, null, "LONG");
-        validateDataType("SET DATA TYPE LONG DEFAULT -1", null, -1L, "LONG");
-        validateDataType("SET DATA TYPE INTEGER", null, null, "INTEGER");
-        validateDataType("SET DATA TYPE INTEGER DEFAULT -1", null, -1, "INTEGER");
-    }
+        Class<IgniteSqlAlterColumnType> expCls = IgniteSqlAlterColumnType.class;
+        String query = "SET DATA TYPE LONG";
 
-    private void validateDataType(String querySuffix, Boolean nullable, @Nullable Object expDefault, @Nullable String typeName) {
-        IgniteSqlAlterColumnType alterColumn = parseAlterColumn(querySuffix, IgniteSqlAlterColumnType.class);
+        IgniteSqlAlterColumnType alterColumn = parseAlterColumn(query, expCls);
 
         assertNotNull(alterColumn.dataType());
-        assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo(typeName));
-        assertThat(alterColumn.dataType().getNullable(), is(nullable));
+        assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo("LONG"));
 
-        if (expDefault == null) {
-            assertNull(alterColumn.expression());
-        } else {
-            assertThat(alterColumn.expression(), instanceOf(SqlLiteral.class));
-            assertThat(((SqlLiteral) alterColumn.expression()).getValueAs(expDefault.getClass()), equalTo(expDefault));
-        }
+        IgniteTestUtils.assertThrowsWithCause(() -> parseAlterColumn(query + " NOT NULL", expCls), SqlParseException.class, "Encountered");
+        IgniteTestUtils.assertThrowsWithCause(() -> parseAlterColumn(query + " DEFAULT 1", expCls), SqlParseException.class, "Encountered");
     }
 
     private <T extends IgniteSqlAlterColumn> T parseAlterColumn(String querySuffix, Class<T> cls) {

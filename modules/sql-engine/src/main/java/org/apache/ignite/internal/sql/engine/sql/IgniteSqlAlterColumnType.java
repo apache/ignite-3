@@ -19,38 +19,38 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
  */
 public class IgniteSqlAlterColumnType extends IgniteSqlAlterColumn {
     /** Column declaration. */
-    private final SqlColumnDeclaration column;
+    private final SqlDataTypeSpec type;
+
+    private final SqlIdentifier colName;
 
     /** Constructor. */
-    public IgniteSqlAlterColumnType(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlNode column) {
+    public IgniteSqlAlterColumnType(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier colName, SqlDataTypeSpec type) {
         super(pos, ifExists, tblName);
 
-        this.column = (SqlColumnDeclaration) Objects.requireNonNull(column, "column");
+        this.colName = Objects.requireNonNull(colName, "column name");
+        this.type = Objects.requireNonNull(type, "type");
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, column);
+        return ImmutableNullableList.of(name, colName, type);
     }
 
     /** {@inheritDoc} */
     @Override public SqlIdentifier columnName() {
-        return column.name;
+        return colName;
     }
 
     /**
@@ -59,38 +59,13 @@ public class IgniteSqlAlterColumnType extends IgniteSqlAlterColumn {
      * @return Column data type specification.
      */
     public SqlDataTypeSpec dataType() {
-        return column.dataType;
-    }
-
-    /**
-     * Gets column DEFAULT expression.
-     *
-     * @return Column DEFAULT expression.
-     */
-    public @Nullable SqlNode expression() {
-        return column.expression;
+        return type;
     }
 
     /** {@inheritDoc} */
     @Override protected void unparseAlterColumnOperation(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("SET DATA TYPE");
 
-        column.dataType.unparse(writer, 0, 0);
-
-        if (Boolean.FALSE.equals(column.dataType.getNullable())) {
-            writer.keyword("NOT NULL");
-        }
-
-        SqlNode expression = column.expression;
-
-        if (expression != null) {
-            if (column.strategy == ColumnStrategy.DEFAULT) {
-                writer.keyword("DEFAULT");
-
-                expression.unparse(writer, 0, 0);
-            } else {
-                throw new AssertionError("Unexpected strategy: " + column.strategy);
-            }
-        }
+        type.unparse(writer, 0, 0);
     }
 }
