@@ -27,7 +27,9 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
@@ -81,6 +83,21 @@ public class IgniteTypeSystemTest  {
         );
     }
 
+    /** Type compatibility rules for custom data types. */
+    @TestFactory
+    public Stream<DynamicTest> testCustomDataTypeCompatibility() {
+        IgniteCustomType type1 = new TestCustomType("type1");
+        IgniteCustomType type2 = new TestCustomType("type2");
+
+        return Stream.of(
+                // types with same custom type name are compatible.
+                expectCompatible(type1, new TestCustomType(type1.getCustomTypeName())),
+                // different custom types are never compatible.
+                expectIncompatible(type1, type2),
+                expectIncompatible(type2, type1)
+        );
+    }
+
     private static Stream<RelDataType> supportedTypes() {
         List<SqlTypeName> types = new ArrayList<>();
 
@@ -130,5 +147,29 @@ public class IgniteTypeSystemTest  {
 
             assertFalse(compatible, format("{} {} should not be compatible", from, target));
         });
+    }
+
+    private static final class TestCustomType extends IgniteCustomType {
+
+        private TestCustomType(String typeName) {
+            super(new IgniteCustomTypeSpec(typeName,
+                    NativeTypes.INT8, ColumnType.INT8, Byte.class,
+                    IgniteCustomTypeSpec.getCastFunction(TestCustomType.class, "cast")), false, -1);
+        }
+
+        @Override
+        protected void generateTypeString(StringBuilder sb, boolean withDetail) {
+            sb.append(getCustomTypeName());
+        }
+
+        @Override
+        public IgniteCustomType createWithNullability(boolean nullable) {
+            throw new AssertionError();
+        }
+
+        @SuppressWarnings("unused")
+        public static byte cast(Object ignore) {
+            throw new AssertionError();
+        }
     }
 }
