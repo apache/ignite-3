@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * @apiNote 'Key/value class field' &gt;-&lt; 'table column' mapping laid down in implementation.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface KeyValueView<K, V> {
+public interface KeyValueView<K, V> extends StreamerTarget<Map.Entry<K, V>> {
     /**
      * Gets a value associated with a given key.
      *
