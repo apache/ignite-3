@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.impl;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.WatchEvent;
+import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
-/**
- * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision.
- */
-@FunctionalInterface
-public interface OnRevisionAppliedCallback {
-    /**
-     * Notifies of completion of processing of Meta Storage watches for a particular revision.
-     *
-     * @param watchEvent Event with modified Meta Storage entries processed at least one Watch.
-     * @return Future that represents the state of the execution of the callback.
-     */
-    CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp time);
+/** {@link ItMetaStorageMultipleNodesAbstractTest} with {@link SimpleInMemoryKeyValueStorage} implementation. */
+public class ItMetaStorageMultipleNodesSimpleStorageTest extends ItMetaStorageMultipleNodesAbstractTest {
+    @Override
+    public KeyValueStorage createStorage(String nodeName, Path path) {
+        return new SimpleInMemoryKeyValueStorage(nodeName);
+    }
 }

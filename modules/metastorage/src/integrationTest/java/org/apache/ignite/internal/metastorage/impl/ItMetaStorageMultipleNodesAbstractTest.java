@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -57,7 +58,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Loza;
@@ -73,9 +74,7 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -90,7 +89,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for scenarios when Meta Storage nodes join and leave a cluster.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
+public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
@@ -100,7 +99,9 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
-    private static class Node {
+    public abstract KeyValueStorage createStorage(String nodeName, Path path);
+
+    private class Node {
         private final VaultManager vaultManager;
 
         private final ClusterService clusterService;
@@ -146,7 +147,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     cmgManager,
                     new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(name()),
+                    createStorage(name(), basePath),
                     clock
             );
         }
@@ -193,16 +194,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     .thenApply(MetaStorageServiceImpl::raftGroupService)
                     .thenCompose(service -> service.refreshMembers(false).thenApply(v -> service.learners()))
                     .thenApply(learners -> learners.stream().map(Peer::consistentId).collect(toSet()));
-        }
-
-        void startDroppingMessagesTo(Node recipient, Class<? extends NetworkMessage> msgType) {
-            ((DefaultMessagingService) clusterService.messagingService())
-                    .dropMessages((recipientConsistentId, message) ->
-                            recipient.name().equals(recipientConsistentId) && msgType.isInstance(message));
-        }
-
-        void stopDroppingMessages() {
-            ((DefaultMessagingService) clusterService.messagingService()).stopDroppingMessages();
         }
     }
 
@@ -365,11 +356,30 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
 
+        CompletableFuture<Void> f = new CompletableFuture<>();
+        CountDownLatch l = new CountDownLatch(1);
+
+        secondNode.metaStorageManager.registerExactWatch(ByteArray.fromString("test-key"), new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                l.countDown();
+                return f;
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                // No-op.
+            }
+        });
+
         // Try putting data from both nodes, because any of them can be a leader.
         assertThat(
                 firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),
                 willCompleteSuccessfully()
         );
+
+        assertTrue(l.await(1, TimeUnit.SECONDS));
+        f.complete(null);
 
         assertTrue(waitForCondition(() -> {
             HybridTimestamp sf1 = firstNodeTime.currentSafeTime();

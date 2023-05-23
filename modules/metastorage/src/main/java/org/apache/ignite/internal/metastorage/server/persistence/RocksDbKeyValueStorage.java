@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
+import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
@@ -47,6 +48,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -156,6 +158,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Timestamp to revision mapping column family. */
     private volatile ColumnFamily tsToRevision;
 
+    /** Revision to timestamp mapping column family. */
+    private volatile ColumnFamily revisionToTs;
+
     /** Snapshot manager. */
     private volatile RocksSnapshotManager snapshotManager;
 
@@ -197,14 +202,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * <p>Multi-threaded access is guarded by {@link #rwLock}.
      */
     @Nullable
-    private List<List<Entry>> eventCache;
+    private List<UpdatedEntries> eventCache;
 
     /**
      * Current list of updated entries.
      *
      * <p>Since this list gets read and updated only on writes (under a write lock), no extra synchronisation is needed.
      */
-    private final List<Entry> updatedEntries = new ArrayList<>();
+    private final UpdatedEntries updatedEntries = new UpdatedEntries();
 
     /**
      * Constructor.
@@ -242,10 +247,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         Options tsToRevOptions = new Options().setCreateIfMissing(true);
         ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(tsToRevOptions);
 
+        Options revToTsOptions = new Options().setCreateIfMissing(true);
+        ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(revToTsOptions);
+
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
                 new ColumnFamilyDescriptor(INDEX.nameAsBytes(), indexFamilyOptions),
-                new ColumnFamilyDescriptor(TS_TO_REVISION.nameAsBytes(), tsToRevFamilyOptions)
+                new ColumnFamilyDescriptor(TS_TO_REVISION.nameAsBytes(), tsToRevFamilyOptions),
+                new ColumnFamilyDescriptor(REVISION_TO_TS.nameAsBytes(), revToTsFamilyOptions)
         );
     }
 
@@ -254,7 +263,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
-        assert descriptors.size() == 3;
+        assert descriptors.size() == 4;
 
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
@@ -270,8 +279,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         tsToRevision = ColumnFamily.wrap(db, handles.get(2));
 
+        revisionToTs = ColumnFamily.wrap(db, handles.get(3));
+
         snapshotManager = new RocksSnapshotManager(db,
-                List.of(fullRange(data), fullRange(index), fullRange(tsToRevision)),
+                List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs)),
                 snapshotExecutor
         );
     }
@@ -413,7 +424,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             data.put(batch, REVISION_KEY, revisionBytes);
 
             if (ts != null) {
-                tsToRevision.put(batch, hybridTsToArray(ts), revisionBytes);
+                byte[] tsBytes = hybridTsToArray(ts);
+
+                tsToRevision.put(batch, tsBytes, revisionBytes);
+                revisionToTs.put(batch, revisionBytes, tsBytes);
             }
 
             db.write(opts, batch);
@@ -421,6 +435,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rev = newRev;
             updCntr = newCntr;
         }
+
+        updatedEntries.ts = ts;
 
         queueWatchEvent();
     }
@@ -1329,7 +1345,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     eventCache = new ArrayList<>();
                 }
 
-                eventCache.add(List.copyOf(updatedEntries));
+                eventCache.add(updatedEntries.copy());
 
                 updatedEntries.clear();
 
@@ -1343,7 +1359,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private void notifyWatches() {
-        watchProcessor.notifyWatches(List.copyOf(updatedEntries));
+        UpdatedEntries copy = updatedEntries.copy();
+
+        assert copy.ts != null;
+
+        watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
 
         updatedEntries.clear();
     }
@@ -1359,6 +1379,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         var updatedEntries = new ArrayList<Entry>();
+        HybridTimestamp ts = null;
 
         try (
                 var upperBound = new Slice(longToBytes(upperRevision + 1));
@@ -1379,12 +1400,18 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     if (!updatedEntries.isEmpty()) {
                         var updatedEntriesCopy = List.copyOf(updatedEntries);
 
-                        watchProcessor.notifyWatches(updatedEntriesCopy);
+                        assert ts != null;
+
+                        watchProcessor.notifyWatches(updatedEntriesCopy, ts);
 
                         updatedEntries.clear();
                     }
 
                     lastSeenRevision = revision;
+                }
+
+                if (ts == null) {
+                    ts = timestampByRevision(revision);
                 }
 
                 updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
@@ -1394,11 +1421,25 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             // Notify about the events left after finishing the cycle above.
             if (!updatedEntries.isEmpty()) {
-                watchProcessor.notifyWatches(updatedEntries);
+                assert ts != null;
+
+                watchProcessor.notifyWatches(updatedEntries, ts);
             }
         }
 
         finishReplay();
+    }
+
+    private HybridTimestamp timestampByRevision(long revision) {
+        try {
+            byte[] tsBytes = revisionToTs.get(longToBytes(revision));
+
+            assert tsBytes != null;
+
+            return new HybridTimestamp(bytesToLong(tsBytes));
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void finishReplay() {
@@ -1408,7 +1449,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             if (eventCache != null) {
-                eventCache.forEach(watchProcessor::notifyWatches);
+                eventCache.forEach(entries -> {
+                    assert entries.ts != null;
+
+                    watchProcessor.notifyWatches(entries.updatedEntries, entries.ts);
+                });
 
                 eventCache = null;
             }
@@ -1422,5 +1467,41 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @TestOnly
     public Path getDbPath() {
         return dbPath;
+    }
+
+    private static class UpdatedEntries {
+        private final List<Entry> updatedEntries;
+
+        @Nullable
+        private HybridTimestamp ts;
+
+        public UpdatedEntries() {
+            this.updatedEntries = new ArrayList<>();
+        }
+
+        private UpdatedEntries(List<Entry> updatedEntries, HybridTimestamp ts) {
+            this.updatedEntries = updatedEntries;
+            this.ts = Objects.requireNonNull(ts);
+        }
+
+        public boolean isEmpty() {
+            return updatedEntries.isEmpty();
+        }
+
+        public boolean add(Entry entry) {
+            return updatedEntries.add(entry);
+        }
+
+        public void clear() {
+            updatedEntries.clear();
+
+            ts = null;
+        }
+
+        public UpdatedEntries copy() {
+            assert ts != null;
+
+            return new UpdatedEntries(new ArrayList<>(updatedEntries), ts);
+        }
     }
 }

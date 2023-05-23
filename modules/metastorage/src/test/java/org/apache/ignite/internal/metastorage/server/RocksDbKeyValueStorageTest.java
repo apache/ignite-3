@@ -102,7 +102,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
             }
         });
 
-        storage.startWatches(event -> CompletableFuture.completedFuture(null));
+        storage.startWatches((event, ts) -> CompletableFuture.completedFuture(null));
 
         storage.restoreSnapshot(snapshotPath);
 
