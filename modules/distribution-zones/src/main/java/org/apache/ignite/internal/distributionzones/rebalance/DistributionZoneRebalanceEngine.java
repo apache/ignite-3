@@ -262,7 +262,7 @@ public class DistributionZoneRebalanceEngine {
 
                 CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
 
-                return distributionZoneManager.versionedDataNodes(zoneCfg.zoneId(), replicasCtx.storageRevision())
+                return distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId())
                         .thenCompose(dataNodes -> {
                             int futCur = 0;
 

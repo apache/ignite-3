@@ -792,7 +792,17 @@ public class DistributionZoneManager implements IgniteComponent {
         });
     }
 
-    public CompletableFuture<Set<String>> versionedDataNodes(int zoneId, long revision) {
+    /**
+     * Asynchronously gets the zone using causality token.
+     *
+     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
+     * does not exist.
+     *
+     * @param causalityToken Causality token.
+     * @param zoneId Zone id.
+     * @return The future which will be completed with data nodes for the zoneId or with exception.
+     */
+    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         return null;
     }
 

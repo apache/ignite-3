@@ -2204,7 +2204,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     Integer zoneId = tblCfg.zoneId().value();
 
-                                    return distributionZoneManager.versionedDataNodes(zoneId, evt.revision())
+                                    return distributionZoneManager.dataNodes(evt.revision(), zoneId)
                                             .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                             metaStorageMgr,
                                                             dataNodes,
