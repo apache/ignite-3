@@ -21,6 +21,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Represents an entity that can be used as a target for streaming data.
+ *
+ * @param <T> Entry type.
+ */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface DataStreamerTarget<T> {
     /**
