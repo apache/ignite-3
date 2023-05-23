@@ -139,6 +139,12 @@ class StreamerSubscriber<T> implements Subscriber<T> {
             s.cancel();
         }
 
+        var batch = currentBatch;
+
+        if (batch != null) {
+            sendBatch(batch);
+        }
+
         // TODO: Thread synchronization - make sure no new futures are added.
         var futs = pendingFuts.toArray(new CompletableFuture[0]);
 
@@ -150,8 +156,6 @@ class StreamerSubscriber<T> implements Subscriber<T> {
                 completionFut.complete(null);
             }
         });
-
-        completionFut.complete(null);
     }
 
     private void requestNextBatch(@Nullable Subscription subscription) {
