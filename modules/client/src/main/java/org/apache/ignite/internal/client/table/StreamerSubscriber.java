@@ -19,7 +19,9 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -39,9 +41,11 @@ class StreamerSubscriber<T> implements Subscriber<T> {
 
     private @Nullable Flow.Subscription subscription;
 
-    private Collection<T> batch;
+    private @Nullable Collection<T> currentBatch; // TODO: per-node buffers.
 
-    private final AtomicInteger itemsPending = new AtomicInteger();
+    private final AtomicInteger pendingItemCount = new AtomicInteger();
+
+    private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
 
     /**
      * Constructor.
@@ -71,29 +75,22 @@ class StreamerSubscriber<T> implements Subscriber<T> {
     /** {@inheritDoc} */
     @Override
     public void onNext(T item) {
-        if (itemsPending.decrementAndGet() == 0) {
+        // TODO: This method should be called from a single thread - is that correct?
+        if (pendingItemCount.decrementAndGet() == 0) {
             requestNextBatch(subscription);
         }
 
         // TODO: Update per-node buffers.
         // TODO: Request more data once current batch is processed.
-        if (batch == null) {
-            batch = new ArrayList<>(options.batchSize());
+        if (currentBatch == null) {
+            currentBatch = new ArrayList<>(options.batchSize());
         }
 
-        batch.add(item);
+        currentBatch.add(item);
 
-        if (batch.size() == options.batchSize()) {
-            batchSender.sendAsync(batch).whenComplete((res, err) -> {
-                if (err != null) {
-                    onError(err);
-                }
-                else {
-                    batch = null;
-
-                    subscription.request(options.batchSize());
-                }
-            });
+        if (currentBatch.size() == options.batchSize()) {
+            sendBatch(currentBatch);
+            currentBatch = null;
         }
     }
 
@@ -118,6 +115,23 @@ class StreamerSubscriber<T> implements Subscriber<T> {
         return completionFut;
     }
 
+    private void sendBatch(Collection<T> batch) {
+        CompletableFuture<Void> fut = new CompletableFuture<>();
+        pendingFuts.add(fut);
+
+        batchSender.sendAsync(batch).whenComplete((res, err) -> {
+            if (err != null) {
+                // TODO: Retry - what should be the logic? When do we give up?
+                // TODO: Log error.
+                sendBatch(batch);
+            }
+            else {
+                fut.complete(null);
+                pendingFuts.remove(fut);
+            }
+        });
+    }
+
     private void close() {
         var s = subscription;
 
@@ -125,7 +139,18 @@ class StreamerSubscriber<T> implements Subscriber<T> {
             s.cancel();
         }
 
-        // TODO: Flush remaining data, only then complete the future.
+        // TODO: Thread synchronization - make sure no new futures are added.
+        var futs = pendingFuts.toArray(new CompletableFuture[0]);
+
+        CompletableFuture.allOf(futs).whenComplete((res, err) -> {
+            if (err != null) {
+                completionFut.completeExceptionally(err);
+            }
+            else {
+                completionFut.complete(null);
+            }
+        });
+
         completionFut.complete(null);
     }
 
@@ -136,6 +161,6 @@ class StreamerSubscriber<T> implements Subscriber<T> {
 
         int batchSize = options.batchSize();
         subscription.request(batchSize);
-        itemsPending.addAndGet(batchSize);
+        pendingItemCount.addAndGet(batchSize);
     }
 }
