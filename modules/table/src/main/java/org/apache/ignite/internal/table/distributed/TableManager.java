@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -130,7 +131,10 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -321,6 +325,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final LowWatermark lowWatermark;
 
+    private final IndexBuilder indexBuilder;
+
     /**
      * Creates a new table manager.
      *
@@ -431,6 +437,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc = new MvGc(nodeName, tablesCfg);
 
         lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
+
+        indexBuilder = new IndexBuilder(nodeName, cpus);
     }
 
     @Override
@@ -634,7 +642,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             futures[i] = new CompletableFuture<>();
         }
 
-        String localMemberName = clusterService.topologyService().localMember().name();
+        String localMemberName = localNode().name();
 
         // Create new raft nodes according to new assignments.
         return tablesByIdVv.update(causalityToken, (tablesById, e) -> inBusyLock(busyLock, () -> {
@@ -677,20 +685,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                                 internalTbl, partId));
 
-                CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
+                CompletableFuture<PartitionUpdateHandlers> partitionUpdateHandlersFut = partitionDataStorageFut
                         .thenApply(storage -> {
-                            StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                                     partId,
                                     storage,
-                                    table.indexStorageAdapters(partId),
+                                    table,
                                     dsCfg,
-                                    safeTimeTracker,
-                                    lowWatermark
+                                    safeTimeTracker
                             );
 
-                            mvGc.addStorage(replicaGrpId, storageUpdateHandler);
+                            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                            return storageUpdateHandler;
+                            return partitionUpdateHandlers;
                         });
 
                 CompletableFuture<Void> startGroupFut;
@@ -735,15 +742,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return partitionDataStorageFut.thenAcceptBothAsync(storageUpdateHandlerFut,
-                                    (partitionDataStorage, storageUpdateHandler) -> inBusyLock(busyLock, () -> {
+                            return partitionDataStorageFut.thenAcceptBothAsync(partitionUpdateHandlersFut,
+                                    (partitionDataStorage, partitionUpdateHandlers) -> inBusyLock(busyLock, () -> {
                                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler
+                                                partitionUpdateHandlers
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -757,7 +764,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     newConfiguration,
                                                     new PartitionListener(
                                                             partitionDataStorage,
-                                                            storageUpdateHandler,
+                                                            partitionUpdateHandlers.storageUpdateHandler,
                                                             txStatePartitionStorage,
                                                             safeTimeTracker,
                                                             storageIndexTracker
@@ -799,8 +806,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return partitionStoragesFut.thenAcceptBoth(storageUpdateHandlerFut,
-                                    (partitionStorages, storageUpdateHandler) -> {
+                            return partitionStoragesFut.thenAcceptBoth(partitionUpdateHandlersFut,
+                                    (partitionStorages, partitionUpdateHandlers) -> {
                                         MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
                                         TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
@@ -826,10 +833,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             safeTimeTracker,
                                                             txStateStorage,
                                                             placementDriver,
-                                                            storageUpdateHandler,
+                                                            partitionUpdateHandlers.storageUpdateHandler,
                                                             new NonHistoricSchemas(schemaManager),
-                                                            this::isLocalPeer,
-                                                            schemaManager.schemaRegistry(causalityToken, tblId)
+                                                            schemaManager.schemaRegistry(causalityToken, tblId),
+                                                            localNode(),
+                                                            table.internalTable().storage(),
+                                                            indexBuilder
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -853,7 +862,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(clusterService.topologyService().localMember().name());
+        return peer.consistentId().equals(localNode().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -902,7 +911,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler
+            PartitionUpdateHandlers partitionUpdateHandlers
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -922,8 +931,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionKey,
                         mvTableStorage,
                         txStateTableStorage,
-                        storageUpdateHandler,
-                        mvGc
+                        mvGc,
+                        partitionUpdateHandlers.indexUpdateHandler,
+                        partitionUpdateHandlers.gcUpdateHandler
                 ),
                 incomingSnapshotsExecutor
         ));
@@ -949,7 +959,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc, indexBuilder);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }
@@ -1999,7 +2009,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
 
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        ClusterNode localMember = localNode();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()
@@ -2016,7 +2026,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                pendingAssignmentsEntry.key(), partId, tbl.name(), localMember.address());
+                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
 
         CompletableFuture<Void> localServicesStartFuture;
 
@@ -2027,25 +2037,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-                        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+
+                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                                 partId,
                                 partitionDataStorage,
-                                tbl.indexStorageAdapters(partId),
+                                tbl,
                                 dstZoneCfg.dataStorage(),
-                                safeTimeTracker,
-                                lowWatermark
+                                safeTimeTracker
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler
+                                partitionUpdateHandlers
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
                                 partitionDataStorage,
-                                storageUpdateHandler,
+                                partitionUpdateHandlers.storageUpdateHandler,
                                 txStatePartitionStorage,
                                 safeTimeTracker,
                                 storageIndexTracker
@@ -2099,10 +2109,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             safeTimeTracker,
                                             txStatePartitionStorage,
                                             placementDriver,
-                                            storageUpdateHandler,
+                                            partitionUpdateHandlers.storageUpdateHandler,
                                             new NonHistoricSchemas(schemaManager),
-                                            this::isLocalPeer,
-                                            completedFuture(schemaManager.schemaRegistry(tblId))
+                                            completedFuture(schemaManager.schemaRegistry(tblId)),
+                                            localNode(),
+                                            internalTable.storage(),
+                                            indexBuilder
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                     storageIndexTracker
@@ -2264,7 +2276,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partitionId Partition ID.
      * @return Future of creating or getting partition stores.
      */
-    // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     // TODO: IGNITE-18939 Create storages only once, then only get them
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
@@ -2316,7 +2327,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? Set.of()
                             : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
-                    String localMemberName = clusterService.topologyService().localMember().name();
+                    String localMemberName = localNode().name();
 
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
@@ -2395,5 +2406,34 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (tracker != null) {
             tracker.close();
         }
+    }
+
+    private ClusterNode localNode() {
+        return clusterService.topologyService().localMember();
+    }
+
+    private PartitionUpdateHandlers createPartitionUpdateHandlers(
+            int partitionId,
+            PartitionDataStorage partitionDataStorage,
+            TableImpl table,
+            DataStorageConfiguration dsCfg,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker
+    ) {
+        TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
+
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
+        GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
+
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                partitionId,
+                partitionDataStorage,
+                dsCfg,
+                lowWatermark,
+                indexUpdateHandler,
+                gcUpdateHandler
+        );
+
+        return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
 }

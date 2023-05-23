@@ -350,6 +350,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#put(ByteArray, byte[])
      */
+    @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] val) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -626,8 +627,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    @TestOnly
-    ClusterTime clusterTime() {
+    @Override
+    public ClusterTime clusterTime() {
         return clusterTime;
     }
 

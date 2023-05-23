@@ -242,8 +242,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /**
      * Start component.
      */
-    // ConfigurationChangeException, really?
-    public void start() throws ConfigurationChangeException {
+    public void start() {
         Data data;
 
         try {
@@ -274,6 +273,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         //Workaround for distributed configuration.
         addDefaults(superRoot);
+
+        // Validate the restored configuration.
+        validateConfiguration(new SuperRoot(rootCreator()), superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
@@ -588,17 +590,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             dropNulls(changes);
 
-            List<ValidationIssue> validationIssues = ValidationUtil.validate(
-                    curRoots,
-                    changes,
-                    this::getRootNode,
-                    cachedAnnotations,
-                    validators
-            );
-
-            if (!validationIssues.isEmpty()) {
-                throw new ConfigurationValidationException(validationIssues);
-            }
+            validateConfiguration(curRoots, changes);
 
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
@@ -616,6 +608,20 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     });
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
+        List<ValidationIssue> validationIssues = ValidationUtil.validate(
+                curRoots,
+                changes,
+                this::getRootNode,
+                cachedAnnotations,
+                validators
+        );
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
         }
     }
 

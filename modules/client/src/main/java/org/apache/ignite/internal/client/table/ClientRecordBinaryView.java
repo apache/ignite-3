@@ -19,22 +19,13 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
-import java.util.function.Function;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.StreamReceiver;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -362,110 +353,5 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientTupleSerializer::readTuples,
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull Tuple keyRec, InvokeProcessor<Tuple, Tuple, T> proc) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull Tuple keyRec,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> Map<Tuple, T> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        StreamerSubscriber subscriber = new StreamerSubscriber(options);
-        publisher.subscribe(subscriber);
-
-        return subscriber.completionFuture();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <S, R> CompletableFuture<Void> streamData(
-            Publisher<S> publisher,
-            Function<S, Tuple> keyAccessor,
-            StreamReceiver<S, R> receiver,
-            @Nullable Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    private class StreamerSubscriber implements Subscriber<Tuple> {
-        private final DataStreamerOptions options;
-
-        private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
-
-        private @Nullable Subscription subscription;
-
-        private StreamerSubscriber(@Nullable DataStreamerOptions options) {
-            this.options = options == null ? new DataStreamerOptions() : null;
-        }
-
-        @Override
-        public void onSubscribe(Subscription subscription) {
-            this.subscription = subscription;
-
-            subscription.request(options.batchSize());
-        }
-
-        @Override
-        public void onNext(Tuple objects) {
-            // TODO: Update per-node buffers.
-            // TODO: Request more data once current batch is processed.
-        }
-
-        @Override
-        public void onError(Throwable throwable) {
-            close();
-        }
-
-        @Override
-        public void onComplete() {
-            close();
-        }
-
-        private void close() {
-            var s = subscription;
-
-            if (s != null) {
-                s.cancel();
-            }
-
-            completionFut.complete(null);
-        }
-
-        CompletableFuture<Void> completionFuture() {
-            return completionFut;
-        }
     }
 }

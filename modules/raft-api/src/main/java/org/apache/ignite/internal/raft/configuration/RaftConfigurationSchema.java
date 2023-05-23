@@ -59,4 +59,10 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     public long responseTimeout = 3_000;
+
+    /**
+     * Call fsync when need.
+     */
+    @Value(hasDefault = true)
+    public boolean fsync = true;
 }

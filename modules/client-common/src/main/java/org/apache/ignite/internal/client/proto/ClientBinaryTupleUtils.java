@@ -21,9 +21,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -178,19 +175,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Instant) {
             appendTypeAndScale(builder, ColumnType.TIMESTAMP);
             builder.appendTimestamp((Instant) obj);
-        } else if (obj instanceof Timestamp) {
-            appendTypeAndScale(builder, ColumnType.DATETIME);
-            Timestamp timeStamp = (Timestamp) obj;
-            LocalDateTime localDateTime = timeStamp.toLocalDateTime();
-            builder.appendDateTime(localDateTime);
-        } else if (obj instanceof Date) {
-            appendTypeAndScale(builder, ColumnType.DATE);
-            Date date = (Date) obj;
-            builder.appendDate(date.toLocalDate());
-        } else if (obj instanceof Time) {
-            appendTypeAndScale(builder, ColumnType.TIME);
-            Time time = (Time) obj;
-            builder.appendTime(time.toLocalTime());
         } else if (obj instanceof BigInteger) {
             appendTypeAndScale(builder, ColumnType.NUMBER);
             builder.appendNumber((BigInteger) obj);

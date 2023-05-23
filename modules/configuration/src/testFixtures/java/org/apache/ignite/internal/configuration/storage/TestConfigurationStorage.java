@@ -54,7 +54,12 @@ public class TestConfigurationStorage implements ConfigurationStorage {
      * @param type Configuration type.
      */
     public TestConfigurationStorage(ConfigurationType type) {
+        this(type, Map.of());
+    }
+
+    public TestConfigurationStorage(ConfigurationType type, Map<String, Serializable> data) {
         configurationType = type;
+        map.putAll(data);
     }
 
     @Override

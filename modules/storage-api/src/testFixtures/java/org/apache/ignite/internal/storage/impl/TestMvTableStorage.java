@@ -143,7 +143,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, SortedIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
         if (mvPartitionStorage == null) {
@@ -151,15 +151,15 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
-                indexId,
-                id -> new SortedIndices(new SortedIndexDescriptor(id, tablesCfg.value()))
+                indexDescriptor.id(),
+                id -> new SortedIndices(indexDescriptor)
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
         if (mvPartitionStorage == null) {
@@ -167,8 +167,8 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
-                indexId,
-                id -> new HashIndices(new HashIndexDescriptor(id, tablesCfg.value()))
+                indexDescriptor.id(),
+                id -> new HashIndices(indexDescriptor)
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);

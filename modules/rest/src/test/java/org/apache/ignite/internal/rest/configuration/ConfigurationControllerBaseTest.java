@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
-import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.context.ApplicationContext;
@@ -53,8 +54,6 @@ public abstract class ConfigurationControllerBaseTest {
 
     private final Set<String> secretKeys = Set.of("password");
 
-    private final JsonMasker jsonMasker = new JsonMasker();
-
     @Inject
     private EmbeddedServer server;
 
@@ -79,10 +78,14 @@ public abstract class ConfigurationControllerBaseTest {
     @Test
     void testGetConfig() {
         var response = client().toBlocking().exchange("", String.class);
-        var expectedBody = jsonMasker.mask(cfgPresentation.represent(), secretKeys).toString();
+        var expectedBody = cfgPresentation.represent();
 
         assertEquals(HttpStatus.OK, response.status());
         assertEquals(expectedBody, response.body());
+        assertEquals(
+                "{\"root\":{\"foo\":\"foo\",\"sensitive\":{\"password\":\"********\"},\"subCfg\":{\"bar\":\"bar\"}}}",
+                response.body()
+        );
     }
 
     @Test
@@ -91,15 +94,17 @@ public abstract class ConfigurationControllerBaseTest {
 
         assertEquals(HttpStatus.OK, response.status());
         assertEquals(cfgPresentation.representByPath("root.subCfg"), response.body());
+        assertNotNull(response.body());
     }
 
     @Test
     void testGetSensitiveInformationByPath() {
         var response = client().toBlocking().exchange("/root.sensitive.password", String.class);
-        var expectedBody = jsonMasker.mask(cfgPresentation.representByPath("root.sensitive.password"), emptySet()).toString();
+        var expectedBody = cfgPresentation.representByPath("root.sensitive.password");
 
         assertEquals(HttpStatus.OK, response.status());
         assertEquals(expectedBody, response.body());
+        assertThat(response.body(), matchesPattern("^\\\"[\\*]+\\\"$"));
     }
 
     @Test

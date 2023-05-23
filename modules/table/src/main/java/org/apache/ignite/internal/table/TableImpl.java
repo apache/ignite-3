@@ -39,6 +39,8 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
@@ -282,15 +284,17 @@ public class TableImpl implements Table {
     /**
      * Register the index with given id in a table.
      *
-     * @param indexId An index id os the index to register.
+     * @param indexDescriptor Index descriptor.
      * @param unique A flag indicating whether the given index unique or not.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerHashIndex(
-            UUID indexId,
+            HashIndexDescriptor indexDescriptor,
             boolean unique,
             Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
+        UUID indexId = indexDescriptor.id();
+
         indexLockerFactories.put(
                 indexId,
                 partitionId -> new HashIndexLocker(
@@ -304,7 +308,7 @@ public class TableImpl implements Table {
                 indexId,
                 partitionId -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        tbl.storage().getOrCreateHashIndex(partitionId, indexId),
+                        tbl.storage().getOrCreateHashIndex(partitionId, indexDescriptor),
                         searchRowResolver
                 )
         );
@@ -315,19 +319,22 @@ public class TableImpl implements Table {
     /**
      * Register the index with given id in a table.
      *
-     * @param indexId An index id os the index to register.
+     * @param indexDescriptor Index descriptor.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerSortedIndex(
-            UUID indexId,
+            SortedIndexDescriptor indexDescriptor,
             Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
+        UUID indexId = indexDescriptor.id();
+
         indexLockerFactories.put(
                 indexId,
                 partitionId -> new SortedIndexLocker(
                         indexId,
+                        partitionId,
                         lockManager,
-                        tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
+                        tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor),
                         searchRowResolver
                 )
         );
@@ -335,7 +342,7 @@ public class TableImpl implements Table {
                 indexId,
                 partitionId -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
+                        tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor),
                         searchRowResolver
                 )
         );

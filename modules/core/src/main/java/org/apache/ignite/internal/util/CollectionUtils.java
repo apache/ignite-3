@@ -608,4 +608,18 @@ public final class CollectionUtils {
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
         return op1.stream().filter(op2::contains).collect(toSet());
     }
+
+    /**
+     * Gets last element from given list or returns {@code null} if list is empty.
+     *
+     * @param list List to retrieve the last element.
+     * @param <T> Type of the elements of the list.
+     */
+    public static <T> @Nullable T last(List<? extends T> list) {
+        if (list.isEmpty()) {
+            return null;
+        }
+
+        return list.get(list.size() - 1);
+    }
 }

@@ -276,6 +276,9 @@ public class ErrorGroups {
 
         /** Error occurred when trying to create a read-only transaction with a timestamp older than the data available in the tables. */
         public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode(11);
+
+        /** Failure due to an incompatible schema change. */
+        public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode(12);
     }
 
     /** Replicator error group. */
@@ -374,6 +377,11 @@ public class ErrorGroups {
          * Config write error.
          */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
+
+        /**
+         * Config parse error.
+         */
+        public static final int CONFIG_PARSE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(4);
     }
 
     /**

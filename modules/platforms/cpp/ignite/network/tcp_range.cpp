@@ -82,8 +82,8 @@ std::optional<tcp_range> tcp_range::parse(std::string_view str, uint16_t def_por
 
     std::string_view port_range = str.substr(colon_pos + 1);
 
-    size_t sepPos = port_range.find('.');
-    if (sepPos == std::string::npos) {
+    size_t sep_pos = port_range.find('.');
+    if (sep_pos == std::string::npos) {
         res.range = 0;
         res.port = parsePort(port_range);
 
@@ -92,14 +92,14 @@ std::optional<tcp_range> tcp_range::parse(std::string_view str, uint16_t def_por
         return {std::move(res)};
     }
 
-    if (sepPos + 2 > port_range.size() || port_range[sepPos + 1] != '.')
+    if (sep_pos + 2 > port_range.size() || port_range[sep_pos + 1] != '.')
         return std::nullopt;
 
-    uint16_t range_begin = parsePort(port_range.substr(0, sepPos));
+    uint16_t range_begin = parsePort(port_range.substr(0, sep_pos));
     if (!range_begin)
         return std::nullopt;
 
-    uint16_t range_end = parsePort(port_range.substr(sepPos + 2));
+    uint16_t range_end = parsePort(port_range.substr(sep_pos + 2));
     if (!range_end)
         return std::nullopt;
 

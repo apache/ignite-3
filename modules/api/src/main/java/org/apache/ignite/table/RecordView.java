@@ -17,9 +17,7 @@
 
 package org.apache.ignite.table;
 
-import java.io.Serializable;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -304,50 +302,4 @@ public interface RecordView<R> extends StreamerTarget<R> {
      * @return Future that represents the pending completion of the operation.
      */
     @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
-
-    /**
-     * Executes the InvokeProcessor code against a record with the same key column values as the given one.
-     *
-     * @param tx     Transaction or {@code null} to auto-commit.
-     * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @param proc   Invoke processor.
-     * @param <T>    InvokeProcessor result type.
-     * @return Results of the processing.
-     */
-    <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull R keyRec, InvokeProcessor<R, R, T> proc);
-
-    /**
-     * Asynchronously executes the InvokeProcessor code against a record with the same key columns values as the given one.
-     *
-     * @param tx     Transaction or {@code null} to auto-commit.
-     * @param keyRec A record with the key columns set. The record cannot be {@code null}.
-     * @param proc   Invoke processor.
-     * @param <T>    InvokeProcessor result type.
-     * @return Future that represents the pending completion of the operation.
-     */
-    @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(@Nullable Transaction tx, @NotNull R keyRec,
-            InvokeProcessor<R, R, T> proc);
-
-    /**
-     * Executes the InvokeProcessor code against records with the same key column values as the given ones.
-     *
-     * @param tx      Transaction or {@code null} to auto-commit.
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @param proc    Invoke processor.
-     * @param <T>     InvokeProcessor result type.
-     * @return Results of the processing.
-     */
-    <T extends Serializable> Map<R, T> invokeAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs, InvokeProcessor<R, R, T> proc);
-
-    /**
-     * Asynchronously executes the InvokeProcessor code against records with the same key columns values as the given ones.
-     *
-     * @param tx      Transaction or {@code null} to auto-commit.
-     * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @param proc    Invoke processor.
-     * @param <T>     InvokeProcessor result type.
-     * @return Results of the processing.
-     */
-    @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc);
 }

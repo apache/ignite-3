@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -36,7 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -48,7 +53,9 @@ import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -62,6 +69,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -277,7 +285,7 @@ public class PartitionListener implements RaftGroupListener {
                 cmd.tablePartitionIds()
                         .stream()
                         .map(TablePartitionIdMessage::asTablePartitionId)
-                        .collect(Collectors.toList()),
+                        .collect(toList()),
                 cmd.commitTimestamp()
         );
 
@@ -466,9 +474,11 @@ public class PartitionListener implements RaftGroupListener {
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
 
-            rowUuids.stream().map(uuid -> new RowId(storageUpdateHandler.partitionId(), uuid)).forEach(locker::lock);
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
 
-            storageUpdateHandler.buildIndex(cmd.indexId(), rowUuids, cmd.finish());
+            RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
+
+            storageUpdateHandler.getIndexUpdateHandler().buildIndex(cmd.indexId(), buildIndexRowStream, nextRowIdToBuild);
 
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -492,5 +502,25 @@ public class PartitionListener implements RaftGroupListener {
         } catch (TrackerClosedException ignored) {
             // No-op.
         }
+    }
+
+    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
+        return rowUuids.stream()
+                .map(this::toRowId)
+                .peek(locker::lock)
+                .map(rowId -> {
+                    try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                        return cursor.stream()
+                                .filter(not(ReadResult::isEmpty))
+                                .map(ReadResult::binaryRow)
+                                .map(binaryRow -> new BinaryRowAndRowId(binaryRow, rowId))
+                                .collect(toList());
+                    }
+                })
+                .flatMap(Collection::stream);
+    }
+
+    private RowId toRowId(UUID rowUuid) {
+        return new RowId(storageUpdateHandler.partitionId(), rowUuid);
     }
 }
