@@ -71,18 +71,6 @@ public class IgniteTypeSystemTest  {
         return supportedTypes().map(t -> expectCompatible(t, nullType));
     }
 
-    /** Type compatibility for UUID data type. */
-    @TestFactory
-    public Stream<DynamicTest> testUuidCompatibility() {
-        IgniteCustomType uuidType = TYPE_FACTORY.createCustomType(UuidType.NAME);
-        RelDataType varcharType = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR);
-
-        return Stream.of(
-                expectCompatible(uuidType, uuidType),
-                expectIncompatible(varcharType, uuidType)
-        );
-    }
-
     /** Type compatibility rules for custom data types. */
     @TestFactory
     public Stream<DynamicTest> testCustomDataTypeCompatibility() {
