@@ -17,6 +17,9 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import org.apache.ignite.table.RecordView;
@@ -38,5 +41,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         publisher.close();
         fut.join();
+
+        Tuple res = view.get(null, defaultTupleKey());
+        assertNotNull(res);
+        assertEquals(DEFAULT_NAME, res.stringValue("name"));
     }
 }
