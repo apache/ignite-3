@@ -116,6 +116,7 @@ class StreamerSubscriber<T> implements Subscriber<T> {
     }
 
     private void sendBatch(Collection<T> batch) {
+        // TODO: Backpressure control - no more than 1 batch in flight (per node).
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
