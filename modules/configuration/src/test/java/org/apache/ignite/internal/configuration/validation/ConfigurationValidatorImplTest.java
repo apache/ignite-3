@@ -20,14 +20,13 @@ package org.apache.ignite.internal.configuration.validation;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.configuration.validation.ValidationUtilTest.PolyValidatedChildConfigurationSchema.DEFAULT_POLY_TYPE;
+import static org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImplTest.PolyValidatedChildConfigurationSchema.DEFAULT_POLY_TYPE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +45,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -57,12 +57,20 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Test class for {@link ValidationUtil}.
+ * Test class for {@link ConfigurationValidatorImpl}.
  */
-public class ValidationUtilTest {
+@ExtendWith(MockitoExtension.class)
+public class ConfigurationValidatorImplTest {
+
     private static ConfigurationAsmGenerator cgen;
+
+    @Mock
+    ConfigurationTreeGenerator configurationTreeGenerator;
 
     @BeforeAll
     public static void beforeAll() {
@@ -180,9 +188,10 @@ public class ValidationUtilTest {
             }
         };
 
-        List<Validator<LeafValidation, String>> validators = List.of(validator);
+        Set<Validator<LeafValidation, String>> validators = Set.of(validator);
 
-        List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.child.str", "foo", "foo"),
@@ -220,9 +229,10 @@ public class ValidationUtilTest {
             }
         };
 
-        List<Validator<InnerValidation, ?>> validators = List.of(validator);
+        Set<Validator<InnerValidation, ?>> validators = Set.of(validator);
 
-        List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.child", "foo", "foo"),
@@ -252,9 +262,10 @@ public class ValidationUtilTest {
             }
         };
 
-        List<Validator<NamedListValidation, NamedListView<?>>> validators = List.of(validator);
+        Set<Validator<NamedListValidation, NamedListView<?>>> validators = Set.of(validator);
 
-        List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.elements", List.of(), List.of()),
@@ -328,12 +339,13 @@ public class ValidationUtilTest {
             }
         };
 
-        List<Validator<?, ?>> validators = List.of(innerValidator, leafValidator, namedListValidator);
+        Set<Validator<?, ?>> validators = Set.of(innerValidator, leafValidator, namedListValidator);
 
-        List<ValidationIssue> validationIssues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
 
         // Checks that for a nested/leaf/named configuration their owners will be correctly returned.
-        assertThat(validationIssues, empty());
+        assertThat(actual, empty());
     }
 
     private static class ExValidationIssue extends ValidationIssue {

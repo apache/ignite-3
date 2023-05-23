@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -110,6 +110,8 @@ public class ItDistributedConfigurationPropertiesTest {
 
         private final MetaStorageManager metaStorageManager;
 
+        private final ConfigurationTreeGenerator generator;
+
         private final ConfigurationManager distributedCfgManager;
 
         /** Flag that disables storage updates. */
@@ -146,8 +148,8 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -186,12 +188,12 @@ public class ItDistributedConfigurationPropertiesTest {
                 }
             };
 
+            generator = new ConfigurationTreeGenerator(DistributedConfiguration.KEY);
             distributedCfgManager = new ConfigurationManager(
                     List.of(DistributedConfiguration.KEY),
-                    Set.of(),
                     distributedCfgStorage,
-                    List.of(),
-                    List.of()
+                    generator,
+                    new TestConfigurationValidator()
             );
         }
 
@@ -234,6 +236,8 @@ public class ItDistributedConfigurationPropertiesTest {
             for (IgniteComponent component : components) {
                 component.stop();
             }
+
+            generator.close();
         }
 
         /**

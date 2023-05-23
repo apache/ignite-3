@@ -69,6 +69,8 @@ import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
@@ -102,6 +104,7 @@ import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
+import org.apache.ignite.internal.rest.configuration.ConfigurationValidatorFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
@@ -214,6 +217,9 @@ public class IgniteImpl implements Ignite {
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
+    /** Distributed configuration validator. */
+    private final ConfigurationValidator distributedConfigurationValidator;
+
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
 
@@ -302,17 +308,25 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+        ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
+        LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
+                configPath,
+                localConfigurationGenerator
+        );
+
+        ConfigurationValidator localConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
+
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                modules.local().validators(),
-                new LocalFileConfigurationStorage(configPath, generator),
-                generator
+                localFileConfigurationStorage,
+                localConfigurationGenerator,
+                localConfigurationValidator
         );
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
@@ -364,6 +378,15 @@ public class IgniteImpl implements Ignite {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
+                modules.distributed().rootKeys(),
+                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().polymorphicSchemaExtensions()
+        );
+
+        distributedConfigurationValidator =
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
@@ -371,8 +394,8 @@ public class IgniteImpl implements Ignite {
                 clusterStateStorage,
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
-                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY)
-        );
+                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
+                distributedConfigurationValidator);
 
         replicaMgr = new ReplicaManager(
                 clusterSvc,
@@ -397,12 +420,10 @@ public class IgniteImpl implements Ignite {
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
-                modules.distributed().validators(),
                 cfgStorage,
-                modules.distributed().internalSchemaExtensions(),
-                modules.distributed().polymorphicSchemaExtensions()
+                distributedConfigurationGenerator,
+                distributedConfigurationValidator
         );
-
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
@@ -580,6 +601,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> nodeMetricRestFactory = () -> new MetricRestFactory(metricManager);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
+        Supplier<RestFactory> configurationValidatorFactory = () -> new ConfigurationValidatorFactory(distributedConfigurationValidator);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         return new RestComponent(
                 List.of(presentationsFactory,
@@ -587,7 +609,8 @@ public class IgniteImpl implements Ignite {
                         nodeManagementRestFactory,
                         nodeMetricRestFactory,
                         deploymentCodeRestFactory,
-                        authProviderFactory),
+                        authProviderFactory,
+                        configurationValidatorFactory),
                 restConfiguration
         );
     }
