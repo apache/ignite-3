@@ -372,17 +372,6 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return subscriber.completionFuture();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <S, R> CompletableFuture<Void> streamData(
-            Publisher<S> publisher,
-            Function<S, Tuple> keyAccessor,
-            StreamReceiver<S, R> receiver,
-            @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     private class StreamerSubscriber implements Subscriber<Tuple> {
         private final DataStreamerOptions options;
 
