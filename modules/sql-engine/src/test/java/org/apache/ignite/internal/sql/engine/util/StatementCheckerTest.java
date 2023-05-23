@@ -67,7 +67,7 @@ public class StatementCheckerTest {
         test.getExecutable().execute();
     }
 
-    /** Validation check should pass - error any error is accepted. */
+    /** Validation check should pass - any error is accepted. */
     @Test
     public void testFailAnyError() throws Throwable {
         when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))

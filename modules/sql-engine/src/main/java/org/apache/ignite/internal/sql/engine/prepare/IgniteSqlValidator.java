@@ -97,10 +97,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         HUMAN_READABLE_ALIASES_FOR = Collections.unmodifiableSet(kinds);
     }
 
-    /** Dynamic parameters. */
+    /** Dynamic parameter values. */
     private final Object[] parameters;
 
-    /** Types of dynamic parameters. */
+    /** Dynamic parameters SQL AST nodes for validation. */
     private final SqlDynamicParam[] dynamicParams;
 
     /**
