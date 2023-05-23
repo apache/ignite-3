@@ -173,7 +173,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             }
         } else {
             assert schemaIndex.type() == Type.HASH;
-            assert cond != null && cond.lower() != null : "Invalid hash index condition.";
+            assert cond != null && (cond.lower() != null || cond.upper() != null) : "Invalid hash index condition.";
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 

@@ -30,7 +30,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -46,6 +47,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -109,6 +111,9 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
 
     private final PartitionExtractor partitionExtractor;
+
+    /** Triggers statistic update. */
+    private static AtomicBoolean updateStat = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -524,16 +529,17 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     private class StatisticsImpl implements Statistic {
-        private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
+        private static final int STATS_UPDATE_THRESHOLD = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 
-        AtomicInteger statReqCnt = new AtomicInteger();
+        private final AtomicLong lastUpd = new AtomicLong();
 
-        private volatile long localRowCnt;
+        private volatile long localRowCnt = 0L;
 
         /** {@inheritDoc} */
         @Override
+        // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
         public Double getRowCount() {
-            if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
+            if (updateStat.get()) {
                 int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
                 long size = 0L;
@@ -545,14 +551,36 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                         continue;
                     }
 
-                    try {
-                        size += part.rowsCount();
-                    } catch (StorageRebalanceException ignore) {
-                        // No-op.
-                    }
+                    long upd = part.lastAppliedIndex();
+
+                    size += upd;
                 }
 
-                localRowCnt = size;
+                long prev = lastUpd.get();
+
+                if (size - lastUpd.get() > STATS_UPDATE_THRESHOLD) {
+                    synchronized (this) {
+                        if (lastUpd.compareAndSet(prev, size)) {
+                            size = 0L;
+
+                            for (int p = 0; p < parts; ++p) {
+                                @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
+
+                                if (part == null) {
+                                    continue;
+                                }
+
+                                try {
+                                    size += part.rowsCount();
+                                } catch (StorageRebalanceException ignore) {
+                                    // No-op.
+                                }
+                            }
+
+                            localRowCnt = size;
+                        }
+                    }
+                }
             }
 
             // Forbid zero result, to prevent zero cost for table and index scans.
@@ -610,12 +638,18 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             RowHandler<RowT> handler,
             CompletableFuture<List<RowT>>[] futs
     ) {
+        updateStat.set(true);
+
         return CompletableFuture.allOf(futs)
                 .thenApply(response -> {
-                    List<String> conflictRows = new ArrayList<>();
+                    List<String> conflictRows = null;
 
                     for (CompletableFuture<List<RowT>> future : futs) {
                         List<RowT> values = future.join();
+
+                        if (conflictRows == null && values != null && !values.isEmpty()) {
+                            conflictRows = new ArrayList<>(values.size());
+                        }
 
                         if (values != null) {
                             for (RowT row : values) {
@@ -624,7 +658,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                         }
                     }
 
-                    if (!conflictRows.isEmpty()) {
+                    if (conflictRows != null && !conflictRows.isEmpty()) {
                         throw conflictKeysException(conflictRows);
                     }
 

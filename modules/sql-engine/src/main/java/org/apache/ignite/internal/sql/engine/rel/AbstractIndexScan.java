@@ -39,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,10 +112,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         return super.accept(shuttle);
     }
 
-    /**
-     * Get index name.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** Return index name. */
     public String indexName() {
         return idxName;
     }
@@ -124,20 +122,29 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rows = table.getRowCount();
 
-        double cost;
+        double cost = 0;
 
         if (condition == null) {
+            if (type == Type.HASH) {
+                boolean notExact = searchBounds() == null
+                        || searchBounds().stream().anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT);
+
+                if (notExact) {
+                    // now bounds index scan is only available for sorted index, check:
+                    // PartitionReplicaListener#processReadOnlyScanRetrieveBatchAction
+                    return planner.getCostFactory().makeInfiniteCost();
+                }
+            }
+
             cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
         } else {
-            RexBuilder builder = getCluster().getRexBuilder();
-
             double selectivity = 1;
 
-            cost = 0;
+            RexBuilder builder = getCluster().getRexBuilder();
 
-            if (searchBounds != null) {
+            if (searchBounds() != null) {
                 selectivity = mq.getSelectivity(this, RexUtil.composeConjunction(builder,
-                        Commons.transform(searchBounds, b -> b == null ? null : b.condition())));
+                        Commons.transform(searchBounds(), b -> b == null ? null : b.condition())));
 
                 cost = Math.log(rows) * IgniteCost.ROW_COMPARISON_COST;
             }
