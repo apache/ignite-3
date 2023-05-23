@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Mapped record type.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface RecordView<R> extends StreamerTarget<R> {
+public interface RecordView<R> extends DataStreamerTarget<R> {
     /**
      * Gets a record with the same key column values as the given one from a table.
      *

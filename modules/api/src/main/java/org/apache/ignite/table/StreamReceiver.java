@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Stream receiver.
  *
- * <p>See {@link StreamerTarget#streamData}.</p>
+ * <p>See {@link DataStreamerTarget#streamData}.</p>
  *
  * @param <T> Element type.
  */
