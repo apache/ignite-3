@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 public class AlterColumnSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     @Test
     public void testChangeColumnType() throws SqlParseException {
-        SqlNode node = parse("ALTER TABLE T1 ALTER COLUMN C1 SET DATA TYPE INT");
+        SqlNode node = parse("ALTER TABLE T1 ALTER COLUMN C1 SET DATA TYPE INT, SET DATA TYPE LONG, SET NOT NULL");
 
         DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
         assertThat(cmd, instanceOf(AlterColumnCommand.class));

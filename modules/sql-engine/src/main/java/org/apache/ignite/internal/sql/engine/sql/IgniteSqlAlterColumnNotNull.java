@@ -17,40 +17,29 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.util.ImmutableNullableList;
 
 /**
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP NOT NULL} statement.
  */
-public class IgniteSqlAlterColumnNotNull extends IgniteSqlAlterColumn {
-    /** Column name. */
-    private final SqlIdentifier columnName;
-
+public class IgniteSqlAlterColumnNotNull extends IgniteSqlAlterColumnAction {
     /** NOT NULL constraint change flag. */
     private final boolean notNull;
 
     /** Constructor. */
-    public IgniteSqlAlterColumnNotNull(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier colName, boolean notNull) {
-        super(pos, ifExists, tblName);
+    public IgniteSqlAlterColumnNotNull(SqlParserPos pos, boolean notNull) {
+        super(pos);
 
-        this.columnName = Objects.requireNonNull(colName, "colName");
         this.notNull = notNull;
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override public SqlIdentifier columnName() {
-        return columnName;
+        return Collections.emptyList();
     }
 
     /**
@@ -63,7 +52,7 @@ public class IgniteSqlAlterColumnNotNull extends IgniteSqlAlterColumn {
     }
 
     /** {@inheritDoc} */
-    @Override protected void unparseAlterColumnOperation(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(notNull ? "SET" : "DROP");
         writer.keyword("NOT NULL");
     }

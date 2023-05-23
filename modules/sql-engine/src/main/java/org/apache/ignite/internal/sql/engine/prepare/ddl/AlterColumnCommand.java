@@ -28,7 +28,6 @@ import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnNotNu
 import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChanger;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * ALTER TABLE ... ALTER COLUMN statement.
@@ -99,8 +98,16 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         columnName = name;
     }
 
-    public void addAction(Action action) {
-        actions.add(action);
+    public void addChange(RelDataType type) {
+        actions.add(new ChangeType(type));
+    }
+
+    public void addChange(boolean notNull) {
+        actions.add(new ChangeNotNull(notNull));
+    }
+
+    public void addChange(Function<ColumnType, DefaultValue> resolveDfltFunc) {
+        actions.add(new ChangeDefault(resolveDfltFunc));
     }
 
     public List<Action> actions() {

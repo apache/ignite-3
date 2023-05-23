@@ -61,5 +61,11 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      */
     CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params);
 
+    /**
+     * Drops columns from table.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
     CompletableFuture<Void> alterColumn(AlterColumnParams params);
 }

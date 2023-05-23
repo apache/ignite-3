@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.sql.SqlDataTypeSpec;
@@ -24,33 +25,24 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.util.ImmutableNullableList;
 
 /**
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
  */
-public class IgniteSqlAlterColumnType extends IgniteSqlAlterColumn {
+public class IgniteSqlAlterColumnType extends IgniteSqlAlterColumnAction {
     /** Column declaration. */
     private final SqlDataTypeSpec type;
 
-    private final SqlIdentifier colName;
-
     /** Constructor. */
-    public IgniteSqlAlterColumnType(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier colName, SqlDataTypeSpec type) {
-        super(pos, ifExists, tblName);
+    public IgniteSqlAlterColumnType(SqlParserPos pos, SqlDataTypeSpec type) {
+        super(pos);
 
-        this.colName = Objects.requireNonNull(colName, "column name");
         this.type = Objects.requireNonNull(type, "type");
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, colName, type);
-    }
-
-    /** {@inheritDoc} */
-    @Override public SqlIdentifier columnName() {
-        return colName;
+        return Collections.singletonList(type);
     }
 
     /**
@@ -63,7 +55,7 @@ public class IgniteSqlAlterColumnType extends IgniteSqlAlterColumn {
     }
 
     /** {@inheritDoc} */
-    @Override protected void unparseAlterColumnOperation(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("SET DATA TYPE");
 
         type.unparse(writer, 0, 0);

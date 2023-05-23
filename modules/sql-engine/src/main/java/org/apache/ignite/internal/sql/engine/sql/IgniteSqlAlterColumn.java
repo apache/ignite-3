@@ -17,25 +17,38 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.List;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.util.ImmutableNullableList;
 
 /**
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN} statement.
  */
-public abstract class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
+public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
+    private final SqlNodeList actions;
+    private final SqlIdentifier columnName;
+
     /** Constructor. */
-    IgniteSqlAlterColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName) {
+    public IgniteSqlAlterColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier columnName, SqlNodeList actions) {
         super(pos, ifExists, tblName);
+
+        this.columnName = columnName;
+        this.actions = actions;
     }
 
-    /**
-     * Gets column name.
-     *
-     * @return Column name.
-     */
-    public abstract SqlIdentifier columnName();
+    /** Gets column name. */
+    public SqlIdentifier columnName() {
+        return columnName;
+    }
+
+    /** ets alter column actions list. */
+    public List<SqlNode> actions() {
+        return actions;
+    }
 
     /** {@inheritDoc} */
     @Override protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -44,11 +57,11 @@ public abstract class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
 
         columnName().unparse(writer, leftPrec, rightPrec);
 
-        unparseAlterColumnOperation(writer, leftPrec, rightPrec);
+        actions.unparse(writer, leftPrec, rightPrec);
     }
 
-    /**
-     * Unparse rest of the ALTER TABLE ... ALTER COLUMN command.
-     */
-    protected abstract void unparseAlterColumnOperation(SqlWriter writer, int leftPrec, int rightPrec);
+    /** {@inheritDoc} */
+    @Override public List<SqlNode> getOperandList() {
+        return ImmutableNullableList.of(name, columnName, actions);
+    }
 }

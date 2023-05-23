@@ -434,30 +434,70 @@ SqlNode SqlAlterTable() :
 SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
 {
     SqlIdentifier id;
-    final SqlDataTypeSpec type;
+    SqlNodeList actions;
     SqlNode dflt;
 }
 {
     id = SimpleIdentifier()
+    actions = SqlAlterColumnActionOrList()
+    {
+        return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, actions);
+    }
+}
+
+SqlNodeList SqlAlterColumnActionOrList() :
+{
+    SqlNode action;
+    SqlNodeList list;
+}
+{
+    list = SqlAlterColumnActionList() { return list; }
+|
+    action = SqlAlterColumnAction() { return new SqlNodeList(Collections.singletonList(action), action.getParserPosition()); }
+}
+
+SqlNodeList SqlAlterColumnActionList() :
+{
+    final Span s = Span.of();
+    List<SqlNode> list = new ArrayList<SqlNode>();
+    SqlNode action;
+}
+{
+    action = SqlAlterColumnAction() { list.add(action); }
+    (
+        <COMMA> action = SqlAlterColumnAction() { list.add(action); }
+    )*
+    {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+SqlNode SqlAlterColumnAction() :
+{
+    final SqlDataTypeSpec type;
+    final SqlNode dflt;
+    final Span s = Span.of();
+}
+{
     (
         <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() {
-            return new IgniteSqlAlterColumnType(s.end(this), ifExists, tableId, id, type);
+            return new IgniteSqlAlterColumnType(s.end(this), type);
         }
     |
         <SET> <NOT> <NULL> {
-            return new IgniteSqlAlterColumnNotNull(s.end(this), ifExists, tableId, id, true);
+            return new IgniteSqlAlterColumnNotNull(s.end(this), true);
         }
     |
         <DROP> <NOT> <NULL> {
-            return new IgniteSqlAlterColumnNotNull(s.end(this), ifExists, tableId, id, false);
+            return new IgniteSqlAlterColumnNotNull(s.end(this), false);
         }
     |
         <SET> <DEFAULT_> { s.add(this); } dflt = Literal() {
-            return new IgniteSqlAlterColumnDefault(s.end(this), ifExists, tableId, id, dflt);
+            return new IgniteSqlAlterColumnDefault(s.end(this), dflt);
         }
     |
         <DROP> <DEFAULT_> {
-            return new IgniteSqlAlterColumnDefault(s.end(this), ifExists, tableId, id, null);
+            return new IgniteSqlAlterColumnDefault(s.end(this), null);
         }
     )
 }
