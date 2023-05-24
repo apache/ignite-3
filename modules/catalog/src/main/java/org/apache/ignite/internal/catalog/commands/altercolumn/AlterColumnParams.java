@@ -40,22 +40,20 @@ public class AlterColumnParams extends AbstractTableCommandParams {
 
     /** Returns composite change action for the column descriptor. */
     public ColumnChangeAction action() {
-        return (desc) -> {
-            TableColumnDescriptor changedDescriptor = desc;
-            boolean noop = true;
+        return source -> {
+            boolean changed = false;
+            TableColumnDescriptor target = source;
 
             for (ColumnChangeAction action : changeActions) {
-                TableColumnDescriptor tmp = changedDescriptor;
-                changedDescriptor = action.apply(changedDescriptor);
+                TableColumnDescriptor newDesc = action.apply(target);
 
-                if (changedDescriptor == null) {
-                    changedDescriptor = tmp;
-                } else {
-                    noop = false;
+                if (newDesc != null) {
+                    target = newDesc;
+                    changed = true;
                 }
             }
 
-            return noop ? null : changedDescriptor;
+            return changed ? target : null;
         };
     }
 

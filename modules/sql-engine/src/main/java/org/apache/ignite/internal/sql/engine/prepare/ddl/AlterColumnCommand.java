@@ -32,12 +32,10 @@ import org.apache.ignite.sql.ColumnType;
 /**
  * ALTER TABLE ... ALTER COLUMN statement.
  */
-@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class AlterColumnCommand extends AbstractTableDdlCommand {
-    /** Column. */
-    private String columnName;
+    private final List<ColumnChangeAction> actions = new ArrayList<>(1);
 
-    private List<ColumnChangeAction> actions = new ArrayList<>(1);
+    private String columnName;
 
     public String columnName() {
         return columnName;

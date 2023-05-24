@@ -52,7 +52,7 @@ public interface ColumnChangeAction {
      */
     @Nullable TableColumnDescriptor apply(TableColumnDescriptor desc);
 
-    /** Gets order priority for change action. */
+    /** Gets the order priority for the change action. */
     default Priority priority() {
         return Priority.UNDEFINED;
     }

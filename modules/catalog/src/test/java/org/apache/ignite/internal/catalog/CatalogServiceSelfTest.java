@@ -542,16 +542,14 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        assertThat(
-                changeColumn(
-                        TABLE_NAME,
-                        "VAL_NOT_NULL",
-                        new ChangeColumnDefault(t -> DefaultValue.constant(1)),
-                        new ChangeColumnNotNull(false),
-                        new ChangeColumnType(ColumnType.INT64)
-                ),
-                willBe((Object) null)
-        );
+        ColumnChangeAction[] actions = {
+                new ChangeColumnDefault(t -> DefaultValue.constant(1)),
+                new ChangeColumnNotNull(false),
+                new ChangeColumnType(ColumnType.INT64)
+        };
+
+        // Ensures that 3 different actions applied.
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", actions), willBe((Object) null));
 
         SchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
@@ -560,6 +558,18 @@ public class CatalogServiceSelfTest {
         assertEquals(DefaultValue.constant(1), desc.defaultValue());
         assertTrue(desc.nullable());
         assertEquals(ColumnType.INT64, desc.type());
+
+        // Ensures that only one of three actions applied.
+        actions[0] = new ChangeColumnDefault(t -> DefaultValue.constant(2));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", actions), willBe((Object) null));
+
+        schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+        assertEquals(DefaultValue.constant(2), schema.table(TABLE_NAME).column("VAL_NOT_NULL").defaultValue());
+
+        // Ensures that no action will be applied.
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", actions), willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
     }
 
     @Test
