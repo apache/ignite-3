@@ -46,6 +46,8 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
     @BeforeEach
     @Override
     public void setUp() {
+        super.setUp();
+
         storage.startWatches((e, t) -> {
             time.updateSafeTime(t);
 
