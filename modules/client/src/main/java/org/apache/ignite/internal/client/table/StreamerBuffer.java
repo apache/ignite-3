@@ -26,28 +26,51 @@ class StreamerBuffer<T> {
     private final int capacity;
     private final AtomicInteger count = new AtomicInteger();
 
-    private final List<T> items;
+    /** Primary buffer. Won't grow over capacity. */
+    private List<T> buf;
+
+    /** Secondary buffer. Used while primary buffer is being flushed. */
+    private List<T> buf2;
 
     StreamerBuffer(int capacity) {
         this.capacity = capacity;
-        items = new ArrayList<>(capacity);
+        buf = new ArrayList<>(capacity);
+        buf2 = new ArrayList<>(capacity);
     }
 
-    boolean tryAdd(T item) {
-        if (count.incrementAndGet() > capacity) {
+    /**
+     * Adds item to the buffer.
+     *
+     * @param item Item.
+     * @return True if current item is the last one in the buffer; the buffer is full and should be flushed.
+     */
+    boolean add(T item) {
+        // TODO: RW lock?
+        int cnt = count.incrementAndGet();
+        if (cnt <= capacity) {
+            buf.add(item);
+            return cnt == capacity;
+        } else {
+            buf2.add(item);
             return false;
         }
-
-        items.add(item);
-        return true;
     }
 
-    void clear() {
-        items.clear();
-        count.set(0);
+    void onSent() {
+        // TODO: RW lock?
+
+        // Clear flushed buffer.
+        buf.clear();
+
+        // Swap buffers.
+        List<T> tmp = buf;
+        buf = buf2;
+        buf2 = tmp;
+
+        count.set(buf.size());
     }
 
     Collection<T> items() {
-        return items;
+        return buf;
     }
 }

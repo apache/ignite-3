@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         publisher.submit(tuple());
 
         publisher.close();
-        fut.join();
+        fut.orTimeout(1, TimeUnit.SECONDS).join();
 
         Tuple res = view.get(null, defaultTupleKey());
         assertNotNull(res);

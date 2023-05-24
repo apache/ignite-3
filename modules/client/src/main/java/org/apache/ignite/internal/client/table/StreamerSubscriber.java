@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -26,7 +25,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,13 +42,11 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     private @Nullable Flow.Subscription subscription;
 
-    private @Nullable Collection<T> currentBatch; // TODO: per-node buffers.
-
     private final AtomicInteger pendingItemCount = new AtomicInteger();
 
     private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
 
-    private final ConcurrentHashMap<ClientChannel, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<TPartition, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -77,28 +73,33 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     /** {@inheritDoc} */
     @Override
     public void onSubscribe(Subscription subscription) {
+        if (this.subscription != null) {
+            throw new IllegalStateException("Subscription is already set.");
+        }
+
         this.subscription = subscription;
 
-        requestNextBatch(subscription);
+        // Request initial batch times 2 (every per-node buffer can hold 2x items - one for flushing and one for adding).
+        requestMore(options.batchSize() * 2);
     }
 
     /** {@inheritDoc} */
     @Override
     public void onNext(T item) {
-        // TODO: This method should be called from a single thread - is that correct?
-        pendingItemCount.decrementAndGet();
-
-        // TODO: Update per-node buffers. If some per-node buffers are full - send them.
-        // If a per-node buffer is full and in-flight - put the items into a common queue.
-        if (currentBatch == null) {
-            currentBatch = new ArrayList<>(options.batchSize());
+        if (pendingItemCount.decrementAndGet() == 0 && pendingFuts.isEmpty()) {
+            // No batches are being flushed, so we can request more items.
+            requestMore(options.batchSize());
         }
 
-        currentBatch.add(item);
+        TPartition partition = partitionAwarenessProvider.partition(item);
+        StreamerBuffer<T> buf = buffers.computeIfAbsent(partition, p -> new StreamerBuffer<>(options.batchSize()));
 
-        if (currentBatch.size() == options.batchSize()) {
-            sendBatch(currentBatch);
-            currentBatch = null;
+        boolean shouldFlush = buf.add(item);
+
+        if (shouldFlush) {
+            sendBatch(buf);
+            buf = buffers.computeIfAbsent(partition, p -> new StreamerBuffer<>(options.batchSize()));
+            buf.add(item);
         }
     }
 
@@ -123,11 +124,15 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         return completionFut;
     }
 
-    private void sendBatch(Collection<T> batch) {
+    private void sendBatch(StreamerBuffer<T> batch) {
+        if (batch.items().isEmpty()) {
+            return;
+        }
+
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
-        batchSender.sendAsync(null, batch).whenComplete((res, err) -> {
+        batchSender.sendAsync(null, batch.items()).whenComplete((res, err) -> {
             if (err != null) {
                 // TODO: Retry only connection issues?
                 // - When do we give up?
@@ -136,27 +141,27 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
                 sendBatch(batch);
             }
             else {
+                int itemsSent = batch.items().size();
                 fut.complete(null);
                 pendingFuts.remove(fut);
+                batch.onSent();
 
-                // TODO: Backpressure control - no more than 1 batch in flight (per node).
-                // We can have a common queue for all nodes, which holds items while some per-node batches are in flight.
-                requestNextBatch(subscription);
+                // Backpressure control: request as many items as we sent.
+                requestMore(itemsSent);
             }
         });
     }
 
     private void close() {
+        // TODO: RW lock.
         var s = subscription;
 
         if (s != null) {
             s.cancel();
         }
 
-        var batch = currentBatch;
-
-        if (batch != null) {
-            sendBatch(batch);
+        for (StreamerBuffer<T> buf : buffers.values()) {
+            sendBatch(buf);
         }
 
         // TODO: Thread synchronization - make sure no new futures are added.
@@ -172,13 +177,13 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         });
     }
 
-    private void requestNextBatch(@Nullable Subscription subscription) {
+    private void requestMore(int count) {
         if (subscription == null) {
             return;
         }
 
-        int batchSize = options.batchSize();
-        subscription.request(batchSize);
-        pendingItemCount.addAndGet(batchSize);
+        // This method controls backpressure. We won't get more items than we requested.
+        subscription.request(count);
+        pendingItemCount.addAndGet(count);
     }
 }
