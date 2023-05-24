@@ -22,7 +22,6 @@ import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.DataProviderFactory;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
-import org.apache.ignite.sql.ColumnType;
 
 /**
  * {@link DataProviderFactory} that creates {@link DataProvider}s that generates a row of pseudo random data based on table column types
