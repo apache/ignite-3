@@ -19,33 +19,46 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Data streamer test.
  */
 public class DataStreamerTest extends AbstractClientTableTest {
-    @Test
-    public void testBasicStreaming() {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testBasicStreaming(int batchSize) {
         RecordView<Tuple> view = this.defaultTable().recordView();
+        view.deleteAll(null, Stream.of(1L, 2L, 3L).map(AbstractClientTableTest::tupleKey).collect(Collectors.toList()));
 
         var publisher = new SubmissionPublisher<Tuple>();
-        CompletableFuture<Void> fut = view.streamData(publisher, null);
+        CompletableFuture<Void> fut = view.streamData(publisher, new DataStreamerOptions().batchSize(batchSize));
 
-        publisher.submit(tuple());
+        publisher.submit(tuple(1L, "foo"));
+        publisher.submit(tuple(2L, "bar"));
 
         publisher.close();
         fut.orTimeout(1, TimeUnit.SECONDS).join();
 
-        Tuple res = view.get(null, defaultTupleKey());
+        assertNotNull(view.get(null, tupleKey(1L)));
+
+        Tuple res = view.get(null, tupleKey(2L));
         assertNotNull(res);
-        assertEquals(DEFAULT_NAME, res.stringValue("name"));
+        assertEquals("bar", res.stringValue("name"));
     }
 
     @Test
