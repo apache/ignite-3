@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,13 +41,13 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
 
-    private @Nullable Flow.Subscription subscription;
-
     private final AtomicInteger pendingItemCount = new AtomicInteger();
 
     private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
 
     private final ConcurrentHashMap<TPartition, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
+
+    private @Nullable Flow.Subscription subscription;
 
     /**
      * Constructor.
@@ -97,7 +98,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         boolean shouldFlush = buf.add(item);
 
         if (shouldFlush) {
-            sendBatch(buf);
+            sendBatch(partition, buf);
             buf = buffers.computeIfAbsent(partition, p -> new StreamerBuffer<>(options.batchSize()));
             buf.add(item);
         }
@@ -124,7 +125,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         return completionFut;
     }
 
-    private void sendBatch(StreamerBuffer<T> batch) {
+    private void sendBatch(TPartition partition, StreamerBuffer<T> batch) {
         if (batch.items().isEmpty()) {
             return;
         }
@@ -132,13 +133,14 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
-        batchSender.sendAsync(null, batch.items()).whenComplete((res, err) -> {
+        batchSender.sendAsync(partition, batch.items()).whenComplete((res, err) -> {
             if (err != null) {
-                // TODO: Retry only connection issues?
+                // TODO: Retry only connection issues. Connection issue indicates channel failure.
+                // We have to re-add items from the current buffer.
                 // - When do we give up?
                 // - How does it combine with RetryPolicy?
                 // TODO: Log error.
-                sendBatch(batch);
+                sendBatch(partition, batch);
             }
             else {
                 int itemsSent = batch.items().size();
@@ -160,8 +162,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             s.cancel();
         }
 
-        for (StreamerBuffer<T> buf : buffers.values()) {
-            sendBatch(buf);
+        for (Entry<TPartition, StreamerBuffer<T>> buf : buffers.entrySet()) {
+            sendBatch(buf.getKey(), buf.getValue());
         }
 
         // TODO: Thread synchronization - make sure no new futures are added.
