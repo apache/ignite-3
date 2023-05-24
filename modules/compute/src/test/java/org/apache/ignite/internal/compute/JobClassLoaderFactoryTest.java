@@ -35,7 +35,7 @@ class JobClassLoaderFactoryTest {
     private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(units);
 
     @Test
-    @DisplayName("Load class with the same name from class loaders")
+    @DisplayName("Load class with the same name from two different class loaders")
     public void unit1() throws Exception {
 
         ClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(List.of("unit1"));
@@ -57,6 +57,16 @@ class JobClassLoaderFactoryTest {
         Object result2 = job2.call();
         assertSame(String.class, result2.getClass());
         assertEquals("Hello world!", result2);
+    }
+
+    @Test
+    @DisplayName("Load the class with the wrong name")
+    public void wrongClassName() {
+        ClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(List.of("unit1"));
+
+        assertNotNull(classLoader1);
+
+        assertThrows(ClassNotFoundException.class, () -> classLoader1.loadClass("org.my.job.compute.unit.WrongClass"));
     }
 
     @Test
@@ -183,5 +193,17 @@ class JobClassLoaderFactoryTest {
 
         assertEquals(expectedContent, resource);
         assertEquals(expectedContent, resourceAsStream);
+    }
+
+    @Test
+    @DisplayName("Create class loader with empty units")
+    public void emptyUnits() {
+        assertThrows(IllegalArgumentException.class, () -> jobClassLoaderFactory.createClassLoader(List.of()));
+    }
+
+    @Test
+    @DisplayName("Create class loader with non-existing unit")
+    public void nonExistingUnit() {
+        assertThrows(IllegalArgumentException.class, () -> jobClassLoaderFactory.createClassLoader(List.of("non-existing-unit")));
     }
 }
