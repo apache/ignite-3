@@ -21,7 +21,6 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
