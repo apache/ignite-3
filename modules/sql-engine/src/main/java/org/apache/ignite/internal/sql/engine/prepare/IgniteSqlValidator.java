@@ -21,6 +21,7 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -98,10 +99,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Dynamic parameter values. */
-    private final Object[] parameters;
+    private final Object[] dynamicParamValues;
 
-    /** Dynamic parameters SQL AST nodes for validation. */
-    private final SqlDynamicParam[] dynamicParams;
+    /** Dynamic parameters SQL AST nodes for invariant checks - see {@link #validateInferredDynamicParameters()}. */
+    private final SqlDynamicParam[] dynamicParamNodes;
 
     /**
      * Creates a validator.
@@ -116,8 +117,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             IgniteTypeFactory typeFactory, SqlValidator.Config config, Object[] parameters) {
         super(opTab, catalogReader, typeFactory, config);
 
-        this.parameters = parameters;
-        this.dynamicParams = new SqlDynamicParam[parameters.length];
+        this.dynamicParamValues = parameters;
+        this.dynamicParamNodes = new SqlDynamicParam[parameters.length];
     }
 
     /** {@inheritDoc} */
@@ -139,7 +140,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             result = super.validate(topNode);
         }
 
-        checkDynamicParameters();
+        validateInferredDynamicParameters();
 
         return result;
     }
@@ -644,20 +645,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     private Object getDynamicParamValue(SqlDynamicParam dynamicParam) {
-        Object value = parameters[dynamicParam.getIndex()];
+        Object value = dynamicParamValues[dynamicParam.getIndex()];
         // save dynamic parameter for later validation.
-        dynamicParams[dynamicParam.getIndex()] = dynamicParam;
+        dynamicParamNodes[dynamicParam.getIndex()] = dynamicParam;
         return value;
     }
 
-    /**
-     * Post validation check of dynamic parameters.
-     */
-    private void checkDynamicParameters() {
+    private void validateInferredDynamicParameters() {
         // Derived types of dynamic parameters should not change (current type inference behavior).
 
-        for (int i = 0; i < parameters.length; i++) {
-            SqlDynamicParam param = dynamicParams[i];
+        for (int i = 0; i < dynamicParamValues.length; i++) {
+            SqlDynamicParam param = dynamicParamNodes[i];
             assert param != null : format("Dynamic parameter#{} has not been checked", i);
 
             RelDataType paramType = getDynamicParamType(param);
