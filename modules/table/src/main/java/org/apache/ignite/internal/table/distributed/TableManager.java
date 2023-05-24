@@ -566,7 +566,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             var createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
-                    ((ExtendedTableView) ctx.newValue()).id(), tbl -> updateAssignmentInternal(ctx.storageRevision(), entriesList, tbl));
+                    ((ExtendedTableView) ctx.newValue()).id());
+
+            tablesByIdVv.update(ctx.storageRevision(), (tbls, th) -> {
+                if (th != null) {
+                    return failedFuture(th);
+                }
+
+                return
+                        updateAssignmentInternal(ctx.storageRevision(), entriesList, tbls.get(tblId))
+                                .thenApply(notUsed -> tbls);
+            });
 
             var resultFuture = createTableFut;
 
@@ -622,32 +632,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return completedFuture(null);
     }
 
-    /**
-     * Listener of assignment configuration changes.
-     *
-     * @param evt Assignment configuration context.
-     * @return A future.
-     */
-    private CompletableFuture<?> onUpdateAssignments(WatchEvent evt) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return updateAssignmentInternal(evt)
-                    .whenComplete((v, e) -> {
-                        if (e == null) {
-                            // TODO: KKK Now we finished only update for 1 partition here - is it normal for this listener?
-                            for (var listener : assignmentsChangeListeners) {
-                                listener.accept(this);
-                            }
-                        }
-                    });
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     private class EntryWrapper {
 
         public byte[] oldKey;
@@ -664,27 +648,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             this.newKey = newKey;
             this.newValue = newValue;
         }
-    }
-
-    private CompletableFuture<?> updateAssignmentInternal(WatchEvent evt) {
-        var oldA = evt.entryEvents().stream().map(e -> e.oldEntry().value()).allMatch(Objects::isNull);
-        System.out.println("KKK metastore event " + evt.revision() + " " + oldA);
-        if (evt.entryEvents().stream().map(e -> e.oldEntry().value()).allMatch(Objects::isNull)) {
-            return completedFuture(null);
-        }
-
-        long causalityToken = evt.revision();
-
-        List<EntryWrapper> entries = evt.entryEvents().stream()
-                .map(e -> new EntryWrapper(e.oldEntry().key(), e.oldEntry().value(), e.newEntry().key(), e.newEntry().value()))
-                .collect(toList());
-
-        return updateAssignmentInternal(causalityToken, entries);
-    }
-
-    private CompletableFuture<?> updateAssignmentInternal(long causalityToken, List<EntryWrapper> entries) {
-        UUID tblId = extractTableId(entries.get(0).newKey, STABLE_ASSIGNMENTS_PREFIX);
-        return tablesByIdVv.get(causalityToken).thenCompose(tbls -> updateAssignmentInternal(causalityToken, entries, tbls.get(tblId)));
     }
 
     /**
@@ -1159,7 +1122,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId, Function<TableImpl, CompletableFuture<?>> postFut) {
+    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId) {
         LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
@@ -1194,7 +1157,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         val.put(tblId, table);
 
                         return val;
-                    }).thenCompose(tbls -> postFut.apply(table).thenApply(ignored -> tbls));
+                    });
         }));
 
         pendingTables.put(tblId, table);
