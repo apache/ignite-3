@@ -51,17 +51,17 @@ public class JobClassLoaderFactory {
     }
 
     /**
-     * Create a class loader for the specified components.
+     * Create a class loader for the specified units.
      *
-     * @param components The components of the job.
+     * @param units The units of the job.
      * @return The class loader.
      */
-    public JobClassLoader createClassLoader(List<String> components) {
-        if (components.isEmpty()) {
-            throw new IllegalArgumentException("No components specified");
+    public JobClassLoader createClassLoader(List<String> units) {
+        if (units.isEmpty()) {
+            throw new IllegalArgumentException("No units specified");
         }
 
-        URL[] classPath = components.stream()
+        URL[] classPath = units.stream()
                 .map(componentsDir::resolve)
                 .map(JobClassLoaderFactory::constructClasspath)
                 .flatMap(Arrays::stream)
