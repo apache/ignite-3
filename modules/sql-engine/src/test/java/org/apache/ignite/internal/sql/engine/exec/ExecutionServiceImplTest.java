@@ -101,7 +101,7 @@ import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -431,7 +431,7 @@ public class ExecutionServiceImplTest {
                 return CompletableFuture.completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                return CompletableFuture.failedFuture(new IgniteInternalException(Sql.INTERNAL_ERR,
+                return CompletableFuture.failedFuture(new IgniteInternalException(Common.INTERNAL_ERR,
                         "Connection refused to " + node.nodeName + ", message " + msg));
             }
         }));

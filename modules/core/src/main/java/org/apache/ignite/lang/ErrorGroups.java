@@ -24,7 +24,7 @@ package org.apache.ignite.lang;
 public class ErrorGroups {
     /** Common error group. */
     public static class Common {
-        /** Unknown error group. */
+        /** Common error group. */
         public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", 1);
 
         /** Node stopping error. */
@@ -200,9 +200,6 @@ public class ErrorGroups {
 
         /** Execution cancelled. */
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
-
-        /** Error code describing any unexpected situation. */
-        public static final int INTERNAL_ERR = SQL_ERR_GROUP.registerErrorCode(34);
     }
 
     /** Meta storage error group. */
