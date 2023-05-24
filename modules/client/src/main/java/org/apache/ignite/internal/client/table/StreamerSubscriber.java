@@ -26,6 +26,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +49,8 @@ class StreamerSubscriber<T> implements Subscriber<T> {
     private final AtomicInteger pendingItemCount = new AtomicInteger();
 
     private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
+
+    private final ConcurrentHashMap<ClientChannel, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
