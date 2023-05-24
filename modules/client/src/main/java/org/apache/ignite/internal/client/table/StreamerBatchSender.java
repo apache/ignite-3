@@ -19,18 +19,18 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.ClientChannel;
 
 /**
  * Data streamer batch sender.
  */
 @FunctionalInterface
-interface StreamerBatchSender<T> {
+interface StreamerBatchSender<T, TPartition> {
     /**
      * Sends batch of items asynchronously.
      *
+     * @param partition Partition.
      * @param batch Batch.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> sendAsync(ClientChannel ch, Collection<T> batch);
+    CompletableFuture<Void> sendAsync(TPartition partition, Collection<T> batch);
 }

@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -364,15 +365,15 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Proper partition awareness.
         // We should request latest schema and partition assignment. Then wait asynchronously for those futures to complete,
         // only then request data from the publisher.
-        StreamerPartitionAwarenessProvider<Tuple> provider = ignored -> tbl.getChannelAsync().join();
+        StreamerPartitionAwarenessProvider<Tuple, ClientChannel> provider = ignored -> tbl.getChannelAsync().join();
 
-        StreamerBatchSender<Tuple> batchSender = (ch, items) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<Tuple, ClientChannel> batchSender = (ch, items) -> tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeTuples(null, items, s, w, false),
                 r -> null,
                 PartitionAwarenessProvider.of(ch));
 
-        StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(batchSender, provider, options);
+        StreamerSubscriber<Tuple, ClientChannel> subscriber = new StreamerSubscriber<>(batchSender, provider, options);
 
         publisher.subscribe(subscriber);
         return subscriber.completionFuture();

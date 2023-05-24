@@ -17,20 +17,18 @@
 
 package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.internal.client.ClientChannel;
-
 /**
  * Partition awareness provider for data streamer.
  *
  * @param <T> Item type.
  */
 @FunctionalInterface
-interface StreamerPartitionAwarenessProvider<T> {
+interface StreamerPartitionAwarenessProvider<T, TPartition> {
     /**
-     * Returns channel for item.
+     * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
      *
      * @param item Data item.
-     * @return Channel.
+     * @return Partition.
      */
-    ClientChannel channel(T item);
+    TPartition partition(T item);
 }

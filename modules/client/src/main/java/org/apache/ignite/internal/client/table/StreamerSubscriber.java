@@ -33,10 +33,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data streamer subscriber.
  */
-class StreamerSubscriber<T> implements Subscriber<T> {
-    private final StreamerBatchSender<T> batchSender;
+class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
+    private final StreamerBatchSender<T, TPartition> batchSender;
 
-    private final StreamerPartitionAwarenessProvider<T> partitionAwarenessProvider;
+    private final StreamerPartitionAwarenessProvider<T, TPartition> partitionAwarenessProvider;
 
     private final DataStreamerOptions options;
 
@@ -59,8 +59,8 @@ class StreamerSubscriber<T> implements Subscriber<T> {
      * @param options Data streamer options.
      */
     StreamerSubscriber(
-            StreamerBatchSender<T> batchSender,
-            StreamerPartitionAwarenessProvider<T> partitionAwarenessProvider,
+            StreamerBatchSender<T, TPartition> batchSender,
+            StreamerPartitionAwarenessProvider<T, TPartition> partitionAwarenessProvider,
             @Nullable DataStreamerOptions options) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
@@ -127,7 +127,7 @@ class StreamerSubscriber<T> implements Subscriber<T> {
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
-        batchSender.sendAsync(batch).whenComplete((res, err) -> {
+        batchSender.sendAsync(null, batch).whenComplete((res, err) -> {
             if (err != null) {
                 // TODO: Retry only connection issues?
                 // - When do we give up?
