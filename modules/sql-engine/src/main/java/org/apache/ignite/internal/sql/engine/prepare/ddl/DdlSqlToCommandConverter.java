@@ -99,6 +99,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -439,7 +440,7 @@ public class DdlSqlToCommandConverter {
         for (SqlNode actionNode : alterColumnNode.actions()) {
             if (!existingActionClasses.add(actionNode.getClass())) {
                 throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
-                        String.format("Duplicate ALTER COLUMN action [action='%s', query='%s']", actionNode, ctx.query()));
+                        IgniteStringFormatter.format("Duplicate ALTER COLUMN action: '{}'.", actionNode));
             }
 
             if (actionNode instanceof IgniteSqlAlterColumnType) {

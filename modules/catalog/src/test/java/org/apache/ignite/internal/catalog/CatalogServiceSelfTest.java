@@ -68,10 +68,10 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -254,9 +254,11 @@ public class CatalogServiceSelfTest {
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
 
         long beforeDropTimestamp = System.currentTimeMillis();
-        Thread.sleep(1);
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
+
+        // Timer must change.
+        IgniteTestUtils.waitForCondition(() -> System.currentTimeMillis() != beforeDropTimestamp, 1, 1);
 
         assertThat(service.dropTable(dropTableParams), willBe((Object) null));
 
@@ -400,15 +402,7 @@ public class CatalogServiceSelfTest {
                 .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
                 .collect(Collectors.toList());
 
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName("PUBLIC")
-                .tableName(TABLE_NAME)
-                .zone("ZONE")
-                .columns(columns)
-                .primaryKeyColumns(List.of("COL_INT32"))
-                .build();
-
-        assertThat(service.createTable(createTableParams), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME, columns)), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
@@ -459,15 +453,7 @@ public class CatalogServiceSelfTest {
                 .map(t -> ColumnParams.builder().name("COL_" + t).type(t).scale(3).build())
                 .collect(Collectors.toList());
 
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName("PUBLIC")
-                .tableName(TABLE_NAME)
-                .zone("ZONE")
-                .columns(columns)
-                .primaryKeyColumns(List.of("COL_INT32"))
-                .build();
-
-        assertThat(service.createTable(createTableParams), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME, columns)), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
@@ -504,13 +490,7 @@ public class CatalogServiceSelfTest {
                 .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
                 .collect(Collectors.toList());
 
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName("PUBLIC")
-                .tableName(TABLE_NAME)
-                .zone("ZONE")
-                .columns(columns)
-                .primaryKeyColumns(List.of("COL_INT32"))
-                .build();
+        CreateTableParams createTableParams = simpleTable(TABLE_NAME, columns);
 
         Runnable recreateTable = () -> {
             assertThat(service.dropTable(DropTableParams.builder().tableName(TABLE_NAME).build()), willBe((Object) null));
@@ -534,17 +514,17 @@ public class CatalogServiceSelfTest {
 
             for (ColumnParams col : columns) {
                 TypeSafeMatcher<CompletableFuture<?>> matcher;
-                CompletableFuture<Void> fut = changeColumn(TABLE_NAME, col.name(), changeType);
+                boolean sameType = col.type() == target;
 
-                if (col.type() == target || (validTransitions.get(col.type()) != null && validTransitions.get(col.type()).contains(target))) {
+                if (sameType || (validTransitions.containsKey(col.type()) && validTransitions.get(col.type()).contains(target))) {
                     matcher = willBe((Object) null);
-                    schemaVer += col.type() == target ? 0 : 1;
+                    schemaVer += sameType ? 0 : 1;
                 } else {
-                    matcher = willThrowFast(SqlException.class, IgniteStringFormatter.format(
-                            "Cannot change data type for column '{}' [from={}, to={}].", col.name(), col.type(), target));
+                    matcher = willThrowFast(SqlException.class,
+                            "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
                 }
 
-                assertThat(col.type() + " -> " + target, fut, matcher);
+                assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), changeType), matcher);
                 assertNotNull(service.schema(schemaVer));
                 assertNull(service.schema(schemaVer + 1));
             }
@@ -562,11 +542,16 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        CompletableFuture<Void> fut = changeColumn(TABLE_NAME, "VAL_NOT_NULL",
-                new ChangeColumnDefault(t -> DefaultValue.constant(1)),
-                new ChangeColumnNotNull(false),
-                new ChangeColumnType(ColumnType.INT64));
-        assertThat(fut, willBe((Object) null));
+        assertThat(
+                changeColumn(
+                        TABLE_NAME,
+                        "VAL_NOT_NULL",
+                        new ChangeColumnDefault(t -> DefaultValue.constant(1)),
+                        new ChangeColumnNotNull(false),
+                        new ChangeColumnType(ColumnType.INT64)
+                ),
+                willBe((Object) null)
+        );
 
         SchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
@@ -674,19 +659,25 @@ public class CatalogServiceSelfTest {
     }
 
     private static CreateTableParams simpleTable(String name) {
+        List<ColumnParams> cols = List.of(
+                new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false),
+                new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true),
+                new ColumnParams("VAL_NOT_NULL", ColumnType.INT32, DefaultValue.constant(null), false),
+                new ColumnParams("DEC", ColumnType.DECIMAL, DefaultValue.constant(null), true),
+                new ColumnParams("STR", ColumnType.STRING, DefaultValue.constant(null), true),
+                ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()
+        );
+
+        return simpleTable(name, cols);
+    }
+
+    private static CreateTableParams simpleTable(String name, List<ColumnParams> cols) {
         return CreateTableParams.builder()
                 .schemaName("PUBLIC")
                 .tableName(name)
                 .zone("ZONE")
-                .columns(List.of(
-                        new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true),
-                        new ColumnParams("VAL_NOT_NULL", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("DEC", ColumnType.DECIMAL, DefaultValue.constant(null), true),
-                        new ColumnParams("STR", ColumnType.STRING, DefaultValue.constant(null), true),
-                        ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()
-                ))
-                .primaryKeyColumns(List.of("ID"))
+                .columns(cols)
+                .primaryKeyColumns(List.of(cols.get(0).name()))
                 .build();
     }
 }

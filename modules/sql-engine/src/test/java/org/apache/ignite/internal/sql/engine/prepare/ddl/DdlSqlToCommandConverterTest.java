@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.calcite.sql.SqlDdl;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
@@ -41,6 +43,8 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
+import org.hamcrest.CoreMatchers;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -184,6 +188,30 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                         )
                 )
         );
+    }
+
+    @Test
+    public void alterColumnDuplicateActionMustBeRejected() throws SqlParseException {
+        ensureDuplicateActionExceptionIsThrown(
+                "ALTER TABLE T1 ALTER COLUMN C1 SET DATA TYPE INT, SET DATA TYPE DOUBLE",
+                "SET DATA TYPE DOUBLE"
+        );
+        ensureDuplicateActionExceptionIsThrown(
+                "ALTER TABLE T1 ALTER COLUMN C1 SET NOT NULL, DROP NOT NULL",
+                "DROP NOT NULL"
+        );
+        ensureDuplicateActionExceptionIsThrown(
+                "ALTER TABLE T1 ALTER COLUMN C1 DROP DEFAULT, SET DATA TYPE DOUBLE, SET DEFAULT 1",
+                "SET DEFAULT 1"
+        );
+    }
+
+    private void ensureDuplicateActionExceptionIsThrown(String query, String duplicateActionString) throws SqlParseException {
+        SqlNode node = parse(query);
+
+        SqlException ex = assertThrows(SqlException.class, () -> converter.convert((SqlDdl) node, createContext()));
+        assertThat(ex.code(), CoreMatchers.equalTo(UNSUPPORTED_DDL_OPERATION_ERR));
+        assertThat(ex.getMessage(), CoreMatchers.containsString("Duplicate ALTER COLUMN action: '" + duplicateActionString + "'"));
     }
 
     private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {
