@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
+import org.mockito.Mockito;
 
 /**
  * Tests for methods of {@link IgniteTypeSystem}.
@@ -76,13 +77,19 @@ public class IgniteTypeSystemTest  {
     public Stream<DynamicTest> testCustomDataTypeCompatibility() {
         IgniteCustomType type1 = new TestCustomType("type1");
         IgniteCustomType type2 = new TestCustomType("type2");
+        RelDataType someType = TYPE_FACTORY.createSqlType(SqlTypeName.ANY);
 
         return Stream.of(
                 // types with same custom type name are compatible.
                 expectCompatible(type1, new TestCustomType(type1.getCustomTypeName())),
+
                 // different custom types are never compatible.
                 expectIncompatible(type1, type2),
-                expectIncompatible(type2, type1)
+                expectIncompatible(type2, type1),
+
+                // custom types are not compatible with other data types.
+                expectIncompatible(someType, type1),
+                expectIncompatible(type1, someType)
         );
     }
 
