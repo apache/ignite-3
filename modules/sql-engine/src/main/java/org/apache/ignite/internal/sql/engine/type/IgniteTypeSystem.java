@@ -175,7 +175,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         } else if (fromType instanceof IgniteCustomType || toType instanceof IgniteCustomType) {
             // Custom data types are not compatible with other types.
             return false;
-        } else if (SqlTypeUtil.canAssignFrom(toType, fromType)){
+        } else if (SqlTypeUtil.canAssignFrom(toType, fromType)) {
             return SqlTypeUtil.canAssignFrom(fromType, toType);
         } else {
             return false;
