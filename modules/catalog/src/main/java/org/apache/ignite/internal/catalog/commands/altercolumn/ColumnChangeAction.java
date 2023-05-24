@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.catalog.commands.altercolumn;
 
-import java.util.function.Function;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common interface for {@code ALTER COLUMN} column descriptor change actions.
  */
 @FunctionalInterface
-public interface ColumnChangeAction extends Function<TableColumnDescriptor, TableColumnDescriptor> {
+public interface ColumnChangeAction {
     /** Column descriptor change order. */
     public enum Priority {
         DATA_TYPE(0),
         DROP_NOT_NULL(1),
         DEFAULT(2),
         SET_NOT_NULL(3),
-        IGNORE(Integer.MAX_VALUE);
+        UNDEFINED(Integer.MAX_VALUE);
 
         private final int priority;
 
@@ -44,8 +44,16 @@ public interface ColumnChangeAction extends Function<TableColumnDescriptor, Tabl
         }
     }
 
+    /**
+     * Changes column descriptor.
+     *
+     * @param desc Column descriptor.
+     * @return Modified column descriptor, or {@code null} if no changes were made.
+     */
+    @Nullable TableColumnDescriptor apply(TableColumnDescriptor desc);
+
     /** Gets order priority for change action. */
     default Priority priority() {
-        return Priority.IGNORE;
+        return Priority.UNDEFINED;
     }
 }

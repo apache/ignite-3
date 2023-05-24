@@ -33,12 +33,12 @@ public class AlterColumnParams extends AbstractTableCommandParams {
 
     private List<ColumnChangeAction> changeActions = new ArrayList<>(1);
 
-    /** Gets column name. */
+    /** Returns column name. */
     public String columnName() {
         return columnName;
     }
 
-    /** Gets change action for the column descriptor. */
+    /** Returns composite change action for the column descriptor. */
     public ColumnChangeAction action() {
         return (desc) -> {
             TableColumnDescriptor changedDescriptor = desc;
@@ -73,7 +73,9 @@ public class AlterColumnParams extends AbstractTableCommandParams {
 
         /** Sets list of column change actions. */
         public Builder changeActions(List<ColumnChangeAction> changes) {
-            params.changeActions = changes.stream().sorted(Comparator.comparing(ColumnChangeAction::priority)).collect(Collectors.toList());
+            params.changeActions = changes.stream()
+                    .sorted(Comparator.comparing(ColumnChangeAction::priority))
+                    .collect(Collectors.toList());
 
             return this;
         }
