@@ -160,6 +160,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         int autoAdjustScaleDown = 3;
         int partitions = 4;
         String nodeFilter = "a = 1";
+        int replicas = 5;
 
         // Valid options combination.
         AlterZoneSetCommand cmdValidArguments1 = new AlterZoneSetCommand();
@@ -167,6 +168,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         cmdValidArguments1.dataNodesAutoAdjust(autoAdjust);
         cmdValidArguments1.partitions(partitions);
         cmdValidArguments1.nodeFilter(nodeFilter);
+        cmdValidArguments1.replicas(replicas);
 
         invokeHandler(cmdValidArguments1);
 
@@ -177,6 +179,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         assertThat(params.dataNodesAutoAdjust(), equalTo(autoAdjust));
         assertThat(params.partitions(), equalTo(partitions));
         assertThat(params.filter(), equalTo(nodeFilter));
+        assertThat(params.replicas(), equalTo(replicas));
 
         // Invalid options combination.
         AlterZoneSetCommand cmdInvalidOptions = new AlterZoneSetCommand();
