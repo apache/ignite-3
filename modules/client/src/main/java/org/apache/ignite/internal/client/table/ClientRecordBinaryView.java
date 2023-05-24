@@ -366,7 +366,12 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // only then request data from the publisher.
         StreamerPartitionAwarenessProvider<Tuple> provider = ignored -> tbl.getChannelAsync().join();
 
-        StreamerBatchSender<Tuple> batchSender = items -> upsertAllAsync(null, items);
+        StreamerBatchSender<Tuple> batchSender = (ch, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeTuples(null, items, s, w, false),
+                r -> null,
+                PartitionAwarenessProvider.of(ch));
+
         StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(batchSender, provider, options);
 
         publisher.subscribe(subscriber);

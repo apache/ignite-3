@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.ClientChannel;
 
 /**
  * Data streamer batch sender.
@@ -31,5 +32,5 @@ interface StreamerBatchSender<T> {
      * @param batch Batch.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> sendAsync(Collection<T> batch);
+    CompletableFuture<Void> sendAsync(ClientChannel ch, Collection<T> batch);
 }
