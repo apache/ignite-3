@@ -112,7 +112,7 @@ public final class NativeTypeValues {
     /** Returns a value of a {@link NativeType native type} that corresponds to the given {@link NativeTypeSpec}. */
     public static Object value(int i, NativeTypeSpec spec) {
         Object value = value(i, spec.asColumnType());
-        assert value != null : "Returned null for " + spec;
+        assert value != null : "Returned a null value for " + spec;
         return value;
     }
 
@@ -120,6 +120,8 @@ public final class NativeTypeValues {
     @Nullable
     public static Object value(int i, RelDataType type) {
         ColumnType columnType = TypeUtils.columnType(type);
+
+        assert columnType != null : "Returned a null column type for " + type;
         return value(i, columnType);
     }
 }
