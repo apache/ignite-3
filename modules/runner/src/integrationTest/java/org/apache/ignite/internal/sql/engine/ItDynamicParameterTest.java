@@ -41,9 +41,11 @@ import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -266,54 +268,9 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery(q2).withParams(param).returns(expected).check();
     }
 
-    private Object generateValueByType(int i, ColumnType type) {
-        switch (type) {
-            case BOOLEAN:
-                return i % 2 == 0;
-            case INT8:
-                return (byte) i;
-            case INT16:
-                return (short) i;
-            case INT32:
-                return i;
-            case INT64:
-                return (long) i;
-            case FLOAT:
-                return (float) i + ((float) i / 1000);
-            case DOUBLE:
-                return (double) i + ((double) i / 1000);
-            case STRING:
-                return "str_" + i;
-            case BYTE_ARRAY:
-                return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case NULL:
-                return null;
-            case DECIMAL:
-                return BigDecimal.valueOf((double) i + ((double) i / 1000));
-            case NUMBER:
-                return BigInteger.valueOf(i);
-            case UUID:
-                return new UUID(i, i);
-            case BITMASK:
-                return new byte[]{(byte) i};
-            case DURATION:
-                return Duration.ofNanos(i);
-            case DATETIME:
-                return LocalDateTime.of(
-                        (LocalDate) generateValueByType(i, ColumnType.DATE),
-                        (LocalTime) generateValueByType(i, ColumnType.TIME)
-                );
-            case TIMESTAMP:
-                return Instant.from(ZonedDateTime.of((LocalDateTime) generateValueByType(i, ColumnType.DATETIME), ZoneId.systemDefault()));
-            case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(i % 30);
-            case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i % 1000);
-            case PERIOD:
-                return Period.of(i % 2, i % 12, i % 29);
-            default:
-                throw new IllegalArgumentException("unsupported type " + type);
-        }
+    @Nullable
+    private static Object generateValueByType(int i, ColumnType type) {
+        return NativeTypeValues.value(i, type);
     }
 
     private static String toSqlType(ColumnType columnType) {

@@ -17,19 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.DataProviderFactory;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * {@link DataProviderFactory} that creates {@link DataProvider}s that generates a row of pseudo random data based on table column types
@@ -46,50 +39,8 @@ final class RepeatedRandomRowDataProviderFactory implements DataProviderFactory 
     /** {@inheritDoc} **/
     @Override
     public DataProvider<Object[]> createDataProvider(String tableName, List<ColumnDescriptor> columns) {
-        Object[] row = columns.stream().map(c ->  generateValueByType(1, c.physicalType().spec())).toArray();
+        Object[] row = columns.stream().map(c -> NativeTypeValues.value(1, c.physicalType().spec())).toArray();
 
         return DataProvider.fromRow(row, dataSize);
-    }
-
-    private static Object generateValueByType(int i, NativeTypeSpec type) {
-        switch (type) {
-            case INT8:
-                return (byte) i;
-            case INT16:
-                return (short) i;
-            case INT32:
-                return i;
-            case INT64:
-                return (long) i;
-            case FLOAT:
-                return (float) i + ((float) i / 1000);
-            case DOUBLE:
-                return (double) i + ((double) i / 1000);
-            case STRING:
-                return "str_" + i;
-            case BYTES:
-                return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case DECIMAL:
-                return BigDecimal.valueOf((double) i + ((double) i / 1000));
-            case NUMBER:
-                return BigInteger.valueOf(i);
-            case UUID:
-                return new UUID(i, i);
-            case BITMASK:
-                return new byte[]{(byte) i};
-            case DATETIME:
-                return LocalDateTime.of(
-                        (LocalDate) Objects.requireNonNull(generateValueByType(i, NativeTypeSpec.DATE)),
-                        (LocalTime) Objects.requireNonNull(generateValueByType(i, NativeTypeSpec.TIME))
-                );
-            case TIMESTAMP:
-                return Instant.from((LocalDateTime) Objects.requireNonNull(generateValueByType(i, NativeTypeSpec.DATETIME)));
-            case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(i);
-            case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i);
-            default:
-                throw new IllegalArgumentException("unsupported type " + type);
-        }
     }
 }
