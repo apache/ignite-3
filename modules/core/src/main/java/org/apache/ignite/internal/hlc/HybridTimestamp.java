@@ -87,7 +87,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      *
      * @param time Long time value.
      */
-    public HybridTimestamp(long time) {
+    private HybridTimestamp(long time) {
         this.time = time;
 
         // Negative time breaks comparison, we don't allow overflow of the physical time.

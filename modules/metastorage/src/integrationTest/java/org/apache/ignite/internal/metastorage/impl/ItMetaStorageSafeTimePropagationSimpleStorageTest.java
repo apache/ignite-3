@@ -23,7 +23,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 /** {@link ItMetaStorageSafeTimePropagationAbstractTest} with {@link SimpleInMemoryKeyValueStorage} implementation. */
 public class ItMetaStorageSafeTimePropagationSimpleStorageTest extends ItMetaStorageSafeTimePropagationAbstractTest {
     @Override
-    KeyValueStorage createStorage() {
+    public KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");
     }
 }

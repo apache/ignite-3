@@ -43,7 +43,7 @@ public abstract class AbstractKeyValueStorageTest {
     /**
      * Returns key value storage for this test.
      */
-    abstract KeyValueStorage createStorage();
+    protected abstract KeyValueStorage createStorage();
 
     protected static byte[] key(int k) {
         return ("key" + k).getBytes(UTF_8);

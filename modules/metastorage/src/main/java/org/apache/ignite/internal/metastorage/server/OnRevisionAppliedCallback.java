@@ -30,7 +30,8 @@ public interface OnRevisionAppliedCallback {
      * Notifies of completion of processing of Meta Storage watches for a particular revision.
      *
      * @param watchEvent Event with modified Meta Storage entries processed at least one Watch.
+     * @param newSafeTime New safe time that may be propagated.
      * @return Future that represents the state of the execution of the callback.
      */
-    CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp time);
+    CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp newSafeTime);
 }

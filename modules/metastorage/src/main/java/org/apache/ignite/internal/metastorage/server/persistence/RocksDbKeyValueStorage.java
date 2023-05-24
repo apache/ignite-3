@@ -1345,9 +1345,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     eventCache = new ArrayList<>();
                 }
 
-                eventCache.add(updatedEntries.copy());
-
-                updatedEntries.clear();
+                eventCache.add(updatedEntries.transfer());
 
                 break;
 
@@ -1359,13 +1357,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     private void notifyWatches() {
-        UpdatedEntries copy = updatedEntries.copy();
+        UpdatedEntries copy = updatedEntries.transfer();
 
         assert copy.ts != null;
 
         watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
-
-        updatedEntries.clear();
     }
 
     private void replayUpdates(long upperRevision) {
@@ -1436,9 +1432,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             assert tsBytes != null;
 
-            return new HybridTimestamp(bytesToLong(tsBytes));
+            return HybridTimestamp.hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
-            throw new RuntimeException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
     }
 
@@ -1484,24 +1480,28 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             this.ts = Objects.requireNonNull(ts);
         }
 
-        public boolean isEmpty() {
+        boolean isEmpty() {
             return updatedEntries.isEmpty();
         }
 
-        public boolean add(Entry entry) {
-            return updatedEntries.add(entry);
+        void add(Entry entry) {
+            updatedEntries.add(entry);
         }
 
-        public void clear() {
+        void clear() {
             updatedEntries.clear();
 
             ts = null;
         }
 
-        public UpdatedEntries copy() {
+        UpdatedEntries transfer() {
             assert ts != null;
 
-            return new UpdatedEntries(new ArrayList<>(updatedEntries), ts);
+            UpdatedEntries transferredValue = new UpdatedEntries(new ArrayList<>(updatedEntries), ts);
+
+            clear();
+
+            return transferredValue;
         }
     }
 }

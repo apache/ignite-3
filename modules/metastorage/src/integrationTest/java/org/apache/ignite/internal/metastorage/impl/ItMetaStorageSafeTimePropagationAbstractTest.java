@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -30,7 +30,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorageTest;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.junit.jupiter.api.AfterEach;
@@ -38,20 +38,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Safe time propagation tests. */
-public abstract class ItMetaStorageSafeTimePropagationAbstractTest {
-
-    private KeyValueStorage storage;
-
+public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends AbstractKeyValueStorageTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final ClusterTimeImpl time = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
 
     @BeforeEach
+    @Override
     public void setUp() {
-        storage = createStorage();
-
-        storage.start();
-
         storage.startWatches((e, t) -> {
             time.updateSafeTime(t);
 
@@ -66,14 +60,17 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest {
 
     @Test
     public void testTimePropagated() throws Exception {
-        CompletableFuture<Void> f = new CompletableFuture<>();
-        CountDownLatch latch = new CountDownLatch(1);
+        CompletableFuture<Void> watchCompletedFuture = new CompletableFuture<>();
 
+        CountDownLatch watchCalledLatch = new CountDownLatch(1);
+
+        // Register watch listener, so that we can control safe time propagation.
+        // Safe time can only be propagated when all of the listeners completed their futures successfully.
         storage.watchExact(key(0), 1, new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                latch.countDown();
-                return f;
+                watchCalledLatch.countDown();
+                return watchCompletedFuture;
             }
 
             @Override
@@ -86,24 +83,16 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest {
 
         storage.put(key(0), keyValue(0, 1), opTs);
 
-        assertTrue(latch.await(1, TimeUnit.SECONDS));
+        // Ensure watch listener is called.
+        assertTrue(watchCalledLatch.await(1, TimeUnit.SECONDS));
 
-        f.complete(null);
+        // Safe time must not be propagated before watch notifies all listeners.
+        assertThat(time.currentSafeTime(), lessThan(opTs));
 
+        // Finish listener notification.
+        watchCompletedFuture.complete(null);
+
+        // Safe time must be propagated.
         assertThat(time.waitFor(opTs), willCompleteSuccessfully());
     }
-
-    /**
-     * Returns key value storage for this test.
-     */
-    abstract KeyValueStorage createStorage();
-
-    protected static byte[] key(int k) {
-        return ("key" + k).getBytes(UTF_8);
-    }
-
-    protected static byte[] keyValue(int k, int v) {
-        return ("key" + k + '_' + "val" + v).getBytes(UTF_8);
-    }
-
 }

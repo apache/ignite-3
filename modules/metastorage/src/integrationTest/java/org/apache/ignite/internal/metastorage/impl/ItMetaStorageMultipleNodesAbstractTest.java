@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -356,14 +357,19 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
 
-        CompletableFuture<Void> f = new CompletableFuture<>();
-        CountDownLatch l = new CountDownLatch(1);
+        CompletableFuture<Void> watchCompletedFuture = new CompletableFuture<>();
+        CountDownLatch watchCalledLatch = new CountDownLatch(1);
 
-        secondNode.metaStorageManager.registerExactWatch(ByteArray.fromString("test-key"), new WatchListener() {
+        ByteArray testKey = ByteArray.fromString("test-key");
+
+        // Register watch listener, so that we can control safe time propagation.
+        // Safe time can only be propagated when all of the listeners completed their futures successfully.
+        secondNode.metaStorageManager.registerExactWatch(testKey, new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                l.countDown();
-                return f;
+                watchCalledLatch.countDown();
+
+                return watchCompletedFuture;
             }
 
             @Override
@@ -372,15 +378,29 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             }
         });
 
+        HybridTimestamp timeBeforeOp = firstNodeTime.currentSafeTime();
+
         // Try putting data from both nodes, because any of them can be a leader.
         assertThat(
-                firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),
+                firstNode.metaStorageManager.put(testKey, new byte[]{0, 1, 2, 3}),
                 willCompleteSuccessfully()
         );
 
-        assertTrue(l.await(1, TimeUnit.SECONDS));
-        f.complete(null);
+        // Ensure watch listener is called.
+        assertTrue(watchCalledLatch.await(1, TimeUnit.SECONDS));
 
+        // Wait until leader's safe time is propagated.
+        assertTrue(waitForCondition(() -> {
+            return firstNodeTime.currentSafeTime().compareTo(timeBeforeOp) > 0;
+        }, TimeUnit.SECONDS.toMillis(1)));
+
+        // Safe time must not be propagated to the second node at this moment.
+        assertThat(firstNodeTime.currentSafeTime(), greaterThan(secondNodeTime.currentSafeTime()));
+
+        // Finish watch listener notification process.
+        watchCompletedFuture.complete(null);
+
+        // After that in the nearest future safe time must be propagated.
         assertTrue(waitForCondition(() -> {
             HybridTimestamp sf1 = firstNodeTime.currentSafeTime();
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
