@@ -76,12 +76,10 @@ class StreamerSubscriber<T> implements Subscriber<T> {
     @Override
     public void onNext(T item) {
         // TODO: This method should be called from a single thread - is that correct?
-        if (pendingItemCount.decrementAndGet() == 0) {
-            requestNextBatch(subscription);
-        }
+        pendingItemCount.decrementAndGet();
 
-        // TODO: Update per-node buffers.
-        // TODO: Request more data once current batch is processed.
+        // TODO: Update per-node buffers. If some per-node buffers are full - send them.
+        // If a per-node buffer is full and in-flight - put the items into a common queue.
         if (currentBatch == null) {
             currentBatch = new ArrayList<>(options.batchSize());
         }
@@ -116,7 +114,6 @@ class StreamerSubscriber<T> implements Subscriber<T> {
     }
 
     private void sendBatch(Collection<T> batch) {
-        // TODO: Backpressure control - no more than 1 batch in flight (per node).
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
@@ -129,6 +126,10 @@ class StreamerSubscriber<T> implements Subscriber<T> {
             else {
                 fut.complete(null);
                 pendingFuts.remove(fut);
+
+                // TODO: Backpressure control - no more than 1 batch in flight (per node).
+                // We can have a common queue for all nodes, which holds items while some per-node batches are in flight.
+                requestNextBatch(subscription);
             }
         });
     }
