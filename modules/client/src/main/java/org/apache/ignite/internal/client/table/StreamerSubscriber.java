@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -68,7 +67,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
         this.batchSender = batchSender;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
-        this.options = options == null ? new DataStreamerOptions() : null;
+        this.options = options != null ? options : new DataStreamerOptions();
     }
 
     /** {@inheritDoc} */
@@ -107,13 +106,13 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     /** {@inheritDoc} */
     @Override
     public void onError(Throwable throwable) {
-        close();
+        close(throwable);
     }
 
     /** {@inheritDoc} */
     @Override
     public void onComplete() {
-        close();
+        close(null);
     }
 
     /**
@@ -154,7 +153,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         });
     }
 
-    private void close() {
+    private void close(@Nullable Throwable throwable) {
         // TODO: RW lock.
         var s = subscription;
 
@@ -170,10 +169,11 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         var futs = pendingFuts.toArray(new CompletableFuture[0]);
 
         CompletableFuture.allOf(futs).whenComplete((res, err) -> {
-            if (err != null) {
+            if (throwable != null) {
+                completionFut.completeExceptionally(throwable);
+            } else if (err != null) {
                 completionFut.completeExceptionally(err);
-            }
-            else {
+            } else {
                 completionFut.complete(null);
             }
         });
