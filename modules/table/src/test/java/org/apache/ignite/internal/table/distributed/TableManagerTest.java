@@ -304,46 +304,38 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     // TODO: KKK fix needed
     @Test
-    @Disabled
     public void testPreconfiguredTable() throws Exception {
-//        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
-//
-//        mockMetastore();
-//
-//        TableManager tableManager = createTableManager(tblManagerFut);
-//
-//        tblManagerFut.complete(tableManager);
-//
-//        TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
-//                SchemaBuilders.column("key", ColumnType.INT64).build(),
-//                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-//        ).withPrimaryKey("key").build();
-//
-//        createDistributionZone();
-//
-//        tblsCfg.tables().change(tablesChange -> {
-//
-//            tablesChange.create(scmTbl.name(), tableChange -> {
-//                (SchemaConfigurationConverter.convert(scmTbl, tableChange))
-//                        .changeZoneId(ZONE_ID);
-//
-//                var extConfCh = ((ExtendedTableChange) tableChange);
-//
-//                var assignment = new ArrayList<Set<Assignment>>(PARTITIONS);
-//
-//                for (int part = 0; part < PARTITIONS; part++) {
-//                    assignment.add(new HashSet<>(Collections.singleton(Assignment.forPeer(node.name()))));
-//                }
-//
-//                extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
-//            });
-//        }).join();
-//
-//        assertEquals(1, tableManager.tables().size());
-//
-//        assertNotNull(tableManager.table(scmTbl.name()));
-//
-//        checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
+
+        mockMetastore();
+
+        TableManager tableManager = createTableManager(tblManagerFut);
+
+        tblManagerFut.complete(tableManager);
+
+        TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        createDistributionZone();
+
+        tblsCfg.tables().change(tablesChange -> {
+
+            tablesChange.create(scmTbl.name(), tableChange -> {
+                (SchemaConfigurationConverter.convert(scmTbl, tableChange))
+                        .changeZoneId(ZONE_ID);
+                var extConfCh = ((ExtendedTableChange) tableChange);
+
+                extConfCh.changeSchemaId(1);
+            });
+        }).join();
+
+        assertEquals(1, tableManager.tables().size());
+
+        assertNotNull(tableManager.table(scmTbl.name()));
+
+        checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     private void createDistributionZone() {
@@ -643,15 +635,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled
-    // TODO: KKK fix
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
     @Test
-    @Disabled
-    // TODO: KKK fix
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
     }
@@ -665,63 +653,69 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         // TODO: KKK fix
-//        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
-//
-//        mockMetastore();
-//
-//        TableManager tableManager = createTableManager(tblManagerFut);
-//
-//        tblManagerFut.complete(tableManager);
-//
-//        var txStateStorage = mock(TxStateStorage.class);
-//        var mvPartitionStorage = mock(MvPartitionStorage.class);
-//
-//        if (isTxStorageUnderRebalance) {
-//            // Emulate a situation when TX state storage was stopped in a middle of rebalance.
-//            when(txStateStorage.persistedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
-//        } else {
-//            // Emulate a situation when partition storage was stopped in a middle of rebalance.
-//            when(mvPartitionStorage.persistedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
-//        }
-//
-//        when(txStateStorage.clear()).thenReturn(completedFuture(null));
-//
-//        // We need to mock storages inside a configuration listener because of how mocks are created in the Table Manager,
-//        // see "createTableManager".
-//        tblsCfg.tables().any().listen(ctx -> {
-//            // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
-//            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
-//            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
-//
-//            doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
-//            doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
-//            doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
-//
-//            return completedFuture(null);
-//        });
-//
-//        TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
-//                SchemaBuilders.column("key", ColumnType.INT64).build(),
-//                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-//        ).withPrimaryKey("key").build();
-//
-//        CompletableFuture<Void> cfgChangeFuture = tblsCfg.tables()
-//                .change(namedListChange -> namedListChange.create(scmTbl.name(),
-//                        tableChange -> {
-//                            SchemaConfigurationConverter.convert(scmTbl, tableChange);
-//
-//                            // Trigger "onUpdateAssignments"
-//                            var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
-//
-//                            ((ExtendedTableChange) tableChange)
-//                                    .changeAssignments(ByteUtils.toBytes(assignments))
-//                                    .changeSchemaId(1);
-//                        }));
-//
-//        assertThat(cfgChangeFuture, willCompleteSuccessfully());
-//
-//        verify(txStateStorage).clear();
-//        verify(mvTableStorage).clearPartition(anyInt());
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        when(bm.nodes()).thenReturn(Set.of(node));
+
+        distributionZonesConfiguration.distributionZones().change(zones -> {
+            zones.create(ZONE_NAME, ch -> {
+                ch.changeZoneId(ZONE_ID);
+                ch.changePartitions(1);
+                ch.changeReplicas(1);
+            });
+        }).join();
+
+        mockMetastore();
+
+        TableManager tableManager = createTableManager(tblManagerFut);
+
+        tblManagerFut.complete(tableManager);
+
+        var txStateStorage = mock(TxStateStorage.class);
+        var mvPartitionStorage = mock(MvPartitionStorage.class);
+
+        if (isTxStorageUnderRebalance) {
+            // Emulate a situation when TX state storage was stopped in a middle of rebalance.
+            when(txStateStorage.persistedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+        } else {
+            // Emulate a situation when partition storage was stopped in a middle of rebalance.
+            when(mvPartitionStorage.persistedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
+        }
+
+        when(txStateStorage.clear()).thenReturn(completedFuture(null));
+
+        // We need to mock storages inside a configuration listener because of how mocks are created in the Table Manager,
+        // see "createTableManager".
+        tblsCfg.tables().any().listen(ctx -> {
+            // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+
+            doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
+            doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
+            doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
+
+            return completedFuture(null);
+        });
+
+        TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        CompletableFuture<Void> cfgChangeFuture = tblsCfg.tables()
+                .change(namedListChange -> namedListChange.create(scmTbl.name(),
+                        tableChange -> {
+                            SchemaConfigurationConverter.convert(scmTbl, tableChange);
+
+                            ((ExtendedTableChange) tableChange)
+                                    .changeSchemaId(1)
+                                    .changeZoneId(ZONE_ID);
+                        }));
+
+        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+
+        verify(txStateStorage).clear();
+        verify(mvTableStorage).clearPartition(anyInt());
     }
 
     /**
@@ -748,6 +742,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(null));
     }
 
     /**

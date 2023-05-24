@@ -540,12 +540,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-
             DistributionZoneView zone =
-                    getZoneById(distributionZonesConfiguration, ((ExtendedTableView) ctx.newValue()).zoneId()).value();
+                    getZoneById(distributionZonesConfiguration, (ctx.newValue()).zoneId()).value();
 
-//            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(zone.partitions());
             List<Operation> partitionAssignments = new ArrayList<>(zone.partitions());
+
             List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
                     baselineMgr.nodes().stream().map(n -> n.name()).collect(Collectors.toList()),
                     zone.partitions(),
@@ -569,14 +568,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.newValue().name(),
                     ((ExtendedTableView) ctx.newValue()).id(), tbl -> updateAssignmentInternal(ctx.storageRevision(), entriesList, tbl));
 
-//            var resultFuture = createTableFut.thenCompose(v -> updateAssignmentInternal(ctx.storageRevision(), entriesList, false));
             var resultFuture = createTableFut;
 
             resultFuture.thenCompose((notUsed) -> {
                 System.out.println("KKK writing metastore");
                 Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
                 return metaStorageMgr.invoke(condition, partitionAssignments, Collections.emptyList());
-//                metaStorageMgr.putAll(partitionAssignments);
             }).exceptionally(e -> {
                 LOG.error("Can't write to metastore assignments", e);
                 return null;

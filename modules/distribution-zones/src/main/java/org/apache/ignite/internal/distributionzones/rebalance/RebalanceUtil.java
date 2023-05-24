@@ -381,27 +381,23 @@ public class RebalanceUtil {
         return op1.stream().filter(op2::contains).collect(Collectors.toSet());
     }
 
-    public static CompletableFuture<Set<Assignment>> partitionAssignments(MetaStorageManager metaStorageManager, UUID tableId, int partNum) {
-        System.out.println("Receiving the partition assignments for partition " +
-                stablePartAssignmentsKey(new TablePartitionId(tableId, partNum)));
-        return metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partNum)))
+    public static CompletableFuture<Set<Assignment>> partitionAssignments(
+            MetaStorageManager metaStorageManager, UUID tableId, int partitionNumber) {
+        return metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
                 .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
     }
 
     public static CompletableFuture<List<Set<Assignment>>> partitionsAssignments(
-            MetaStorageManager metaStorageManager, UUID tableId, int partNum) {
+            MetaStorageManager metaStorageManager, UUID tableId, int numberOfPartitions) {
         Map<ByteArray, Integer> partitionKeysToPartitionNumb = new HashMap<>();
 
-        for (int i = 0; i < partNum; i++) {
+        for (int i = 0; i < numberOfPartitions; i++) {
             partitionKeysToPartitionNumb.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
         }
 
-
-        System.out.println(partNum);
-        // TODO: KKK what if partition assignments are not in the metastorage yet? is it even possible?
         return metaStorageManager.getAll(partitionKeysToPartitionNumb.keySet())
                 .thenApply(entries -> {
-                    List<Set<Assignment>> result = new ArrayList<>(partNum);
+                    List<Set<Assignment>> result = new ArrayList<>(numberOfPartitions);
                     for (var entry : entries.entrySet()) {
                         result.add(
                                 partitionKeysToPartitionNumb.get(entry.getKey()),

@@ -96,7 +96,6 @@ public class IndexManagerTest {
         indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
         indexManager.start();
 
-        // TODO: KKK removed changeAssignments
         assertThat(
                 tablesConfig.tables().get("tName")
                         .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1)),

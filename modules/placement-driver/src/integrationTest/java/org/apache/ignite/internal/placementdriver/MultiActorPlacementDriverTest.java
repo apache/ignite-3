@@ -596,9 +596,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
                     }
 
-                    // TODO: KKK why putAll is not a part of the public interface?
                     return metaStorageManager.putAll(partitionAssignments);
-
                 })
                 .get();
 

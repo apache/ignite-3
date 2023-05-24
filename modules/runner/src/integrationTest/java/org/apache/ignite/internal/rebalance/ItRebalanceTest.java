@@ -177,22 +177,23 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                         (ExtendedTableConfiguration) cluster.node(i)
                                 .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
 
-                Set<Assignment> rawAssignments =
-                        partitionAssignments(cluster.node(i).metaStorageMgr, table.id().value(), 0).join();
+                Set<Assignment> assignments =
+                        partitionAssignments(
+                                cluster.node(i).metaStorageManager(), table.id().value(), 0).join();
 
-                Set<String> assignments;
+                Set<String> assignmentIds;
 
-                if (rawAssignments != null) {
-                    assignments = rawAssignments
+                if (assignments != null) {
+                    assignmentIds = assignments
                             .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
                 } else {
-                    assignments = Collections.emptySet();
+                    assignmentIds = Collections.emptySet();
                 }
 
-                LOG.info("Assignments for node " + i + ": " + assignments);
+                LOG.info("Assignments for node " + i + ": " + assignmentIds);
 
-                if (!(expectedAssignments.size() == assignments.size())
-                        || !expectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
+                if (!(expectedAssignments.size() == assignmentIds.size())
+                        || !expectedAssignments.stream().allMatch(node -> assignmentIds.contains(cluster.node(node).name()))) {
                     return false;
                 }
             }
