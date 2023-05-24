@@ -28,11 +28,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class ComponentClassLoaderTest {
+class JobClassLoaderTest {
 
     private static Stream<Arguments> testArguments() {
-        return Stream.of(Arguments.of("java.lang.String", String.class), Arguments.of("javax.lang.String", String.class),
-                Arguments.of("org.apache.ignite.internal.compute.JobExecutionContextImpl", JobExecutionContextImpl.class));
+        return Stream.of(
+                Arguments.of("java.lang.String", String.class),
+                Arguments.of("javax.lang.String", String.class),
+                Arguments.of("org.apache.ignite.internal.compute.JobExecutionContextImpl", JobExecutionContextImpl.class)
+        );
     }
 
     @ParameterizedTest
@@ -40,9 +43,9 @@ class ComponentClassLoaderTest {
     public void test(String className, Class<?> desiredClass) throws Exception {
         TestParentClassLoader testParentClassLoader = new TestParentClassLoader(desiredClass);
 
-        try (ComponentClassLoader parentComponentClassLoader = new ComponentClassLoader(new URL[0], testParentClassLoader);
-                ComponentClassLoader componentClassLoader = new ComponentClassLoader(new URL[0], parentComponentClassLoader)) {
-            assertSame(desiredClass, componentClassLoader.loadClass(className));
+        try (JobClassLoader parentJobClassLoader = new JobClassLoader(new URL[0], testParentClassLoader);
+                JobClassLoader jobClassLoader = new JobClassLoader(new URL[0], parentJobClassLoader)) {
+            assertSame(desiredClass, jobClassLoader.loadClass(className));
         }
     }
 

@@ -17,52 +17,50 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class JobClassLoaderFactoryTest {
-
-
-    private final File units = new File(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
+    private final Path units = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
     private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(units);
 
     @Test
+    @DisplayName("Load class with the same name from class loaders")
     public void unit1() throws Exception {
 
-        ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit1"));
+        ClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(List.of("unit1"));
 
-        assertNotNull(classLoader);
+        assertNotNull(classLoader1);
 
-        Class<?> clazz = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
-        Callable<Object> job = (Callable<Object>) clazz.getDeclaredConstructor().newInstance();
-        Object result = job.call();
-        assertThat(result.getClass(), is(Integer.class));
-        assertEquals(1, result);
+        Class<?> clazz1 = classLoader1.loadClass("org.my.job.compute.unit.UnitJob");
+        Callable<Object> job1 = (Callable<Object>) clazz1.getDeclaredConstructor().newInstance();
+        Object result1 = job1.call();
+        assertSame(Integer.class, result1.getClass());
+        assertEquals(1, result1);
+
+        ClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(List.of("unit2"));
+
+        assertNotNull(classLoader2);
+
+        Class<?> clazz2 = classLoader2.loadClass("org.my.job.compute.unit.UnitJob");
+        Callable<Object> job2 = (Callable<Object>) clazz2.getDeclaredConstructor().newInstance();
+        Object result2 = job2.call();
+        assertSame(String.class, result2.getClass());
+        assertEquals("Hello world!", result2);
     }
 
     @Test
-    public void unit2() throws Exception {
-
-        ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit2"));
-
-        assertNotNull(classLoader);
-
-        Class<?> clazz = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
-        Callable<Object> job = (Callable<Object>) clazz.getDeclaredConstructor().newInstance();
-        Object result = job.call();
-        assertThat(result.getClass(), is(String.class));
-        assertEquals("Hello world!", result);
-    }
-
-
-    @Test
+    @DisplayName("Unit with multiple jars")
     public void unit3() throws Exception {
 
         ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit3"));
@@ -80,6 +78,7 @@ class JobClassLoaderFactoryTest {
     }
 
     @Test
+    @DisplayName("Load units in the forward order")
     public void unit1unit2() throws Exception {
 
         ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit1", "unit2"));
@@ -89,7 +88,7 @@ class JobClassLoaderFactoryTest {
         Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
         Callable<Object> job = (Callable<Object>) unitJobClass.getDeclaredConstructor().newInstance();
         Object result = job.call();
-        assertThat(result.getClass(), is(Integer.class));
+        assertSame(Integer.class, result.getClass());
         assertEquals(1, result);
 
         Class<?> job1Utility = classLoader.loadClass("org.my.job.compute.unit.Job1Utility");
@@ -100,6 +99,7 @@ class JobClassLoaderFactoryTest {
     }
 
     @Test
+    @DisplayName("Load units in the reverse order")
     public void unit2unit1() throws Exception {
 
         ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit2", "unit1"));
@@ -109,7 +109,7 @@ class JobClassLoaderFactoryTest {
         Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
         Callable<Object> job = (Callable<Object>) unitJobClass.getDeclaredConstructor().newInstance();
         Object result = job.call();
-        assertThat(result.getClass(), is(String.class));
+        assertSame(String.class, result.getClass());
         assertEquals("Hello world!", result);
 
         Class<?> job1Utility = classLoader.loadClass("org.my.job.compute.unit.Job1Utility");
@@ -117,5 +117,71 @@ class JobClassLoaderFactoryTest {
 
         Class<?> job2Utility = classLoader.loadClass("org.my.job.compute.unit.Job2Utility");
         assertNotNull(job2Utility);
+    }
+
+    @Test
+    @DisplayName("Load units with jars in subdirectories")
+    public void unit4() throws Exception {
+
+        ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit4"));
+
+        assertNotNull(classLoader);
+
+        Class<?> clazz = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
+        Callable<Object> job = (Callable<Object>) clazz.getDeclaredConstructor().newInstance();
+        Object result = job.call();
+        assertSame(Integer.class, result.getClass());
+        assertEquals(1, result);
+    }
+
+    @Test
+    @DisplayName("Corrupted unit")
+    public void unit5() {
+
+        ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit5"));
+
+        assertNotNull(classLoader);
+
+        assertThrows(ClassNotFoundException.class, () -> classLoader.loadClass("org.my.job.compute.unit.UnitJob"));
+    }
+
+    @Test
+    @DisplayName("Load resource from unit directory")
+    public void unit6() throws IOException {
+
+        String resourcePath = JobClassLoaderFactoryTest.class.getClassLoader()
+                .getResource("units/unit6/test.txt")
+                .getPath();
+        String expectedContent = Files.readString(Path.of(resourcePath));
+
+        ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit6"));
+
+        assertNotNull(classLoader);
+
+        String resource = Files.readString(Path.of(classLoader.getResource("test.txt").getPath()));
+        String resourceAsStream = new String(classLoader.getResourceAsStream("test.txt").readAllBytes());
+
+        assertEquals(expectedContent, resource);
+        assertEquals(expectedContent, resourceAsStream);
+    }
+
+    @Test
+    @DisplayName("Load resource from unit subdirectory")
+    public void unit7() throws IOException {
+
+        String resourcePath = JobClassLoaderFactoryTest.class.getClassLoader()
+                .getResource("units/unit7/subdir/test.txt")
+                .getPath();
+        String expectedContent = Files.readString(Path.of(resourcePath));
+
+        ClassLoader classLoader = jobClassLoaderFactory.createClassLoader(List.of("unit7"));
+
+        assertNotNull(classLoader);
+
+        String resource = Files.readString(Path.of(classLoader.getResource("subdir/test.txt").getPath()));
+        String resourceAsStream = new String(classLoader.getResourceAsStream("subdir/test.txt").readAllBytes());
+
+        assertEquals(expectedContent, resource);
+        assertEquals(expectedContent, resourceAsStream);
     }
 }

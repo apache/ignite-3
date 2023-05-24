@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 /**
  * Implementation of {@link ClassLoader} that loads classes from specified component directories.
  */
-public class ComponentClassLoader extends URLClassLoader {
+public class JobClassLoader extends URLClassLoader {
 
     /**
      * Pattern to match system packages.
@@ -37,12 +37,12 @@ public class ComponentClassLoader extends URLClassLoader {
     private final ClassLoader parent;
 
     /**
-     * Creates new instance of {@link ComponentClassLoader}.
+     * Creates new instance of {@link JobClassLoader}.
      *
      * @param urls URLs to load classes from.
      * @param parent Parent class loader.
      */
-    ComponentClassLoader(URL[] urls, ClassLoader parent) {
+    JobClassLoader(URL[] urls, ClassLoader parent) {
         super(urls, parent);
         this.parent = parent;
     }
@@ -53,10 +53,10 @@ public class ComponentClassLoader extends URLClassLoader {
      *
      * <ol>
      *
-     *   <li><p> If the name starts with one of {@link ComponentClassLoader#SYSTEM_PACKAGES_PATTERN},
+     *   <li><p> If the name starts with one of {@link JobClassLoader#SYSTEM_PACKAGES_PATTERN},
      *   the loader delegates search to the parent.  </p></li>
      *
-     *   <li><p> If the name doesn't start with one of {@link ComponentClassLoader#SYSTEM_PACKAGES_PATTERN}:
+     *   <li><p> If the name doesn't start with one of {@link JobClassLoader#SYSTEM_PACKAGES_PATTERN}:
      *
      *   <ol>
      *      <li><p> Invoke {@link #findLoadedClass(String)} to check if the class has already been loaded.  </p></li>

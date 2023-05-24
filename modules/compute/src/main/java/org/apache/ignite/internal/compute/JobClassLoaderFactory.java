@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -33,14 +39,14 @@ public class JobClassLoaderFactory {
     /**
      * Directory for components.
      */
-    private final File componentsDir;
+    private final Path componentsDir;
 
     /**
      * Constructor.
      *
      * @param componentsDir The directory for components.
      */
-    public JobClassLoaderFactory(File componentsDir) {
+    public JobClassLoaderFactory(Path componentsDir) {
         this.componentsDir = componentsDir;
     }
 
@@ -50,42 +56,60 @@ public class JobClassLoaderFactory {
      * @param components The components of the job.
      * @return The class loader.
      */
-    public ComponentClassLoader createClassLoader(List<String> components) {
+    public JobClassLoader createClassLoader(List<String> components) {
         if (components.isEmpty()) {
             throw new IllegalArgumentException("No components specified");
         }
 
         URL[] classPath = components.stream()
-                .map(it -> new File(componentsDir, it))
+                .map(componentsDir::resolve)
                 .map(JobClassLoaderFactory::constructClasspath)
                 .flatMap(Arrays::stream)
                 .toArray(URL[]::new);
 
-        return new ComponentClassLoader(classPath, getClass().getClassLoader());
+        return new JobClassLoader(classPath, getClass().getClassLoader());
     }
 
-    private static URL[] constructClasspath(File componentDir) {
-        if (!componentDir.exists()) {
+    private static URL[] constructClasspath(Path componentDir) {
+        if (Files.notExists(componentDir)) {
             throw new IllegalArgumentException("Component does not exist: " + componentDir);
         }
 
-        if (!componentDir.isDirectory()) {
+        if (!Files.isDirectory(componentDir)) {
             throw new IllegalArgumentException("Component is not a directory: " + componentDir);
         }
 
         // Construct the "class path" for this component
-        return Arrays.stream(componentDir.listFiles())
-                .map(it -> {
-                    try {
-                        return it.getCanonicalFile().toURI().toURL();
-                    } catch (IOException e) {
-                        throw new IgniteException(
-                                Common.UNEXPECTED_ERR,
-                                "Failed to add component to classpath: " + componentDir.getAbsolutePath(),
-                                e
-                        );
-                    }
-                })
-                .toArray(URL[]::new);
+        try {
+            ClasspathCollector classpathCollector = new ClasspathCollector(componentDir);
+            Files.walkFileTree(componentDir, classpathCollector);
+            return classpathCollector.classpath();
+        } catch (IOException e) {
+            throw new IgniteException(
+                    Common.UNEXPECTED_ERR,
+                    "Failed to construct classpath for component: " + componentDir,
+                    e
+            );
+        }
+    }
+
+    private static class ClasspathCollector extends SimpleFileVisitor<Path> {
+        private final List<URL> classpath = new ArrayList<>();
+
+        private ClasspathCollector(Path base) throws MalformedURLException {
+            classpath.add(base.toAbsolutePath().toUri().toURL());
+        }
+
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            if (Files.isDirectory(file) || file.toString().endsWith(".jar")) {
+                classpath.add(file.toAbsolutePath().toUri().toURL());
+            }
+            return FileVisitResult.CONTINUE;
+        }
+
+        URL[] classpath() {
+            return classpath.toArray(new URL[0]);
+        }
     }
 }
