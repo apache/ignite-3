@@ -173,7 +173,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             // IgniteCustomType: different custom data types are not compatible.
             return Objects.equals(fromCustom.getCustomTypeName(), toCustom.getCustomTypeName());
         } else if (fromType instanceof IgniteCustomType || toType instanceof IgniteCustomType) {
-            // Custom data types are not compatible with other types.
+            // IgniteCustomType: custom data types are not compatible with other types.
             return false;
         } else if (SqlTypeUtil.canAssignFrom(toType, fromType)) {
             return SqlTypeUtil.canAssignFrom(fromType, toType);
