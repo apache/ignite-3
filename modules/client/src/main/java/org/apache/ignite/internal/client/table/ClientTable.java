@@ -438,4 +438,8 @@ public class ClientTable implements Table {
 
         return partitions.get(Math.abs(hash % partitions.size()));
     }
+
+    CompletableFuture<ClientChannel> getChannelAsync() {
+        return ch.getChannelAsync(null, null);
+    }
 }

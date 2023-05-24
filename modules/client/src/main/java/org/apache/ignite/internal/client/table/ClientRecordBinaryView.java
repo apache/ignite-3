@@ -361,8 +361,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        // TODO: Proper partition awareness.
+        // We should request latest schema and partition assignment. Then wait asynchronously for those futures to complete,
+        // only then request data from the publisher.
+        StreamerPartitionAwarenessProvider<Tuple> provider = ignored -> tbl.getChannelAsync().join();
+
         StreamerBatchSender<Tuple> batchSender = items -> upsertAllAsync(null, items);
-        StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(batchSender, options);
+        StreamerSubscriber<Tuple> subscriber = new StreamerSubscriber<>(batchSender, provider, options);
 
         publisher.subscribe(subscriber);
         return subscriber.completionFuture();

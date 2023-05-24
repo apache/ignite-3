@@ -35,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
 class StreamerSubscriber<T> implements Subscriber<T> {
     private final StreamerBatchSender<T> batchSender;
 
+    private final StreamerPartitionAwarenessProvider<T> partitionAwarenessProvider;
+
     private final DataStreamerOptions options;
 
     private final CompletableFuture<Void> completionFut = new CompletableFuture<>();
@@ -53,14 +55,19 @@ class StreamerSubscriber<T> implements Subscriber<T> {
      * @param batchSender Batch sender.
      * @param options Data streamer options.
      */
-    StreamerSubscriber(StreamerBatchSender<T> batchSender, @Nullable DataStreamerOptions options) {
+    StreamerSubscriber(
+            StreamerBatchSender<T> batchSender,
+            StreamerPartitionAwarenessProvider<T> partitionAwarenessProvider,
+            @Nullable DataStreamerOptions options) {
         assert batchSender != null;
+        assert partitionAwarenessProvider != null;
 
         if (options != null && options.batchSize() <= 0) {
             throw new IllegalArgumentException("Batch size must be positive: " + options.batchSize());
         }
 
         this.batchSender = batchSender;
+        this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options == null ? new DataStreamerOptions() : null;
     }
 
