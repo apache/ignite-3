@@ -46,4 +46,20 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertNotNull(res);
         assertEquals(DEFAULT_NAME, res.stringValue("name"));
     }
+
+    @Test
+    public void testAutoFlushTimer() {
+        assert false;
+    }
+
+    @Test
+    public void testBackPressure() {
+        assert false;
+    }
+
+    @Test
+    public void testPartitionAwareness() {
+        // TODO: See how PartitionAwarenessTest is implemented using setDataAccessListener
+        assert false;
+    }
 }
