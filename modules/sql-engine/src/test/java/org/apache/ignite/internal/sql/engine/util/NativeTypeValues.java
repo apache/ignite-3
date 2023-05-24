@@ -58,7 +58,7 @@ public final class NativeTypeValues {
     public static Object value(RelDataType type, int i) {
         switch (type.getSqlTypeName()) {
             case BOOLEAN:
-                return true;
+                return i % 2 == 0;
             case TINYINT:
                 return (byte) i;
             case SMALLINT:
@@ -68,7 +68,7 @@ public final class NativeTypeValues {
             case BIGINT:
                 return (long) i;
             case DECIMAL:
-                return new BigDecimal("0.02").add(BigDecimal.ONE);
+                return BigDecimal.valueOf(i);
             case FLOAT:
             case REAL:
                 return (float) i;
