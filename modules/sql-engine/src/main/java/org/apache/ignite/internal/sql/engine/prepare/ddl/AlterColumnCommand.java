@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnType;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnDefault;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnNotNull;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChanger;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnType;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChangeAction;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 
@@ -37,7 +37,7 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
     /** Column. */
     private String columnName;
 
-    private List<ColumnChanger> actions = new ArrayList<>(1);
+    private List<ColumnChangeAction> actions = new ArrayList<>(1);
 
     public String columnName() {
         return columnName;
@@ -59,7 +59,7 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         actions.add(new ChangeColumnDefault(resolveDfltFunc));
     }
 
-    public List<ColumnChanger> actions() {
+    public List<ColumnChangeAction> actions() {
         return actions;
     }
 }

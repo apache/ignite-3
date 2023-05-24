@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table column descriptor.
@@ -33,9 +34,9 @@ public class TableColumnDescriptor implements Serializable {
     private final ColumnType type;
     private final boolean nullable;
     /** Max length constraint. */
-    private int length = -1;
-    private int precision = -1;
-    private int scale = Integer.MIN_VALUE;
+    private final int length;
+    private final int precision;
+    private final int scale;
     private final DefaultValue defaultValue;
 
     /**
@@ -46,10 +47,28 @@ public class TableColumnDescriptor implements Serializable {
      * @param nullable Nullability flag.
      */
     public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
+        this(Objects.requireNonNull(name, "name"), Objects.requireNonNull(type), nullable, defaultValue, null, null, null);
+    }
+
+    /**
+     * Constructor.
+     */
+    public TableColumnDescriptor(
+            String name,
+            ColumnType type,
+            boolean nullable,
+            DefaultValue dflt,
+            @Nullable Integer precision,
+            @Nullable Integer scale,
+            @Nullable Integer length
+    ) {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type);
         this.nullable = nullable;
-        this.defaultValue = defaultValue;
+        this.defaultValue = dflt;
+        this.precision = Objects.requireNonNullElse(precision, -1);
+        this.scale = Objects.requireNonNullElse(scale, Integer.MIN_VALUE);
+        this.length = Objects.requireNonNullElse(length, -1);
     }
 
     public String name() {
@@ -62,24 +81,6 @@ public class TableColumnDescriptor implements Serializable {
 
     public ColumnType type() {
         return type;
-    }
-
-    public TableColumnDescriptor precision(int precision) {
-        this.precision = precision;
-
-        return this;
-    }
-
-    public TableColumnDescriptor scale(int scale) {
-        this.scale = scale;
-
-        return this;
-    }
-
-    public TableColumnDescriptor length(int length) {
-        this.length = length;
-
-        return this;
     }
 
     public int precision() {

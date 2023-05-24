@@ -19,12 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;

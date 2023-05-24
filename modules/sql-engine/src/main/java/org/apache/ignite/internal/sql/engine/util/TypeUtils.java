@@ -364,6 +364,11 @@ public class TypeUtils {
             case BINARY:
             case VARBINARY:
             case ANY:
+                if (type instanceof IgniteCustomType) {
+                    IgniteCustomType customType = (IgniteCustomType) type;
+                    return customType.spec().columnType();
+                }
+                // fallthrough
             case OTHER:
                 return ColumnType.BYTE_ARRAY;
             case INTERVAL_YEAR:
@@ -384,7 +389,7 @@ public class TypeUtils {
             case NULL:
                 return ColumnType.NULL;
             default:
-                assert false : "Unexpected type of result: " + type;
+                assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
         }
     }

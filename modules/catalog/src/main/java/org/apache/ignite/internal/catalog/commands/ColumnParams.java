@@ -159,18 +159,33 @@ public class ColumnParams {
             return this;
         }
 
+        /**
+         * Sets column precision.
+         *
+         * @return {@code this}.
+         */
         public Builder precision(int precision) {
             params.precision = precision;
 
             return this;
         }
 
+        /**
+         * Sets column scale.
+         *
+         * @return {@code this}.
+         */
         public Builder scale(int scale) {
             params.scale = scale;
 
             return this;
         }
 
+        /**
+         * Sets column length.
+         *
+         * @return {@code this}.
+         */
         public Builder length(int length) {
             params.length = length;
 

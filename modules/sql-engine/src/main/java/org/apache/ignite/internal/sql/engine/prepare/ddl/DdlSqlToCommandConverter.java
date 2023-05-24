@@ -947,7 +947,6 @@ public class DdlSqlToCommandConverter {
                     return literal.getValueAs(BigDecimal.class);
                 case DOUBLE:
                     return literal.getValueAs(Double.class);
-//                case REAL:
                 case FLOAT:
                     return literal.getValueAs(Float.class);
                 case BYTE_ARRAY:

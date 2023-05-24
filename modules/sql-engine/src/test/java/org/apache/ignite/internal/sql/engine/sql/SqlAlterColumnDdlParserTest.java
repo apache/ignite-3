@@ -88,16 +88,16 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testSetDataType() {
-        Class<IgniteSqlAlterColumnType> expCls = IgniteSqlAlterColumnType.class;
+        Class<IgniteSqlAlterColumnType> cls = IgniteSqlAlterColumnType.class;
         String query = "SET DATA TYPE INTEGER";
 
-        IgniteSqlAlterColumnType alterColumn = parseSingleAction(query, expCls);
+        IgniteSqlAlterColumnType alterColumn = parseSingleAction(query, cls);
 
         assertNotNull(alterColumn.dataType());
         assertThat(alterColumn.dataType().getTypeName().getSimple(), equalTo("INTEGER"));
 
-        IgniteTestUtils.assertThrowsWithCause(() -> parseSingleAction(query + " NOT NULL", expCls), SqlParseException.class, "Encountered");
-        IgniteTestUtils.assertThrowsWithCause(() -> parseSingleAction(query + " DEFAULT 1", expCls), SqlParseException.class, "Encountered");
+        IgniteTestUtils.assertThrowsWithCause(() -> parseSingleAction(query + " NOT NULL", cls), SqlParseException.class, "Encountered");
+        IgniteTestUtils.assertThrowsWithCause(() -> parseSingleAction(query + " DEFAULT 1", cls), SqlParseException.class, "Encountered");
     }
 
     /**
@@ -116,23 +116,23 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
 
         SqlNode action = alterColumn.actions().get(0);
         assertThat(action, instanceOf(IgniteSqlAlterColumnType.class));
-        assertThat(((IgniteSqlAlterColumnType)action).dataType().getTypeName().getSimple(), equalTo("FLOAT"));
+        assertThat(((IgniteSqlAlterColumnType) action).dataType().getTypeName().getSimple(), equalTo("FLOAT"));
 
         action = alterColumn.actions().get(1);
         assertThat(action, instanceOf(IgniteSqlAlterColumnType.class));
-        assertThat(((IgniteSqlAlterColumnType)action).dataType().getTypeName().getSimple(), equalTo("DOUBLE"));
+        assertThat(((IgniteSqlAlterColumnType) action).dataType().getTypeName().getSimple(), equalTo("DOUBLE"));
 
         action = alterColumn.actions().get(2);
         assertThat(action, instanceOf(IgniteSqlAlterColumnNotNull.class));
-        assertThat(((IgniteSqlAlterColumnNotNull)action).notNull(), is(true));
+        assertThat(((IgniteSqlAlterColumnNotNull) action).notNull(), is(true));
 
         action = alterColumn.actions().get(3);
         assertThat(action, instanceOf(IgniteSqlAlterColumnNotNull.class));
-        assertThat(((IgniteSqlAlterColumnNotNull)action).notNull(), is(false));
+        assertThat(((IgniteSqlAlterColumnNotNull) action).notNull(), is(false));
 
         action = alterColumn.actions().get(4);
         assertThat(action, instanceOf(IgniteSqlAlterColumnDefault.class));
-        assertThat(((SqlLiteral)((IgniteSqlAlterColumnDefault)action).expression()).getValueAs(Float.class), equalTo(1.0f));
+        assertThat(((SqlLiteral) ((IgniteSqlAlterColumnDefault) action).expression()).getValueAs(Float.class), equalTo(1.0f));
 
         action = alterColumn.actions().get(5);
         assertThat(action, instanceOf(IgniteSqlAlterColumnDefault.class));

@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**

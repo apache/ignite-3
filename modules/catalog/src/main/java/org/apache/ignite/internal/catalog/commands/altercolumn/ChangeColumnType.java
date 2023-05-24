@@ -29,7 +29,10 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
-public class ChangeColumnType implements ColumnChanger {
+/**
+ * Changes {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
+ */
+public class ChangeColumnType implements ColumnChangeAction {
     public static final int UNDEFINED_PRECISION = -1;
     public static final int UNDEFINED_SCALE = Integer.MIN_VALUE;
     private static final String UNSUPPORTED_TYPE = "Cannot change data type for column '{}' [from={}, to={}].";
@@ -52,10 +55,12 @@ public class ChangeColumnType implements ColumnChanger {
 
     private final int scale;
 
+    /** Constructor. */
     public ChangeColumnType(ColumnType type) {
         this(type, UNDEFINED_PRECISION, UNDEFINED_SCALE);
     }
 
+    /** Constructor. */
     public ChangeColumnType(ColumnType type, int precision, int scale) {
         this.type = type;
         this.precision = precision;
@@ -110,10 +115,7 @@ public class ChangeColumnType implements ColumnChanger {
             throwException(UNSUPPORTED_SCALE, source.name(), source.scale(), scale);
         }
 
-        return new TableColumnDescriptor(source.name(), type, source.nullable(), source.defaultValue())
-                .length(precision)
-                .precision(precision)
-                .scale(scale);
+        return new TableColumnDescriptor(source.name(), type, source.nullable(), source.defaultValue(), precision, scale, precision);
     }
 
     private void throwUnsupportedTypeChange(TableColumnDescriptor source) {

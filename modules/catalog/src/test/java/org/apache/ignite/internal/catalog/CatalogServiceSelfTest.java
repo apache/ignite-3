@@ -48,7 +48,7 @@ import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnDefault;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnNotNull;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnType;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChanger;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChangeAction;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
@@ -601,7 +601,7 @@ public class CatalogServiceSelfTest {
         verifyNoMoreInteractions(eventListener);
     }
 
-    private CompletableFuture<Void> changeColumn(String tab, String col, ColumnChanger ... change) {
+    private CompletableFuture<Void> changeColumn(String tab, String col, ColumnChangeAction... change) {
         return service.alterColumn(AlterColumnParams.builder()
                 .tableName(tab)
                 .columnName(col)

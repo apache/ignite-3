@@ -20,7 +20,12 @@ package org.apache.ignite.internal.catalog.commands.altercolumn;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 
-public interface ColumnChanger extends Function<TableColumnDescriptor, TableColumnDescriptor> {
+/**
+ * Common interface for {@code ALTER COLUMN} column descriptor change actions.
+ */
+@FunctionalInterface
+public interface ColumnChangeAction extends Function<TableColumnDescriptor, TableColumnDescriptor> {
+    /** Column descriptor change order. */
     public enum Priority {
         DATA_TYPE(0),
         DROP_NOT_NULL(1),
@@ -39,6 +44,7 @@ public interface ColumnChanger extends Function<TableColumnDescriptor, TableColu
         }
     }
 
+    /** Gets order priority for change action. */
     default Priority priority() {
         return Priority.IGNORE;
     }

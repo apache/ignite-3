@@ -24,7 +24,10 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
-public class ChangeColumnNotNull implements ColumnChanger {
+/**
+ * Changes {@code nullable} flag of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) NOT NULL} action.
+ */
+public class ChangeColumnNotNull implements ColumnChangeAction {
     private final boolean notNull;
 
     public ChangeColumnNotNull(boolean notNull) {
@@ -36,10 +39,8 @@ public class ChangeColumnNotNull implements ColumnChanger {
         if (notNull == !source.nullable()) {
             return null;
         } else if (!notNull) {
-            return new TableColumnDescriptor(source.name(), source.type(), true, source.defaultValue())
-                    .scale(source.scale())
-                    .precision(source.precision())
-                    .length(source.length());
+            return new TableColumnDescriptor(
+                    source.name(), source.type(), true, source.defaultValue(), source.precision(), source.scale(), source.length());
         }
 
         throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,

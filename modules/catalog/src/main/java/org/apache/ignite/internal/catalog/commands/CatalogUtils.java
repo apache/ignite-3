@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
@@ -42,11 +41,14 @@ public class CatalogUtils {
         );
     }
 
+    /**
+     * Converts AlterTableAdd command columns parameters to column descriptor.
+     *
+     * @param params Parameters.
+     * @return Column descriptor.
+     */
     public static TableColumnDescriptor fromParams(ColumnParams params) {
-        return new TableColumnDescriptor(params.name(), params.type(), params.nullable(), params.defaultValueDefinition())
-                .precision(Objects.requireNonNullElse(params.precision(), 0))
-                .scale(Objects.requireNonNullElse(params.scale(), 0))
-                .length(Objects.requireNonNullElse(params.length(), 0));
-
+        return new TableColumnDescriptor(params.name(), params.type(), params.nullable(), params.defaultValueDefinition(),
+                params.precision(), params.scale(), params.length());
     }
 }

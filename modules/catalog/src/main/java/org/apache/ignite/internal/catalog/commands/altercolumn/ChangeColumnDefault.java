@@ -27,7 +27,10 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
-public class ChangeColumnDefault implements ColumnChanger {
+/**
+ * Changes {@code default} expression of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) DEFAULT} action.
+ */
+public class ChangeColumnDefault implements ColumnChangeAction {
     private final Function<ColumnType, DefaultValue> resolveDfltFunc;
 
     public ChangeColumnDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
@@ -42,7 +45,7 @@ public class ChangeColumnDefault implements ColumnChanger {
             return null;
         }
 
-        if (dflt.type() == Type.CONSTANT && ((DefaultValue.ConstantValue)dflt).value() == null) {
+        if (dflt.type() == Type.CONSTANT && ((DefaultValue.ConstantValue) dflt).value() == null) {
             throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column " + origin.name());
         }
 

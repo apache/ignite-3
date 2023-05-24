@@ -31,18 +31,20 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 public class AlterColumnParams extends AbstractTableCommandParams {
     private String columnName;
 
-    private List<ColumnChanger> changeActions = new ArrayList<>(1);
+    private List<ColumnChangeAction> changeActions = new ArrayList<>(1);
 
+    /** Gets column name. */
     public String columnName() {
         return columnName;
     }
 
-    public ColumnChanger action() {
+    /** Gets change action for the column descriptor. */
+    public ColumnChangeAction action() {
         return (desc) -> {
             TableColumnDescriptor changedDescriptor = desc;
             boolean noop = true;
 
-            for (ColumnChanger action : changeActions) {
+            for (ColumnChangeAction action : changeActions) {
                 TableColumnDescriptor tmp = changedDescriptor;
                 changedDescriptor = action.apply(changedDescriptor);
 
@@ -69,18 +71,14 @@ public class AlterColumnParams extends AbstractTableCommandParams {
             super(new AlterColumnParams());
         }
 
-        /**
-         * todo
-         *
-         * @param colChanger Column changes.
-         * @return {@code this}.
-         */
-        public Builder changeActions(List<ColumnChanger> changes) {
-            params.changeActions = changes.stream().sorted(Comparator.comparing(ColumnChanger::priority)).collect(Collectors.toList());
+        /** Sets list of column change actions. */
+        public Builder changeActions(List<ColumnChangeAction> changes) {
+            params.changeActions = changes.stream().sorted(Comparator.comparing(ColumnChangeAction::priority)).collect(Collectors.toList());
 
             return this;
         }
 
+        /** Sets column name. */
         public Builder columnName(String name) {
             params.columnName = name;
 
