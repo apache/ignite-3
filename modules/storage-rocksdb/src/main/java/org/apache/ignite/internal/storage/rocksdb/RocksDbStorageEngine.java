@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
@@ -170,7 +171,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         RocksDbDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
-        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.tableId().value());
+        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + ((ExtendedTableConfiguration) tableCfg).id().value());
 
         try {
             Files.createDirectories(tablePath);

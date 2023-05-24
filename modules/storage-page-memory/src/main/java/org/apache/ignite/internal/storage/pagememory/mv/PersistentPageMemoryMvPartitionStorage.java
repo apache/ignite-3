@@ -37,6 +37,8 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
@@ -131,7 +133,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 dataRegion.pageMemory(),
-                tableStorage.configuration().value().tableId(),
+                ((ExtendedTableView) tableStorage.configuration().value()).id(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -395,7 +397,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
-                tableStorage.configuration().tableId().value(),
+                ((ExtendedTableConfiguration) tableStorage.configuration()).id().value(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );

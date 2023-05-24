@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -87,8 +88,12 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         );
     }
 
+    private static int tableId(TableView tableView) {
+        return ((ExtendedTableView) tableView).id();
+    }
+
     private IndexMetaTree createIndexMetaTree(int partitionId, TableView tableCfgView) {
-        int grpId = tableCfgView.tableId();
+        int grpId = tableId(tableCfgView);
 
         long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partitionId, FLAG_AUX);
 
@@ -110,7 +115,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     private GcQueue createGarbageCollectionTree(int partitionId, TableView tableCfgView) {
-        int grpId = tableCfgView.tableId();
+        int grpId = tableId(tableCfgView);
 
         long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partitionId, FLAG_AUX);
 
@@ -149,7 +154,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @throws StorageException If failed.
      */
     private VersionChainTree createVersionChainTree(int partId, TableView tableView) throws StorageException {
-        int grpId = tableView.tableId();
+        int grpId = tableId(tableView);
 
         try {
             long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX);
