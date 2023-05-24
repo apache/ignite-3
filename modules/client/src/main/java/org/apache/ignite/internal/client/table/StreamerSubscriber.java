@@ -119,7 +119,9 @@ class StreamerSubscriber<T> implements Subscriber<T> {
 
         batchSender.sendAsync(batch).whenComplete((res, err) -> {
             if (err != null) {
-                // TODO: Retry - what should be the logic? When do we give up?
+                // TODO: Retry only connection issues?
+                // - When do we give up?
+                // - How does it combine with RetryPolicy?
                 // TODO: Log error.
                 sendBatch(batch);
             }

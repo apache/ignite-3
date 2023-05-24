@@ -62,4 +62,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
         // TODO: See how PartitionAwarenessTest is implemented using setDataAccessListener
         assert false;
     }
+
+    @Test
+    public void testRetry() {
+        assert false;
+    }
 }
