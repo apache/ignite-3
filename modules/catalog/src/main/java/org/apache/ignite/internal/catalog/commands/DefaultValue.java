@@ -82,6 +82,28 @@ public class DefaultValue implements Serializable {
         public String functionName() {
             return functionName;
         }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            FunctionCall that = (FunctionCall) o;
+
+            return Objects.equals(functionName, that.functionName);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int hashCode() {
+            return Objects.hash(type, functionName);
+        }
     }
 
     /** Defines default value provider as a constant. */
@@ -112,13 +134,10 @@ public class DefaultValue implements Serializable {
 
             ConstantValue that = (ConstantValue) o;
 
-            if (type != that.type) {
-                return false;
-            }
-
             return Objects.equals(value, that.value);
         }
 
+        /** {@inheritDoc} */
         @Override
         public int hashCode() {
             return Objects.hash(type, value);

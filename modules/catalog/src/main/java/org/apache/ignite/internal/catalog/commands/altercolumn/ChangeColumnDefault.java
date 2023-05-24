@@ -23,8 +23,8 @@ import java.util.function.Function;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 public class ChangeColumnDefault implements ColumnChanger {
@@ -43,7 +43,7 @@ public class ChangeColumnDefault implements ColumnChanger {
         }
 
         if (dflt.type() == Type.CONSTANT && ((DefaultValue.ConstantValue)dflt).value() == null) {
-            throw new IgniteException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column " + origin.name());
+            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column " + origin.name());
         }
 
         return new TableColumnDescriptor(origin.name(), origin.type(), origin.nullable(), dflt);

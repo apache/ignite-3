@@ -24,16 +24,18 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 public class ChangeColumnType implements ColumnChanger {
+    public static final int UNDEFINED_PRECISION = -1;
+    public static final int UNDEFINED_SCALE = Integer.MIN_VALUE;
     private static final String UNSUPPORTED_TYPE = "Cannot change data type for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_SCALE = "Cannot change scale for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_LENGTH = "Cannot decrease length for column '{}' [from={}, to={}].";
-    private static final String UNSUPPORTED_PRECISION = "Cannot decrease precision for column '{}' [from={}, to={}].";
+    private static final String UNSUPPORTED_PRECISION = "Cannot {} precision for column '{}' [from={}, to={}].";
 
     private static final Map<ColumnType, Set<ColumnType>> supportedTransitions = new EnumMap<>(ColumnType.class);
 
@@ -51,7 +53,7 @@ public class ChangeColumnType implements ColumnChanger {
     private final int scale;
 
     public ChangeColumnType(ColumnType type) {
-        this(type, -1, Integer.MIN_VALUE);
+        this(type, UNDEFINED_PRECISION, UNDEFINED_SCALE);
     }
 
     public ChangeColumnType(ColumnType type, int precision, int scale) {
@@ -67,7 +69,9 @@ public class ChangeColumnType implements ColumnChanger {
 
     @Override
     public @Nullable TableColumnDescriptor apply(TableColumnDescriptor source) {
-        if (source.type() == type && source.precision() == precision && source.scale() == scale) {
+        if (source.type() == type
+                && (precision == UNDEFINED_PRECISION || source.precision() == precision)
+                && (scale == UNDEFINED_SCALE || source.scale() == scale)) {
             // No-op.
             return null;
         }
@@ -80,15 +84,29 @@ public class ChangeColumnType implements ColumnChanger {
             }
         }
 
+        if (precision != UNDEFINED_PRECISION) {
+            if (type == ColumnType.STRING) {
+                if (precision < source.length()) {
+                    throwException(UNSUPPORTED_LENGTH, source.name(), source.length(), precision);
+                }
+            } else if (type == ColumnType.DECIMAL) {
+                if (precision < source.precision()) {
+                    throwException(UNSUPPORTED_PRECISION, "decrease", source.name(), source.precision(), precision);
+                }
+            } else {
+                throwException(UNSUPPORTED_PRECISION, "change", source.name(), source.precision(), precision);
+            }
+        }
+
         if (type == ColumnType.STRING) {
-            if (precision < source.length()) {
+            if (precision != UNDEFINED_PRECISION && precision < source.length()) {
                 throwException(UNSUPPORTED_LENGTH, source.name(), source.length(), precision);
             }
-        } else if (precision < source.precision()) {
+        } else if (precision != UNDEFINED_PRECISION && precision < source.precision()) {
             throwException(UNSUPPORTED_PRECISION, source.name(), source.precision(), precision);
         }
 
-        if (source.scale() != scale) {
+        if (scale != UNDEFINED_SCALE && source.scale() != scale) {
             throwException(UNSUPPORTED_SCALE, source.name(), source.scale(), scale);
         }
 
@@ -103,6 +121,6 @@ public class ChangeColumnType implements ColumnChanger {
     }
 
     private static void throwException(String msg, Object... params) {
-        throw new IgniteException(UNSUPPORTED_DDL_OPERATION_ERR, IgniteStringFormatter.format(msg, params));
+        throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, IgniteStringFormatter.format(msg, params));
     }
 }

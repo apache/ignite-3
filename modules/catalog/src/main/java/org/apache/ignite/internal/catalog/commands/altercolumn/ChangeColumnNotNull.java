@@ -20,7 +20,8 @@ package org.apache.ignite.internal.catalog.commands.altercolumn;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 public class ChangeColumnNotNull implements ColumnChanger {
@@ -41,7 +42,8 @@ public class ChangeColumnNotNull implements ColumnChanger {
                     .length(source.length());
         }
 
-        throw new IgniteException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot set NOT NULL for column " + source.name());
+        throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
+                IgniteStringFormatter.format("Cannot set NOT NULL for column '{}'.", source.name()));
     }
 
     @Override

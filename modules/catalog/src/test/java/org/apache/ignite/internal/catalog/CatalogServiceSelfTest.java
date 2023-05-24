@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
@@ -35,21 +36,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
-import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnDefault;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnNotNull;
 import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnType;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChanger;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -64,15 +65,14 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -244,11 +244,12 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropTable() {
+    public void testDropTable() throws InterruptedException {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
 
         long beforeDropTimestamp = System.currentTimeMillis();
+        Thread.sleep(1);
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
 
@@ -316,100 +317,200 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testAlterColumnType() {
-        CompletableFutureMatcher<Object> willBeNull = willBe((Object) null);
+    public void testAlterColumnDefault() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NULL -> NULL = no-op;
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NULL -> 1 = ok
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(1))),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // 1 -> 1 = no-op
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(1))),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 1 -> 2 = ok
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(2))),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // 2 -> funcCall = ok
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // funcCall -> funcCall = no-op
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // funcCall -> NULL = error
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
+                willThrowFast(SqlException.class, "Cannot drop default for column"));
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @Test
+    public void testAlterColumnNotNull() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NULLABLE -> NULLABLE = no-op
+        // NOT NULL -> NOT NULL = no-op
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnNotNull(false)), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new ChangeColumnNotNull(true)), willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NOT NULL -> NULlABLE = ok
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new ChangeColumnNotNull(false)), willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // NULlABLE -> NOT NULL = error
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnNotNull(true)),
+                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'"));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new ChangeColumnNotNull(true)),
+                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL_NOT_NULL'"));
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @Test
+    public void testAlterColumnTypePrecision() {
+        EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
+        types.remove(ColumnType.NULL);
+
+        List<ColumnParams> columns = types.stream()
+                .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
+                .collect(Collectors.toList());
 
         CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName("PUBLIC")
                 .tableName(TABLE_NAME)
-                .columns(List.of(
-                        new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false),
-                        ColumnParams.builder().name("dec").type(ColumnType.DECIMAL).precision(2)
-                                .defaultValue(DefaultValue.constant(null)).build(),
-                        new ColumnParams("period", ColumnType.PERIOD, DefaultValue.constant("INTERVALSS 4 DAYS"), false)
-                ))
-                .primaryKeyColumns(List.of("key"))
+                .zone("ZONE")
+                .columns(columns)
+                .primaryKeyColumns(List.of("COL_INT32"))
                 .build();
 
-        assertThat(service.createTable(createTableParams), willBeNull);
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
 
-        // 1. Change default.
-        assertThat(service.alterColumn(AlterColumnParams.builder()
-                .tableName(TABLE_NAME)
-                .columnName("val")
-                .changeActions(Collections.singletonList(new ChangeColumnDefault((t) -> DefaultValue.constant(BigDecimal.valueOf(1)))))
-                .build()), willBeNull);
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
 
-        // 2. Change not null.
-        assertThat(service.alterColumn(AlterColumnParams.builder()
-                .tableName(TABLE_NAME)
-                .columnName("val")
-                .changeActions(Collections.singletonList(new ChangeColumnNotNull(true)))
-                .build()), willBeNull);
+        for (ColumnParams col : columns) {
+            // ANY-> UNDEFINED PRECISION = no-op
+            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type())), willBe((Object) null));
+            assertNull(service.schema(schemaVer + 1));
 
-        assertThat(service.alterColumn(AlterColumnParams.builder()
-                .tableName(TABLE_NAME)
-                .columnName("val")
-                .changeActions(Collections.singletonList(new ChangeColumnNotNull(false)))
-                .build()), willBeNull);
+            // UNDEFINED PRECISION -> 10 = ok for DECIMAL and VARCHAR
+            CompletableFuture<Void> fut =
+                    changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.UNDEFINED_SCALE));
 
-        assertThat(service.alterColumn(AlterColumnParams.builder()
-                .tableName(TABLE_NAME)
-                .columnName("val")
-                .changeActions(Collections.singletonList(new ChangeColumnNotNull(true)))
-                .build()), willThrowFast(IgniteException.class, "Cannot set NOT NULL for column"));
+            if (col.type() == ColumnType.DECIMAL || col.type() == ColumnType.STRING) {
+                assertThat("type=" + col.type(), fut, willBe((Object) null));
+                assertNotNull(service.schema(++schemaVer));
 
-        // 3. Change type.
-        // a. same type
-        AlterColumnParams params = AlterColumnParams.builder()
+                // 10 -> 11 = ok
+                assertThat("type=" + col.type(),
+                        changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 11, ChangeColumnType.UNDEFINED_SCALE)),
+                        willBe((Object) null));
+                assertNotNull(service.schema(++schemaVer));
+
+                // 11 -> 10 = error
+                String expMsg = col.type() == ColumnType.DECIMAL
+                        ? "Cannot decrease precision for column '" + col.name() + "' [from=11, to=10]."
+                        : "Cannot decrease length for column '" + col.name() + "' [from=11, to=10].";
+
+                assertThat("type=" + col.type(),
+                        changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.UNDEFINED_SCALE)),
+                        willThrowFast(SqlException.class, expMsg));
+                assertNull(service.schema(schemaVer + 1));
+            } else {
+                assertThat("type=" + col.type(), fut,
+                        willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
+                assertNull(service.schema(schemaVer + 1));
+            }
+        }
+    }
+
+    @Test
+    public void testAlterColumnTypeScale() {
+        EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
+        types.remove(ColumnType.NULL);
+
+        List<ColumnParams> columns = types.stream()
+                .map(t -> ColumnParams.builder().name("COL_" + t).type(t).scale(3).build())
+                .collect(Collectors.toList());
+
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName("PUBLIC")
                 .tableName(TABLE_NAME)
-                .columnName("val")
-                .changeActions(Collections.singletonList(new ChangeColumnType(ColumnType.INT32)))
+                .zone("ZONE")
+                .columns(columns)
+                .primaryKeyColumns(List.of("COL_INT32"))
                 .build();
 
-        assertThat(service.alterColumn(params),willBeNull);
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
 
-        // b. precision.
-        // - increase
-        assertThat(service.alterColumn(AlterColumnParams.builder()
-                .tableName(TABLE_NAME)
-                .columnName("dec")
-                .changeActions(Collections.singletonList(new ChangeColumnType(ColumnType.DECIMAL, 3, Integer.MIN_VALUE)))
-                .build()),willBeNull);
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
 
-        // - decrease
-        assertThat(service.alterColumn(AlterColumnParams.builder()
-                .tableName(TABLE_NAME)
-                .columnName("dec")
-                .changeActions(Collections.singletonList(new ChangeColumnType(ColumnType.DECIMAL, 2, Integer.MIN_VALUE)))
-                .build()),willThrowFast(IgniteException.class, "Cannot decrease precision"));
+        for (ColumnParams col : columns) {
+            // ANY-> UNDEFINED SCALE = no-op
+            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type())), willBe((Object) null));
+            assertNull(service.schema(schemaVer + 1));
 
-        if (true)
-            return;
+            // 3 -> 3 = no-op
+            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.UNDEFINED_PRECISION, 3)),
+                    willBe((Object) null));
+            assertNull(service.schema(schemaVer + 1));
 
-//        params = AlterColumnParams.builder().column(
-//                new ColumnParams("val", ColumnType.INT16, dfltNull, false)
-//        ).tableName(TABLE_NAME).build();
-//
-//        assertThat(service.alterColumn(params), willThrowFast(IgniteException.class, "Cannot change"));
-//
-//        params = AlterColumnParams.builder().column(decBuilder.get().precision(3).build()).tableName(TABLE_NAME).build();
-//
-//        assertThat(service.alterColumn(params), willBe((Object) null));
-//
-//        params = AlterColumnParams.builder().column(decBuilder.get().precision(2).build()).tableName(TABLE_NAME).build();
-//
-//        assertThat(service.alterColumn(params), willThrowFast(IgniteException.class, "precision"));
+            // 3 -> 4 = error
+            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.UNDEFINED_PRECISION, 4)),
+                    willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=4]."));
+            assertNull(service.schema(schemaVer + 1));
 
+            // 3 -> 2 = error
+            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.UNDEFINED_PRECISION, 2)),
+                    willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=2]."));
+            assertNull(service.schema(schemaVer + 1));
+        }
+    }
 
-//        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
-//
-//        params = DropTableParams.builder()
-//                .tableName(TABLE_NAME)
-//                .ifTableExists(false)
-//                .build();
-//
-//        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+    @Test
+    public void testAlterColumnMultipleChanges() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        CompletableFuture<Void> fut = changeColumn(TABLE_NAME, "VAL_NOT_NULL",
+                new ChangeColumnDefault(t -> DefaultValue.constant(1)),
+                new ChangeColumnNotNull(false),
+                new ChangeColumnType(ColumnType.INT64));
+        assertThat(fut, willBe((Object) null));
+
+        SchemaDescriptor schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+
+        TableColumnDescriptor desc = schema.table(TABLE_NAME).column("VAL_NOT_NULL");
+        assertEquals(DefaultValue.constant(1), desc.defaultValue());
+        assertTrue(desc.nullable());
+        assertEquals(ColumnType.INT64, desc.type());
     }
 
     @Test
@@ -500,6 +601,14 @@ public class CatalogServiceSelfTest {
         verifyNoMoreInteractions(eventListener);
     }
 
+    private CompletableFuture<Void> changeColumn(String tab, String col, ColumnChanger ... change) {
+        return service.alterColumn(AlterColumnParams.builder()
+                .tableName(tab)
+                .columnName(col)
+                .changeActions(List.of(change))
+                .build());
+    }
+
     private static CreateTableParams simpleTable(String name) {
         return CreateTableParams.builder()
                 .schemaName("PUBLIC")
@@ -507,7 +616,11 @@ public class CatalogServiceSelfTest {
                 .zone("ZONE")
                 .columns(List.of(
                         new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true)
+                        new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true),
+                        new ColumnParams("VAL_NOT_NULL", ColumnType.INT32, DefaultValue.constant(null), false),
+                        new ColumnParams("DEC", ColumnType.DECIMAL, DefaultValue.constant(null), true),
+                        new ColumnParams("STR", ColumnType.STRING, DefaultValue.constant(null), true),
+                        ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()
                 ))
                 .primaryKeyColumns(List.of("ID"))
                 .build();

@@ -39,12 +39,11 @@ public class ColumnParams {
     /** Column default value. */
     private DefaultValue defaultValueDefinition;
 
-    private Integer length = 0;
+    private Integer length;
 
-    private Integer precision = -1;
+    private Integer precision;
 
-    private Integer scale = Integer.MIN_VALUE;
-
+    private Integer scale;
 
     private ColumnParams() {}
 

@@ -460,6 +460,7 @@ public class DdlSqlToCommandConverter {
                 } else if (expr instanceof SqlLiteral) {
                     resolveDfltFunc = type -> DefaultValue.constant(fromLiteral((SqlLiteral) expr, type));
                 } else if (expr == null) {
+                    // DROP DEFAULT = SET DEFAULT NULL
                     resolveDfltFunc = type -> DefaultValue.constant(null);
                 } else {
                     throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
