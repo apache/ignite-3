@@ -57,21 +57,21 @@ class ErrorGroupTest {
     void createsErrorMassage() {
         // Given
         UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
-        int code = Common.UNEXPECTED_ERR;
+        int code = Common.INTERNAL_ERR;
         String reason = "I'm the reason";
 
         // When
         String errorMessage = ErrorGroup.errorMessage(traceId, code, reason);
 
         // Then
-        assertThat(errorMessage, equalTo("IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason"));
+        assertThat(errorMessage, equalTo("IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason"));
     }
 
     @Test
     void doesNotDuplicateErrorCodeAndTraceId() {
         // Given
         UUID traceId = UUID.fromString("24103638-d079-4a19-a8f6-ca9c23662908");
-        int code = Common.UNEXPECTED_ERR;
+        int code = Common.INTERNAL_ERR;
         IgniteInternalException cause = new IgniteInternalException(traceId, code, "I'm the\n reason\n");
         IgniteInternalException origin = new IgniteInternalException(traceId, code, cause);
 
@@ -79,7 +79,7 @@ class ErrorGroupTest {
         String errorMessage = origin.getMessage();
 
         // Then error code and traceId are not duplicated
-        assertThat(errorMessage, equalTo("IGN-CMN-1 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
+        assertThat(errorMessage, equalTo("IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
     }
 
     @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})

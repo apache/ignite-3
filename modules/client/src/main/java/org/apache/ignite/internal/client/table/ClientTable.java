@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -173,7 +173,7 @@ public class ClientTable implements Table {
             if (schemaCnt == 0) {
                 log.warn("Schema not found [tableId=" + id + ", schemaVersion=" + ver + "]");
 
-                throw new IgniteException(UNEXPECTED_ERR, "Schema not found: " + ver);
+                throw new IgniteException(INTERNAL_ERR, "Schema not found: " + ver);
             }
 
             ClientSchema last = null;
