@@ -41,13 +41,13 @@ public class UnitStatus {
      */
     @Schema(description = "Map from unit version to unit deployment status.",
             requiredMode = RequiredMode.REQUIRED)
-    private final Map<String, DeploymentInfo> versionToDeploymentInfo;
+    private final Map<String, DeploymentStatus> versionToStatus;
 
     @JsonCreator
     public UnitStatus(@JsonProperty("id") String id,
-            @JsonProperty("versionToDeploymentInfo") Map<String, DeploymentInfo> versionToDeploymentInfo) {
+            @JsonProperty("versionToStatus") Map<String, DeploymentStatus> versionToStatus) {
         this.id = id;
-        this.versionToDeploymentInfo = versionToDeploymentInfo;
+        this.versionToStatus = versionToStatus;
     }
 
     /**
@@ -65,8 +65,8 @@ public class UnitStatus {
      *
      * @return Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
-    @JsonGetter("versionToDeploymentInfo")
-    public Map<String, DeploymentInfo> versionToDeploymentInfo() {
-        return versionToDeploymentInfo;
+    @JsonGetter("versionToStatus")
+    public Map<String, DeploymentStatus> versionToStatus() {
+        return versionToStatus;
     }
 }

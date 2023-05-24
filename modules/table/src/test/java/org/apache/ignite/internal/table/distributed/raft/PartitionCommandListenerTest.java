@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
@@ -51,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -89,6 +89,8 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -171,6 +173,8 @@ public class PartitionCommandListenerTest {
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
+    private IndexUpdateHandler indexUpdateHandler;
+
     private StorageUpdateHandler storageUpdateHandler;
 
     /**
@@ -186,13 +190,17 @@ public class PartitionCommandListenerTest {
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
+        indexUpdateHandler = spy(new IndexUpdateHandler(
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
+        ));
+
         storageUpdateHandler = spy(new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
                 dsCfg,
-                safeTimeTracker,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                indexUpdateHandler,
+                new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler)
         ));
 
         commandListener = new PartitionListener(
@@ -282,13 +290,17 @@ public class PartitionCommandListenerTest {
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration DataStorageConfiguration dsCfg) {
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
+        IndexUpdateHandler indexUpdateHandler1 = new IndexUpdateHandler(
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
+        );
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage)),
                 dsCfg,
-                safeTimeTracker,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                indexUpdateHandler1,
+                new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler1)
         );
 
         PartitionListener testCommandListener = new PartitionListener(
@@ -472,28 +484,28 @@ public class PartitionCommandListenerTest {
     void testBuildIndexCommand() {
         UUID indexId = UUID.randomUUID();
 
-        doNothing().when(storageUpdateHandler).buildIndex(eq(indexId), any(List.class), anyBoolean());
+        doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 
-        List<UUID> rowUuids0 = List.of(UUID.randomUUID());
-        List<UUID> rowUuids1 = List.of(UUID.randomUUID());
-        List<UUID> rowUuids2 = List.of(UUID.randomUUID());
+        RowId row0 = new RowId(PARTITION_ID);
+        RowId row1 = new RowId(PARTITION_ID);
+        RowId row2 = new RowId(PARTITION_ID);
 
-        InOrder inOrder = inOrder(partitionDataStorage, storageUpdateHandler);
+        InOrder inOrder = inOrder(partitionDataStorage, indexUpdateHandler);
 
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids0, false), 10, 1);
+        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row0.uuid()), false), 10, 1);
 
-        inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids0, false);
+        inOrder.verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), eq(row0.increment()));
         inOrder.verify(partitionDataStorage).lastApplied(10, 1);
 
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids1, true), 20, 2);
+        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row1.uuid()), true), 20, 2);
 
-        inOrder.verify(storageUpdateHandler).buildIndex(indexId, rowUuids1, true);
+        inOrder.verify(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), eq(null));
         inOrder.verify(partitionDataStorage).lastApplied(20, 2);
 
         // Let's check that the command with a lower commandIndex than in the storage will not be executed.
-        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, rowUuids2, false), 5, 1);
+        commandListener.handleBuildIndexCommand(createBuildIndexCommand(indexId, List.of(row2.uuid()), false), 5, 1);
 
-        inOrder.verify(storageUpdateHandler, never()).buildIndex(indexId, rowUuids2, false);
+        inOrder.verify(indexUpdateHandler, never()).buildIndex(eq(indexId), any(Stream.class), eq(row2.increment()));
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
     }
 

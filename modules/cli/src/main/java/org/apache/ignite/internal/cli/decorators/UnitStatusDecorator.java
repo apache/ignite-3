@@ -27,8 +27,8 @@ public class UnitStatusDecorator implements Decorator<UnitStatusRecord, Terminal
     @Override
     public TerminalOutput decorate(UnitStatusRecord record) {
         return () -> FlipTable.of(new String[]{"version", "status"},
-                record.versionToDeploymentInfo().entrySet().stream()
-                .map(e -> new String[] {e.getKey(), e.getValue().getStatus().getValue()}).toArray(String[][]::new)
+                record.versionToStatus().entrySet().stream()
+                .map(e -> new String[] {e.getKey(), e.getValue().getValue()}).toArray(String[][]::new)
         );
     }
 }

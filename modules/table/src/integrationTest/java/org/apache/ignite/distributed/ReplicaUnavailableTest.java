@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -81,6 +82,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
+    private final HybridClock clock = new HybridClockImpl();
+
     private final TestInfo testInfo;
 
     private ReplicaService replicaService;
@@ -100,8 +103,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         var nodeFinder = new StaticNodeFinder(List.of(networkAddress));
 
         clusterService = startNode(testInfo, name, NODE_PORT_BASE + 1, nodeFinder);
-
-        HybridClock clock = mock(HybridClock.class);
 
         replicaService = new ReplicaService(clusterService.messagingService(), clock);
 
@@ -135,6 +136,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
+                .timestampLong(clock.nowLong())
                 .binaryRow(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
@@ -174,6 +176,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
+                .timestampLong(clock.nowLong())
                 .binaryRow(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();

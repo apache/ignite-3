@@ -217,7 +217,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             IgniteTetraFunction<TablePartitionId, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
@@ -279,7 +279,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
@@ -380,6 +380,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
+                .timestampLong(clock.nowLong())
                 .transactionId(tx.id())
                 .scanId(scanId)
                 .indexToUse(indexId)
@@ -388,8 +389,7 @@ public class InternalTableImpl implements InternalTable {
                 .upperBound(upperBound)
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
-                .batchSize(batchSize)
-                .timestampLong(clock.nowLong());
+                .batchSize(batchSize);
 
         if (primaryReplicaAndTerm != null) {
             ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
@@ -1011,6 +1011,7 @@ public class InternalTableImpl implements InternalTable {
 
                     ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
+                            .timestampLong(clock.nowLong())
                             .transactionId(txId)
                             .scanId(scanId)
                             .indexToUse(indexId)
@@ -1408,8 +1409,12 @@ public class InternalTableImpl implements InternalTable {
 
                     if (binaryRows.size() < n) {
                         cancel();
-                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
-                        scanBatch(Math.min(n, INTERNAL_BATCH_SIZE));
+                    } else {
+                        long remaining = requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
+
+                        if (remaining > 0) {
+                            scanBatch((int) Math.min(remaining, INTERNAL_BATCH_SIZE));
+                        }
                     }
                 }).exceptionally(t -> {
                     cancel(t);

@@ -59,11 +59,10 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -79,6 +78,8 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -189,13 +190,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private final List<String> clusterNodesNames = new ArrayList<>();
 
     /** Cluster nodes. */
-    private List<IgniteComponent> partialNode = null;
+    private List<PartialNode> partialNodes;
 
     private TestInfo testInfo;
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
         this.testInfo = testInfo;
+        this.partialNodes = new ArrayList<>();
     }
 
     /**
@@ -211,8 +213,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             }
         }
 
-        if (partialNode != null) {
-            closeables.add(() -> stopPartialNode(partialNode));
+        if (!partialNodes.isEmpty()) {
+            for (PartialNode partialNode : partialNodes) {
+                closeables.add(partialNode::stop);
+            }
         }
 
         IgniteUtils.closeAll(closeables);
@@ -225,7 +229,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param cfgString Configuration string or {@code null} to use the default configuration.
      * @return List of started components.
      */
-    private List<IgniteComponent> startPartialNode(int idx, @Nullable @Language("HOCON") String cfgString) {
+    private PartialNode startPartialNode(int idx, @Nullable @Language("HOCON") String cfgString) {
         return startPartialNode(idx, cfgString, null);
     }
 
@@ -237,7 +241,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param revisionCallback Callback on storage revision update.
      * @return List of started components.
      */
-    private List<IgniteComponent> startPartialNode(
+    private PartialNode startPartialNode(
             int idx,
             @Nullable @Language("HOCON") String cfgString,
             @Nullable Consumer<Long> revisionCallback
@@ -246,7 +250,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         Path dir = workDir.resolve(name);
 
-        partialNode = new ArrayList<>();
+        List<IgniteComponent> components = new ArrayList<>();
 
         VaultManager vault = createVault(name, dir);
 
@@ -260,7 +264,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             throw new NodeConfigWriteException("Failed to write config content to file.", e);
         }
 
-        var generator = new ConfigurationTreeGenerator(
+        var localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
@@ -268,9 +272,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
-                modules.local().validators(),
-                new LocalFileConfigurationStorage(configFile, generator),
-                generator
+                new LocalFileConfigurationStorage(configFile, localConfigurationGenerator),
+                localConfigurationGenerator,
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
@@ -293,8 +297,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -302,9 +304,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                distributedConfigurationUpdater,
-                nodeAttributes
-        );
+                nodeAttributes,
+                new TestConfigurationValidator());
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 clusterSvc,
@@ -333,12 +334,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
 
-        var clusterCfgMgr = new ConfigurationManager(
+        ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().validators(),
-                cfgStorage,
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
+        );
+
+        var clusterCfgMgr = new ConfigurationManager(
+                modules.distributed().rootKeys(),
+                cfgStorage,
+                distributedConfigurationGenerator,
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
         Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
@@ -383,6 +389,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
+        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault));
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -409,11 +417,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 null
         );
 
-        var indexManager = new IndexManager(name, tablesConfiguration, schemaManager, tableManager, clusterSvc);
-
-        CatalogManager catalogManager = new CatalogServiceImpl(
-                new UpdateLogImpl(metaStorageMgr, vault)
-        );
+        var indexManager = new IndexManager(tablesConfiguration, schemaManager, tableManager);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -432,8 +436,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         // Preparing the result map.
 
-        partialNode.add(vault);
-        partialNode.add(nodeCfgMgr);
+        components.add(vault);
+        components.add(nodeCfgMgr);
 
         // Start.
 
@@ -452,21 +456,20 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
-                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
+                catalogManager,
                 schemaManager,
                 distributionZoneManager,
                 tableManager,
                 indexManager,
-                catalogManager,
                 qryEngine
         );
 
         for (IgniteComponent component : otherComponents) {
             component.start();
 
-            partialNode.add(component);
+            components.add(component);
         }
 
         AtomicLong lastRevision = new AtomicLong();
@@ -507,34 +510,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
         );
 
+        PartialNode partialNode = new PartialNode(components, List.of(localConfigurationGenerator, distributedConfigurationGenerator));
+        partialNodes.add(partialNode);
         return partialNode;
-    }
-
-    /**
-     * Stop partially started Ignite node that is represented by a list of components.
-     *
-     * @param componentsList A list of components.
-     */
-    private static void stopPartialNode(List<IgniteComponent> componentsList) {
-        ListIterator<IgniteComponent> iter = componentsList.listIterator(componentsList.size());
-
-        while (iter.hasPrevious()) {
-            IgniteComponent prev = iter.previous();
-
-            prev.beforeNodeStop();
-        }
-
-        iter = componentsList.listIterator(componentsList.size());
-
-        while (iter.hasPrevious()) {
-            IgniteComponent prev = iter.previous();
-
-            try {
-                prev.stop();
-            } catch (Exception e) {
-                log.error("Error during component stop", e);
-            }
-        }
     }
 
     /**
@@ -1066,15 +1044,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        List<IgniteComponent> components = startPartialNode(1, null);
+        PartialNode partialNode = startPartialNode(1, null);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
 
-        stopPartialNode(components);
+        partialNode.stop();
 
-        components = startPartialNode(1, null);
+        partialNode = startPartialNode(1, null);
 
-        TableManager tableManager = findComponent(components, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
 
         assertNotNull(tableManager);
 
@@ -1101,9 +1079,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
         );
 
-        List<IgniteComponent> components = startPartialNode(1, cfgString);
+        PartialNode partialNode = startPartialNode(1, cfgString);
 
-        TableManager tableManager = findComponent(components, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1129,9 +1107,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         log.info("Starting the node.");
 
-        List<IgniteComponent> components = startPartialNode(nodes.size() - 1, null);
+        PartialNode partialNode = startPartialNode(nodes.size() - 1, null);
 
-        TableManager tableManager = findComponent(components, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
@@ -1162,7 +1140,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         log.info("Starting the node.");
 
-        List<IgniteComponent> components = startPartialNode(
+        PartialNode partialNode = startPartialNode(
                 nodes.size() - 1,
                 configurationString(nodes.size() - 1),
                 rev -> {
@@ -1182,7 +1160,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 }
         );
 
-        TableManager tableManager = findComponent(components, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
 
         for (int i = 0; i < cfgGap; i++) {
             assertTablePresent(tableManager, "T" + i);
@@ -1299,8 +1277,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         Stream<TablesConfiguration> partialTablesConfiguration = Stream.empty();
 
-        if (partialNode != null) {
-            partialTablesConfiguration = partialNode.stream()
+        if (!partialNodes.isEmpty()) {
+            partialTablesConfiguration = partialNodes.stream()
+                    .flatMap(it -> it.startedComponents.stream())
                     .filter(ConfigurationManager.class::isInstance)
                     .map(c -> ((ConfigurationManager) c).configurationRegistry().getConfiguration(TablesConfiguration.KEY))
                     .filter(Objects::nonNull)
@@ -1374,6 +1353,48 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             }
 
             return super.onUpdate(appliedRevision);
+        }
+    }
+
+    private static class PartialNode {
+
+        private final List<IgniteComponent> startedComponents;
+
+        private final List<ManuallyCloseable> closeables;
+
+        public PartialNode(List<IgniteComponent> startedComponents, List<ManuallyCloseable> closeables) {
+            this.startedComponents = startedComponents;
+            this.closeables = closeables;
+        }
+
+        public void stop() {
+            ListIterator<IgniteComponent> iter = startedComponents.listIterator(startedComponents.size());
+
+            while (iter.hasPrevious()) {
+                IgniteComponent prev = iter.previous();
+
+                prev.beforeNodeStop();
+            }
+
+            iter = startedComponents.listIterator(startedComponents.size());
+
+            while (iter.hasPrevious()) {
+                IgniteComponent prev = iter.previous();
+
+                try {
+                    prev.stop();
+                } catch (Exception e) {
+                    log.error("Error during component stop", e);
+                }
+            }
+
+            closeables.forEach(c -> {
+                try {
+                    c.close();
+                } catch (Exception e) {
+                    log.error("Error during close", e);
+                }
+            });
         }
     }
 }

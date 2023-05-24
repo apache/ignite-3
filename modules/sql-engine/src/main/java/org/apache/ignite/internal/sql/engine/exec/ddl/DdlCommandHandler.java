@@ -190,6 +190,10 @@ public class DdlCommandHandler {
             zoneCfgBuilder.partitions(cmd.partitions());
         }
 
+        if (cmd.nodeFilter() != null) {
+            zoneCfgBuilder.filter(cmd.nodeFilter());
+        }
+
         zoneCfgBuilder.dataStorageChangeConsumer(
                 dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
@@ -224,6 +228,10 @@ public class DdlCommandHandler {
 
         if (cmd.dataNodesAutoAdjustScaleUp() != null) {
             zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
+        }
+
+        if (cmd.replicas() != null) {
+            zoneCfgBuilder.replicas(cmd.replicas());
         }
 
         return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
@@ -297,7 +305,7 @@ public class DdlCommandHandler {
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
-    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
+    protected static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
         return (val, err) -> {
             if (err == null) {
                 return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;

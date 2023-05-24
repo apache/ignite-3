@@ -34,32 +34,24 @@ public class LeaseSerializationTest {
         long now = System.currentTimeMillis();
 
         lease = Lease.EMPTY_LEASE;
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
+        assertEquals(lease, fromBytes(lease.bytes()));
 
         lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), true, true);
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
+        assertEquals(lease, fromBytes(lease.bytes()));
 
         lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), false, false);
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
+        assertEquals(lease, fromBytes(lease.bytes()));
 
         lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), false, true);
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
+        assertEquals(lease, fromBytes(lease.bytes()));
 
         lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), true, false);
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
+        assertEquals(lease, fromBytes(lease.bytes()));
 
         lease = new Lease(null, new HybridTimestamp(1, 1), new HybridTimestamp(2 + 1_000_000, 100), true, true);
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
+        assertEquals(lease, fromBytes(lease.bytes()));
 
         lease = new Lease("node" + new String(new byte[1000]), new HybridTimestamp(1, 1), new HybridTimestamp(2, 100), false, false);
-        assertLeasesEqual(lease, fromBytes(lease.bytes()));
-    }
-
-    private static void assertLeasesEqual(Lease lease1, Lease lease2) {
-        assertEquals(lease1.getLeaseholder(), lease2.getLeaseholder());
-        assertEquals(lease1.getStartTime(), lease2.getStartTime());
-        assertEquals(lease1.getExpirationTime(), lease2.getExpirationTime());
-        assertEquals(lease1.isAccepted(), lease2.isAccepted());
-        assertEquals(lease1.isProlongable(), lease2.isProlongable());
+        assertEquals(lease, fromBytes(lease.bytes()));
     }
 }

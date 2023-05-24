@@ -24,7 +24,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.rest.client.model.DeploymentInfo;
+import org.apache.ignite.rest.client.model.DeploymentStatus;
 
 /** Decorates list of units as a table. */
 public class UnitListDecorator implements Decorator<List<UnitStatusRecord>, TerminalOutput> {
@@ -41,11 +41,11 @@ public class UnitListDecorator implements Decorator<List<UnitStatusRecord>, Term
     }
 
     private Stream<String[]> unfoldRecordWithVersions(UnitStatusRecord record) {
-        Map<String, DeploymentInfo> map = record.versionToDeploymentInfo();
+        Map<String, DeploymentStatus> map = record.versionToStatus();
         return map.entrySet().stream().map(entry -> new String[]{
                 record.id(),
                 entry.getKey(),
-                entry.getValue().getStatus().getValue()
+                entry.getValue().getValue()
         });
     }
 }

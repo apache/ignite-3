@@ -67,12 +67,13 @@ import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -279,13 +280,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
         lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PART_ID,
                 partitionDataStorage,
-                indexes,
                 dsCfg,
-                safeTime,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                indexUpdateHandler,
+                new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
@@ -306,20 +309,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
-                new Schemas() {
-                    @Override
-                    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
-                        return completedFuture(null);
-                    }
-
-                    @Override
-                    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding,
-                            HybridTimestamp toIncluding) {
-                        return List.of(new FullTableSchema(1, 1, List.of(), List.of()));
-                    }
-                },
-                peer -> true,
-                completedFuture(schemaManager)
+                new DummySchemas(schemaManager),
+                completedFuture(schemaManager),
+                mock(ClusterNode.class),
+                mock(MvTableStorage.class),
+                mock(IndexBuilder.class)
         );
 
         partitionListener = new PartitionListener(

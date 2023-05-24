@@ -40,7 +40,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -113,8 +113,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         private final MetaStorageManagerImpl metaStorageManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
-
         Node(ClusterService clusterService, Path dataPath) {
             this.clusterService = clusterService;
 
@@ -132,8 +130,6 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -141,9 +137,8 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    distributedConfigurationUpdater,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             this.metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -163,8 +158,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     cmgManager,
-                    metaStorageManager,
-                    distributedConfigurationUpdater
+                    metaStorageManager
             );
 
             components.forEach(IgniteComponent::start);
@@ -183,8 +177,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     clusterService,
-                    vaultManager,
-                    distributedConfigurationUpdater
+                    vaultManager
             );
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);

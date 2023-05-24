@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -62,7 +64,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -493,7 +494,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             Object value = hnd.get(colDesc.logicalIndex(), row);
 
             // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-            assert value != RexImpTable.DEFAULT_VALUE_PLACEHOLDER;
+            assert value != DEFAULT_VALUE_PLACEHOLDER;
 
             if (value == null) {
                 hasNulls = true;

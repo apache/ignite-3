@@ -160,7 +160,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     HybridClock clock;
 
     @Mock
-    CatalogManager catalogManager;
+    private VaultManager vaultManager;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -204,9 +204,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private DistributionZoneManager distributionZoneManager;
 
-    DataStorageManager dataStorageManager;
+    private DataStorageManager dataStorageManager;
 
-    SchemaManager schemaManager;
+    private SchemaManager schemaManager;
+
+    private CatalogManager catalogManager;
 
     /** Returns current method name. */
     private static String getCurrentMethodName() {
@@ -237,6 +239,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws Exception {
+        mockVault();
         mockMetastore();
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
@@ -267,6 +270,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         schemaManager.start();
 
+        catalogManager = mock(CatalogManager.class);
+        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
         when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
@@ -283,7 +290,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(NODE_NAME, tblsCfg, schemaManager, tblManager, cs);
+        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
 
         idxManager.start();
 
@@ -315,6 +322,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
                 .get(1, TimeUnit.SECONDS);
+    }
+
+    private void mockVault() {
+        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
+        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
     }
 
     /** Dummy metastore activity mock. */
@@ -587,11 +599,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
-        VaultManager vaultManager = mock(VaultManager.class);
-
-        when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
-        when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
-
         TableManager tableManager = new TableManager(
                 "",
                 revisionUpdater,

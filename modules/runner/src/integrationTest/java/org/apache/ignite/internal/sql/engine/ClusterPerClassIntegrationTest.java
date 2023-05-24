@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -246,10 +249,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @return  An index configuration.
      */
     public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
+        return getTablesConfiguration(node).indexes().get(indexName.toUpperCase());
     }
 
     /**
@@ -483,9 +483,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param tableName Table name.
      * @param indexName Index name.
+     * @return Nodes on which the partition index was built.
      * @throws Exception If failed.
      */
-    public static void waitForIndexBuild(String tableName, String indexName) throws Exception {
+    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
+        Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
+
         // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
             CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
@@ -501,8 +504,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
             );
 
-            UUID indexId = getIndexConfiguration(clusterNode, indexName).id().value();
-
             for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                 RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
 
@@ -513,10 +514,27 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
+                TablesView tablesView = getTablesConfiguration(clusterNode).value();
+
+                UUID indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
+
+                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, createIndexDescriptor(tablesView, indexId));
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
+
+                partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
             }
         }
+
+        return partitionIdToNodes;
+    }
+
+    /**
+     * Returns tables configuration.
+     *
+     * @param node Node.
+     */
+    public static TablesConfiguration getTablesConfiguration(Ignite node) {
+        return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
     }
 }

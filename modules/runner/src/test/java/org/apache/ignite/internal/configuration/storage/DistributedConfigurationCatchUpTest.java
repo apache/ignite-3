@@ -41,6 +41,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -101,7 +102,8 @@ public class DistributedConfigurationCatchUpTest {
         DistributedConfigurationStorage storage = storage(wrapper);
 
         try {
-            var changer = new TestConfigurationChanger(List.of(rootKey), Set.of(), storage, generator);
+            var validator = new ConfigurationValidatorImpl(generator, Set.of());
+            var changer = new TestConfigurationChanger(List.of(rootKey), storage, generator, validator);
 
             try {
                 changer.start();
@@ -131,7 +133,8 @@ public class DistributedConfigurationCatchUpTest {
 
         try {
 
-            var changer = new TestConfigurationChanger(List.of(rootKey), Set.of(), storage, generator);
+            var configurationValidator = new ConfigurationValidatorImpl(generator, Set.of());
+            var changer = new TestConfigurationChanger(List.of(rootKey), storage, generator, configurationValidator);
 
             try {
                 changer.start();
