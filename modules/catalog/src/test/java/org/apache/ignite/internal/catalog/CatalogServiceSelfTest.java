@@ -36,8 +36,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -68,11 +71,13 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
+import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -487,6 +492,65 @@ public class CatalogServiceSelfTest {
             assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.UNDEFINED_PRECISION, 2)),
                     willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=2]."));
             assertNull(service.schema(schemaVer + 1));
+        }
+    }
+
+    @Test
+    public void testAlterColumnType() {
+        EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
+        types.remove(ColumnType.NULL);
+
+        List<ColumnParams> columns = types.stream()
+                .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
+                .collect(Collectors.toList());
+
+        CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName("PUBLIC")
+                .tableName(TABLE_NAME)
+                .zone("ZONE")
+                .columns(columns)
+                .primaryKeyColumns(List.of("COL_INT32"))
+                .build();
+
+        Runnable recreateTable = () -> {
+            assertThat(service.dropTable(DropTableParams.builder().tableName(TABLE_NAME).build()), willBe((Object) null));
+            assertThat(service.createTable(createTableParams), willBe((Object) null));
+        };
+
+        Map<ColumnType, Set<ColumnType>> validTransitions = new EnumMap<>(ColumnType.class);
+        validTransitions.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
+        validTransitions.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
+        validTransitions.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
+        validTransitions.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
+
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        for (ColumnType target : types) {
+            ChangeColumnType changeType = new ChangeColumnType(target);
+
+            for (ColumnParams col : columns) {
+                TypeSafeMatcher<CompletableFuture<?>> matcher;
+                CompletableFuture<Void> fut = changeColumn(TABLE_NAME, col.name(), changeType);
+
+                if (col.type() == target || (validTransitions.get(col.type()) != null && validTransitions.get(col.type()).contains(target))) {
+                    matcher = willBe((Object) null);
+                    schemaVer += col.type() == target ? 0 : 1;
+                } else {
+                    matcher = willThrowFast(SqlException.class, IgniteStringFormatter.format(
+                            "Cannot change data type for column '{}' [from={}, to={}].", col.name(), col.type(), target));
+                }
+
+                assertThat(col.type() + " -> " + target, fut, matcher);
+                assertNotNull(service.schema(schemaVer));
+                assertNull(service.schema(schemaVer + 1));
+            }
+
+            recreateTable.run();
+            schemaVer += 2;
         }
     }
 
