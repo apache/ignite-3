@@ -178,7 +178,9 @@ public class DdlSqlToCommandConverter {
         // ALTER ZONE options.
         alterZoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
+                PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::partitions),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
+                AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::affinity),
 
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjust),

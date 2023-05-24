@@ -27,11 +27,16 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
     /** Quietly ignore this command if zone does not exists. */
     private boolean ifExists;
 
+    private Integer partitions;
+
     /** Replicas number. */
     private Integer replicas;
 
     /** Data nodes filter expression. */
     private String nodeFiler;
+
+    /** Affinity function name. */
+    private String affinity;
 
     /** Data nodes auto adjust timeout. */
     private Integer dataNodesAutoAdjust;
@@ -48,6 +53,22 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
 
     public void ifExists(boolean ifExists) {
         this.ifExists = ifExists;
+    }
+
+    @Nullable public Integer partitions() {
+        return partitions;
+    }
+
+    public void partitions(Integer partitions) {
+        this.partitions = partitions;
+    }
+
+    @Nullable public String affinity() {
+        return affinity;
+    }
+
+    public void affinity(String affinity) {
+        this.affinity = affinity;
     }
 
     @Nullable public Integer replicas() {

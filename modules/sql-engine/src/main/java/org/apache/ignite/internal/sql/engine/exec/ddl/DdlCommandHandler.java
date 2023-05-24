@@ -234,6 +234,14 @@ public class DdlCommandHandler {
             zoneCfgBuilder.replicas(cmd.replicas());
         }
 
+        if (cmd.partitions() != null) {
+            zoneCfgBuilder.partitions(cmd.partitions());
+        }
+
+        if (cmd.nodeFilter() != null) {
+            zoneCfgBuilder.filter(cmd.nodeFilter());
+        }
+
         return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }

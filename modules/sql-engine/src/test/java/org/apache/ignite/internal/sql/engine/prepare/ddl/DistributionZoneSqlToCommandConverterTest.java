@@ -147,6 +147,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     public void testAlterZoneSetCommand() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE test SET "
                 + "replicas=3, "
+                + "partitions=8, "
+                + "affinity_function='rendezvous', "
                 + "data_nodes_filter='\"attr1\" && \"attr2\"', "
                 + "data_nodes_auto_adjust_scale_up=100, "
                 + "data_nodes_auto_adjust_scale_down=200, "
@@ -159,6 +161,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(zoneCmd.zoneName(), equalTo("TEST"));
 
         assertThat(zoneCmd.replicas(), equalTo(3));
+        assertThat(zoneCmd.affinity(), equalTo("rendezvous"));
+        assertThat(zoneCmd.partitions(), equalTo(8));
         assertThat(zoneCmd.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
         assertThat(zoneCmd.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(zoneCmd.dataNodesAutoAdjustScaleDown(), equalTo(200));
