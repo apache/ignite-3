@@ -378,8 +378,10 @@ public class CatalogServiceSelfTest {
     /**
      * Checks for possible changes of the nullable flag of a column descriptor.
      *
-     * <p>DROP NOT NULL is allowed on any column.
-     * <p>SET NOT NULL is forbidden.
+     * <ul>
+     *  <li>DROP NOT NULL is allowed on any column.
+     *  <li>SET NOT NULL is forbidden.
+     * </ul>
      */
     @Test
     public void testAlterColumnNotNull() {
@@ -435,9 +437,11 @@ public class CatalogServiceSelfTest {
     /**
      * Checks for possible changes of the precision of a column descriptor.
      *
-     * <p>Decreasing precision (and length for varlen types) is forbidden.
-     * <p>Increasing precision is allowed for {@link ColumnType#DECIMAL}.
-     * <p>Increasing length is allowed for {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY}.
+     * <ul>
+     *  <li>Decreasing precision (and length for varlen types) is forbidden.</li>
+     *  <li>Increasing precision is allowed for {@link ColumnType#DECIMAL}.</li>
+     *  <li>Increasing length is allowed for {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY}.</li>
+     * </ul>
      */
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
@@ -520,6 +524,7 @@ public class CatalogServiceSelfTest {
 
     /**
      * Checks for possible changes of the type of a column descriptor.
+     *
      * <p>The following transitions are allowed:
      * <ul>
      *     <li>INT8 -> INT16 -> INT32 -> INT64</li>
