@@ -17,9 +17,11 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
@@ -57,8 +59,14 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testAutoFlushTimer() {
-        assert false;
+    public void testAutoFlushByTimer() throws InterruptedException {
+        RecordView<Tuple> view = this.defaultTable().recordView();
+
+        var publisher = new SubmissionPublisher<Tuple>();
+        view.streamData(publisher, new DataStreamerOptions().autoFlushFrequencyMs(100));
+
+        publisher.submit(tuple(1L, "foo"));
+        assertTrue(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
     }
 
     @Test
