@@ -405,6 +405,9 @@ public class ErrorGroups {
         public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
     }
 
+    /**
+     * Compute error group.
+     */
     public static class Compute {
         /** Compute error group. */
         public static final ErrorGroup COMPUTE_ERR_GROUP = ErrorGroup.newGroup("COMPUTE", 16);
