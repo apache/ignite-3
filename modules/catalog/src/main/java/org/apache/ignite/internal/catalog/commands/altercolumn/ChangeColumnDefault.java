@@ -45,8 +45,8 @@ public class ChangeColumnDefault implements ColumnChangeAction {
             return null;
         }
 
-        if (dflt.type() == Type.CONSTANT && ((DefaultValue.ConstantValue) dflt).value() == null) {
-            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column " + origin.name());
+        if (dflt.type() == Type.CONSTANT && ((DefaultValue.ConstantValue) dflt).value() == null && !origin.nullable()) {
+            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column '" + origin.name() + "'.");
         }
 
         return new TableColumnDescriptor(origin.name(), origin.type(), origin.nullable(), dflt, origin.precision(), origin.scale(),

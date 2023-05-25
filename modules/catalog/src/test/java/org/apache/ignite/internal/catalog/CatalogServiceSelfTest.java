@@ -354,7 +354,12 @@ public class CatalogServiceSelfTest {
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
-        // 2 -> funcCall : Ok.
+        // 2 -> NULL : Ok (for nullable column).
+        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // NULL -> funcCall : Ok.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
@@ -364,9 +369,9 @@ public class CatalogServiceSelfTest {
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
-        // funcCall -> NULL : Error.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
-                willThrowFast(SqlException.class, "Cannot drop default for column"));
+        // ANY -> NULL : Error (for non-nullable column).
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
+                willThrowFast(SqlException.class, "Cannot drop default for column 'VAL_NOT_NULL'."));
         assertNull(service.schema(schemaVer + 1));
     }
 
@@ -543,7 +548,7 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         ColumnChangeAction[] actions = {
-                new ChangeColumnDefault(t -> DefaultValue.constant(1)),
+                new ChangeColumnDefault(t -> DefaultValue.constant(null)),
                 new ChangeColumnNotNull(false),
                 new ChangeColumnType(ColumnType.INT64)
         };
@@ -555,7 +560,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
 
         TableColumnDescriptor desc = schema.table(TABLE_NAME).column("VAL_NOT_NULL");
-        assertEquals(DefaultValue.constant(1), desc.defaultValue());
+        assertEquals(DefaultValue.constant(null), desc.defaultValue());
         assertTrue(desc.nullable());
         assertEquals(ColumnType.INT64, desc.type());
 
@@ -672,7 +677,7 @@ public class CatalogServiceSelfTest {
         List<ColumnParams> cols = List.of(
                 new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false),
                 new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true),
-                new ColumnParams("VAL_NOT_NULL", ColumnType.INT32, DefaultValue.constant(null), false),
+                new ColumnParams("VAL_NOT_NULL", ColumnType.INT32, DefaultValue.constant(1), false),
                 new ColumnParams("DEC", ColumnType.DECIMAL, DefaultValue.constant(null), true),
                 new ColumnParams("STR", ColumnType.STRING, DefaultValue.constant(null), true),
                 ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()

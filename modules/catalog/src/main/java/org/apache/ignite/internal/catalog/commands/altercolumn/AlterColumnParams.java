@@ -72,7 +72,7 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         /** Sets list of column change actions. */
         public Builder changeActions(List<ColumnChangeAction> changes) {
             params.changeActions = changes.stream()
-                    .sorted(Comparator.comparing(ColumnChangeAction::priority))
+                    .sorted(Comparator.comparing(v -> v.priority().value()))
                     .collect(Collectors.toList());
 
             return this;

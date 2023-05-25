@@ -25,7 +25,13 @@ import org.jetbrains.annotations.Nullable;
  */
 @FunctionalInterface
 public interface ColumnChangeAction {
-    /** Column descriptor change order. */
+    /**
+     * Column descriptor change order.
+     *
+     * <p>Column descriptor changes must be applied in a specific order.
+     * For example, for the following command, {@code DROP DEFAULT, DROP NOT NULL}, column descriptor must be marked nullable before
+     * attempting to drop the default value.
+     */
     public enum Priority {
         DATA_TYPE(0),
         DROP_NOT_NULL(1),
@@ -39,7 +45,7 @@ public interface ColumnChangeAction {
             this.priority = priority;
         }
 
-        public int order() {
+        public int value() {
             return priority;
         }
     }
