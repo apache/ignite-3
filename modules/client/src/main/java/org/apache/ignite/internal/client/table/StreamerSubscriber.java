@@ -79,7 +79,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
         this.subscription = subscription;
 
-        // Request initial batch times 2 (every per-node buffer can hold 2x items - one for flushing and one for adding).
+        // Request initial batch times 2 (we can fill the next per-node buffer while sending the previous one).
         requestMore(options.batchSize() * 2);
     }
 
@@ -150,7 +150,6 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     }
 
     private void close(@Nullable Throwable throwable) {
-        // TODO: RW lock.
         var s = subscription;
 
         if (s != null) {
@@ -161,7 +160,6 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             buf.flushAndClose();
         }
 
-        // TODO: Thread synchronization - make sure no new futures are added.
         var futs = pendingFuts.toArray(new CompletableFuture[0]);
 
         CompletableFuture.allOf(futs).whenComplete((res, err) -> {
