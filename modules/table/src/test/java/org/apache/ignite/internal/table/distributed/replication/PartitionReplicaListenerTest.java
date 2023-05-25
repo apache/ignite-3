@@ -344,7 +344,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         lenient().when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
 
         lenient().when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
-        lenient().when(schemas.waitForSchemaAvailability(any(), anyInt())).thenReturn(completedFuture(null));
+        lenient().when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
         UUID pkIndexId = UUID.randomUUID();
         UUID sortedIndexId = UUID.randomUUID();
@@ -1270,7 +1270,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void commitsOnSameSchemaSuccessfully() {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), anyInt()))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
                 ));
@@ -1332,7 +1332,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     @Disabled("IGNITE-19229")
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), any(HybridTimestamp.class)))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col1"))),
                         tableSchema(FUTURE_SCHEMA_VERSION, List.of(nullableColumn("col1"), nullableColumn("col2")))
@@ -1364,12 +1364,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void simulateForwardIncompatibleSchemaChange(int fromSchemaVersion, int toSchemaVersion) {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), any(HybridTimestamp.class)))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(incompatibleSchemaVersions(fromSchemaVersion, toSchemaVersion));
     }
 
     private void simulateBackwardIncompatibleSchemaChange(int fromSchemaVersion, int toSchemaVersion) {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), anyInt()))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), anyInt()))
                 .thenReturn(incompatibleSchemaVersions(fromSchemaVersion, toSchemaVersion));
     }
 
