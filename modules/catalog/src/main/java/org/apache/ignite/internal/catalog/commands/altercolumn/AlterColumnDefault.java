@@ -17,14 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands.altercolumn;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
-
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,20 +35,14 @@ public class AlterColumnDefault implements AlterColumnAction {
 
     @Override
     public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
-        // Set default value allowed for any column.
-        // Drop default value, only allowed for a nullable column.
         DefaultValue dflt = resolveDfltFunc.apply(origin.type());
 
         if (dflt.equals(origin.defaultValue())) {
             return null;
         }
 
-        if (dflt.type() == Type.CONSTANT && ((DefaultValue.ConstantValue) dflt).value() == null && !origin.nullable()) {
-            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column '" + origin.name() + "'.");
-        }
-
-        return new TableColumnDescriptor(origin.name(), origin.type(), origin.nullable(), dflt, origin.precision(), origin.scale(),
-                origin.length());
+        return new TableColumnDescriptor(
+                origin.name(), origin.type(), origin.nullable(), dflt, origin.precision(), origin.scale(), origin.length());
     }
 
     @Override

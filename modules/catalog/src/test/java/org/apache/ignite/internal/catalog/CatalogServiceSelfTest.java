@@ -329,8 +329,7 @@ public class CatalogServiceSelfTest {
     /**
      * Checks for possible changes to the default value of a column descriptor.
      *
-     * <p>Set default value allowed for any column.
-     * <p>Drop default value, only allowed for a nullable column.
+     * <p>Set/drop default value allowed for any column.
      */
     @Test
     public void testAlterColumnDefault() {
@@ -373,11 +372,6 @@ public class CatalogServiceSelfTest {
         // funcCall -> funcCall : No-op.
         assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
                 willBe((Object) null));
-        assertNull(service.schema(schemaVer + 1));
-
-        // NOT NULL -> NULL : Error (for non-nullable column).
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new AlterColumnDefault((t) -> DefaultValue.constant(null))),
-                willThrowFast(SqlException.class, "Cannot drop default for column 'VAL_NOT_NULL'."));
         assertNull(service.schema(schemaVer + 1));
     }
 
