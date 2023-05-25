@@ -29,7 +29,7 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
         if (reader.try_read_nil())
             return std::nullopt;
 
-        auto id = reader.read_uuid();
+        auto id = reader.read_int32();
         auto table0 = std::make_shared<table_impl>(std::string(name), id, std::move(conn));
 
         return std::make_optional(table(table0));
