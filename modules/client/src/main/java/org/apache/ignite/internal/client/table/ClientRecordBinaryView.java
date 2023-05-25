@@ -363,18 +363,15 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        // TODO: Proper partition awareness.
-        // We should request latest schema and partition assignment. Then wait asynchronously for those futures to complete,
-        // only then request data from the publisher.
-        // We can refresh assignment and schema after every flush.
-        StreamerPartitionAwarenessProvider<Tuple, ClientChannel> provider = new StreamerPartitionAwarenessProvider<Tuple, ClientChannel>() {
+        // TODO: Move this to Table for reuse.
+        StreamerPartitionAwarenessProvider<Tuple, ClientChannel> provider = new StreamerPartitionAwarenessProvider<>() {
             private List<String> assignment;
             private ClientSchema schema;
 
             @Override
             public ClientChannel partition(Tuple item) {
                 if (schema == null || assignment == null) {
-                    throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh was not called or awaited.");
+                    throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
                 }
 
                 String preferredNodeId = null;
