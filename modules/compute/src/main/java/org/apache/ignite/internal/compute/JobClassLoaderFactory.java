@@ -67,14 +67,10 @@ public class JobClassLoaderFactory {
         ClassLoader parent = getClass().getClassLoader();
         ListIterator<DeploymentUnit> listIterator = units.listIterator(units.size());
         while (listIterator.hasPrevious()) {
-            parent = createClassLoader(listIterator.previous(), parent);
+            parent = new JobClassLoader(collectClasspath(constructPath(listIterator.previous())), parent);
         }
 
         return (JobClassLoader) parent;
-    }
-
-    private JobClassLoader createClassLoader(DeploymentUnit unit, ClassLoader parent) {
-        return new JobClassLoader(collectClasspath(constructPath(unit)), parent);
     }
 
     private Path constructPath(DeploymentUnit unit) {
