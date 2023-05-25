@@ -73,9 +73,9 @@ public class ClientTable implements Table {
 
     private final Object partitionAssignmentLock = new Object();
 
-    private CompletableFuture<List<String>> partitionAssignment = null;
+    private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
-    private long partitionAssignmentVersion = -1;
+    private volatile long partitionAssignmentVersion = -1;
 
     /**
      * Constructor.
