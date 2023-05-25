@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
@@ -28,6 +29,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -40,7 +42,6 @@ public class DataStreamerTest extends AbstractClientTableTest {
     @ValueSource(ints = {1, 2, 3})
     public void testBasicStreaming(int batchSize) {
         RecordView<Tuple> view = this.defaultTable().recordView();
-        view.deleteAll(null, Stream.of(1L, 2L, 3L).map(AbstractClientTableTest::tupleKey).collect(Collectors.toList()));
 
         var publisher = new SubmissionPublisher<Tuple>();
         CompletableFuture<Void> fut = view.streamData(publisher, new DataStreamerOptions().batchSize(batchSize));
@@ -52,10 +53,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
         fut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1L)));
+        assertNotNull(view.get(null, tupleKey(2L)));
+        assertNull(view.get(null, tupleKey(3L)));
 
-        Tuple res = view.get(null, tupleKey(2L));
-        assertNotNull(res);
-        assertEquals("bar", res.stringValue("name"));
+        assertEquals("bar", view.get(null, tupleKey(2L)).stringValue("name"));
     }
 
     @Test
