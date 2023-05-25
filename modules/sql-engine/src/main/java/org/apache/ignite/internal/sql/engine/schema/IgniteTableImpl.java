@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -647,18 +648,20 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     for (CompletableFuture<List<RowT>> future : futs) {
                         List<RowT> values = future.join();
 
-                        if (conflictRows == null && values != null && !values.isEmpty()) {
+                        if (nullOrEmpty(values)) {
+                            continue;
+                        }
+
+                        if (conflictRows == null) {
                             conflictRows = new ArrayList<>(values.size());
                         }
 
-                        if (values != null) {
-                            for (RowT row : values) {
-                                conflictRows.add(handler.toString(row));
-                            }
+                        for (RowT row : values) {
+                            conflictRows.add(handler.toString(row));
                         }
                     }
 
-                    if (conflictRows != null && !conflictRows.isEmpty()) {
+                    if (conflictRows != null) {
                         throw conflictKeysException(conflictRows);
                     }
 
