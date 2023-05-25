@@ -40,11 +40,7 @@ public class TableColumnDescriptor implements Serializable {
     private final DefaultValue defaultValue;
 
     /**
-     * Constructor.
-     *
-     * @param name Column name.
-     * @param type Column type.
-     * @param nullable Nullability flag.
+     * Constructs a column descriptor ignoring {@link #precision}, {@link #scale} and {@link #length}.
      */
     public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
         this(Objects.requireNonNull(name, "name"), Objects.requireNonNull(type), nullable, defaultValue, null, null, null);
@@ -52,12 +48,20 @@ public class TableColumnDescriptor implements Serializable {
 
     /**
      * Constructor.
+     *
+     * @param name Column name.
+     * @param type Column type.
+     * @param nullable Nullability flag.
+     * @param defaultValue Default value.
+     * @param precision Precision.
+     * @param scale Scale.
+     * @param length Length.
      */
     public TableColumnDescriptor(
             String name,
             ColumnType type,
             boolean nullable,
-            DefaultValue dflt,
+            DefaultValue defaultValue,
             @Nullable Integer precision,
             @Nullable Integer scale,
             @Nullable Integer length
@@ -65,10 +69,10 @@ public class TableColumnDescriptor implements Serializable {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type);
         this.nullable = nullable;
-        this.defaultValue = dflt;
-        this.precision = Objects.requireNonNullElse(precision, -1);
-        this.scale = Objects.requireNonNullElse(scale, Integer.MIN_VALUE);
-        this.length = Objects.requireNonNullElse(length, -1);
+        this.defaultValue = defaultValue;
+        this.precision = Objects.requireNonNullElse(precision, 0);
+        this.scale = Objects.requireNonNullElse(scale, 0);
+        this.length = Objects.requireNonNullElse(length, 0);
     }
 
     public String name() {

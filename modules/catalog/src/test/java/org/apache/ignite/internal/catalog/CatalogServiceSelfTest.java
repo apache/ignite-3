@@ -407,7 +407,7 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, null)),
                 willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'")
         );
         assertNull(service.schema(schemaVer + 1));
@@ -429,14 +429,14 @@ public class CatalogServiceSelfTest {
 
         // UNDEFINED PRECISION -> 10 = ok for DECIMAL and VARCHAR
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, null)),
                 willBe((Object) null)
         );
         assertNotNull(service.schema(++schemaVer));
 
         // 10 -> 11 = ok
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 11, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 11, null)),
                 willBe((Object) null)
         );
 
@@ -454,7 +454,7 @@ public class CatalogServiceSelfTest {
                 : "Cannot decrease length for column '" + col.name() + "' [from=11, to=10].";
 
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, null)),
                 willThrowFast(SqlException.class, expMsg)
         );
         assertNull(service.schema(schemaVer + 1));
@@ -475,17 +475,17 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 3 = no-op
-        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 3)),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), null, 3)),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 4 = error
-        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 4)),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), null, 4)),
                 willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=4]."));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 2 = error
-        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 2)),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), null, 2)),
                 willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=2]."));
         assertNull(service.schema(schemaVer + 1));
     }

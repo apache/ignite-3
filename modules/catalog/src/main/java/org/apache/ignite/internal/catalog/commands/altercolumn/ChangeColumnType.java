@@ -33,8 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * Changes {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
  */
 public class ChangeColumnType implements ColumnChangeAction {
-    public static final int PRECISION_NOT_SPECIFIED = -1;
-    public static final int SCALE_NOT_SPECIFIED = Integer.MIN_VALUE;
     private static final String UNSUPPORTED_TYPE = "Cannot change data type for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_SCALE = "Cannot change scale for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_LENGTH = "Cannot decrease length for column '{}' [from={}, to={}].";
@@ -51,17 +49,17 @@ public class ChangeColumnType implements ColumnChangeAction {
 
     private final ColumnType type;
 
-    private final int precision;
+    private final Integer precision;
 
-    private final int scale;
+    private final Integer scale;
 
     /** Constructor. */
     public ChangeColumnType(ColumnType type) {
-        this(type, PRECISION_NOT_SPECIFIED, SCALE_NOT_SPECIFIED);
+        this(type, null, null);
     }
 
     /** Constructor. */
-    public ChangeColumnType(ColumnType type, int precision, int scale) {
+    public ChangeColumnType(ColumnType type, Integer precision, Integer scale) {
         this.type = type;
         this.precision = precision;
         this.scale = scale;
@@ -75,8 +73,8 @@ public class ChangeColumnType implements ColumnChangeAction {
     @Override
     public @Nullable TableColumnDescriptor apply(TableColumnDescriptor source) {
         if (source.type() == type
-                && (precision == PRECISION_NOT_SPECIFIED || source.precision() == precision)
-                && (scale == SCALE_NOT_SPECIFIED || source.scale() == scale)) {
+                && (precision == null || source.precision() == precision)
+                && (scale == null || source.scale() == scale)) {
             // No-op.
             return null;
         }
@@ -91,7 +89,7 @@ public class ChangeColumnType implements ColumnChangeAction {
 
         boolean changeLength = false;
 
-        if (precision != PRECISION_NOT_SPECIFIED) {
+        if (precision != null) {
             if (type == ColumnType.STRING) {
                 if (precision < source.length()) {
                     throwException(UNSUPPORTED_LENGTH, source.name(), source.length(), precision);
@@ -107,7 +105,7 @@ public class ChangeColumnType implements ColumnChangeAction {
             }
         }
 
-        if (scale != SCALE_NOT_SPECIFIED && source.scale() != scale) {
+        if (scale != null && source.scale() != scale) {
             throwException(UNSUPPORTED_SCALE, source.name(), source.scale(), scale);
         }
 
@@ -116,7 +114,7 @@ public class ChangeColumnType implements ColumnChangeAction {
                 type,
                 source.nullable(),
                 source.defaultValue(),
-                precision == PRECISION_NOT_SPECIFIED || changeLength
+                precision == null || changeLength
                         ? source.precision()
                         : precision,
                 source.scale(),

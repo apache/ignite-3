@@ -49,7 +49,8 @@ public class ChangeColumnDefault implements ColumnChangeAction {
             throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "Cannot drop default for column " + origin.name());
         }
 
-        return new TableColumnDescriptor(origin.name(), origin.type(), origin.nullable(), dflt);
+        return new TableColumnDescriptor(origin.name(), origin.type(), origin.nullable(), dflt, origin.precision(), origin.scale(),
+                origin.length());
     }
 
     @Override
