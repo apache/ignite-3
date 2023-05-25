@@ -33,8 +33,8 @@ import org.jetbrains.annotations.Nullable;
  * Changes {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
  */
 public class ChangeColumnType implements ColumnChangeAction {
-    public static final int UNDEFINED_PRECISION = -1;
-    public static final int UNDEFINED_SCALE = Integer.MIN_VALUE;
+    public static final int PRECISION_NOT_SPECIFIED = -1;
+    public static final int SCALE_NOT_SPECIFIED = Integer.MIN_VALUE;
     private static final String UNSUPPORTED_TYPE = "Cannot change data type for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_SCALE = "Cannot change scale for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_LENGTH = "Cannot decrease length for column '{}' [from={}, to={}].";
@@ -57,7 +57,7 @@ public class ChangeColumnType implements ColumnChangeAction {
 
     /** Constructor. */
     public ChangeColumnType(ColumnType type) {
-        this(type, UNDEFINED_PRECISION, UNDEFINED_SCALE);
+        this(type, PRECISION_NOT_SPECIFIED, SCALE_NOT_SPECIFIED);
     }
 
     /** Constructor. */
@@ -75,8 +75,8 @@ public class ChangeColumnType implements ColumnChangeAction {
     @Override
     public @Nullable TableColumnDescriptor apply(TableColumnDescriptor source) {
         if (source.type() == type
-                && (precision == UNDEFINED_PRECISION || source.precision() == precision)
-                && (scale == UNDEFINED_SCALE || source.scale() == scale)) {
+                && (precision == PRECISION_NOT_SPECIFIED || source.precision() == precision)
+                && (scale == SCALE_NOT_SPECIFIED || source.scale() == scale)) {
             // No-op.
             return null;
         }
@@ -89,11 +89,15 @@ public class ChangeColumnType implements ColumnChangeAction {
             }
         }
 
-        if (precision != UNDEFINED_PRECISION) {
+        boolean changeLength = false;
+
+        if (precision != PRECISION_NOT_SPECIFIED) {
             if (type == ColumnType.STRING) {
                 if (precision < source.length()) {
                     throwException(UNSUPPORTED_LENGTH, source.name(), source.length(), precision);
                 }
+
+                changeLength = true;
             } else if (type == ColumnType.DECIMAL) {
                 if (precision < source.precision()) {
                     throwException(UNSUPPORTED_PRECISION, "decrease", source.name(), source.precision(), precision);
@@ -103,19 +107,20 @@ public class ChangeColumnType implements ColumnChangeAction {
             }
         }
 
-        if (type == ColumnType.STRING) {
-            if (precision != UNDEFINED_PRECISION && precision < source.length()) {
-                throwException(UNSUPPORTED_LENGTH, source.name(), source.length(), precision);
-            }
-        } else if (precision != UNDEFINED_PRECISION && precision < source.precision()) {
-            throwException(UNSUPPORTED_PRECISION, source.name(), source.precision(), precision);
-        }
-
-        if (scale != UNDEFINED_SCALE && source.scale() != scale) {
+        if (scale != SCALE_NOT_SPECIFIED && source.scale() != scale) {
             throwException(UNSUPPORTED_SCALE, source.name(), source.scale(), scale);
         }
 
-        return new TableColumnDescriptor(source.name(), type, source.nullable(), source.defaultValue(), precision, scale, precision);
+        return new TableColumnDescriptor(
+                source.name(),
+                type,
+                source.nullable(),
+                source.defaultValue(),
+                precision == PRECISION_NOT_SPECIFIED || changeLength
+                        ? source.precision()
+                        : precision,
+                source.scale(),
+                changeLength ? precision : source.length());
     }
 
     private void throwUnsupportedTypeChange(TableColumnDescriptor source) {
