@@ -381,9 +381,15 @@ public class ClientTable implements Table {
     }
 
     private synchronized CompletableFuture<List<String>> getPartitionAssignment() {
-        synchronized (partitionAssignmentLock) {
-            long currentVersion = ch.partitionAssignmentVersion();
+        long currentVersion = ch.partitionAssignmentVersion();
 
+        if (partitionAssignmentVersion == currentVersion
+                && partitionAssignment != null
+                && !partitionAssignment.isCompletedExceptionally()) {
+            return partitionAssignment;
+        }
+
+        synchronized (partitionAssignmentLock) {
             if (partitionAssignmentVersion == currentVersion
                     && partitionAssignment != null
                     && !partitionAssignment.isCompletedExceptionally()) {
