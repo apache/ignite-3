@@ -35,9 +35,6 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
     /** Data nodes filter expression. */
     private String nodeFiler;
 
-    /** Affinity function name. */
-    private String affinity;
-
     /** Data nodes auto adjust timeout. */
     private Integer dataNodesAutoAdjust;
 
@@ -61,14 +58,6 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
 
     public void partitions(Integer partitions) {
         this.partitions = partitions;
-    }
-
-    @Nullable public String affinity() {
-        return affinity;
-    }
-
-    public void affinity(String affinity) {
-        this.affinity = affinity;
     }
 
     @Nullable public Integer replicas() {
