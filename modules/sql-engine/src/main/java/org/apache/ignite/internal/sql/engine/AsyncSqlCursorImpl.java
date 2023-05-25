@@ -101,7 +101,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         if (err instanceof IgniteInternalException) {
             IgniteInternalException iex = (IgniteInternalException) err;
 
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+            return new SqlException(iex.traceId(), iex.code(), iex);
         }
 
         return IgniteException.wrap(t);

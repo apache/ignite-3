@@ -139,11 +139,11 @@ public class ExchangeServiceImpl implements ExchangeService {
         } else if (cause instanceof IgniteInternalException) {
             IgniteInternalException iex = (IgniteInternalException) cause;
 
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+            return new SqlException(iex.traceId(), iex.code(), iex);
         } else if (cause instanceof IgniteInternalCheckedException) {
             IgniteInternalCheckedException iex = (IgniteInternalCheckedException) cause;
 
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
+            return new SqlException(iex.traceId(), iex.code(), iex);
         } else {
             return new SqlException(INTERNAL_ERR, cause);
         }
