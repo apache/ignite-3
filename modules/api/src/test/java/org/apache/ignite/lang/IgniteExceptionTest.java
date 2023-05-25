@@ -80,10 +80,25 @@ public class IgniteExceptionTest {
         assertEquals(Common.INTERNAL_ERR, res.code());
     }
 
+    @Test
+    public void testDuplicateErrorCode() {
+        var originalEx = new CustomTestException(Table.TABLE_NOT_FOUND_ERR, "Error foo bar", null);
+        var wrappedEx = new CustomTestException(originalEx.traceId(), originalEx.code(), originalEx.getMessage(), originalEx);
+
+        assertEquals(originalEx.traceId(), wrappedEx.traceId());
+        assertEquals(originalEx.code(), wrappedEx.code());
+        assertSame(originalEx, wrappedEx.getCause());
+        assertEquals(originalEx.getMessage(), wrappedEx.getMessage());
+    }
+
     /**
      * Custom exception for tests.
      */
     public static class CustomTestException extends IgniteException {
+        public CustomTestException(int code, String message, Throwable cause) {
+            super(code, message, cause);
+        }
+
         public CustomTestException(UUID traceId, int code, String message, Throwable cause) {
             super(traceId, code, message, cause);
         }

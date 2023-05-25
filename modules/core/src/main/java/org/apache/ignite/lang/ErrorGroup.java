@@ -203,7 +203,10 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId + ((message != null) ? ' ' + message : "");
+        message = extractCauseMessage(message);
+
+        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId
+                + ((message != null && !message.isEmpty()) ? ' ' + message : "");
     }
 
     /**
@@ -229,10 +232,6 @@ public class ErrorGroup {
      */
     public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
-
-        if (c != null) {
-            c = extractCauseMessage(c);
-        }
 
         return errorMessage(traceId, groupName, code, c);
     }

@@ -275,7 +275,7 @@ public class IgniteException extends RuntimeException {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19535
                 Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
 
-                return (IgniteException) ctor.newInstance(iex.traceId(), iex.code(), extractCauseMessage(e.getMessage()), e);
+                return (IgniteException) ctor.newInstance(iex.traceId(), iex.code(), e.getMessage(), e);
             } catch (Exception ex) {
                 throw new RuntimeException("IgniteException-derived class does not have required constructor: " + e.getClass().getName());
             }
@@ -284,7 +284,7 @@ public class IgniteException extends RuntimeException {
         if (e instanceof IgniteCheckedException) {
             IgniteCheckedException iex = (IgniteCheckedException) e;
 
-            return new IgniteException(iex.traceId(), iex.code(), extractCauseMessage(e.getMessage()), e);
+            return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
         }
 
         return new IgniteException(INTERNAL_ERR, e);
