@@ -28,7 +28,12 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
+import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.version.UnitVersion;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -37,17 +42,17 @@ import org.apache.ignite.lang.IgniteException;
 public class JobClassLoaderFactory {
 
     /**
-     * Directory for components.
+     * Directory for units.
      */
-    private final Path componentsDir;
+    private final Path unitsDir;
 
     /**
      * Constructor.
      *
-     * @param componentsDir The directory for components.
+     * @param unitsDir The directory for units.
      */
-    public JobClassLoaderFactory(Path componentsDir) {
-        this.componentsDir = componentsDir;
+    public JobClassLoaderFactory(Path unitsDir) {
+        this.unitsDir = unitsDir;
     }
 
     /**
@@ -56,38 +61,62 @@ public class JobClassLoaderFactory {
      * @param units The units of the job.
      * @return The class loader.
      */
-    public JobClassLoader createClassLoader(List<String> units) {
+    public JobClassLoader createClassLoader(List<DeploymentUnit> units) {
         if (units.isEmpty()) {
-            throw new IllegalArgumentException("No units specified");
+            throw new IllegalArgumentException("At least one unit must be specified");
         }
 
         URL[] classPath = units.stream()
-                .map(componentsDir::resolve)
-                .map(JobClassLoaderFactory::constructClasspath)
+                .map(this::collectClasspath)
+                .distinct()
+                .map(JobClassLoaderFactory::collectClasspath)
                 .flatMap(Arrays::stream)
                 .toArray(URL[]::new);
 
         return new JobClassLoader(classPath, getClass().getClassLoader());
     }
 
-    private static URL[] constructClasspath(Path componentDir) {
-        if (Files.notExists(componentDir)) {
-            throw new IllegalArgumentException("Component does not exist: " + componentDir);
+    private Path collectClasspath(DeploymentUnit unit) {
+        if (unit.version().equals(Version.LATEST)) {
+            try (Stream<Path> stream = Files.list(unitsDir.resolve(unit.name()))) {
+                UnitVersion maxVersion = stream
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .peek(System.out::println)
+                        .map(UnitVersion::parse)
+                        .max(UnitVersion::compareTo)
+                        .orElseThrow();
+                return unitsDir.resolve(unit.name()).resolve(maxVersion.toString());
+            } catch (IOException e) {
+                throw new IgniteException(
+                        Common.UNEXPECTED_ERR,
+                        "Failed to find the latest version of the unit: " + unit.name(),
+                        e
+                );
+            }
+        } else {
+            return unitsDir.resolve(unit.name()).resolve(unit.version().toString());
+        }
+    }
+
+    private static URL[] collectClasspath(Path unitDir) {
+        if (Files.notExists(unitDir)) {
+            throw new IllegalArgumentException("Unit does not exist: " + unitDir);
         }
 
-        if (!Files.isDirectory(componentDir)) {
-            throw new IllegalArgumentException("Component is not a directory: " + componentDir);
+        if (!Files.isDirectory(unitDir)) {
+            throw new IllegalArgumentException("Unit is not a directory: " + unitDir);
         }
 
         // Construct the "class path" for this component
         try {
-            ClasspathCollector classpathCollector = new ClasspathCollector(componentDir);
-            Files.walkFileTree(componentDir, classpathCollector);
+            ClasspathCollector classpathCollector = new ClasspathCollector(unitDir);
+            Files.walkFileTree(unitDir, classpathCollector);
             return classpathCollector.classpath();
         } catch (IOException e) {
             throw new IgniteException(
-                    Common.UNEXPECTED_ERR,
-                    "Failed to construct classpath for component: " + componentDir,
+                    Compute.CLASS_PATH,
+                    "Failed to construct classpath for job: " + unitDir,
                     e
             );
         }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**

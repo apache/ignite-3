@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.version;
+package org.apache.ignite.compute.version;
 
 import java.util.Objects;
 
@@ -25,7 +25,9 @@ import java.util.Objects;
  */
 public class UnitVersion implements Version {
     private final short major;
+
     private final short minor;
+
     private final short patch;
 
     /**

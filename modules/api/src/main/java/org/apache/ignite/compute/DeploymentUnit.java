@@ -15,35 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.version;
+package org.apache.ignite.compute;
+
+import org.apache.ignite.compute.version.Version;
 
 /**
- * Throws when {@link Version} of deployment unit not parsable.
+ * Deployment unit.
  */
-public class VersionParseException extends RuntimeException {
-    private final String rawVersion;
+public class DeploymentUnit {
+
+    /** Name of the deployment unit. */
+    private final String name;
+
+    /** Version of the deployment unit. */
+    private final Version version;
 
     /**
      * Constructor.
      *
-     * @param cause Cause error.
+     * @param name Name of the deployment unit.
+     * @param version Version of the deployment unit.
      */
-    public VersionParseException(String rawVersion, Throwable cause) {
-        super(cause);
-        this.rawVersion = rawVersion;
+    public DeploymentUnit(String name, Version version) {
+        this.name = name;
+        this.version = version;
     }
 
     /**
-     * Constructor.
+     * Returns name of the deployment unit.
      *
-     * @param message Error message.
+     * @return Name of the deployment unit.
      */
-    public VersionParseException(String rawVersion, String message) {
-        super(message);
-        this.rawVersion = rawVersion;
+    public String name() {
+        return name;
     }
 
-    public String getRawVersion() {
-        return rawVersion;
+    /**
+     * Returns version of the deployment unit.
+     *
+     * @return Version of the deployment unit.
+     */
+    public Version version() {
+        return version;
     }
 }

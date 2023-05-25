@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.version;
+package org.apache.ignite.compute.version;
 
 
 /**

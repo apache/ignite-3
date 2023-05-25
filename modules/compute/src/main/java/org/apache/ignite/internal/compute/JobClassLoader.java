@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.regex.Pattern;
+import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Implementation of {@link ClassLoader} that loads classes from specified component directories.
@@ -100,6 +103,19 @@ public class JobClassLoader extends URLClassLoader {
             return clazz;
         } else {
             return loadedClass;
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            super.close();
+        } catch (IOException e) {
+            throw new IgniteException(
+                    Compute.CLASS_LOADER,
+                    "Failed to close class loader: " + e.getMessage(),
+                    e
+            );
         }
     }
 }

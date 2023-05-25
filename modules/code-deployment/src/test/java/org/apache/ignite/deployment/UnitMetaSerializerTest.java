@@ -29,7 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
-import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;

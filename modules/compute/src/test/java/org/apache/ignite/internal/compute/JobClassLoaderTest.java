@@ -18,6 +18,12 @@
 package org.apache.ignite.internal.compute;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.net.URL;
 import java.util.stream.Stream;
@@ -25,10 +31,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class JobClassLoaderTest {
+
+    @Mock
+    private ClassLoader parentClassLoader;
 
     private static Stream<Arguments> testArguments() {
         return Stream.of(
@@ -40,26 +51,38 @@ class JobClassLoaderTest {
 
     @ParameterizedTest
     @MethodSource("testArguments")
-    public void test(String className, Class<?> desiredClass) throws Exception {
-        TestParentClassLoader testParentClassLoader = new TestParentClassLoader(desiredClass);
+    public void loadsSystemClassesFirst(String className, Class<?> desiredClass) throws Exception {
 
-        try (JobClassLoader parentJobClassLoader = new JobClassLoader(new URL[0], testParentClassLoader);
-                JobClassLoader jobClassLoader = new JobClassLoader(new URL[0], parentJobClassLoader)) {
+        doReturn(desiredClass).when(parentClassLoader).loadClass(className);
+
+        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], parentClassLoader))) {
             assertSame(desiredClass, jobClassLoader.loadClass(className));
+            verify(jobClassLoader, never()).findClass(className);
         }
     }
 
-    private static class TestParentClassLoader extends ClassLoader {
+    @ParameterizedTest
+    @ValueSource(strings = {"org.apache.ignite.compute.unit1.UnitJob", "java.lang.String", "javax.lang.String"})
+    public void loadsOwnClassIfSystemAbsent(String className) throws Exception {
+        doThrow(ClassNotFoundException.class).when(parentClassLoader).loadClass(className);
 
-        private final Class<?> desiredClass;
+        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], parentClassLoader))) {
+            Class<TestJobClassLoader> toBeReturned = TestJobClassLoader.class;
+            doReturn(toBeReturned).when(jobClassLoader).findClass(className);
 
-        TestParentClassLoader(Class<?> desiredClass) {
-            this.desiredClass = desiredClass;
+            assertSame(toBeReturned, jobClassLoader.loadClass(className));
+            verify(parentClassLoader, times(1)).loadClass(className);
+        }
+    }
+
+    private static class TestJobClassLoader extends JobClassLoader {
+        TestJobClassLoader(URL[] urls, ClassLoader parent) {
+            super(urls, parent);
         }
 
         @Override
-        protected Class<?> loadClass(String name, boolean resolve) {
-            return desiredClass;
+        public Class<?> findClass(String name) throws ClassNotFoundException {
+            return super.findClass(name);
         }
     }
 }

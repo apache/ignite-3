@@ -36,7 +36,7 @@ import org.apache.ignite.internal.deployunit.message.StopDeployResponseImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
-import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ChannelType;

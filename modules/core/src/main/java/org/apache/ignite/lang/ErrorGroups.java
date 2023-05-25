@@ -422,4 +422,15 @@ public class ErrorGroups {
         /** General authentication error. */
         public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
     }
+
+    public static class Compute {
+        /** Compute error group. */
+        public static final ErrorGroup COMPUTE_ERR_GROUP = ErrorGroup.newGroup("COMPUTE", 16);
+
+        /** Classpath error. */
+        public static final int CLASS_PATH = COMPUTE_ERR_GROUP.registerErrorCode(1);
+
+        /** Class loader error. */
+        public static final int CLASS_LOADER = COMPUTE_ERR_GROUP.registerErrorCode(2);
+    }
 }
