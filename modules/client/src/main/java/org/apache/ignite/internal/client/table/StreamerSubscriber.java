@@ -44,6 +44,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
 
+    // TODO: This can accumulate huge number of buffers for dropped connections over time.
+    // We should have some logic to check if a buffer is still needed.
     private final ConcurrentHashMap<TPartition, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
     private @Nullable Flow.Subscription subscription;
@@ -130,11 +132,9 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
             if (err != null) {
-                // TODO: Retry only connection issues. Connection issue indicates channel failure.
-                // - When do we give up?
-                // - How does it combine with RetryPolicy?
-                // TODO: Log error.
-                sendBatch(partition, batch);
+                // Retry is handled by RetryPolicy as usual in ReliableChannel.
+                // If we get here, then retries are exhausted and we should fail the streamer.
+                close(err);
             }
             else {
                 int itemsSent = batch.size();
