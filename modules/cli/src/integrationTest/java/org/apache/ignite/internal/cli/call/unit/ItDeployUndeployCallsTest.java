@@ -28,6 +28,7 @@ import jakarta.inject.Inject;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
@@ -149,10 +150,10 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         CallOutput<UnitStatusRecord> output = unitStatusCall.execute(input);
 
         // Then
-        assertThat(output.hasError()).isTrue();
-        assertThat(output.errorCause()).isInstanceOf(UnitNotFoundException.class);
-        var err = (UnitNotFoundException) output.errorCause();
-        assertThat(err.unitId()).isEqualTo("no.such.unit");
+        assertThat(output.hasError()).isFalse();
+        UnitStatusRecord body = output.body();
+        assertThat(body.id()).isEqualTo("no.such.unit");
+        assertThat(body.versionToStatus()).isEqualTo(Map.of());
     }
 
     @Test

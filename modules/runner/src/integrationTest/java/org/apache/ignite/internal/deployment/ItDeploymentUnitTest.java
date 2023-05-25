@@ -21,8 +21,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.awaitility.Awaitility.await;
@@ -47,7 +45,6 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -201,36 +198,6 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void testFindByConsistentId() {
-        String id = "test";
-        String version = "1.1.0";
-        Unit unit = deployAndVerifyMedium(id, Version.parseVersion(version), 1);
-
-        IgniteImpl cmg = cluster.node(0);
-        waitUnitReplica(cmg, unit);
-
-        IgniteImpl node = unit.deployedNode;
-
-        CompletableFuture<List<UnitStatuses>> nodes = node.deployment().findUnitByConsistentIdAsync(node.name());
-        assertThat(nodes, willBe(Collections.singletonList(
-                        UnitStatuses.builder(id)
-                                .append(unit.version, DEPLOYED).build()
-                        )
-                )
-        );
-
-        nodes = node.deployment().findUnitByConsistentIdAsync(cmg.name());
-        assertThat(nodes, willBe(Collections.singletonList(
-                        UnitStatuses.builder(id)
-                                .append(unit.version, DEPLOYED).build()
-                )
-        ));
-
-        nodes = node.deployment().findUnitByConsistentIdAsync("not-existed-node");
-        assertThat(nodes, willBe(Collections.emptyList()));
-    }
-
-    @Test
     public void testRedeploy() {
         String id = "test";
         String version = "1.1.0";
@@ -276,6 +243,18 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         assertThat(onDemandDeploy, willBe(true));
         waitUnitReplica(onDemandDeployNode, smallUnit);
+    }
+
+    @Test
+    public void testDeployToCmg() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = deployAndVerify(id, version, smallFile, 0);
+
+        await().untilAsserted(() -> {
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().unitsAsync();
+            assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
+        });
     }
 
     private UnitStatuses buildStatus(String id, Unit... units) {

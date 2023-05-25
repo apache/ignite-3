@@ -20,43 +20,40 @@ package org.apache.ignite.internal.deployunit.metastore.accumulator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Units accumulator with filtering mechanism.
+ * Node status accumulator with filter mechanism.
  */
-public class UnitsAccumulator implements Accumulator<Entry, List<UnitClusterStatus>> {
+public class NodeStatusAccumulator implements Accumulator<Entry, List<UnitNodeStatus>> {
+    private final List<UnitNodeStatus> nodes = new ArrayList<>();
 
-    private final List<UnitClusterStatus> result = new ArrayList<>();
+    private final Predicate<UnitNodeStatus> filter;
 
-    private final Predicate<UnitClusterStatus> filter;
-
-    public UnitsAccumulator() {
-        this(t -> true);
+    public NodeStatusAccumulator() {
+        this(status -> true);
     }
 
-    public UnitsAccumulator(Predicate<UnitClusterStatus> filter) {
+    public NodeStatusAccumulator(Predicate<UnitNodeStatus> filter) {
         this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
         byte[] value = item.value();
-        if (value == null) {
-            return;
-        }
-
-        UnitClusterStatus status = UnitClusterStatus.deserialize(value);
-        if (filter.test(status)) {
-            result.add(status);
+        if (value != null) {
+            UnitNodeStatus status = UnitNodeStatus.deserialize(value);
+            if (filter.test(status)) {
+                nodes.add(status);
+            }
         }
     }
 
     @Override
-    public List<UnitClusterStatus> get() throws AccumulateException {
-        return result;
+    public List<UnitNodeStatus> get() throws AccumulateException {
+        return nodes;
     }
 }

@@ -31,7 +31,9 @@ public class KeyAccumulator implements Accumulator<Entry, List<byte[]>> {
 
     @Override
     public void accumulate(Entry item) {
-        result.add(item.key());
+        if (item != null && item.key() != null) {
+            result.add(item.key());
+        }
     }
 
     @Override

@@ -187,7 +187,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 .thenApply(completed -> {
                     if (completed) {
                         cmgManager.cmgNodes().thenAccept(nodes ->
-                                nodes.forEach(node -> metastore.createNodeStatus(id, version, node)));
+                                nodes.forEach(node -> metastore.createNodeStatus(node, id, version)));
                     }
                     return completed;
                 })
@@ -260,14 +260,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
                     return builder.build();
                 });
-    }
-
-    @Override
-    public CompletableFuture<List<UnitStatuses>> findUnitByConsistentIdAsync(String consistentId) {
-        Objects.requireNonNull(consistentId);
-
-        return metastore.findAllByNodeConsistentId(consistentId)
-                .thenApply(DeploymentManagerImpl::map);
     }
 
     @Override

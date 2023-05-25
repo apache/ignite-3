@@ -20,42 +20,43 @@ package org.apache.ignite.internal.deployunit.metastore.accumulator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
-import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Node consistent ids accumulator with filter mechanism.
+ * Units accumulator with filtering mechanism.
  */
-public class NodesAccumulator implements Accumulator<Entry, List<String>> {
-    private final List<String> nodes = new ArrayList<>();
+public class ClusterStatusAccumulator implements Accumulator<Entry, List<UnitClusterStatus>> {
 
-    private final Predicate<UnitNodeStatus> filter;
+    private final List<UnitClusterStatus> result = new ArrayList<>();
 
-    public NodesAccumulator() {
-        this(status -> true);
+    private final Predicate<UnitClusterStatus> filter;
+
+    public ClusterStatusAccumulator() {
+        this(t -> true);
     }
 
-    public NodesAccumulator(Predicate<UnitNodeStatus> filter) {
+    public ClusterStatusAccumulator(Predicate<UnitClusterStatus> filter) {
         this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
-        byte[] key = item.key();
-        NodeStatusKey nodeStatusKey = NodeStatusKey.fromKey(key);
-
         byte[] value = item.value();
-        if (value != null && filter.test(UnitNodeStatus.deserialize(value))) {
-            nodes.add(nodeStatusKey.nodeId());
+        if (value == null) {
+            return;
         }
 
+        UnitClusterStatus status = UnitClusterStatus.deserialize(value);
+        if (filter.test(status)) {
+            result.add(status);
+        }
     }
 
     @Override
-    public List<String> get() throws AccumulateException {
-        return nodes;
+    public List<UnitClusterStatus> get() throws AccumulateException {
+        return result;
     }
 }

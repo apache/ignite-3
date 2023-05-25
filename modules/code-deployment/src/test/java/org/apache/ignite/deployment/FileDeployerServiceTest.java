@@ -35,6 +35,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Test suite for {@link FileDeployerService}.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 public class FileDeployerServiceTest {
     private final FileDeployerService service = new FileDeployerService();

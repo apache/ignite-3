@@ -83,7 +83,7 @@ public class UnitClusterStatus extends UnitStatus {
      */
     public static UnitClusterStatus deserialize(byte[] value) {
         if (value == null || value.length == 0) {
-            return null;
+            return new UnitClusterStatus(null, null, null, null);
         }
 
         String[] values = SerializeUtils.deserialize(value);

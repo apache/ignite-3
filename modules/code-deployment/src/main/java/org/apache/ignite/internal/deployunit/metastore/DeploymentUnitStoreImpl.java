@@ -40,10 +40,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.deployunit.metastore.accumulator.ClusterStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.KeyAccumulator;
-import org.apache.ignite.internal.deployunit.metastore.accumulator.NodesAccumulator;
-import org.apache.ignite.internal.deployunit.metastore.accumulator.UnitsAccumulator;
-import org.apache.ignite.internal.deployunit.metastore.accumulator.UnitsByNodeAccumulator;
+import org.apache.ignite.internal.deployunit.metastore.accumulator.NodeStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
@@ -122,6 +121,22 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
+    public CompletableFuture<List<UnitClusterStatus>> getAllClusterStatuses() {
+        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
+                .subscribe(new ClusterStatusAccumulator().toSubscriber(result));
+        return result;
+    }
+
+    @Override
+    public CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(String id) {
+        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(ClusterStatusKey.builder().withId(id).build().toKey())
+                .subscribe(new ClusterStatusAccumulator().toSubscriber(result));
+        return result;
+    }
+
+    @Override
     public CompletableFuture<UnitClusterStatus> getClusterStatus(String id, Version version) {
         return metaStorage.get(ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey()).thenApply(entry -> {
             byte[] value = entry.value();
@@ -134,7 +149,25 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<UnitNodeStatus> getNodeStatus(String id, Version version, String nodeId) {
+    public CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId) {
+        CompletableFuture<List<UnitNodeStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(NodeStatusKey.builder().build().toKey())
+                .subscribe(new NodeStatusAccumulator(unitNodeStatus -> Objects.equals(unitNodeStatus.nodeId(), nodeId))
+                        .toSubscriber(result));
+        return result;
+    }
+
+    @Override
+    public CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId, String id) {
+        CompletableFuture<List<UnitNodeStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(NodeStatusKey.builder().withId(id).build().toKey())
+                .subscribe(new NodeStatusAccumulator(unitNodeStatus -> Objects.equals(unitNodeStatus.nodeId(), nodeId))
+                        .toSubscriber(result));
+        return result;
+    }
+
+    @Override
+    public CompletableFuture<UnitNodeStatus> getNodeStatus(String nodeId, String id, Version version) {
         return metaStorage.get(NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey())
                 .thenApply(entry -> {
                     byte[] value = entry.value();
@@ -144,26 +177,6 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
 
                     return UnitNodeStatus.deserialize(value);
                 });
-    }
-
-    @Override
-    public CompletableFuture<List<UnitClusterStatus>> getAllClusterStatuses() {
-        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
-        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
-                .subscribe(new UnitsAccumulator().toSubscriber(result));
-        return result;
-    }
-
-    @Override
-    public CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(String id) {
-        return getClusterStatuses(status -> Objects.equals(status.id(), id));
-    }
-
-    private CompletableFuture<List<UnitClusterStatus>> getClusterStatuses(Predicate<UnitClusterStatus> filter) {
-        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
-        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
-                .subscribe(new UnitsAccumulator(filter).toSubscriber(result));
-        return result;
     }
 
     @Override
@@ -177,7 +190,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     @Override
     public CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
         ByteArray key = NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey();
-        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status));
+        byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status, nodeId));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
     }
 
@@ -210,19 +223,11 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<List<UnitClusterStatus>> findAllByNodeConsistentId(String nodeId) {
-        CompletableFuture<List<String>> result = new CompletableFuture<>();
-        metaStorage.prefix(NodeStatusKey.builder().build().toKey())
-                .subscribe(new UnitsByNodeAccumulator(nodeId).toSubscriber(result));
-        return result.thenCompose(ids -> getClusterStatuses(meta -> ids.contains(meta.id())));
-    }
-
-    @Override
     public CompletableFuture<List<String>> getAllNodes(String id, Version version) {
-        CompletableFuture<List<String>> result = new CompletableFuture<>();
+        CompletableFuture<List<UnitNodeStatus>> result = new CompletableFuture<>();
         ByteArray nodes = NodeStatusKey.builder().withId(id).withVersion(version).build().toKey();
-        metaStorage.prefix(nodes).subscribe(new NodesAccumulator(status -> status.status() == DEPLOYED).toSubscriber(result));
-        return result;
+        metaStorage.prefix(nodes).subscribe(new NodeStatusAccumulator(status -> status.status() == DEPLOYED).toSubscriber(result));
+        return result.thenApply(status -> status.stream().map(UnitNodeStatus::nodeId).collect(Collectors.toList()));
     }
 
     @Override
@@ -235,6 +240,13 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
         return nodesFuture.thenCompose(nodes ->
                 metaStorage.invoke(existsAll(key, nodes), removeAll(key, nodes), Collections.emptyList())
         );
+    }
+
+    private CompletableFuture<List<UnitClusterStatus>> getStatuses(Predicate<UnitClusterStatus> filter) {
+        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
+        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
+                .subscribe(new ClusterStatusAccumulator(filter).toSubscriber(result));
+        return result;
     }
 
     private static Condition existsAll(ByteArray key, List<byte[]> nodeKeys) {

@@ -24,9 +24,9 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,10 +39,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class UnitStatusesSerializerTest {
     private static List<Arguments> nodeStatusProvider() {
         return List.of(
-                arguments(null, null, null),
-                arguments("id", null, null),
-                arguments("id", Version.LATEST, null),
-                arguments("id", Version.LATEST, UPLOADING)
+                arguments(null, null, null, null),
+                arguments("id", null, null, null),
+                arguments("id", Version.LATEST, null, null),
+                arguments("id", Version.LATEST, UPLOADING, "node1")
         );
     }
 
@@ -60,9 +60,10 @@ public class UnitStatusesSerializerTest {
     public void testSerializeDeserializeNodeStatus(
             String id,
             Version version,
-            DeploymentStatus status
+            DeploymentStatus status,
+            String nodeId
     ) {
-        UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status);
+        UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status, nodeId);
 
         byte[] serialize = UnitNodeStatus.serialize(nodeStatus);
 

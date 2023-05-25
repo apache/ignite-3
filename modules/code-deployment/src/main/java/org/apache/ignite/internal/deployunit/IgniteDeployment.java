@@ -88,14 +88,6 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<UnitStatuses> statusAsync(String id);
 
     /**
-     * Returns list with deployed units on node with provided consistent id.
-     *
-     * @param consistentId Node consistent id.
-     * @return List with deployed units on node with provided consistent id.
-     */
-    CompletableFuture<List<UnitStatuses>> findUnitByConsistentIdAsync(String consistentId);
-
-    /**
      * Request on demand deploy to local node unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.

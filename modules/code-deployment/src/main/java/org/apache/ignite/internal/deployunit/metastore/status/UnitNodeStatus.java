@@ -21,25 +21,56 @@ import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.deployunit.version.VersionParseException;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment unit node status.
  */
 public class UnitNodeStatus extends UnitStatus {
+    private final String nodeId;
+
     /**
      * Constructor.
      *
-     * @param id Unit identifier.
-     * @param version Unit version.
-     * @param status Unit status.
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @param status Deployment unit status.
+     * @param nodeId Node consistent id.
      */
-    public UnitNodeStatus(String id, Version version, DeploymentStatus status) {
+    public UnitNodeStatus(String id, Version version, DeploymentStatus status, String nodeId) {
         super(id, version, status);
+        this.nodeId = nodeId;
+    }
+
+    public String nodeId() {
+        return nodeId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+
+        UnitNodeStatus that = (UnitNodeStatus) o;
+
+        return nodeId != null ? nodeId.equals(that.nodeId) : that.nodeId == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = super.hashCode();
+        result = 31 * result + (nodeId != null ? nodeId.hashCode() : 0);
+        return result;
     }
 
     public static byte[] serialize(UnitNodeStatus status) {
-        return SerializeUtils.serialize(status.id(), status.version(), status.status());
+        return SerializeUtils.serialize(status.id(), status.version(), status.status(), status.nodeId);
     }
 
     /**
@@ -48,9 +79,9 @@ public class UnitNodeStatus extends UnitStatus {
      * @param value Serialized deployment unit node status.
      * @return Deserialized deployment unit node status.
      */
-    public static @Nullable UnitNodeStatus deserialize(byte[] value) {
+    public static UnitNodeStatus deserialize(byte[] value) {
         if (value == null || value.length == 0) {
-            return new UnitNodeStatus(null, null, null);
+            return new UnitNodeStatus(null, null, null, null);
         }
 
         String[] values = SerializeUtils.deserialize(value);
@@ -68,7 +99,8 @@ public class UnitNodeStatus extends UnitStatus {
         } catch (IllegalArgumentException e) {
             status = null;
         }
+        String nodeId = values.length > 3 ? SerializeUtils.decode(values[3]) : null;
 
-        return new UnitNodeStatus(id, version, status);
+        return new UnitNodeStatus(id, version, status, nodeId);
     }
 }
