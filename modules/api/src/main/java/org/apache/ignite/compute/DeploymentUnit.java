@@ -58,4 +58,12 @@ public class DeploymentUnit {
     public Version version() {
         return version;
     }
+
+    @Override
+    public String toString() {
+        return "DeploymentUnit{" +
+                "name='" + name + '\'' +
+                ", version=" + version +
+                '}';
+    }
 }

@@ -68,7 +68,7 @@ public class JobClassLoaderFactory {
         }
 
         URL[] classPath = units.stream()
-                .map(this::collectClasspath)
+                .map(this::constructPath)
                 .distinct()
                 .map(JobClassLoaderFactory::collectClasspath)
                 .flatMap(Arrays::stream)
@@ -81,7 +81,7 @@ public class JobClassLoaderFactory {
         return new JobClassLoader(classPath, getClass().getClassLoader());
     }
 
-    private Path collectClasspath(DeploymentUnit unit) {
+    private Path constructPath(DeploymentUnit unit) {
         if (unit.version().equals(Version.LATEST)) {
             try (Stream<Path> stream = Files.list(unitsDir.resolve(unit.name()))) {
                 Version maxVersion = stream
@@ -89,12 +89,12 @@ public class JobClassLoaderFactory {
                         .map(Path::toString)
                         .map(Version::parse)
                         .max(Version::compareTo)
-                        .orElseThrow();
+                        .orElseThrow((() -> new IgniteException(Compute.CLASS_PATH_ERR, "Latest version not found: " + unit)));
                 return unitsDir.resolve(unit.name()).resolve(maxVersion.toString());
             } catch (IOException e) {
                 throw new IgniteException(
                         Compute.CLASS_PATH_ERR,
-                        "Failed to find the latest version of the unit: " + unit.name(),
+                        "Failed to construct path of the unit: " + unit,
                         e
                 );
             }
