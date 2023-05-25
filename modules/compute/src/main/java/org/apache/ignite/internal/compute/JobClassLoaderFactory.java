@@ -28,7 +28,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.stream.Stream;
+import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -45,12 +45,19 @@ public class JobClassLoaderFactory {
     private final Path unitsDir;
 
     /**
+     * The function to detect the last version of the unit.
+     */
+    private final Function<String, Version> detectLastUnitVersion;
+
+    /**
      * Constructor.
      *
      * @param unitsDir The directory for units.
+     * @param detectLastUnitVersion The function to detect the last version of the unit.
      */
-    public JobClassLoaderFactory(Path unitsDir) {
+    public JobClassLoaderFactory(Path unitsDir, Function<String, Version> detectLastUnitVersion) {
         this.unitsDir = unitsDir;
+        this.detectLastUnitVersion = detectLastUnitVersion;
     }
 
     /**
@@ -74,25 +81,8 @@ public class JobClassLoaderFactory {
     }
 
     private Path constructPath(DeploymentUnit unit) {
-        if (unit.version().equals(Version.LATEST)) {
-            try (Stream<Path> stream = Files.list(unitsDir.resolve(unit.name()))) {
-                Version maxVersion = stream
-                        .map(Path::getFileName)
-                        .map(Path::toString)
-                        .map(Version::parse)
-                        .max(Version::compareTo)
-                        .orElseThrow((() -> new IgniteException(Compute.CLASS_PATH_ERR, "Latest version not found: " + unit)));
-                return unitsDir.resolve(unit.name()).resolve(maxVersion.toString());
-            } catch (IOException e) {
-                throw new IgniteException(
-                        Compute.CLASS_PATH_ERR,
-                        "Failed to construct path of the unit: " + unit,
-                        e
-                );
-            }
-        } else {
-            return unitsDir.resolve(unit.name()).resolve(unit.version().toString());
-        }
+        Version version = unit.version() == Version.LATEST ? detectLastUnitVersion.apply(unit.name()) : unit.version();
+        return unitsDir.resolve(unit.name()).resolve(version.toString());
     }
 
     private static URL[] collectClasspath(Path unitDir) {

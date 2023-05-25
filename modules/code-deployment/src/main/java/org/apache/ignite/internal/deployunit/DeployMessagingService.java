@@ -184,7 +184,7 @@ public class DeployMessagingService {
     }
 
     private void processStopDeployRequest(StopDeployRequest request, String senderConsistentId, long correlationId) {
-        tracker.cancelIfDeploy(request.id(), Version.parse(request.version()));
+        tracker.cancelIfDeploy(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
                 .respond(senderConsistentId, StopDeployResponseImpl.builder().build(), correlationId);
 
@@ -193,7 +193,7 @@ public class DeployMessagingService {
     private void processDeployRequest(DeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
         String id = executeRequest.id();
         String version = executeRequest.version();
-        tracker.track(id, Version.parse(version),
+        tracker.track(id, Version.parseVersion(version),
                 deployerService.deploy(id, version, executeRequest.unitContent())
                         .thenCompose(success -> clusterService.messagingService().respond(
                                 senderConsistentId,

@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doReturn;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,22 +31,37 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class JobClassLoaderFactoryTest {
     private final Path units = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
-    private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(units);
+
+    @Mock
+    private Function<String, Version> detectLastUnitVersion;
+
+    private JobClassLoaderFactory jobClassLoaderFactory;
+
+    @BeforeEach
+    void setUp() {
+        jobClassLoaderFactory = new JobClassLoaderFactory(units, detectLastUnitVersion);
+    }
 
     @Test
     @DisplayName("Load class with the same name from two different class loaders")
     public void unit1() throws Exception {
 
         // when unit1-1.0.0 is loaded  and unit2-1.0.0 is loaded
-        List<DeploymentUnit> units1 = List.of(new DeploymentUnit("unit1", Version.parse("1.0.0")));
-        List<DeploymentUnit> units2 = List.of(new DeploymentUnit("unit2", Version.parse("2.0.0")));
+        List<DeploymentUnit> units1 = List.of(new DeploymentUnit("unit1", Version.parseVersion("1.0.0")));
+        List<DeploymentUnit> units2 = List.of(new DeploymentUnit("unit2", Version.parseVersion("2.0.0")));
 
         try (JobClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(units1);
                 JobClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(units2)) {
@@ -68,6 +84,8 @@ class JobClassLoaderFactoryTest {
     @Test
     @DisplayName("Load unit with the LATEST version")
     public void unit2LatestVersion() throws Exception {
+        doReturn(Version.parseVersion("2.0.0")).when(detectLastUnitVersion).apply("unit2");
+
         // when the version is LATEST
         List<DeploymentUnit> units = List.of(new DeploymentUnit("unit2", Version.LATEST));
 
@@ -88,8 +106,8 @@ class JobClassLoaderFactoryTest {
     @DisplayName("Load both versions of the unit")
     public void unit1BothVersions() throws Exception {
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parse("1.0.0")),
-                new DeploymentUnit("unit1", Version.parse("2.0.0"))
+                new DeploymentUnit("unit1", Version.parseVersion("1.0.0")),
+                new DeploymentUnit("unit1", Version.parseVersion("2.0.0"))
         );
 
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
@@ -116,7 +134,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with multiple jars is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parse("3.0.1"))
+                new DeploymentUnit("unit1", Version.parseVersion("3.0.1"))
         );
 
         // then class from all jars are loaded
@@ -138,7 +156,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with multiple jars is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parse("3.0.2"))
+                new DeploymentUnit("unit1", Version.parseVersion("3.0.2"))
         );
 
         // then class from all jars are loaded
@@ -160,7 +178,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with corrupted jar is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parse("4.0.0"))
+                new DeploymentUnit("unit1", Version.parseVersion("4.0.0"))
         );
 
         // then class loader throws an exception
@@ -180,7 +198,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with files is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parse("5.0.0"))
+                new DeploymentUnit("unit1", Version.parseVersion("5.0.0"))
         );
 
         // then the files are accessible
@@ -216,7 +234,7 @@ class JobClassLoaderFactoryTest {
     @DisplayName("Create class loader with non-existing unit")
     public void nonExistingUnit() {
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("non-existing", Version.parse("1.0.0"))
+                new DeploymentUnit("non-existing", Version.parseVersion("1.0.0"))
         );
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -229,7 +247,7 @@ class JobClassLoaderFactoryTest {
     @DisplayName("Create class loader with non-existing version")
     public void nonExistingVersion() {
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parse("-1.0.0"))
+                new DeploymentUnit("unit1", Version.parseVersion("-1.0.0"))
         );
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

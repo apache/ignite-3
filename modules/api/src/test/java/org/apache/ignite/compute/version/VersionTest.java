@@ -20,9 +20,6 @@ package org.apache.ignite.compute.version;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.compute.version.UnitVersion;
-import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.compute.version.VersionParseException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -32,20 +29,20 @@ import org.junit.jupiter.api.Test;
 public class VersionTest {
     @Test
     public void testParseCorrect() {
-        assertThat(Version.parse("1.1.0"), is(new UnitVersion((short) 1, (short) 1, (short) 0)));
-        assertThat(Version.parse("1.1.01"), is(new UnitVersion((short) 1, (short) 1, (short) 1)));
-        assertThat(Version.parse("1.1"), is(new UnitVersion((short) 1, (short) 1, (short) 0)));
-        assertThat(Version.parse("1"), is(new UnitVersion((short) 1, (short) 0, (short) 0)));
-        assertThat(Version.parse("latest"), is(Version.LATEST));
+        assertThat(Version.parseVersion("1.1.0"), is(new UnitVersion((short) 1, (short) 1, (short) 0)));
+        assertThat(Version.parseVersion("1.1.01"), is(new UnitVersion((short) 1, (short) 1, (short) 1)));
+        assertThat(Version.parseVersion("1.1"), is(new UnitVersion((short) 1, (short) 1, (short) 0)));
+        assertThat(Version.parseVersion("1"), is(new UnitVersion((short) 1, (short) 0, (short) 0)));
+        assertThat(Version.parseVersion("latest"), is(Version.LATEST));
     }
 
     @Test
     public void testParseErrors() {
-        Assertions.assertThrows(VersionParseException.class, () -> Version.parse("1.1.1.1"));
-        Assertions.assertThrows(VersionParseException.class, () -> Version.parse(""));
-        Assertions.assertThrows(VersionParseException.class, () -> Version.parse("version"));
-        Assertions.assertThrows(VersionParseException.class, () -> Version.parse("1."));
-        Assertions.assertThrows(VersionParseException.class, () -> Version.parse(String.valueOf(Integer.MAX_VALUE)));
-        Assertions.assertThrows(VersionParseException.class, () -> Version.parse("1.1f"));
+        Assertions.assertThrows(VersionParseException.class, () -> Version.parseVersion("1.1.1.1"));
+        Assertions.assertThrows(VersionParseException.class, () -> Version.parseVersion(""));
+        Assertions.assertThrows(VersionParseException.class, () -> Version.parseVersion("version"));
+        Assertions.assertThrows(VersionParseException.class, () -> Version.parseVersion("1."));
+        Assertions.assertThrows(VersionParseException.class, () -> Version.parseVersion(String.valueOf(Integer.MAX_VALUE)));
+        Assertions.assertThrows(VersionParseException.class, () -> Version.parseVersion("1.1f"));
     }
 }

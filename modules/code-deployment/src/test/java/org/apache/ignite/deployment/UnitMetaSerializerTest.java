@@ -43,12 +43,12 @@ public class UnitMetaSerializerTest {
         return List.of(
                 arguments("id", Version.LATEST, List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
                 arguments("id", Version.LATEST, List.of("fileName1", "fileName2"), UPLOADING, Arrays.asList("id1", "id2")),
-                arguments("id", Version.parse("3.0.0"), List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
-                arguments("id", Version.parse("3.0"), List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
-                arguments("id", Version.parse("3.0.0"), List.of("fileName"), UPLOADING, Collections.emptyList()),
-                arguments("id", Version.parse("3.0.0"), List.of("fileName1", "fileName2"), UPLOADING, Collections.emptyList()),
-                arguments("id;", Version.parse("3.0.0"), List.of("fileName;"), UPLOADING, Collections.emptyList()),
-                arguments("id;", Version.parse("3.0.0"), List.of("fileName1:;", "fileName2"), UPLOADING, Collections.emptyList())
+                arguments("id", Version.parseVersion("3.0.0"), List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
+                arguments("id", Version.parseVersion("3.0"), List.of("fileName"), UPLOADING, Arrays.asList("id1", "id2")),
+                arguments("id", Version.parseVersion("3.0.0"), List.of("fileName"), UPLOADING, Collections.emptyList()),
+                arguments("id", Version.parseVersion("3.0.0"), List.of("fileName1", "fileName2"), UPLOADING, Collections.emptyList()),
+                arguments("id;", Version.parseVersion("3.0.0"), List.of("fileName;"), UPLOADING, Collections.emptyList()),
+                arguments("id;", Version.parseVersion("3.0.0"), List.of("fileName1:;", "fileName2"), UPLOADING, Collections.emptyList())
         );
     }
 

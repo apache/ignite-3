@@ -71,7 +71,7 @@ public class DeploymentUnitStoreImplTest {
     @Test
     public void clusterStatusTest() {
         String id = "id1";
-        Version version = Version.parse("1.1.1");
+        Version version = Version.parseVersion("1.1.1");
 
         assertThat(metastore.createClusterStatus(id, version), willBe(true));
 
@@ -90,7 +90,7 @@ public class DeploymentUnitStoreImplTest {
     @Test
     public void nodeStatusTest() {
         String id = "id2";
-        Version version = Version.parse("1.1.1");
+        Version version = Version.parseVersion("1.1.1");
 
         String node1 = "node1";
         String node2 = "node2";
@@ -131,7 +131,7 @@ public class DeploymentUnitStoreImplTest {
     public void findByNodeId() {
         String id1 = "id3";
         String id2 = "id4";
-        Version version = Version.parse("1.1.1");
+        Version version = Version.parseVersion("1.1.1");
 
         String node1 = "node1";
         String node2 = "node2";
