@@ -2324,10 +2324,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param evt Event.
      */
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-        if (!evt.single()) {
+        if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
             return completedFuture(null);
         }
-//        assert evt.single() : evt;
+
+        assert evt.single() : evt;
 
         Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
