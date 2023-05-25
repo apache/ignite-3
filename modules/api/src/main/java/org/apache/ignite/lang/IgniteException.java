@@ -23,7 +23,7 @@ import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Constructor;
 import java.util.Objects;
@@ -60,7 +60,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException() {
-        this(UNKNOWN_ERR);
+        this(INTERNAL_ERR);
     }
 
     /**
@@ -70,7 +70,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(String msg) {
-        this(UNKNOWN_ERR, msg);
+        this(INTERNAL_ERR, msg);
     }
 
     /**
@@ -80,7 +80,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(Throwable cause) {
-        this(UNKNOWN_ERR, cause);
+        this(INTERNAL_ERR, cause);
     }
 
     /**
@@ -91,7 +91,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR, msg, cause);
+        this(INTERNAL_ERR, msg, cause);
     }
 
     /**
@@ -285,7 +285,7 @@ public class IgniteException extends RuntimeException {
             return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
         }
 
-        return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
     }
 
     /**
@@ -295,6 +295,6 @@ public class IgniteException extends RuntimeException {
      * @return Ignite error code or UNKNOWN_ERR.
      */
     public static int getIgniteErrorCode(Throwable t) {
-        return (t instanceof IgniteException) ? ((IgniteException) t).code() : UNKNOWN_ERR;
+        return (t instanceof IgniteException) ? ((IgniteException) t).code() : INTERNAL_ERR;
     }
 }

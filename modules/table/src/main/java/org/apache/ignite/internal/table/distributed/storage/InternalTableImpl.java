@@ -21,7 +21,7 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
@@ -1476,7 +1476,7 @@ public class InternalTableImpl implements InternalTable {
         } else if (e instanceof LockException) {
             e0 = withCause(TransactionException::new, ACQUIRE_LOCK_ERR, e);
         } else if (!(e instanceof RuntimeException)) {
-            e0 = withCause(IgniteException::new, UNEXPECTED_ERR, e);
+            e0 = withCause(IgniteException::new, INTERNAL_ERR, e);
         } else {
             e0 = (RuntimeException) e;
         }

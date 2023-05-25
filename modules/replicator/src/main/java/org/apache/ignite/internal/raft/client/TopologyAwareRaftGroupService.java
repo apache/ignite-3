@@ -287,7 +287,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         if (notifyOnSubscription) {
             return CompletableFuture.allOf(futs).whenCompleteAsync((unused, throwable) -> {
                 if (throwable != null) {
-                    throw new IgniteException(Common.UNEXPECTED_ERR, throwable);
+                    throw new IgniteException(Common.INTERNAL_ERR, throwable);
                 }
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {

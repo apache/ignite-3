@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -395,7 +395,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(iex.code());
         } else {
             packer.packUuid(UUID.randomUUID());
-            packer.packInt(UNEXPECTED_ERR);
+            packer.packInt(INTERNAL_ERR);
         }
 
         packer.packString(err.getClass().getName());

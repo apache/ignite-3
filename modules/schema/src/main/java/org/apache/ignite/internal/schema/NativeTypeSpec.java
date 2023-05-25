@@ -368,7 +368,7 @@ public enum NativeTypeSpec {
         ColumnType columnType = asColumnTypeOrNull();
 
         if (columnType == null) {
-            throw new IgniteException(Common.UNEXPECTED_ERR, "Unsupported native type: " + this);
+            throw new IgniteException(Common.INTERNAL_ERR, "Unsupported native type: " + this);
         }
 
         return columnType;

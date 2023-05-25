@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
 import java.util.List;
@@ -317,7 +317,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             } catch (Throwable e) {
                 onError.accept(e);
 
-                throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         });
     }
@@ -338,7 +338,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             } catch (Throwable e) {
                 onError.accept(e);
 
-                throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         });
     }

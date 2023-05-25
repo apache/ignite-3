@@ -243,7 +243,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         future.complete(true);
                     } else {
                         var exception = new IgniteInternalException(
-                                Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
+                                Common.INTERNAL_ERR, "Looks like the index was concurrently deleted");
 
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
                                 exception, schemaName, tableName, indexName);

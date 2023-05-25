@@ -52,7 +52,7 @@ public class RestAddressReporter {
             Files.writeString(workDir.resolve(REPORT_FILE_NAME), report(httpAddress, httpsAddress));
         } catch (IOException e) {
             String message = "Unexpected error when trying to write REST server network address to file";
-            throw new IgniteException(Common.UNEXPECTED_ERR, message, e);
+            throw new IgniteException(Common.INTERNAL_ERR, message, e);
         }
     }
 
@@ -77,7 +77,7 @@ public class RestAddressReporter {
             Files.delete(workDir.resolve(REPORT_FILE_NAME));
         } catch (IOException e) {
             String message = "Unexpected error when trying to remove REST server network address file";
-            LOG.error(message, new IgniteException(Common.UNEXPECTED_ERR, message, e));
+            LOG.error(message, new IgniteException(Common.INTERNAL_ERR, message, e));
         }
     }
 }

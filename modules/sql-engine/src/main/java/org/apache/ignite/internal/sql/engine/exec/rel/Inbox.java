@@ -36,7 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -339,7 +339,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                     if (ex != null) {
                         IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
                                 IgniteInternalException::new,
-                                Sql.INTERNAL_ERR,
+                                Common.INTERNAL_ERR,
                                 "Unable to request next batch: " + ex.getMessage(),
                                 ex
                         );

@@ -41,7 +41,9 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,9 @@ import org.junit.jupiter.api.Test;
  * Testing the {@link ConfigurationPresentation}.
  */
 public class HoconPresentationTest {
+    /** Configuration generator. */
+    private static ConfigurationTreeGenerator generator;
+
     /** Configuration registry. */
     private static ConfigurationRegistry cfgRegistry;
 
@@ -75,12 +80,13 @@ public class HoconPresentationTest {
             }
         };
 
+        generator = new ConfigurationTreeGenerator(TestRootConfiguration.KEY);
+
         cfgRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
-                Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                generator,
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
         cfgRegistry.start();
@@ -97,6 +103,9 @@ public class HoconPresentationTest {
     static void afterAll() throws Exception {
         cfgRegistry.stop();
         cfgRegistry = null;
+
+        generator.close();
+        generator = null;
 
         cfgPresentation = null;
 

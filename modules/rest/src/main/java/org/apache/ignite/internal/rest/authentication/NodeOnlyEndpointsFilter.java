@@ -75,7 +75,7 @@ public class NodeOnlyEndpointsFilter implements HttpServerFilter {
                 ));
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new IgniteException(Common.UNEXPECTED_ERR, e);
+            throw new IgniteException(Common.INTERNAL_ERR, e);
         }
 
         return chain.proceed(request);
