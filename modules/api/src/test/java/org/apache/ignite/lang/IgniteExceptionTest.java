@@ -17,13 +17,13 @@
 
 package org.apache.ignite.lang;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
+import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.Test;
 
@@ -32,34 +32,89 @@ import org.junit.jupiter.api.Test;
  */
 public class IgniteExceptionTest {
     @Test
-    public void testWrapUncheckedException() {
-        var originalEx = new CustomTestException(UUID.randomUUID(), Table.TABLE_NOT_FOUND_ERR, "Error foo bar", null);
+    public void testWrapPublicUncheckedException() {
+        var originalMessage = "Error foo bar";
+        var originalTraceId = UUID.randomUUID();
+        var expectedFullMessage = CustomTestException.class.getName() + ": " +
+                errorMessage(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage);
+
+        var originalEx = new CustomTestException(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage, null);
         var wrappedEx = new CompletionException(originalEx);
         var res = IgniteException.wrap(wrappedEx);
 
-        assertThat(res.getMessage(), containsString("Error foo bar"));
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
         assertEquals(originalEx.getClass(), res.getClass());
         assertSame(originalEx, res.getCause());
+        assertEquals(originalMessage, res.getMessage());
+        assertEquals(expectedFullMessage, res.toString());
     }
 
     @Test
-    public void testWrapCheckedException() {
-        var originalEx = new IgniteCheckedException(Table.COLUMN_ALREADY_EXISTS_ERR, "Msg.");
+    public void testWrapPublicCheckedException() {
+        var originalMessage = "Msg";
+        var originalTraceId = UUID.randomUUID();
+        var expectedFullMessage = IgniteException.class.getName() + ": " +
+                errorMessage(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
+
+        var originalEx = new IgniteCheckedException(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
         var res = IgniteException.wrap(wrappedEx);
 
-        assertThat(res.getMessage(), containsString("Msg."));
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
         assertSame(originalEx, res.getCause());
+        assertEquals(originalMessage, res.getMessage());
+        assertEquals(expectedFullMessage, res.toString());
+    }
+
+    @Test
+    public void testWrapInternalException() {
+        var originalMessage = "Unexpected error.";
+        var originalTraceId = UUID.randomUUID();
+
+        var originalEx = new IgniteInternalException(originalTraceId, Common.INTERNAL_ERR, originalMessage);
+        var wrappedEx = new CompletionException(originalEx);
+        var res = IgniteException.wrap(wrappedEx);
+
+        assertEquals(Common.INTERNAL_ERR, res.code());
+        assertSame(originalEx, res.getCause());
+        assertEquals(originalMessage, res.getMessage());
+    }
+
+    @Test
+    public void testWrapInternalCheckedException() {
+        var originalMessage = "Unexpected error.";
+        var originalTraceId = UUID.randomUUID();
+
+        var originalEx = new IgniteInternalCheckedException(originalTraceId, Common.INTERNAL_ERR, originalMessage);
+        var wrappedEx = new CompletionException(originalEx);
+        var res = IgniteException.wrap(wrappedEx);
+
+        assertEquals(Common.INTERNAL_ERR, res.code());
+        assertSame(originalEx, res.getCause());
+        assertEquals(originalMessage, res.getMessage());
+    }
+
+    @Test
+    public void testDuplicateErrorCode() {
+        var originalEx = new CustomTestException(Table.TABLE_NOT_FOUND_ERR, "Error foo bar", null);
+        var wrappedEx = new CustomTestException(originalEx.traceId(), originalEx.code(), originalEx.getMessage(), originalEx);
+
+        assertEquals(originalEx.traceId(), wrappedEx.traceId());
+        assertEquals(originalEx.code(), wrappedEx.code());
+        assertSame(originalEx, wrappedEx.getCause());
+        assertEquals(originalEx.getMessage(), wrappedEx.getMessage());
     }
 
     /**
      * Custom exception for tests.
      */
     public static class CustomTestException extends IgniteException {
+        public CustomTestException(int code, String message, Throwable cause) {
+            super(code, message, cause);
+        }
+
         public CustomTestException(UUID traceId, int code, String message, Throwable cause) {
             super(traceId, code, message, cause);
         }
