@@ -108,7 +108,7 @@ public class JobClassLoaderFactory {
             throw new IllegalArgumentException("Unit is not a directory: " + unitDir);
         }
 
-        // Construct the "class path" for this component
+        // Construct the "class path" for this unit
         try {
             ClasspathCollector classpathCollector = new ClasspathCollector(unitDir);
             Files.walkFileTree(unitDir, classpathCollector);
