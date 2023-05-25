@@ -26,13 +26,11 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
@@ -40,7 +38,6 @@ import org.apache.ignite.lang.IgniteException;
  * Creates a class loader for a job.
  */
 public class JobClassLoaderFactory {
-    private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
     /**
      * Directory for units.
@@ -67,17 +64,17 @@ public class JobClassLoaderFactory {
             throw new IllegalArgumentException("At least one unit must be specified");
         }
 
-        URL[] classPath = units.stream()
-                .map(this::constructPath)
-                .map(JobClassLoaderFactory::collectClasspath)
-                .flatMap(Arrays::stream)
-                .toArray(URL[]::new);
-
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Classpath for job: " + Arrays.toString(classPath));
+        ClassLoader parent = getClass().getClassLoader();
+        ListIterator<DeploymentUnit> listIterator = units.listIterator(units.size());
+        while (listIterator.hasPrevious()) {
+            parent = createClassLoader(listIterator.previous(), parent);
         }
 
-        return new JobClassLoader(classPath, getClass().getClassLoader());
+        return (JobClassLoader) parent;
+    }
+
+    private JobClassLoader createClassLoader(DeploymentUnit unit, ClassLoader parent) {
+        return new JobClassLoader(collectClasspath(constructPath(unit)), parent);
     }
 
     private Path constructPath(DeploymentUnit unit) {

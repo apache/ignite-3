@@ -61,9 +61,9 @@ public class DeploymentUnit {
 
     @Override
     public String toString() {
-        return "DeploymentUnit{" +
-                "name='" + name + '\'' +
-                ", version=" + version +
-                '}';
+        return "DeploymentUnit{"
+                + "name='" + name + '\''
+                + ", version=" + version
+                + '}';
     }
 }
