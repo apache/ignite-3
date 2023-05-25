@@ -171,7 +171,7 @@ public class StopCalciteModuleTest {
 
         when(tbl.name()).thenReturn("TEST");
 
-        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaReg));
+        when(schemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(schemaReg));
 
         // Mock create table (notify on register listener).
         doAnswer(invocation -> {
