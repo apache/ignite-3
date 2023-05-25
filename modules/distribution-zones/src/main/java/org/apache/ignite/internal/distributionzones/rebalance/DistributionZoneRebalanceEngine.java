@@ -194,7 +194,7 @@ public class DistributionZoneRebalanceEngine {
                                     : ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                int tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+                                int tableId = tableCfg.id().value();
 
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
@@ -284,7 +284,7 @@ public class DistributionZoneRebalanceEngine {
                     }
 
                     for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
+                        TablePartitionId replicaGrpId = new TablePartitionId(tblCfg.id().value(), i);
 
                         futs[furCur++] = updatePendingAssignmentsKeys(
                                 tblCfg.name().value(),

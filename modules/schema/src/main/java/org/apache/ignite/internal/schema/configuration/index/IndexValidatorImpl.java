@@ -27,7 +27,6 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
@@ -129,7 +128,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
     @Nullable
     private static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
         for (TableView table : tablesView) {
-            if (((ExtendedTableView) table).id() == tableId) {
+            if (table.id() == tableId) {
                 return table;
             }
         }

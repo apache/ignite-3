@@ -48,8 +48,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -220,9 +218,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new TableNotFoundException(schemaName, tableName);
                 }
 
-                ExtendedTableConfiguration exTableCfg = ((ExtendedTableConfiguration) tableCfg);
-
-                int tableId = exTableCfg.id().value();
+                int tableId = tableCfg.id().value();
 
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
@@ -360,7 +356,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     @Nullable
     private static TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
         for (TableView tableView : tablesView) {
-            if (((ExtendedTableView) tableView).id() == tableId) {
+            if (tableView.id() == tableId) {
                 return tableView;
             }
         }

@@ -26,10 +26,6 @@ import org.apache.ignite.configuration.annotation.Value;
 @InternalConfiguration
 // TODO: IGNITE-15480 Add id's to columns in order to properly process column renaming withing index context.
 public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
-    /** Table id. */
-    @Value
-    public int id;
-
     /**
      * Serialized version of an affinity assignments. Currently, configuration doesn't support neither collections nor array of arrays, so
      * that serialization was chosen.

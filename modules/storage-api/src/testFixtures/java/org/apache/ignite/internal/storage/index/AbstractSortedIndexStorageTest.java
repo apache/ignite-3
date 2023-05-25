@@ -53,7 +53,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
@@ -121,7 +120,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     protected SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
         CompletableFuture<Void> createIndexFuture =
                 tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
-                    int tableId = ((ExtendedTableView) tablesCfg.tables().value().get(TABLE_NAME)).id();
+                    int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
 
                     addIndex(indexDefinition, tableId, idx);
                 }));

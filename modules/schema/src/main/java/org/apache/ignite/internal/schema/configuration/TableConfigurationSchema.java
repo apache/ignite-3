@@ -22,12 +22,18 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Table configuration schema class.
  */
 @Config
 public class TableConfigurationSchema {
+    /** Table id. */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public int id = 1;
+
     /** Table name. */
     @InjectedName
     public String name;

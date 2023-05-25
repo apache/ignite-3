@@ -46,7 +46,6 @@ import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.table.InternalTable;
@@ -297,6 +296,6 @@ public class IndexManagerTest {
     }
 
     private int tableId() {
-        return ((ExtendedTableConfiguration) tablesConfig.tables().get("tName")).id().value();
+        return tablesConfig.tables().get("tName").id().value();
     }
 }

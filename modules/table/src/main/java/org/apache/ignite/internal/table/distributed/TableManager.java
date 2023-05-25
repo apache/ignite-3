@@ -533,7 +533,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
         if (!busyLock.enterBusy()) {
-            int tblId = ((ExtendedTableView) ctx.newValue()).id();
+            int tblId = ctx.newValue().id();
 
             fireEvent(TableEvent.CREATE,
                     new TableEventParameters(ctx.storageRevision(), tblId),
@@ -547,7 +547,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
-                    ((ExtendedTableView) ctx.newValue()).id()
+                    ctx.newValue().id()
             );
         } finally {
             busyLock.leaveBusy();
@@ -562,7 +562,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
         if (!busyLock.enterBusy()) {
-            int tblId = ((ExtendedTableView) ctx.oldValue()).id();
+            int tblId = ctx.oldValue().id();
 
             fireEvent(
                     TableEvent.DROP,
@@ -577,8 +577,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             dropTableLocally(
                     ctx.storageRevision(),
                     ctx.oldValue().name(),
-                    ((ExtendedTableView) ctx.oldValue()).id(),
-                    ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
+                    ctx.oldValue().id(),
+                    ByteUtils.fromBytes(ctx.oldValue(ExtendedTableView.class).assignments())
             );
         } finally {
             busyLock.leaveBusy();
@@ -1681,8 +1681,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private List<Integer> directTableIds() {
         return directProxy(tablesCfg.tables()).value().stream()
-                .map(ExtendedTableView.class::cast)
-                .map(ExtendedTableView::id)
+                .map(TableView::id)
                 .collect(toList());
     }
 
@@ -1704,7 +1703,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Nullable
     private Integer directTableId(String tblName) {
         try {
-            ExtendedTableConfiguration exTblCfg = ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName));
+            TableConfiguration exTblCfg = directProxy(tablesCfg.tables()).get(tblName);
 
             if (exTblCfg == null) {
                 return null;
@@ -1879,9 +1878,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = directProxy(tablesCfg.tables());
 
         for (TableView tableConfig : tables.value()) {
-            ExtendedTableView extTableConfig = (ExtendedTableView) tableConfig;
-
-            if (extTableConfig.id() == id) {
+            if (tableConfig.id() == id) {
                 return true;
             }
         }

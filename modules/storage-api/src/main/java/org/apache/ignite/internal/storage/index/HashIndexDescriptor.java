@@ -26,7 +26,6 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
@@ -157,7 +156,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
     @Nullable
     private static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
         for (TableView table : tablesView) {
-            if (((ExtendedTableView) table).id() == tableId) {
+            if (table.id() == tableId) {
                 return table;
             }
         }

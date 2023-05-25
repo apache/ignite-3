@@ -73,7 +73,6 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -376,9 +375,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             Function<TablePartitionId, ByteArray> assignmentFunction
     ) {
         tablesConfiguration.tables().value().forEach(tableView -> {
-            ExtendedTableView extendedTableView = (ExtendedTableView) tableView;
-
-            int tableId = extendedTableView.id();
+            int tableId = tableView.id();
 
             DistributionZoneConfiguration distributionZoneConfiguration =
                     getZoneById(distributionZonesConfiguration, tableView.zoneId());

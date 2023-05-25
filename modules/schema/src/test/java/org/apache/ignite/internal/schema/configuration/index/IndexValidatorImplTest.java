@@ -28,7 +28,6 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +46,7 @@ public class IndexValidatorImplTest {
 
     @BeforeEach
     void setupTableConfig() {
-        ((ExtendedTableConfiguration) tablesConfig.tables().get("fooTable")).id().update(TABLE_ID);
+        tablesConfig.tables().get("fooTable").id().update(TABLE_ID);
     }
 
     @Test
@@ -132,7 +131,7 @@ public class IndexValidatorImplTest {
     }
 
     private int tableId() {
-        return ((ExtendedTableConfiguration) tablesConfig.tables().get("fooTable")).id().value();
+        return tablesConfig.tables().get("fooTable").id().value();
     }
 
     private void createIndex(String indexName, Consumer<TableIndexChange> indexChange) {

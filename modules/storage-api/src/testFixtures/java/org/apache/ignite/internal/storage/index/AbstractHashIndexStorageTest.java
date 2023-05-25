@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.empty;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -47,7 +46,7 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         CompletableFuture<Void> createIndexFuture = tablesCfg.indexes()
                 .change(chg -> chg.create(indexDefinition.name(), idx -> {
-                    int tableId = ((ExtendedTableView) tablesCfg.tables().value().get(TABLE_NAME)).id();
+                    int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
 
                     addIndex(indexDefinition, tableId, idx);
                 }));

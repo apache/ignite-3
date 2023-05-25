@@ -35,8 +35,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -84,7 +82,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         this.engine = engine;
         this.dataRegion = dataRegion;
-        this.tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+        this.tableId = tableCfg.id().value();
     }
 
     /**
@@ -164,7 +162,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             assert !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
                     "Should not be marked for deletion: [tableName={}, tableId={}, partitionId={}]",
                     tableView.name(),
-                    tableId(tableView),
+                    tableView.id(),
                     groupPartitionId.getPartitionId()
             );
 
@@ -184,10 +182,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     e
             );
         }
-    }
-
-    private static int tableId(TableView tableView) {
-        return ((ExtendedTableView) tableView).id();
     }
 
     /**
@@ -218,7 +212,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.rowVersionFreeListRootPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(tableId(tableView), partId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(tableView.id(), partId, FLAG_AUX);
 
                 meta.rowVersionFreeListRootPageId(lastCheckpointId(), rootPageId);
 
@@ -226,7 +220,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new RowVersionFreeList(
-                    tableId(tableView),
+                    tableView.id(),
                     partId,
                     dataRegion.pageMemory(),
                     null,
@@ -266,7 +260,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.indexColumnsFreeListRootPageId() == 0L) {
-                long rootPageId = pageMemory.allocatePage(tableId(tableView), partitionId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(tableView.id(), partitionId, FLAG_AUX);
 
                 meta.indexColumnsFreeListRootPageId(lastCheckpointId(), rootPageId);
 
@@ -274,7 +268,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new IndexColumnsFreeList(
-                    tableId(tableView),
+                    tableView.id(),
                     partitionId,
                     pageMemory,
                     reuseList,
@@ -314,7 +308,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.versionChainTreeRootPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(tableId(tableView), partId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(tableView.id(), partId, FLAG_AUX);
 
                 meta.versionChainTreeRootPageId(lastCheckpointId(), rootPageId);
 
@@ -322,7 +316,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new VersionChainTree(
-                    tableId(tableView),
+                    tableView.id(),
                     tableView.name(),
                     partId,
                     dataRegion.pageMemory(),
@@ -361,7 +355,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.indexTreeMetaPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(tableId(tableView), partitionId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(tableView.id(), partitionId, FLAG_AUX);
 
                 meta.indexTreeMetaPageId(lastCheckpointId(), rootPageId);
 
@@ -369,7 +363,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new IndexMetaTree(
-                    tableId(tableView),
+                    tableView.id(),
                     tableView.name(),
                     partitionId,
                     dataRegion.pageMemory(),
@@ -408,7 +402,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             boolean initNew = false;
 
             if (meta.gcQueueMetaPageId() == 0) {
-                long rootPageId = pageMemory.allocatePage(tableId(tableView), partitionId, FLAG_AUX);
+                long rootPageId = pageMemory.allocatePage(tableView.id(), partitionId, FLAG_AUX);
 
                 meta.gcQueueMetaPageId(lastCheckpointId(), rootPageId);
 
@@ -416,7 +410,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
 
             return new GcQueue(
-                    tableId(tableView),
+                    tableView.id(),
                     tableView.name(),
                     partitionId,
                     dataRegion.pageMemory(),
