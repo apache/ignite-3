@@ -81,8 +81,9 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
         this.subscription = subscription;
 
-        // Request initial batch times 2 (we can fill the next per-node buffer while sending the previous one).
-        requestMore(options.batchSize() * 2);
+        // Refresh schemas and partition assignment, then request initial batch.
+        // Request 2x batch size - we can fill the next per-node buffer while sending the previous one.
+        partitionAwarenessProvider.refresh().thenAccept(unused -> requestMore(options.batchSize() * 2));
     }
 
     /** {@inheritDoc} */

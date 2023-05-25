@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Partition awareness provider for data streamer.
  *
  * @param <T> Item type.
  */
-@FunctionalInterface
 interface StreamerPartitionAwarenessProvider<T, TPartition> {
     /**
      * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
@@ -31,4 +32,11 @@ interface StreamerPartitionAwarenessProvider<T, TPartition> {
      * @return Partition.
      */
     TPartition partition(T item);
+
+    /**
+     * Refreshes schemas and partition mapping asynchronously.
+     *
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Void> refresh();
 }
