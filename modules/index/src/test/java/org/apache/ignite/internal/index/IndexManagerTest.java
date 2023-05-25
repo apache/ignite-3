@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -67,6 +66,7 @@ import org.mockito.Mockito;
 public class IndexManagerTest {
     @InjectConfiguration(
             "mock.tables.tName {"
+                    + "id: 1, "
                     + "columns.c1 {type.type: STRING}, "
                     + "columns.c2 {type.type: STRING}, "
                     + "primaryKey {columns: [c1], colocationColumns: [c1]}"
@@ -90,7 +90,7 @@ public class IndexManagerTest {
 
         SchemaManager schManager = mock(SchemaManager.class);
 
-        when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
+        when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
         indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
         indexManager.start();
