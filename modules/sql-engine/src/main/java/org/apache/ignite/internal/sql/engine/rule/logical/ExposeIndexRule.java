@@ -68,10 +68,6 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
                 .map(idxName -> igniteTable.toRel(cluster, optTable, idxName, proj, condition, requiredCols))
                 .collect(Collectors.toList());
 
-        if (condition == null) {
-            indexes = indexes.stream().filter(i -> i.indexType() != Type.HASH).collect(Collectors.toList());
-        }
-
         if (indexes.isEmpty()) {
             return;
         }

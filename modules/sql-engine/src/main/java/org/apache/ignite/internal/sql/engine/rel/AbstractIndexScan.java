@@ -129,18 +129,18 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
         double cost = 0;
 
-        if (condition == null) {
-            if (type == Type.HASH) {
-                boolean notExact = searchBounds() == null
-                        || searchBounds().stream().anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT);
+        if (type == Type.HASH) {
+            boolean notExact = (searchBounds() == null)
+                    || (searchBounds().stream().anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT));
 
-                if (notExact) {
-                    // now bounds index scan is only available for sorted index, check:
-                    // PartitionReplicaListener#processReadOnlyScanRetrieveBatchAction
-                    return planner.getCostFactory().makeInfiniteCost();
-                }
+            if (notExact) {
+                // now bounds index scan is only available for sorted index, check:
+                // PartitionReplicaListener#processReadOnlyScanRetrieveBatchAction
+                return planner.getCostFactory().makeInfiniteCost();
             }
+        }
 
+        if (condition == null) {
             cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
         } else {
             double selectivity = 1;

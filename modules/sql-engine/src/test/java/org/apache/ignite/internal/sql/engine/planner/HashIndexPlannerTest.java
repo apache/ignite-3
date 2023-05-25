@@ -23,6 +23,8 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
+import java.util.UUID;
+import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -30,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -87,6 +90,27 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, scan, notNullValue());
+
+        // Can`t use hash index scan with range.
+        String sqlGT = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val >= 10";
+
+        IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlGT, schema), CannotPlanException.class,
+                "There are not enough rules");
+
+        // Can`t use hash index scan without condition.
+        String sqlNoCond = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ * FROM test_tbl";
+
+        IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlNoCond, schema), CannotPlanException.class,
+                "There are not enough rules");
+
+        // Correct use hash index scan with exact conditions.
+        String sqlEqCond = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val = 10";
+
+        phys = physicalPlan(sqlEqCond, schema);
+
+        IgniteIndexScan idxScan = findFirstNode(phys, byClass(IgniteIndexScan.class));
+
+        assertThat("Invalid plan:\n" + RelOptUtil.toString(phys), idxScan, notNullValue());
     }
 
     @Test
