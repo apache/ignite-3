@@ -437,7 +437,7 @@ public class ClientTupleSerializer {
      * @param rec Tuple.
      * @return Colocation hash.
      */
-    public static Integer getColocationHash(ClientSchema schema, Tuple rec) {
+    public static int getColocationHash(ClientSchema schema, Tuple rec) {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {

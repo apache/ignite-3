@@ -104,6 +104,15 @@ public class ClientTable implements Table {
         return id;
     }
 
+    /**
+     * Gets the channel.
+     *
+     * @return Channel.
+     */
+    ReliableChannel channel() {
+        return ch;
+    }
+
     /** {@inheritDoc} */
     @Override
     public @NotNull String name() {
@@ -443,14 +452,5 @@ public class ClientTable implements Table {
         }
 
         return partitions.get(Math.abs(hash % partitions.size()));
-    }
-
-    CompletableFuture<ClientChannel> getChannelAsync(
-            @Nullable PartitionAwarenessProvider provider,
-            @Nullable List<String> partitions,
-            ClientSchema schema) {
-        String preferredNodeId = getPreferredNodeId(provider, partitions, schema);
-
-        return ch.getChannelAsync(null, preferredNodeId);
     }
 }

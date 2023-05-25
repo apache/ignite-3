@@ -377,8 +377,16 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                     throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh was not called or awaited.");
                 }
 
-                var provider = ClientTupleSerializer.getPartitionAwarenessProvider(null, item);
-                return tbl.getChannelAsync(provider, assignment, schema).join();
+                String preferredNodeId = null;
+
+                if (!assignment.isEmpty()) {
+                    int hash = ClientTupleSerializer.getColocationHash(schema, item);
+                    preferredNodeId = assignment.get(hash % assignment.size());
+                }
+
+                // TODO: Blocking wait.
+                //noinspection resource
+                return tbl.channel().getChannelAsync(null, preferredNodeId).join();
             }
 
             @Override
