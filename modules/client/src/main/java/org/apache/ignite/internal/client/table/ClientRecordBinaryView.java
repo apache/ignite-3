@@ -365,6 +365,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // TODO: Proper partition awareness.
         // We should request latest schema and partition assignment. Then wait asynchronously for those futures to complete,
         // only then request data from the publisher.
+        // We can refresh assignment and schema after every flush.
         StreamerPartitionAwarenessProvider<Tuple, ClientChannel> provider = ignored -> tbl.getChannelAsync().join();
 
         StreamerBatchSender<Tuple, ClientChannel> batchSender = (ch, items) -> tbl.doSchemaOutOpAsync(
