@@ -73,6 +73,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -225,6 +226,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                             + "table5 = { zoneId = 2 }}")
             TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -249,10 +252,24 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any());
     }
 
+    private static void assignTableIds(TablesConfiguration tablesConfiguration) {
+        tablesConfiguration.change(tablesChange -> {
+            tablesChange.changeTables(tablesListChange -> {
+                for (int i = 0; i < tablesListChange.size(); i++) {
+                    TableView tableView = tablesListChange.get(i);
+                    int finalI = i;
+                    tablesListChange.update(tableView.name(), tableChange -> tableChange.changeId(finalI + 1));
+                }
+            });
+        });
+    }
+
     @Test
     void sequentialAssignmentsChanging(
             @InjectConfiguration ("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -292,6 +309,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void sequentialEmptyAssignmentsChanging(
             @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -333,6 +352,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void staleDataNodesEvent(
             @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
