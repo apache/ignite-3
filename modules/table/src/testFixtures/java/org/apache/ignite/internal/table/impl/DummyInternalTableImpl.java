@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
@@ -119,6 +120,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** The thread updates safe time on the dummy replica. */
     private Thread safeTimeUpdaterThread;
 
+    private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
+
     /**
      * Creates a new local table.
      *
@@ -184,7 +187,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 "test",
-                111,
+                nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),

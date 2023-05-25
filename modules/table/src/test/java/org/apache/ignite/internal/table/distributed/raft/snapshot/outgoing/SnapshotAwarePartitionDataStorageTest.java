@@ -145,7 +145,7 @@ class SnapshotAwarePartitionDataStorageTest {
     void delegatesAddWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
 
-        when(partitionStorage.addWrite(any(), any(), any(), any(), anyInt())).thenReturn(resultRow);
+        when(partitionStorage.addWrite(any(), any(), any(), anyInt(), anyInt())).thenReturn(resultRow);
 
         BinaryRow argumentRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();

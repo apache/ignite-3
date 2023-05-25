@@ -37,6 +37,7 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -60,6 +61,8 @@ public class MvGcTest {
     private static final int PARTITION_ID = 0;
 
     private MvGc gc;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1001);
 
     @BeforeEach
     void setUp(
@@ -366,7 +369,7 @@ public class MvGcTest {
     }
 
     private TablePartitionId createTablePartitionId() {
-        return new TablePartitionId(1, PARTITION_ID);
+        return new TablePartitionId(nextTableId.getAndIncrement(), PARTITION_ID);
     }
 
     private GcUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
