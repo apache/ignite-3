@@ -81,6 +81,9 @@ import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -331,37 +334,37 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        // NULL -> NULL = no-op;
+        // NULL-> NULL : No-op.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
-        // NULL -> 1 = ok
+        // NULL -> 1 : Ok.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(1))),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
-        // 1 -> 1 = no-op
+        // 1 -> 1 : No-op.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(1))),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
-        // 1 -> 2 = ok
+        // 1 -> 2 : Ok.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(2))),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
-        // 2 -> funcCall = ok
+        // 2 -> funcCall : Ok.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
-        // funcCall -> funcCall = no-op
+        // funcCall -> funcCall : No-op.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
-        // funcCall -> NULL = error
+        // funcCall -> NULL : Error.
         assertThat(changeColumn(TABLE_NAME, "VAL", new ChangeColumnDefault((t) -> DefaultValue.constant(null))),
                 willThrowFast(SqlException.class, "Cannot drop default for column"));
         assertNull(service.schema(schemaVer + 1));
@@ -393,96 +396,103 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
     }
 
-    @Test
-    public void testAlterColumnTypePrecision() {
-        EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
-        types.remove(ColumnType.NULL);
-
-        List<ColumnParams> columns = types.stream()
-                .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
-                .collect(Collectors.toList());
-
-        assertThat(service.createTable(simpleTable(TABLE_NAME, columns)), willBe((Object) null));
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"NULL", "STRING", "DECIMAL"}, mode = Mode.EXCLUDE)
+    public void testAlterColumnTypePrecisionRejected(ColumnType colType) {
+        ColumnParams col = new ColumnParams("COL_" + colType, colType, DefaultValue.constant(null), false);
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(col))), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        for (ColumnParams col : columns) {
-            // ANY-> UNDEFINED PRECISION = no-op
-            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type())), willBe((Object) null));
-            assertNull(service.schema(schemaVer + 1));
-
-            // UNDEFINED PRECISION -> 10 = ok for DECIMAL and VARCHAR
-            CompletableFuture<Void> fut =
-                    changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED));
-
-            if (col.type() == ColumnType.DECIMAL || col.type() == ColumnType.STRING) {
-                assertThat("type=" + col.type(), fut, willBe((Object) null));
-                assertNotNull(service.schema(++schemaVer));
-
-                // 10 -> 11 = ok
-                assertThat("type=" + col.type(),
-                        changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 11, ChangeColumnType.SCALE_NOT_SPECIFIED)),
-                        willBe((Object) null));
-                assertNotNull(service.schema(++schemaVer));
-
-                // 11 -> 10 = error
-                String expMsg = col.type() == ColumnType.DECIMAL
-                        ? "Cannot decrease precision for column '" + col.name() + "' [from=11, to=10]."
-                        : "Cannot decrease length for column '" + col.name() + "' [from=11, to=10].";
-
-                assertThat("type=" + col.type(),
-                        changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
-                        willThrowFast(SqlException.class, expMsg));
-                assertNull(service.schema(schemaVer + 1));
-            } else {
-                assertThat("type=" + col.type(), fut,
-                        willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
-                assertNull(service.schema(schemaVer + 1));
-            }
-        }
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'")
+        );
+        assertNull(service.schema(schemaVer + 1));
     }
 
-    @Test
-    public void testAlterColumnTypeScale() {
-        EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
-        types.remove(ColumnType.NULL);
-
-        List<ColumnParams> columns = types.stream()
-                .map(t -> ColumnParams.builder().name("COL_" + t).type(t).scale(3).build())
-                .collect(Collectors.toList());
-
-        assertThat(service.createTable(simpleTable(TABLE_NAME, columns)), willBe((Object) null));
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"DECIMAL", "STRING"}, mode = Mode.INCLUDE)
+    public void testAlterColumnTypePrecision(ColumnType type) {
+        ColumnParams col = new ColumnParams("COL_" + type, type, DefaultValue.constant(null), false);
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(col))), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        for (ColumnParams col : columns) {
-            // ANY-> UNDEFINED SCALE = no-op
-            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type())), willBe((Object) null));
-            assertNull(service.schema(schemaVer + 1));
+        // ANY-> UNDEFINED PRECISION = no-op
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type())), willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
 
-            // 3 -> 3 = no-op
-            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 3)),
-                    willBe((Object) null));
-            assertNull(service.schema(schemaVer + 1));
+        // UNDEFINED PRECISION -> 10 = ok for DECIMAL and VARCHAR
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                willBe((Object) null)
+        );
+        assertNotNull(service.schema(++schemaVer));
 
-            // 3 -> 4 = error
-            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 4)),
-                    willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=4]."));
-            assertNull(service.schema(schemaVer + 1));
+        // 10 -> 11 = ok
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 11, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                willBe((Object) null)
+        );
 
-            // 3 -> 2 = error
-            assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 2)),
-                    willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=2]."));
-            assertNull(service.schema(schemaVer + 1));
-        }
+        SchemaDescriptor schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+
+        TableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
+
+        assertNotSame(desc.length(), desc.precision());
+        assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
+
+        // 11 -> 10 = error
+        String expMsg = col.type() == ColumnType.DECIMAL
+                ? "Cannot decrease precision for column '" + col.name() + "' [from=11, to=10]."
+                : "Cannot decrease length for column '" + col.name() + "' [from=11, to=10].";
+
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), 10, ChangeColumnType.SCALE_NOT_SPECIFIED)),
+                willThrowFast(SqlException.class, expMsg)
+        );
+        assertNull(service.schema(schemaVer + 1));
     }
 
-    @Test
-    public void testAlterColumnType() {
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testAlterColumnTypeScale(ColumnType type) {
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).scale(3).build();
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(col))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // ANY-> UNDEFINED SCALE = no-op
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type())), willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 3 -> 3 = no-op
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 3)),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 3 -> 4 = error
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 4)),
+                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=4]."));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 3 -> 2 = error
+        assertThat(changeColumn(TABLE_NAME, col.name(), new ChangeColumnType(col.type(), ChangeColumnType.PRECISION_NOT_SPECIFIED, 2)),
+                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=2]."));
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest(name = "set data type {0}")
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testAlterColumnType(ColumnType target) {
         EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
         types.remove(ColumnType.NULL);
 
@@ -491,11 +501,6 @@ public class CatalogServiceSelfTest {
                 .collect(Collectors.toList());
 
         CreateTableParams createTableParams = simpleTable(TABLE_NAME, columns);
-
-        Runnable recreateTable = () -> {
-            assertThat(service.dropTable(DropTableParams.builder().tableName(TABLE_NAME).build()), willBe((Object) null));
-            assertThat(service.createTable(createTableParams), willBe((Object) null));
-        };
 
         Map<ColumnType, Set<ColumnType>> validTransitions = new EnumMap<>(ColumnType.class);
         validTransitions.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
@@ -509,28 +514,23 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        for (ColumnType target : types) {
-            ChangeColumnType changeType = new ChangeColumnType(target);
+        ChangeColumnType changeType = new ChangeColumnType(target);
 
-            for (ColumnParams col : columns) {
-                TypeSafeMatcher<CompletableFuture<?>> matcher;
-                boolean sameType = col.type() == target;
+        for (ColumnParams col : columns) {
+            TypeSafeMatcher<CompletableFuture<?>> matcher;
+            boolean sameType = col.type() == target;
 
-                if (sameType || (validTransitions.containsKey(col.type()) && validTransitions.get(col.type()).contains(target))) {
-                    matcher = willBe((Object) null);
-                    schemaVer += sameType ? 0 : 1;
-                } else {
-                    matcher = willThrowFast(SqlException.class,
-                            "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
-                }
-
-                assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), changeType), matcher);
-                assertNotNull(service.schema(schemaVer));
-                assertNull(service.schema(schemaVer + 1));
+            if (sameType || (validTransitions.containsKey(col.type()) && validTransitions.get(col.type()).contains(target))) {
+                matcher = willBe((Object) null);
+                schemaVer += sameType ? 0 : 1;
+            } else {
+                matcher = willThrowFast(SqlException.class,
+                        "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
             }
 
-            recreateTable.run();
-            schemaVer += 2;
+            assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), changeType), matcher);
+            assertNotNull(service.schema(schemaVer));
+            assertNull(service.schema(schemaVer + 1));
         }
     }
 
