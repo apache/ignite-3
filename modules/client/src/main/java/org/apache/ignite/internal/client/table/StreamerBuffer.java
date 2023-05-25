@@ -46,6 +46,7 @@ class StreamerBuffer<T> {
 
         if (buf.size() >= capacity) {
             // TODO: Chain futures to ensure the order of items? We can avoid the queue this way.
+            // But what do we do if a node goes down? Rebalancing items across other buffers may break the ordering guarantee.
             pendingBufs.add(buf);
             buf = new ArrayList<>(capacity);
         }
