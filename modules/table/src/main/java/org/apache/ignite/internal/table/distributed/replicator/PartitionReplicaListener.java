@@ -2433,7 +2433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 inBusyLock(() -> {
                     TableIndexView tableIndexView = ctx.newValue();
 
-                    if (tableId().equals(tableIndexView.tableId())) {
+                    if (tableId() == tableIndexView.tableId()) {
                         startBuildIndex(createIndexDescriptor(ctx.newValue(TablesView.class), tableIndexView.id()));
                     }
                 });
@@ -2451,7 +2451,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 inBusyLock(() -> {
                     TableIndexView tableIndexView = ctx.oldValue();
 
-                    if (tableId().equals(tableIndexView.tableId())) {
+                    if (tableId() == tableIndexView.tableId()) {
                         indexBuilder.stopBuildIndex(tableId(), partId(), tableIndexView.id());
                     }
                 });
@@ -2481,7 +2481,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private List<UUID> collectIndexIds(TablesView tablesView) {
         return tablesView.indexes().stream()
-                .filter(tableIndexView -> replicationGroupId.tableId().equals(tableIndexView.tableId()))
+                .filter(tableIndexView -> replicationGroupId.tableId() == tableIndexView.tableId())
                 .map(TableIndexView::id)
                 .collect(toList());
     }

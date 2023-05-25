@@ -87,7 +87,7 @@ public class IndexBuilder implements ManuallyCloseable {
      */
     // TODO: IGNITE-19498 Perhaps we need to start building the index only once
     public void startBuildIndex(
-            UUID tableId,
+            int tableId,
             int partitionId,
             UUID indexId,
             IndexStorage indexStorage,
@@ -123,7 +123,7 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param partitionId Partition ID.
      * @param indexId Index ID.
      */
-    public void stopBuildIndex(UUID tableId, int partitionId, UUID indexId) {
+    public void stopBuildIndex(int tableId, int partitionId, UUID indexId) {
         inBusyLock(() -> {
             IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(tableId, partitionId, indexId));
 
@@ -139,7 +139,7 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildIndexes(UUID tableId, int partitionId) {
+    public void stopBuildIndexes(int tableId, int partitionId) {
         for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
             if (!busyLock.enterBusy()) {
                 return;
@@ -150,7 +150,7 @@ public class IndexBuilder implements ManuallyCloseable {
 
                 IndexBuildTaskId taskId = entry.getKey();
 
-                if (tableId.equals(taskId.getTableId()) && partitionId == taskId.getPartitionId()) {
+                if (tableId == taskId.getTableId() && partitionId == taskId.getPartitionId()) {
                     it.remove();
 
                     entry.getValue().stop();
