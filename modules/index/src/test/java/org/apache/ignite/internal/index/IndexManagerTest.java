@@ -54,7 +54,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,7 +92,7 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
+        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
         indexManager.start();
 
         assertThat(
@@ -212,7 +211,13 @@ public class IndexManagerTest {
     private static Object toMap(Object obj) {
         assert obj instanceof TraversableTreeNode;
 
-        return ((TraversableTreeNode) obj).accept(null, null, new ConverterToMapVisitor(false));
+        return ((TraversableTreeNode) obj).accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
     }
 
     private static void assertSameObjects(Object expected, Object actual) {

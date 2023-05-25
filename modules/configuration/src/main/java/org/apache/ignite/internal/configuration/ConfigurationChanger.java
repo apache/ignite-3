@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fi
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 
 import java.io.Serializable;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,11 +43,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
-import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -61,7 +58,6 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
@@ -72,8 +68,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.validation.MemberKey;
-import org.apache.ignite.internal.configuration.validation.ValidationUtil;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -86,20 +81,16 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Thread pool. */
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
-    /** Lazy annotations cache for configuration schema fields. */
-    private final Map<MemberKey, Map<Annotation, Set<Validator<?, ?>>>> cachedAnnotations = new ConcurrentHashMap<>();
-
     /** Closure to execute when an update from the storage is received. */
     private final ConfigurationUpdateListener configurationUpdateListener;
 
     /** Root keys. Mapping: {@link RootKey#key()} -> identity (itself). */
     private final Map<String, RootKey<?, ?>> rootKeys;
 
-    /** Validators. */
-    private final List<Validator<?, ?>> validators;
-
     /** Configuration storage. */
     private final ConfigurationStorage storage;
+
+    private final ConfigurationValidator configurationValidator;
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
@@ -199,22 +190,20 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      *
      * @param configurationUpdateListener Closure to execute when update from the storage is received.
      * @param rootKeys Configuration root keys.
-     * @param validators Validators.
      * @param storage Configuration storage.
+     * @param configurationValidator Configuration validator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
             ConfigurationUpdateListener configurationUpdateListener,
             Collection<RootKey<?, ?>> rootKeys,
-            Collection<Validator<?, ?>> validators,
-            ConfigurationStorage storage
-    ) {
+            ConfigurationStorage storage,
+            ConfigurationValidator configurationValidator) {
         checkConfigurationType(rootKeys, storage);
 
         this.configurationUpdateListener = configurationUpdateListener;
-        this.validators = List.copyOf(validators);
         this.storage = storage;
-
+        this.configurationValidator = configurationValidator;
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
     }
 
@@ -242,8 +231,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /**
      * Start component.
      */
-    // ConfigurationChangeException, really?
-    public void start() throws ConfigurationChangeException {
+    public void start() {
         Data data;
 
         try {
@@ -274,6 +262,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         //Workaround for distributed configuration.
         addDefaults(superRoot);
+
+        // Validate the restored configuration.
+        validateConfiguration(superRoot);
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
@@ -588,17 +579,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             dropNulls(changes);
 
-            List<ValidationIssue> validationIssues = ValidationUtil.validate(
-                    curRoots,
-                    changes,
-                    this::getRootNode,
-                    cachedAnnotations,
-                    validators
-            );
-
-            if (!validationIssues.isEmpty()) {
-                throw new ConfigurationValidationException(validationIssues);
-            }
+            validateConfiguration(curRoots, changes);
 
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
@@ -616,6 +597,23 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     });
         } finally {
             rwLock.readLock().unlock();
+        }
+    }
+
+    private void validateConfiguration(SuperRoot configuration) {
+        List<ValidationIssue> validationIssues = configurationValidator.validate(configuration);
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
+        }
+    }
+
+
+    private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
+        List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes);
+
+        if (!validationIssues.isEmpty()) {
+            throw new ConfigurationValidationException(validationIssues);
         }
     }
 

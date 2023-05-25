@@ -21,6 +21,9 @@ import java.util.Collection;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.manager.EventListener;
 
 /**
  * Catalog service provides methods to access schema object's descriptors of exact version and/or last actual version at given timestamp,
@@ -34,15 +37,6 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 public interface CatalogService {
     String PUBLIC = "PUBLIC";
 
-    //TODO: IGNITE-19082 Drop this stuff when all versioned schema stuff will be moved to Catalog.
-    @Deprecated(forRemoval = true)
-    String IGNITE_USE_CATALOG_PROPERTY = "IGNITE_USE_CATALOG";
-
-    @Deprecated(forRemoval = true)
-    static boolean useCatalogService() {
-        return Boolean.getBoolean(IGNITE_USE_CATALOG_PROPERTY);
-    }
-
     TableDescriptor table(String tableName, long timestamp);
 
     TableDescriptor table(int tableId, long timestamp);
@@ -54,4 +48,6 @@ public interface CatalogService {
     SchemaDescriptor schema(int version);
 
     SchemaDescriptor activeSchema(long timestamp);
+
+    void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

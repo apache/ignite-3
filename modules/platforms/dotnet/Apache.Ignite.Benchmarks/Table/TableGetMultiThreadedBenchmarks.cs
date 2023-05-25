@@ -51,7 +51,7 @@ public class TableGetMultiThreadedBenchmarks
     {
         // Use a delay on server to imitate some work.
         _servers = Enumerable.Range(0, ServerCount)
-            .Select(_ => new FakeServer { OperationDelay = TimeSpan.FromMilliseconds(5) })
+            .Select(_ => new FakeServer(true) { OperationDelay = TimeSpan.FromMilliseconds(5) })
             .ToList();
 
         _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_servers.Select(s => s.Endpoint).ToArray()));

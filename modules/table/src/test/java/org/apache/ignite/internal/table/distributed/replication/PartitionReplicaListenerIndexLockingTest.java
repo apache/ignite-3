@@ -36,6 +36,7 @@ import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -49,12 +50,14 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -67,6 +70,9 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -85,6 +91,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
@@ -116,7 +123,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static Function<BinaryRow, BinaryTuple> row2SortKeyConverter;
 
     @BeforeAll
-    public static void beforeAll(@InjectConfiguration DataStorageConfiguration dsCfg) {
+    public static void beforeAll(
+            @InjectConfiguration DataStorageConfiguration dsCfg,
+            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig,
+            @InjectConfiguration DistributionZoneConfiguration distributionZoneConfig
+    ) {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
@@ -161,6 +172,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         IndexLocker sortedIndexLocker = new SortedIndexLocker(
                 SORTED_INDEX_ID,
+                PART_ID,
                 LOCK_MANAGER,
                 (SortedIndexStorage) sortedIndexStorage.storage(),
                 row2SortKeyConverter
@@ -168,6 +180,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(CLOCK.now());
+
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
+        );
+
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE);
 
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
@@ -193,15 +211,17 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(PlacementDriver.class),
                 new StorageUpdateHandler(
                         PART_ID,
-                        new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
-                        DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get())),
+                        partitionDataStorage,
                         dsCfg,
-                        safeTime,
-                        mock(LowWatermark.class)
+                        mock(LowWatermark.class),
+                        indexUpdateHandler,
+                        new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                 ),
                 new DummySchemas(schemaManager),
-                peer -> true,
-                CompletableFuture.completedFuture(schemaManager)
+                CompletableFuture.completedFuture(schemaManager),
+                mock(ClusterNode.class),
+                new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
+                mock(IndexBuilder.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

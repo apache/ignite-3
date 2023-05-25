@@ -547,6 +547,14 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
                 () -> batchCompile(packageName, "ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema"),
                 "Field with @InternalId is already present in the superclass"
         );
+
+        // Let's check @Secret must be String.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "SecretMustBeStringConfigurationSchema"),
+                "must be String. Only String field can be annotated with @Secret"
+        );
     }
 
     @Test

@@ -93,7 +93,7 @@ public interface DeploymentCodeApi {
     )
     @Consumes(APPLICATION_JSON)
     @Delete("units/{unitId}/{unitVersion}")
-    CompletableFuture<Void> undeploy(
+    CompletableFuture<Boolean> undeploy(
             @PathVariable("unitId") @Schema(name = "unitId",
                     description = "The ID of the deployment unit.",
                     requiredMode = RequiredMode.REQUIRED) String unitId,

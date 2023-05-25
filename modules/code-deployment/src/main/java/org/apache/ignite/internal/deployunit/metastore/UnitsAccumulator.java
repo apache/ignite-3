@@ -22,11 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.DeploymentInfo;
-import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatus.UnitStatusBuilder;
-import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
+import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
@@ -34,34 +33,30 @@ import org.apache.ignite.internal.util.subscription.Accumulator;
 /**
  * Units accumulator with filtering mechanism.
  */
-public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatus>> {
-    private final Map<String, UnitStatusBuilder> map = new HashMap<>();
+public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatuses>> {
+    private final Map<String, UnitStatusesBuilder> map = new HashMap<>();
 
-    private final Predicate<UnitMeta> filter;
+    private final Predicate<UnitStatus> filter;
 
     public UnitsAccumulator() {
         this(t -> true);
     }
 
-    public UnitsAccumulator(Predicate<UnitMeta> filter) {
+    public UnitsAccumulator(Predicate<UnitStatus> filter) {
         this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
-        UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
+        UnitStatus meta = UnitMetaSerializer.deserialize(item.value());
         if (filter.test(meta)) {
-            map.computeIfAbsent(meta.id(), UnitStatus::builder)
-                    .append(meta.version(),
-                            DeploymentInfo.builder()
-                                    .status(meta.status())
-                                    .addConsistentIds(meta.consistentIdLocation()).build()
-                    );
+            map.computeIfAbsent(meta.id(), UnitStatuses::builder)
+                    .append(meta.version(), meta.status()).build();
         }
     }
 
     @Override
-    public List<UnitStatus> get() throws AccumulateException {
-        return map.values().stream().map(UnitStatusBuilder::build).collect(Collectors.toList());
+    public List<UnitStatuses> get() throws AccumulateException {
+        return map.values().stream().map(UnitStatusesBuilder::build).collect(Collectors.toList());
     }
 }

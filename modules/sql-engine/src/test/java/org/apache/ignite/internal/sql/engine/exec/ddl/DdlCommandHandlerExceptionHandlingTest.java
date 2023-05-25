@@ -33,7 +33,9 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,12 +80,17 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private static final String ZONE_NAME = "zone1";
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
+    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
             List.of(DistributionZonesConfiguration.KEY),
-            Set.of(),
-            new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
             List.of(TestPersistStorageConfigurationSchema.class)
+    );
+
+    private final ConfigurationRegistry registry = new ConfigurationRegistry(
+            List.of(DistributionZonesConfiguration.KEY),
+            new TestConfigurationStorage(DISTRIBUTED),
+            generator,
+            ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
     );
 
     private DistributionZoneManager distributionZoneManager;
@@ -119,6 +127,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        generator.close();
     }
 
     @Test

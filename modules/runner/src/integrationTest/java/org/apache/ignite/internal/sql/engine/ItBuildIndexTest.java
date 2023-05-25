@@ -19,9 +19,13 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -41,13 +45,16 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     @AfterEach
     void tearDown() {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
+        sql("DROP ZONE IF EXISTS " + ZONE_NAME);
     }
 
     @ParameterizedTest(name = "replicas : {0}")
     @MethodSource("replicas")
     void testBuildIndexOnStableTopology(int replicas) throws Exception {
+        int partitions = 2;
+
         sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",
-                ZONE_NAME, replicas, 2
+                ZONE_NAME, replicas, partitions
         ));
 
         sql(IgniteStringFormatter.format(
@@ -63,7 +70,18 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", INDEX_NAME, TABLE_NAME));
 
         // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
-        waitForIndexBuild(TABLE_NAME, INDEX_NAME);
+        Map<Integer, List<Ignite>> nodesWithBuiltIndexesByPartitionId = waitForIndexBuild(TABLE_NAME, INDEX_NAME);
+
+        // Check that the number of nodes with built indexes is equal to the number of replicas.
+        assertEquals(partitions, nodesWithBuiltIndexesByPartitionId.size());
+
+        for (Entry<Integer, List<Ignite>> entry : nodesWithBuiltIndexesByPartitionId.entrySet()) {
+            assertEquals(
+                    replicas,
+                    entry.getValue().size(),
+                    IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
+            );
+        }
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME.toUpperCase(), INDEX_NAME.toUpperCase()))

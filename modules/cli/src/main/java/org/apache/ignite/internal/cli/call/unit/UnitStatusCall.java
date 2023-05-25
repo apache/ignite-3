@@ -53,6 +53,6 @@ public class UnitStatusCall implements Call<UnitStatusCallInput, UnitStatusRecor
     }
 
     private UnitStatusRecord toRecord(UnitStatus status) {
-        return new UnitStatusRecord(status.getId(), status.getVersionToDeploymentInfo());
+        return new UnitStatusRecord(status.getId(), status.getVersionToStatus());
     }
 }

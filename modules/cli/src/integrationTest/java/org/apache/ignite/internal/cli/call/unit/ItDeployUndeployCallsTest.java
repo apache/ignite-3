@@ -211,10 +211,10 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
         await().untilAsserted(() -> {
             List<UnitStatusRecord> unisStatuses = listUnitCall.execute(urlInput).body();
             assertThat(unisStatuses.size()).isEqualTo(1);
-            assertThat(unisStatuses.get(0).versionToDeploymentInfo().size()).isEqualTo(1);
-            assertThat(unisStatuses.get(0).versionToDeploymentInfo().get("1.1.0"))
+            assertThat(unisStatuses.get(0).versionToStatus().size()).isEqualTo(1);
+            assertThat(unisStatuses.get(0).versionToStatus().get("1.1.0"))
                     .isNotNull()
-                    .matches(deploymentInfo -> deploymentInfo.getStatus() == DEPLOYED);
+                    .matches(deploymentStatus -> deploymentStatus == DEPLOYED);
 
             // And status is not empty
             assertThat(unitStatusCall.execute(statusInput("test.id"))).isNotNull();

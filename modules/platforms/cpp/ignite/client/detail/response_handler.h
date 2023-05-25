@@ -32,7 +32,7 @@ namespace ignite::detail {
 class node_connection;
 
 /**
- * Response handler.
+ * response handler.
  */
 class response_handler {
 public:
@@ -58,7 +58,7 @@ public:
 };
 
 /**
- * Response handler implementation for bytes.
+ * response handler implementation for bytes.
  */
 template<typename T>
 class response_handler_bytes final : public response_handler {
@@ -136,7 +136,7 @@ private:
 };
 
 /**
- * Response handler implementation for reader.
+ * response handler implementation for reader.
  */
 template<typename T>
 class response_handler_reader final : public response_handler {
@@ -213,7 +213,7 @@ private:
 };
 
 /**
- * Response handler implementation for reader.
+ * response handler implementation for reader.
  */
 template<typename T>
 class response_handler_reader_connection final : public response_handler {

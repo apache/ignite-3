@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
