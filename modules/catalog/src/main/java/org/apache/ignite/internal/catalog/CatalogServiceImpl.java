@@ -225,7 +225,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private CompletableFuture<Void> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
         if (attemptNo >= MAX_RETRY_COUNT) {
-            return failedFuture(new IgniteInternalException(Common.UNEXPECTED_ERR, "Max retry limit exceeded: " + attemptNo));
+            return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
         }
 
         Catalog catalog = catalogByVer.lastEntry().getValue();

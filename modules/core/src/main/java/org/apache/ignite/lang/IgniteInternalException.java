@@ -23,7 +23,7 @@ import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -157,7 +157,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException() {
-        this(UNKNOWN_ERR);
+        this(INTERNAL_ERR);
     }
 
     /**
@@ -167,7 +167,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException(String msg) {
-        this(UNKNOWN_ERR, msg);
+        this(INTERNAL_ERR, msg);
     }
 
     /**
@@ -177,7 +177,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException(Throwable cause) {
-        this(UNKNOWN_ERR, cause);
+        this(INTERNAL_ERR, cause);
     }
 
     /**
@@ -188,7 +188,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR, msg, cause);
+        this(INTERNAL_ERR, msg, cause);
     }
 
     /**

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.rest.exception.handler;
 
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -47,7 +47,7 @@ class IgniteExceptionHandlerTest {
 
     static Stream<Arguments> igniteExceptions() {
         UUID traceId = UUID.randomUUID();
-        String humanReadableCode = ErrorGroup.ERR_PREFIX + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(UNKNOWN_ERR);
+        String humanReadableCode = ErrorGroup.ERR_PREFIX + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(INTERNAL_ERR);
 
         var invalidParams = List.of(
                 new InvalidParam("key1", "Some issue1"),
@@ -60,7 +60,7 @@ class IgniteExceptionHandlerTest {
         return Stream.of(
                 Arguments.of(
                         // given
-                        new IgniteException(traceId, UNKNOWN_ERR, "Ooops"),
+                        new IgniteException(traceId, INTERNAL_ERR, "Ooops"),
                         // expected
                         Problem.builder()
                                 .status(500)
@@ -70,7 +70,7 @@ class IgniteExceptionHandlerTest {
                                 .traceId(traceId)),
                 Arguments.of(
                         // given
-                        new IgniteException(traceId, UNKNOWN_ERR),
+                        new IgniteException(traceId, INTERNAL_ERR),
                         // expected
                         Problem.builder()
                                 .status(500)
@@ -79,7 +79,7 @@ class IgniteExceptionHandlerTest {
                                 .traceId(traceId)),
                 Arguments.of(
                         // given
-                        new IgniteException(traceId, UNKNOWN_ERR, new IllegalArgumentException("Illegal value")),
+                        new IgniteException(traceId, INTERNAL_ERR, new IllegalArgumentException("Illegal value")),
                         // expected
                         Problem.builder()
                                 .status(400)
@@ -91,7 +91,7 @@ class IgniteExceptionHandlerTest {
                         // given
                         new IgniteException(
                                 traceId,
-                                UNKNOWN_ERR,
+                                INTERNAL_ERR,
                                 new ConfigurationValidationException(validationIssues)),
                         // expected
                         Problem.builder()
