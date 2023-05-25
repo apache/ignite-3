@@ -44,9 +44,4 @@ public class AlterColumnDefault implements AlterColumnAction {
         return new TableColumnDescriptor(
                 origin.name(), origin.type(), origin.nullable(), dflt, origin.precision(), origin.scale(), origin.length());
     }
-
-    @Override
-    public Priority priority() {
-        return Priority.DEFAULT;
-    }
 }

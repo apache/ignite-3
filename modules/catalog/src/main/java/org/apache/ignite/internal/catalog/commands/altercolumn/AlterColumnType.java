@@ -126,11 +126,6 @@ public class AlterColumnType implements AlterColumnAction {
         );
     }
 
-    @Override
-    public Priority priority() {
-        return Priority.DATA_TYPE;
-    }
-
     private static void throwException(String msg, Object... params) {
         throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, IgniteStringFormatter.format(msg, params));
     }

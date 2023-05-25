@@ -49,9 +49,4 @@ public class AlterColumnNotNull implements AlterColumnAction {
         return new TableColumnDescriptor(
                 origin.name(), origin.type(), true, origin.defaultValue(), origin.precision(), origin.scale(), origin.length());
     }
-
-    @Override
-    public Priority priority() {
-        return notNull ? Priority.SET_NOT_NULL : Priority.DROP_NOT_NULL;
-    }
 }
