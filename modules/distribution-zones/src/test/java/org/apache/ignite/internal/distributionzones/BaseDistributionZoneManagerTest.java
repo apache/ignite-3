@@ -67,6 +67,12 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     static final String ZONE_NAME_2 = "zone2";
 
+    static final int ZONE_ID_0 = 1;
+
+    static final int ZONE_ID_1 = 2;
+
+    static final int ZONE_ID_2 = 3;
+
     static final LogicalNode NODE_0 = new LogicalNode("node0", "node0", new NetworkAddress("localhost", 123));
 
     static final LogicalNode NODE_1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 123));
