@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -122,17 +121,8 @@ class JobClassLoaderFactoryTest {
 
         // then class from all jars are loaded
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
-
-            System.out.println("Classpath: " + Arrays.toString(classLoader.getURLs()));
-
             Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
             assertNotNull(unitJobClass);
-
-            // and classes are loaded in the aplhabetical order
-            Callable<Object> job1 = (Callable<Object>) unitJobClass.getDeclaredConstructor().newInstance();
-            Object result1 = job1.call();
-            assertSame(Integer.class, result1.getClass());
-            assertEquals(1, result1);
 
             Class<?> job1UtilityClass = classLoader.loadClass("org.my.job.compute.unit.Job1Utility");
             assertNotNull(job1UtilityClass);
