@@ -33,7 +33,7 @@ import org.apache.ignite.sql.ColumnType;
  * ALTER TABLE ... ALTER COLUMN statement.
  */
 public class AlterColumnCommand extends AbstractTableDdlCommand {
-    private final List<AlterColumnAction> actions = new ArrayList<>(1);
+    private final List<AlterColumnAction> changes = new ArrayList<>(1);
 
     private String columnName;
 
@@ -41,23 +41,23 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         return columnName;
     }
 
-    public void columnName(String name) {
+    void columnName(String name) {
         columnName = name;
     }
 
-    public void addChange(RelDataType type) {
-        actions.add(new AlterColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale()));
+    void alterType(RelDataType type) {
+        changes.add(new AlterColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale()));
     }
 
-    public void addChange(boolean notNull) {
-        actions.add(new AlterColumnNotNull(notNull));
+    void alterNotNull(boolean notNull) {
+        changes.add(new AlterColumnNotNull(notNull));
     }
 
-    public void addChange(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-        actions.add(new AlterColumnDefault(resolveDfltFunc));
+    void alterDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
+        changes.add(new AlterColumnDefault(resolveDfltFunc));
     }
 
-    public List<AlterColumnAction> actions() {
-        return actions;
+    public List<AlterColumnAction> changes() {
+        return changes;
     }
 }

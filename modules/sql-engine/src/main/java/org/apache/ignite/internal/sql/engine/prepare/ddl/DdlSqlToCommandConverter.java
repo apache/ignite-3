@@ -444,11 +444,11 @@ public class DdlSqlToCommandConverter {
             }
 
             if (actionNode instanceof IgniteSqlAlterColumnType) {
-                cmd.addChange(ctx.planner().convert(((IgniteSqlAlterColumnType) actionNode).dataType(), true));
+                cmd.alterType(ctx.planner().convert(((IgniteSqlAlterColumnType) actionNode).dataType(), true));
             } else if (actionNode instanceof IgniteSqlAlterColumnNotNull) {
-                cmd.addChange(((IgniteSqlAlterColumnNotNull) actionNode).notNull());
+                cmd.alterNotNull(((IgniteSqlAlterColumnNotNull) actionNode).notNull());
             } else {
-                assert actionNode instanceof IgniteSqlAlterColumnDefault;
+                assert actionNode instanceof IgniteSqlAlterColumnDefault : actionNode;
 
                 SqlNode expr = ((IgniteSqlAlterColumnDefault) actionNode).expression();
 
@@ -466,7 +466,7 @@ public class DdlSqlToCommandConverter {
                     throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
                 }
 
-                cmd.addChange(resolveDfltFunc);
+                cmd.alterDefault(resolveDfltFunc);
             }
         }
 

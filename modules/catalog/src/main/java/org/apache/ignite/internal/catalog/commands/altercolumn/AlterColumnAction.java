@@ -29,8 +29,8 @@ public interface AlterColumnAction {
      * Column descriptor change order.
      *
      * <p>Column descriptor changes must be applied in a specific order.
-     * For example, for the following command, {@code DROP DEFAULT, DROP NOT NULL}, column descriptor must be marked nullable before
-     * attempting to drop the default value.
+     * For example, for the following command, {@code DROP DEFAULT, DROP NOT NULL},
+     * column descriptor must be marked nullable before attempting to drop the default value.
      */
     public enum Priority {
         DATA_TYPE(0),
@@ -54,7 +54,7 @@ public interface AlterColumnAction {
      * Changes column descriptor.
      *
      * @param origin Column descriptor.
-     * @return Modified column descriptor, or {@code null} if no changes were made.
+     * @return Modified copy of the specified column descriptor, or {@code null} if no changes were made.
      */
     @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin);
 

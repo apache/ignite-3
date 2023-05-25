@@ -63,7 +63,7 @@ class DdlToCatalogCommandConverter {
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
                 .columnName(cmd.columnName())
-                .changeActions(cmd.actions())
+                .changeActions(cmd.changes())
                 .build();
     }
 
