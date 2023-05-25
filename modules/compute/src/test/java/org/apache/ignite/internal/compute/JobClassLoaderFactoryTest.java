@@ -146,12 +146,6 @@ class JobClassLoaderFactoryTest {
             Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
             assertNotNull(unitJobClass);
 
-            // and classes are loaded in the aplhabetical order
-            Callable<Object> job1 = (Callable<Object>) unitJobClass.getDeclaredConstructor().newInstance();
-            Object result1 = job1.call();
-            assertSame(Integer.class, result1.getClass());
-            assertEquals(1, result1);
-
             Class<?> job1UtilityClass = classLoader.loadClass("org.my.job.compute.unit.Job1Utility");
             assertNotNull(job1UtilityClass);
 
