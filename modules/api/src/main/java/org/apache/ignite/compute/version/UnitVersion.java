@@ -20,10 +20,9 @@ package org.apache.ignite.compute.version;
 import java.util.Objects;
 
 /**
- * Implementation of {@link Version} interface based on the three numbers format,
- * like x.x.x. where x is short number.
+ * Implementation of {@link Version} interface based on the three numbers format, like x.x.x. where x is short number.
  */
-public class UnitVersion implements Version {
+class UnitVersion implements Version {
     private final short major;
 
     private final short minor;

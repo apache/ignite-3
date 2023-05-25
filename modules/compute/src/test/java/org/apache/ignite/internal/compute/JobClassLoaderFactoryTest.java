@@ -31,7 +31,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.UnitVersion;
 import org.apache.ignite.compute.version.Version;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,8 +44,8 @@ class JobClassLoaderFactoryTest {
     public void unit1() throws Exception {
 
         // when unit1-1.0.0 is loaded  and unit2-1.0.0 is loaded
-        List<DeploymentUnit> units1 = List.of(new DeploymentUnit("unit1", new UnitVersion((short) 1, (short) 0, (short) 0)));
-        List<DeploymentUnit> units2 = List.of(new DeploymentUnit("unit2", new UnitVersion((short) 2, (short) 0, (short) 0)));
+        List<DeploymentUnit> units1 = List.of(new DeploymentUnit("unit1", Version.parse("1.0.0")));
+        List<DeploymentUnit> units2 = List.of(new DeploymentUnit("unit2", Version.parse("2.0.0")));
 
         try (JobClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(units1);
                 JobClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(units2)) {
@@ -89,8 +88,8 @@ class JobClassLoaderFactoryTest {
     @DisplayName("Load both versions of the unit")
     public void unit1BothVersions() throws Exception {
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", new UnitVersion((short) 1, (short) 0, (short) 0)),
-                new DeploymentUnit("unit1", new UnitVersion((short) 2, (short) 0, (short) 0))
+                new DeploymentUnit("unit1", Version.parse("1.0.0")),
+                new DeploymentUnit("unit1", Version.parse("2.0.0"))
         );
 
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
@@ -117,7 +116,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with multiple jars is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", new UnitVersion((short) 3, (short) 0, (short) 1))
+                new DeploymentUnit("unit1", Version.parse("3.0.1"))
         );
 
         // then class from all jars are loaded
@@ -145,7 +144,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with multiple jars is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", new UnitVersion((short) 3, (short) 0, (short) 2))
+                new DeploymentUnit("unit1", Version.parse("3.0.2"))
         );
 
         // then class from all jars are loaded
@@ -173,7 +172,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with corrupted jar is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", new UnitVersion((short) 4, (short) 0, (short) 0))
+                new DeploymentUnit("unit1", Version.parse("4.0.0"))
         );
 
         // then class loader throws an exception
@@ -193,7 +192,7 @@ class JobClassLoaderFactoryTest {
 
         // when unit with files is loaded
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", new UnitVersion((short) 5, (short) 0, (short) 0))
+                new DeploymentUnit("unit1", Version.parse("5.0.0"))
         );
 
         // then the files are accessible
@@ -229,7 +228,7 @@ class JobClassLoaderFactoryTest {
     @DisplayName("Create class loader with non-existing unit")
     public void nonExistingUnit() {
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("non-existing", new UnitVersion((short) 1, (short) 0, (short) 0))
+                new DeploymentUnit("non-existing", Version.parse("1.0.0"))
         );
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -242,7 +241,7 @@ class JobClassLoaderFactoryTest {
     @DisplayName("Create class loader with non-existing version")
     public void nonExistingVersion() {
         List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", new UnitVersion((short) -1, (short) 0, (short) 0))
+                new DeploymentUnit("unit1", Version.parse("-1.0.0"))
         );
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

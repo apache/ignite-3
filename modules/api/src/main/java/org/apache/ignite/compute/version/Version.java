@@ -60,8 +60,8 @@ public interface Version extends Comparable<Version> {
      * @param s string version representation.
      * @return Version instance of
      */
-    static Version parseVersion(String s) {
-        if ("latest".equals(s)) {
+    static Version parse(String s) {
+        if ("latest".equalsIgnoreCase(s)) {
             return LATEST;
         }
 

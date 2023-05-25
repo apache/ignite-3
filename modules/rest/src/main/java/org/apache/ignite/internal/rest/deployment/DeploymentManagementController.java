@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.version.UnitVersion;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
@@ -50,12 +49,12 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, UnitVersion.parse(unitVersion), deploymentUnit));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parse(unitVersion), deploymentUnit));
     }
 
     @Override
     public CompletableFuture<Boolean> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
+        return deployment.undeployAsync(unitId, Version.parse(unitVersion));
     }
 
     @Override

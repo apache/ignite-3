@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.UnitVersion;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
@@ -78,12 +77,12 @@ public class JobClassLoaderFactory {
     private Path collectClasspath(DeploymentUnit unit) {
         if (unit.version().equals(Version.LATEST)) {
             try (Stream<Path> stream = Files.list(unitsDir.resolve(unit.name()))) {
-                UnitVersion maxVersion = stream
+                Version maxVersion = stream
                         .map(Path::getFileName)
                         .map(Path::toString)
                         .peek(System.out::println)
-                        .map(UnitVersion::parse)
-                        .max(UnitVersion::compareTo)
+                        .map(Version::parse)
+                        .max(Version::compareTo)
                         .orElseThrow();
                 return unitsDir.resolve(unit.name()).resolve(maxVersion.toString());
             } catch (IOException e) {

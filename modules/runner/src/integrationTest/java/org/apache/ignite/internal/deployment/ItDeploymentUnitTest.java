@@ -93,7 +93,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testDeploy() {
         String id = "test";
-        Unit unit = deployAndVerifySmall(id, Version.parseVersion("1.1.0"), 1);
+        Unit unit = deployAndVerifySmall(id, Version.parse("1.1.0"), 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -108,7 +108,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void deployDirectory() {
         String id = "test";
-        Unit unit = deployAndVerify(id, Version.parseVersion("1.1.0"), false, allFiles, 1);
+        Unit unit = deployAndVerify(id, Version.parse("1.1.0"), false, allFiles, 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -122,7 +122,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testDeployUndeploy() {
-        Unit unit = deployAndVerifySmall("test", Version.parseVersion("1.1.0"), 1);
+        Unit unit = deployAndVerifySmall("test", Version.parse("1.1.0"), 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -137,8 +137,8 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testDeployTwoUnits() {
         String id = "test";
-        Unit unit1 = deployAndVerifySmall(id, Version.parseVersion("1.1.0"), 1);
-        Unit unit2 = deployAndVerifySmall(id, Version.parseVersion("1.1.1"), 2);
+        Unit unit1 = deployAndVerifySmall(id, Version.parse("1.1.0"), 1);
+        Unit unit2 = deployAndVerifySmall(id, Version.parse("1.1.1"), 2);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit1);
@@ -157,8 +157,8 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testDeployTwoUnitsAndUndeployOne() {
         String id = "test";
-        Unit unit1 = deployAndVerifySmall(id, Version.parseVersion("1.1.0"), 1);
-        Unit unit2 = deployAndVerifySmall(id, Version.parseVersion("1.1.1"), 2);
+        Unit unit1 = deployAndVerifySmall(id, Version.parse("1.1.0"), 1);
+        Unit unit2 = deployAndVerifySmall(id, Version.parse("1.1.1"), 2);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit1);
@@ -178,7 +178,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testDeploymentStatus() {
         String id = "test";
-        Version version = Version.parseVersion("1.1.0");
+        Version version = Version.parse("1.1.0");
         Unit unit = deployAndVerifyMedium(id, version, 1);
 
         CompletableFuture<UnitStatuses> status = node(2).deployment().statusAsync(id);
@@ -205,7 +205,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testFindByConsistentId() {
         String id = "test";
         String version = "1.1.0";
-        Unit unit = deployAndVerifyMedium(id, Version.parseVersion(version), 1);
+        Unit unit = deployAndVerifyMedium(id, Version.parse(version), 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
@@ -235,12 +235,12 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testRedeploy() {
         String id = "test";
         String version = "1.1.0";
-        Unit smallUnit = deployAndVerify(id, Version.parseVersion(version), smallFile, 1);
+        Unit smallUnit = deployAndVerify(id, Version.parse(version), smallFile, 1);
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, smallUnit);
 
-        Unit mediumUnit = deployAndVerify(id, Version.parseVersion(version), true, mediumFile, 1);
+        Unit mediumUnit = deployAndVerify(id, Version.parse(version), true, mediumFile, 1);
         waitUnitReplica(cmg, mediumUnit);
 
         waitUnitClean(smallUnit.deployedNode, smallUnit);

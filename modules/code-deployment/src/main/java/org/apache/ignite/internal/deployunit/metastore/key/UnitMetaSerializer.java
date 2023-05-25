@@ -72,7 +72,7 @@ public final class UnitMetaSerializer {
 
         DeploymentStatus status = DeploymentStatus.valueOf(decode(split[2]));
 
-        return new UnitStatus(id, Version.parseVersion(version), status);
+        return new UnitStatus(id, Version.parse(version), status);
     }
 
     private static void appendWithEncoding(StringBuilder sb, String content) {
