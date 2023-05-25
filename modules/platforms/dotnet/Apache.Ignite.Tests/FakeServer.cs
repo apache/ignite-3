@@ -48,11 +48,11 @@ namespace Apache.Ignite.Tests
 
         public const string CustomColocationKeyTableName = "tbl3";
 
-        private static readonly int ExistingTableId = 101;
+        private const int ExistingTableId = 1001;
 
-        private static readonly int CompositeKeyTableId = 102;
+        private const int CompositeKeyTableId = 1002;
 
-        private static readonly int CustomColocationKeyTableId = 103;
+        private const int CustomColocationKeyTableId = 1003;
 
         private readonly Socket _listener;
 
