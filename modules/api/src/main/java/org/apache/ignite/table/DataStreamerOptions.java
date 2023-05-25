@@ -17,8 +17,11 @@
 
 package org.apache.ignite.table;
 
+// TODO: Builder pattern
 public class DataStreamerOptions {
     private int batchSize = 1000;
+
+    private int perNodeParallelOperations = 4;
 
     public int batchSize() {
         return batchSize;
@@ -28,5 +31,13 @@ public class DataStreamerOptions {
         this.batchSize = batchSize;
 
         return this;
+    }
+
+    public int perNodeParallelOperations() {
+        return perNodeParallelOperations;
+    }
+
+    public void perNodeParallelOperations(int perNodeParallelOperations) {
+        this.perNodeParallelOperations = perNodeParallelOperations;
     }
 }

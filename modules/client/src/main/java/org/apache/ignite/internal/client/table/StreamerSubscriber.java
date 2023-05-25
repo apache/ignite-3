@@ -42,6 +42,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     private final AtomicInteger pendingItemCount = new AtomicInteger();
 
+    private final AtomicInteger inFlightItemCount = new AtomicInteger();
+
     private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
 
     // TODO: This can accumulate huge number of buffers for dropped connections over time.
@@ -82,18 +84,12 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         this.subscription = subscription;
 
         // Refresh schemas and partition assignment, then request initial batch.
-        // Request 2x batch size - we can fill the next per-node buffer while sending the previous one.
-        partitionAwarenessProvider.refresh().thenAccept(unused -> requestMore(options.batchSize() * 2));
+        partitionAwarenessProvider.refresh().thenAccept(unused -> requestMore());
     }
 
     /** {@inheritDoc} */
     @Override
     public void onNext(T item) {
-        if (pendingItemCount.decrementAndGet() == 0 && pendingFuts.isEmpty()) {
-            // No batches are being flushed, so we can request more items.
-            requestMore(options.batchSize());
-        }
-
         TPartition partition = partitionAwarenessProvider.partition(item);
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
@@ -101,6 +97,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
                 p -> new StreamerBuffer<>(options.batchSize(), items -> sendBatch(p, items)));
 
         buf.add(item);
+
+        requestMore();
     }
 
     /** {@inheritDoc} */
@@ -125,10 +123,12 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     }
 
     private CompletableFuture<Void> sendBatch(TPartition partition, Collection<T> batch) {
-        assert !batch.isEmpty();
+        int batchSize = batch.size();
+        assert batchSize > 0;
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
+        inFlightItemCount.addAndGet(batchSize);
 
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
@@ -138,14 +138,11 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
                 close(err);
             }
             else {
-                int itemsSent = batch.size();
                 fut.complete(null);
                 pendingFuts.remove(fut);
 
-                // Backpressure control: request as many items as we sent.
-                // TODO: This might require more fine-grained control.
-                // We need a rule like "pending items should be equal to partition count * batch size"
-                requestMore(itemsSent);
+                inFlightItemCount.addAndGet(-batchSize);
+                requestMore();
 
                 // Refresh partition assignment asynchronously.
                 partitionAwarenessProvider.refresh();
@@ -179,12 +176,19 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         });
     }
 
-    private void requestMore(int count) {
-        if (subscription == null) {
+    private void requestMore() {
+        // This method controls backpressure. We won't get more items than we requested.
+        // The idea is to have perNodeParallelOperations batches in flight for every connection.
+        var pending = pendingItemCount.get();
+        var desiredInFlight = Math.max(1, buffers.size()) * options.batchSize() * options.perNodeParallelOperations();
+        var inFlight = inFlightItemCount.get();
+        var count = desiredInFlight - inFlight - pending;
+
+        if (count <= 0) {
             return;
         }
 
-        // This method controls backpressure. We won't get more items than we requested.
+        assert subscription != null;
         subscription.request(count);
         pendingItemCount.addAndGet(count);
     }
