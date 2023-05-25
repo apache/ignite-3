@@ -112,7 +112,7 @@ public class JobClassLoader extends URLClassLoader {
             super.close();
         } catch (IOException e) {
             throw new IgniteException(
-                    Compute.CLASS_LOADER,
+                    Compute.CLASS_LOADER_ERR,
                     "Failed to close class loader: " + e.getMessage(),
                     e
             );

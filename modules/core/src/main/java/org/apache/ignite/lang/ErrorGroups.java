@@ -410,9 +410,9 @@ public class ErrorGroups {
         public static final ErrorGroup COMPUTE_ERR_GROUP = ErrorGroup.newGroup("COMPUTE", 16);
 
         /** Classpath error. */
-        public static final int CLASS_PATH = COMPUTE_ERR_GROUP.registerErrorCode(1);
+        public static final int CLASS_PATH_ERR = COMPUTE_ERR_GROUP.registerErrorCode(1);
 
         /** Class loader error. */
-        public static final int CLASS_LOADER = COMPUTE_ERR_GROUP.registerErrorCode(2);
+        public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode(2);
     }
 }

@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UP
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**

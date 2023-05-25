@@ -32,7 +32,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.UnitVersion;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
@@ -89,7 +88,7 @@ public class JobClassLoaderFactory {
                 return unitsDir.resolve(unit.name()).resolve(maxVersion.toString());
             } catch (IOException e) {
                 throw new IgniteException(
-                        Common.UNEXPECTED_ERR,
+                        Compute.CLASS_PATH_ERR,
                         "Failed to find the latest version of the unit: " + unit.name(),
                         e
                 );
@@ -115,7 +114,7 @@ public class JobClassLoaderFactory {
             return classpathCollector.classpath();
         } catch (IOException e) {
             throw new IgniteException(
-                    Compute.CLASS_PATH,
+                    Compute.CLASS_PATH_ERR,
                     "Failed to construct classpath for job: " + unitDir,
                     e
             );
