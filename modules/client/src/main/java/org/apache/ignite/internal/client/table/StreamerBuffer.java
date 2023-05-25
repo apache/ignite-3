@@ -18,24 +18,21 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    /** Pending buffers. We guarantee the order of items within one connection (node, partition). These buffers should be sent in order. */
-    private final Queue<List<T>> pendingBufs = new LinkedList<>();
-
     private final Function<List<T>, CompletableFuture<Void>> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    private boolean flushing;
+    private CompletableFuture<Void> flushFut;
+
+    private boolean closed;
 
     StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<Void>> flusher) {
         this.capacity = capacity;
@@ -49,22 +46,26 @@ class StreamerBuffer<T> {
      * @param item Item.
      */
     synchronized void add(T item) {
-        if (flushing) {
-            throw new IllegalStateException("Streamer is closing, can't add items.");
+        if (closed) {
+            throw new IllegalStateException("Streamer is closed, can't add items.");
         }
 
         buf.add(item);
 
         if (buf.size() >= capacity) {
-            // TODO: Flush here.
-            // TODO: Chain futures to ensure the order of items. We can avoid the queue this way.
-            // If a node goes down, the batch goes to default node thanks to built-it retry mechanism.
-            pendingBufs.add(buf);
+            var fullBuf = buf;
             buf = new ArrayList<>(capacity);
+
+            if (flushFut == null || flushFut.isDone()) {
+                flushFut = flusher.apply(fullBuf);
+            } else {
+                // Chain flush futures to ensure the order of items.
+                flushFut = flushFut.thenCompose(ignored -> flusher.apply(fullBuf));
+            }
         }
     }
 
-    synchronized void flush() {
-        flushing = true;
+    synchronized void flushAndClose() {
+        closed = true;
     }
 }

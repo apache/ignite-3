@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,6 +127,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
+        // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
             if (err != null) {
                 // TODO: Retry only connection issues. Connection issue indicates channel failure.
@@ -158,7 +158,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         }
 
         for (StreamerBuffer<T> buf : buffers.values()) {
-            buf.flush();
+            buf.flushAndClose();
         }
 
         // TODO: Thread synchronization - make sure no new futures are added.
