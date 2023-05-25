@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -367,14 +368,25 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         // only then request data from the publisher.
         // We can refresh assignment and schema after every flush.
         StreamerPartitionAwarenessProvider<Tuple, ClientChannel> provider = new StreamerPartitionAwarenessProvider<Tuple, ClientChannel>() {
+            private List<String> assignment;
+            private ClientSchema schema;
+
             @Override
             public ClientChannel partition(Tuple item) {
-                return tbl.getChannelAsync().join();
+                if (schema == null || assignment == null) {
+                    throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh was not called or awaited.");
+                }
+
+                var provider = ClientTupleSerializer.getPartitionAwarenessProvider(null, item);
+                return tbl.getChannelAsync(provider, assignment, schema).join();
             }
 
             @Override
-            public CompletableFuture<Void> refresh() {
-                return CompletableFuture.completedFuture(null);
+            public CompletableFuture<Void> refreshAsync() {
+                var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
+                var assignmentFut = tbl.getPartitionAssignment().thenAccept(assignment -> this.assignment = assignment);
+
+                return CompletableFuture.allOf(schemaFut, assignmentFut);
             }
         };
 

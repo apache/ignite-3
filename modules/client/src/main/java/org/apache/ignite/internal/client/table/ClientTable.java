@@ -138,7 +138,7 @@ public class ClientTable implements Table {
         return new ClientKeyValueBinaryView(this);
     }
 
-    private CompletableFuture<ClientSchema> getLatestSchema() {
+    CompletableFuture<ClientSchema> getLatestSchema() {
         // latestSchemaVer can be -1 (unknown) or a valid version.
         // In case of unknown version, we request latest from the server and cache it with -1 key
         // to avoid duplicate requests for latest schema.
@@ -380,7 +380,7 @@ public class ClientTable implements Table {
         }
     }
 
-    private synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
         long currentVersion = ch.partitionAssignmentVersion();
 
         if (partitionAssignmentVersion == currentVersion
@@ -445,7 +445,12 @@ public class ClientTable implements Table {
         return partitions.get(Math.abs(hash % partitions.size()));
     }
 
-    CompletableFuture<ClientChannel> getChannelAsync() {
-        return ch.getChannelAsync(null, null);
+    CompletableFuture<ClientChannel> getChannelAsync(
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable List<String> partitions,
+            ClientSchema schema) {
+        String preferredNodeId = getPreferredNodeId(provider, partitions, schema);
+
+        return ch.getChannelAsync(null, preferredNodeId);
     }
 }

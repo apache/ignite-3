@@ -38,5 +38,5 @@ interface StreamerPartitionAwarenessProvider<T, TPartition> {
      *
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> refresh();
+    CompletableFuture<Void> refreshAsync();
 }
