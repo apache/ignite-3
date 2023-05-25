@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
@@ -38,6 +40,7 @@ import org.apache.ignite.lang.IgniteException;
  * Creates a class loader for a job.
  */
 public class JobClassLoaderFactory {
+    private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
     /**
      * Directory for units.
@@ -71,6 +74,10 @@ public class JobClassLoaderFactory {
                 .flatMap(Arrays::stream)
                 .toArray(URL[]::new);
 
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Classpath for job: " + Arrays.toString(classPath));
+        }
+
         return new JobClassLoader(classPath, getClass().getClassLoader());
     }
 
@@ -80,7 +87,6 @@ public class JobClassLoaderFactory {
                 Version maxVersion = stream
                         .map(Path::getFileName)
                         .map(Path::toString)
-                        .peek(System.out::println)
                         .map(Version::parse)
                         .max(Version::compareTo)
                         .orElseThrow();
