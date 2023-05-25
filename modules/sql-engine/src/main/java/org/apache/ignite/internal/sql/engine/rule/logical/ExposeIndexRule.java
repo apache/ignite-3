@@ -31,6 +31,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.immutables.value.Value;
 
@@ -66,6 +67,10 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
                 .map(idxName -> igniteTable.toRel(cluster, optTable, idxName, proj, condition, requiredCols))
                 .collect(Collectors.toList());
+
+        if (condition == null) {
+            indexes = indexes.stream().filter(i -> i.indexType() != Type.HASH).collect(Collectors.toList());
+        }
 
         if (indexes.isEmpty()) {
             return;
