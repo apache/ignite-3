@@ -53,19 +53,22 @@ class StreamerBuffer<T> {
         buf.add(item);
 
         if (buf.size() >= capacity) {
-            var fullBuf = buf;
+            flush(buf);
             buf = new ArrayList<>(capacity);
-
-            if (flushFut == null || flushFut.isDone()) {
-                flushFut = flusher.apply(fullBuf);
-            } else {
-                // Chain flush futures to ensure the order of items.
-                flushFut = flushFut.thenCompose(ignored -> flusher.apply(fullBuf));
-            }
         }
     }
 
     synchronized void flushAndClose() {
         closed = true;
+        flush(buf);
+    }
+
+    private void flush(List<T> b) {
+        if (flushFut == null || flushFut.isDone()) {
+            flushFut = flusher.apply(b);
+        } else {
+            // Chain flush futures to ensure the order of items.
+            flushFut = flushFut.thenCompose(ignored -> flusher.apply(b));
+        }
     }
 }
