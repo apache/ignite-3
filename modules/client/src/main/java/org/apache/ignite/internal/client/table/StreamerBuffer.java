@@ -18,59 +18,36 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Queue;
 
 class StreamerBuffer<T> {
     private final int capacity;
-    private final AtomicInteger count = new AtomicInteger();
+
+    /** Pending buffers. We guarantee the order of items within one connection (node, partition). These buffers should be sent in order. */
+    private final Queue<List<T>> pendingBufs = new LinkedList<>();
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    /** Secondary buffer. Used while primary buffer is being flushed. */
-    private List<T> buf2;
-
     StreamerBuffer(int capacity) {
         this.capacity = capacity;
         buf = new ArrayList<>(capacity);
-        buf2 = new ArrayList<>(capacity);
     }
 
     /**
      * Adds item to the buffer.
      *
      * @param item Item.
-     * @return True if current item is the last one in the buffer; the buffer is full and should be flushed.
      */
-    boolean add(T item) {
-        // TODO: RW lock?
-        int cnt = count.incrementAndGet();
-        if (cnt <= capacity) {
-            buf.add(item);
-            return cnt == capacity;
-        } else {
-            buf2.add(item);
-            return false;
+    synchronized void add(T item) {
+        buf.add(item);
+
+        if (buf.size() >= capacity) {
+            // TODO: Chain futures to ensure the order of items? We can avoid the queue this way.
+            pendingBufs.add(buf);
+            buf = new ArrayList<>(capacity);
         }
-    }
-
-    void onSent() {
-        // TODO: RW lock?
-
-        // Clear flushed buffer.
-        buf.clear();
-
-        // Swap buffers.
-        List<T> tmp = buf;
-        buf = buf2;
-        buf2 = tmp;
-
-        count.set(buf.size());
-    }
-
-    Collection<T> items() {
-        return buf;
     }
 }
