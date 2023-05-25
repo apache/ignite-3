@@ -65,9 +65,13 @@ public class Accumulators {
             return accumulatorFunctionFactory(call);
         }
 
-        Supplier<Accumulator> fac = accumulatorFunctionFactory(call);
+        if (call.getArgList().isEmpty()) {
+            return StrictDistinctAccumulator::new;
+        } else {
+            Supplier<Accumulator> fac = accumulatorFunctionFactory(call);
 
-        return () -> new DistinctAccumulator(fac);
+            return () -> new DistinctAccumulator(fac);
+        }
     }
 
     private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
@@ -867,6 +871,36 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
+        }
+    }
+
+    /** count(distinct) accumulator. */
+    private static class StrictDistinctAccumulator implements Accumulator {
+        long counter = 0;
+
+        /** {@inheritDoc} */
+        @Override public void add(Object... args) {
+            ++counter;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void apply(Accumulator other) {
+            throw new UnsupportedOperationException("Nested accumulator not supported.");
+        }
+
+        /** {@inheritDoc} */
+        @Override public Object end() {
+            return counter;
+        }
+
+        /** {@inheritDoc} */
+        @Override public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), false));
+        }
+
+        /** {@inheritDoc} */
+        @Override public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createSqlType(BIGINT);
         }
     }
 
