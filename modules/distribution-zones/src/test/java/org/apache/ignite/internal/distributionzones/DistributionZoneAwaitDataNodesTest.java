@@ -74,6 +74,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class DistributionZoneAwaitDataNodesTest extends BaseDistributionZoneManagerTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneAwaitDataNodesTest.class);
 
+    private static final String ZONE_NAME_0 = "zone0";
+
+    private static final String ZONE_NAME_1 = "zone1";
+
+    private static final String ZONE_NAME_2 = "zone2";
+
+    private static final LogicalNode NODE_0 = new LogicalNode("node0", "node0", new NetworkAddress("localhost", 123));
+
+    private static final LogicalNode NODE_1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 123));
+
+    private static final LogicalNode NODE_2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 123));
+
     /**
      * This test invokes {@link DistributionZoneManager#topologyVersionedDataNodes(int, long)} with default and non-default zone id and
      * different logical topology versions. Simulates new logical topology with new nodes and with removed nodes. Check that data nodes
