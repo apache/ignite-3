@@ -143,7 +143,12 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
                 pendingFuts.remove(fut);
 
                 // Backpressure control: request as many items as we sent.
+                // TODO: This might require more fine-grained control.
+                // We need a rule like "pending items should be equal to partition count * batch size"
                 requestMore(itemsSent);
+
+                // Refresh partition assignment asynchronously.
+                partitionAwarenessProvider.refresh();
             }
         });
 
