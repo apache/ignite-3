@@ -31,7 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 public class AlterColumnParams extends AbstractTableCommandParams {
     private String columnName;
 
-    private List<ColumnChangeAction> changeActions = new ArrayList<>(1);
+    private List<AlterColumnAction> changeActions = new ArrayList<>(1);
 
     /** Returns column name. */
     public String columnName() {
@@ -39,12 +39,12 @@ public class AlterColumnParams extends AbstractTableCommandParams {
     }
 
     /** Returns composite change action for the column descriptor. */
-    public ColumnChangeAction action() {
+    public AlterColumnAction action() {
         return source -> {
             boolean changed = false;
             TableColumnDescriptor target = source;
 
-            for (ColumnChangeAction action : changeActions) {
+            for (AlterColumnAction action : changeActions) {
                 TableColumnDescriptor newDesc = action.apply(target);
 
                 if (newDesc != null) {
@@ -70,7 +70,7 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         }
 
         /** Sets list of column change actions. */
-        public Builder changeActions(List<ColumnChangeAction> changes) {
+        public Builder changeActions(List<AlterColumnAction> changes) {
             params.changeActions = changes.stream()
                     .sorted(Comparator.comparing(v -> v.priority().value()))
                     .collect(Collectors.toList());

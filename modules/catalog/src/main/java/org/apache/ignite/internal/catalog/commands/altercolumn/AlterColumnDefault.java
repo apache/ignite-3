@@ -28,17 +28,19 @@ import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Changes {@code default} expression of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) DEFAULT} action.
+ * Replaces default value of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) DEFAULT} action.
  */
-public class ChangeColumnDefault implements ColumnChangeAction {
+public class AlterColumnDefault implements AlterColumnAction {
     private final Function<ColumnType, DefaultValue> resolveDfltFunc;
 
-    public ChangeColumnDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
+    public AlterColumnDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
         this.resolveDfltFunc = resolveDfltFunc;
     }
 
     @Override
     public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
+        // Set default value allowed for any column.
+        // Drop default value, only allowed for a nullable column.
         DefaultValue dflt = resolveDfltFunc.apply(origin.type());
 
         if (dflt.equals(origin.defaultValue())) {

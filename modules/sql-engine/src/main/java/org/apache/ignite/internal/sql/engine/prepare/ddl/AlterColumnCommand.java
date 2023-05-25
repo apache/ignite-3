@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnDefault;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnNotNull;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ChangeColumnType;
-import org.apache.ignite.internal.catalog.commands.altercolumn.ColumnChangeAction;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnDefault;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnNotNull;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnType;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnAction;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 
@@ -33,7 +33,7 @@ import org.apache.ignite.sql.ColumnType;
  * ALTER TABLE ... ALTER COLUMN statement.
  */
 public class AlterColumnCommand extends AbstractTableDdlCommand {
-    private final List<ColumnChangeAction> actions = new ArrayList<>(1);
+    private final List<AlterColumnAction> actions = new ArrayList<>(1);
 
     private String columnName;
 
@@ -46,18 +46,18 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
     }
 
     public void addChange(RelDataType type) {
-        actions.add(new ChangeColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale()));
+        actions.add(new AlterColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale()));
     }
 
     public void addChange(boolean notNull) {
-        actions.add(new ChangeColumnNotNull(notNull));
+        actions.add(new AlterColumnNotNull(notNull));
     }
 
     public void addChange(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-        actions.add(new ChangeColumnDefault(resolveDfltFunc));
+        actions.add(new AlterColumnDefault(resolveDfltFunc));
     }
 
-    public List<ColumnChangeAction> actions() {
+    public List<AlterColumnAction> actions() {
         return actions;
     }
 }

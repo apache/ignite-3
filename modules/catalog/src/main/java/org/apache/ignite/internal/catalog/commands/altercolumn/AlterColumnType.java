@@ -30,14 +30,24 @@ import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Changes {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
+ * Replaces {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
+ *
+ * <p>The following changes are supported:
+ * <ul>
+ *     <li>Precision increase for {@code DECIMAL}.</li>
+ *     <li>Length increase for {@code VARCHAR} and {@code VARBINARY}.</li>
+ *     <li>Type change: INT8 -> INT16 -> INT32 -> INT64</li>
+ *     <li>Type change: FLOAT -> DOUBLE</li>
+ * </ul>
+ * All other modifications are rejected.
  */
-public class ChangeColumnType implements ColumnChangeAction {
+public class AlterColumnType implements AlterColumnAction {
     private static final String UNSUPPORTED_TYPE = "Cannot change data type for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_SCALE = "Cannot change scale for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_LENGTH = "Cannot decrease length for column '{}' [from={}, to={}].";
     private static final String UNSUPPORTED_PRECISION = "Cannot {} precision for column '{}' [from={}, to={}].";
 
+    private static final EnumSet<ColumnType> varLenTypes = EnumSet.of(ColumnType.STRING, ColumnType.BYTE_ARRAY);
     private static final Map<ColumnType, Set<ColumnType>> supportedTransitions = new EnumMap<>(ColumnType.class);
 
     static {
@@ -53,76 +63,72 @@ public class ChangeColumnType implements ColumnChangeAction {
 
     private final Integer scale;
 
-    /** Constructor. */
-    public ChangeColumnType(ColumnType type) {
-        this(type, null, null);
-    }
-
-    /** Constructor. */
-    public ChangeColumnType(ColumnType type, Integer precision, Integer scale) {
+    /** Default constructor. */
+    public AlterColumnType(ColumnType type, Integer precision, Integer scale) {
         this.type = type;
         this.precision = precision;
         this.scale = scale;
     }
 
     @Override
-    public Priority priority() {
-        return Priority.DATA_TYPE;
-    }
+    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
+        boolean varLenType = varLenTypes.contains(type);
 
-    @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor source) {
-        if (source.type() == type
-                && (precision == null || source.precision() == precision)
-                && (scale == null || source.scale() == scale)) {
+        if (origin.type() == type
+                && (scale == null || origin.scale() == scale)
+                && (precision == null
+                        || (varLenType && origin.length() == precision)
+                        || (type == ColumnType.DECIMAL && origin.precision() == precision)
+                )
+        ) {
             // No-op.
             return null;
         }
 
-        if (source.type() != type) {
-            Set<ColumnType> supportedTypes = supportedTransitions.get(source.type());
+        if (origin.type() != type) {
+            Set<ColumnType> supportedTypes = supportedTransitions.get(origin.type());
 
             if (supportedTypes == null || !supportedTypes.contains(type)) {
-                throwUnsupportedTypeChange(source);
+                throwException(UNSUPPORTED_TYPE, origin.name(), origin.type(), type);
             }
         }
-
-        boolean changeLength = false;
 
         if (precision != null) {
-            if (type == ColumnType.STRING) {
-                if (precision < source.length()) {
-                    throwException(UNSUPPORTED_LENGTH, source.name(), source.length(), precision);
+            if (varLenType) {
+                if (precision < origin.length()) {
+                    throwException(UNSUPPORTED_LENGTH, origin.name(), origin.length(), precision);
                 }
-
-                changeLength = true;
             } else if (type == ColumnType.DECIMAL) {
-                if (precision < source.precision()) {
-                    throwException(UNSUPPORTED_PRECISION, "decrease", source.name(), source.precision(), precision);
+                if (precision < origin.precision()) {
+                    throwException(UNSUPPORTED_PRECISION, "decrease", origin.name(), origin.precision(), precision);
                 }
             } else {
-                throwException(UNSUPPORTED_PRECISION, "change", source.name(), source.precision(), precision);
+                throwException(UNSUPPORTED_PRECISION, "change", origin.name(), origin.precision(), precision);
             }
         }
 
-        if (scale != null && source.scale() != scale) {
-            throwException(UNSUPPORTED_SCALE, source.name(), source.scale(), scale);
+        if (scale != null && origin.scale() != scale) {
+            throwException(UNSUPPORTED_SCALE, origin.name(), origin.scale(), scale);
         }
 
         return new TableColumnDescriptor(
-                source.name(),
+                origin.name(),
                 type,
-                source.nullable(),
-                source.defaultValue(),
-                precision == null || changeLength
-                        ? source.precision()
+                origin.nullable(),
+                origin.defaultValue(),
+                precision == null || varLenType
+                        ? origin.precision()
                         : precision,
-                source.scale(),
-                changeLength ? precision : source.length());
+                origin.scale(),
+                varLenType && precision != null
+                        ? precision
+                        : origin.length()
+        );
     }
 
-    private void throwUnsupportedTypeChange(TableColumnDescriptor source) {
-        throwException(UNSUPPORTED_TYPE, source.name(), source.type(), type);
+    @Override
+    public Priority priority() {
+        return Priority.DATA_TYPE;
     }
 
     private static void throwException(String msg, Object... params) {

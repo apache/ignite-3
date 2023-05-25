@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Common interface for {@code ALTER COLUMN} column descriptor change actions.
  */
 @FunctionalInterface
-public interface ColumnChangeAction {
+public interface AlterColumnAction {
     /**
      * Column descriptor change order.
      *
@@ -53,12 +53,12 @@ public interface ColumnChangeAction {
     /**
      * Changes column descriptor.
      *
-     * @param desc Column descriptor.
+     * @param origin Column descriptor.
      * @return Modified column descriptor, or {@code null} if no changes were made.
      */
-    @Nullable TableColumnDescriptor apply(TableColumnDescriptor desc);
+    @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin);
 
-    /** Gets the order priority for the change action. */
+    /** Gets the execution priority for the change action. */
     default Priority priority() {
         return Priority.UNDEFINED;
     }

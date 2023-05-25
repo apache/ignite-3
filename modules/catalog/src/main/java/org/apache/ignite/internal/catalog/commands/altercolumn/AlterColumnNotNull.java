@@ -27,24 +27,27 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Changes {@code nullable} flag of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) NOT NULL} action.
  */
-public class ChangeColumnNotNull implements ColumnChangeAction {
+public class AlterColumnNotNull implements AlterColumnAction {
     private final boolean notNull;
 
-    public ChangeColumnNotNull(boolean notNull) {
+    public AlterColumnNotNull(boolean notNull) {
         this.notNull = notNull;
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor source) {
-        if (notNull == !source.nullable()) {
+    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
+        if (notNull == !origin.nullable()) {
             return null;
-        } else if (!notNull) {
-            return new TableColumnDescriptor(
-                    source.name(), source.type(), true, source.defaultValue(), source.precision(), source.scale(), source.length());
         }
 
-        throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
-                IgniteStringFormatter.format("Cannot set NOT NULL for column '{}'.", source.name()));
+        // Set NOT NULL constraint is not supported.
+        if (notNull) {
+            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
+                    IgniteStringFormatter.format("Cannot set NOT NULL for column '{}'.", origin.name()));
+        }
+
+        return new TableColumnDescriptor(
+                origin.name(), origin.type(), true, origin.defaultValue(), origin.precision(), origin.scale(), origin.length());
     }
 
     @Override

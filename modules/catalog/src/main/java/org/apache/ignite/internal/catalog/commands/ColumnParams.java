@@ -39,10 +39,13 @@ public class ColumnParams {
     /** Column default value. */
     private DefaultValue defaultValueDefinition;
 
+    /** Column length. */
     private Integer length;
 
+    /** Column precision. */
     private Integer precision;
 
+    /** Column scale. */
     private Integer scale;
 
     private ColumnParams() {}
@@ -101,6 +104,9 @@ public class ColumnParams {
         return scale;
     }
 
+    /**
+     * Get column's length.
+     */
     public Integer length() {
         return length;
     }

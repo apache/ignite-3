@@ -40,7 +40,7 @@ public class TableColumnDescriptor implements Serializable {
     private final DefaultValue defaultValue;
 
     /**
-     * Constructs a column descriptor ignoring {@link #precision}, {@link #scale} and {@link #length}.
+     * Constructs a column descriptor using only mandatory parameters.
      */
     public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
         this(Objects.requireNonNull(name, "name"), Objects.requireNonNull(type), nullable, defaultValue, null, null, null);
