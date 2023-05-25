@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 class StreamerBuffer<T> {
     private final int capacity;
@@ -28,11 +30,16 @@ class StreamerBuffer<T> {
     /** Pending buffers. We guarantee the order of items within one connection (node, partition). These buffers should be sent in order. */
     private final Queue<List<T>> pendingBufs = new LinkedList<>();
 
+    private final Function<List<T>, CompletableFuture<Void>> flusher;
+
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    StreamerBuffer(int capacity) {
+    private boolean flushing;
+
+    StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<Void>> flusher) {
         this.capacity = capacity;
+        this.flusher = flusher;
         buf = new ArrayList<>(capacity);
     }
 
@@ -42,13 +49,22 @@ class StreamerBuffer<T> {
      * @param item Item.
      */
     synchronized void add(T item) {
+        if (flushing) {
+            throw new IllegalStateException("Streamer is closing, can't add items.");
+        }
+
         buf.add(item);
 
         if (buf.size() >= capacity) {
-            // TODO: Chain futures to ensure the order of items? We can avoid the queue this way.
-            // But what do we do if a node goes down? Rebalancing items across other buffers may break the ordering guarantee.
+            // TODO: Flush here.
+            // TODO: Chain futures to ensure the order of items. We can avoid the queue this way.
+            // If a node goes down, the batch goes to default node thanks to built-it retry mechanism.
             pendingBufs.add(buf);
             buf = new ArrayList<>(capacity);
         }
+    }
+
+    synchronized void flush() {
+        flushing = true;
     }
 }

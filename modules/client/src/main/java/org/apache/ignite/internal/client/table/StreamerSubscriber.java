@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -92,15 +93,12 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         }
 
         TPartition partition = partitionAwarenessProvider.partition(item);
-        StreamerBuffer<T> buf = buffers.computeIfAbsent(partition, p -> new StreamerBuffer<>(options.batchSize()));
 
-        boolean shouldFlush = buf.add(item);
+        StreamerBuffer<T> buf = buffers.computeIfAbsent(
+                partition,
+                p -> new StreamerBuffer<>(options.batchSize(), items -> sendBatch(p, items)));
 
-        if (shouldFlush) {
-            sendBatch(partition, buf);
-            buf = buffers.computeIfAbsent(partition, p -> new StreamerBuffer<>(options.batchSize()));
-            buf.add(item);
-        }
+        buf.add(item);
     }
 
     /** {@inheritDoc} */
@@ -124,33 +122,31 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         return completionFut;
     }
 
-    private void sendBatch(TPartition partition, StreamerBuffer<T> batch) {
-        if (batch.items().isEmpty()) {
-            return;
-        }
+    private CompletableFuture<Void> sendBatch(TPartition partition, Collection<T> batch) {
+        assert !batch.isEmpty();
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);
 
-        batchSender.sendAsync(partition, batch.items()).whenComplete((res, err) -> {
+        batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
             if (err != null) {
                 // TODO: Retry only connection issues. Connection issue indicates channel failure.
-                // We have to re-add items from the current buffer.
                 // - When do we give up?
                 // - How does it combine with RetryPolicy?
                 // TODO: Log error.
                 sendBatch(partition, batch);
             }
             else {
-                int itemsSent = batch.items().size();
+                int itemsSent = batch.size();
                 fut.complete(null);
                 pendingFuts.remove(fut);
-                batch.onSent();
 
                 // Backpressure control: request as many items as we sent.
                 requestMore(itemsSent);
             }
         });
+
+        return fut;
     }
 
     private void close(@Nullable Throwable throwable) {
@@ -161,8 +157,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             s.cancel();
         }
 
-        for (Entry<TPartition, StreamerBuffer<T>> buf : buffers.entrySet()) {
-            sendBatch(buf.getKey(), buf.getValue());
+        for (StreamerBuffer<T> buf : buffers.values()) {
+            buf.flush();
         }
 
         // TODO: Thread synchronization - make sure no new futures are added.
