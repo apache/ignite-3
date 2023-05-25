@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnAction;
 import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnDefault;
 import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnNotNull;
 import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnType;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnAction;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 
