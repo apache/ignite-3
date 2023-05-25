@@ -69,7 +69,6 @@ public class JobClassLoaderFactory {
 
         URL[] classPath = units.stream()
                 .map(this::constructPath)
-                .distinct()
                 .map(JobClassLoaderFactory::collectClasspath)
                 .flatMap(Arrays::stream)
                 .toArray(URL[]::new);
