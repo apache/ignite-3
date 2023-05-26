@@ -24,9 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -82,8 +85,17 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBackPressure() {
-        assert false;
+    public void testBackPressure() throws Exception {
+        var server2 = new FakeIgnite("server-2");
+
+        Function<Integer, Integer> responseDelay = idx -> idx > 2 ? 5000 : 0;
+        var testServer2 = new TestServer(10900, 10, 10_000, server2, null, responseDelay, null, UUID.randomUUID(), null);
+
+        var port = testServer2.port();
+
+        try (var client2 = IgniteClient.builder().addresses("localhost:" + port).build()) {
+            assert false;
+        }
     }
 
     @Test
