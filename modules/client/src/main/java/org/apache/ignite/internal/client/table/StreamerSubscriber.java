@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
 import java.util.Set;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
@@ -191,5 +192,17 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         assert subscription != null;
         subscription.request(count);
         pendingItemCount.addAndGet(count);
+    }
+
+    /**
+     * Periodically flushes buffers.
+     */
+    private class PeriodicFlushTask extends TimerTask {
+        @Override
+        public void run() {
+            for (StreamerBuffer<T> buf : buffers.values()) {
+                buf.flush(options.autoFlushFrequencyMs());
+            }
+        }
     }
 }

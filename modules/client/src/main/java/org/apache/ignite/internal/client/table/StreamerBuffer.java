@@ -34,6 +34,8 @@ class StreamerBuffer<T> {
 
     private boolean closed;
 
+    private long lastFlushTime;
+
     StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<Void>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
@@ -58,6 +60,13 @@ class StreamerBuffer<T> {
         }
     }
 
+    void flush(long period) {
+        if (System.currentTimeMillis() - lastFlushTime > period) {
+            flush(buf);
+            buf = new ArrayList<>(capacity);
+        }
+    }
+
     synchronized void flushAndClose() {
         closed = true;
         flush(buf);
@@ -70,5 +79,7 @@ class StreamerBuffer<T> {
             // Chain flush futures to ensure the order of items.
             flushFut = flushFut.thenCompose(ignored -> flusher.apply(b));
         }
+
+        lastFlushTime = System.currentTimeMillis();
     }
 }
