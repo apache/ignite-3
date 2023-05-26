@@ -117,7 +117,7 @@ public class DeploymentUnitStoreImplTest {
         assertThat(metastore.getNodeStatus(node1, id, version),
                 willBe(new UnitNodeStatus(id, version, UPLOADING, node1)));
 
-        assertThat(metastore.updateNodeStatus(id, version, node1, DEPLOYED), willBe(true));
+        assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
         assertThat(metastore.getNodeStatus(node1, id, version),
                 willBe(new UnitNodeStatus(id, version, DEPLOYED, node1)));
 
@@ -147,9 +147,9 @@ public class DeploymentUnitStoreImplTest {
         String node1 = LOCAL_NODE;
 
         assertThat(metastore.createNodeStatus(node1, id, version), willBe(true));
-        assertThat(metastore.updateNodeStatus(id, version, node1, DEPLOYED), willBe(true));
-        assertThat(metastore.updateNodeStatus(id, version, node1, OBSOLETE), willBe(true));
-        assertThat(metastore.updateNodeStatus(id, version, node1, REMOVING), willBe(true));
+        assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
+        assertThat(metastore.updateNodeStatus(node1, id, version, OBSOLETE), willBe(true));
+        assertThat(metastore.updateNodeStatus(node1, id, version, REMOVING), willBe(true));
 
         Awaitility.await().untilAsserted(() ->
                 assertThat(history, containsInAnyOrder(

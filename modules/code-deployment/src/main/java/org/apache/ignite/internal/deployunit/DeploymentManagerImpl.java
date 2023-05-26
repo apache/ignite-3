@@ -130,9 +130,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     .thenApply(deployed -> {
                         if (deployed) {
                             return metastore.updateNodeStatus(
+                                    clusterService.topologyService().localMember().name(),
                                     status.id(),
                                     status.version(),
-                                    clusterService.topologyService().localMember().name(),
                                     DEPLOYED);
                         }
                         return deployed;
@@ -199,7 +199,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 .thenCompose(deployed -> {
                     if (deployed) {
                         String nodeId = clusterService.topologyService().localMember().name();
-                        return metastore.createNodeStatus(id, version, nodeId, DEPLOYED);
+                        return metastore.createNodeStatus(nodeId, id, version, DEPLOYED);
                     }
                     return completedFuture(false);
                 });

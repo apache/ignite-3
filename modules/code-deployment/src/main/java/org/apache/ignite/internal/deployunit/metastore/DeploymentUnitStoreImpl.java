@@ -37,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.ClusterStatusAccumulator;
@@ -188,7 +187,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> createNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
+    public CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, DeploymentStatus status) {
         ByteArray key = NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey();
         byte[] value = UnitNodeStatus.serialize(new UnitNodeStatus(id, version, status, nodeId));
         return metaStorage.invoke(notExists(key), put(key, value), noop());
@@ -199,7 +198,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
         return updateStatus(ClusterStatusKey.builder().withId(id).withVersion(version).build().toKey(), bytes -> {
             UnitClusterStatus prev = UnitClusterStatus.deserialize(bytes);
 
-            if (prev == null || status.compareTo(prev.status()) <= 0) {
+            if (status.compareTo(prev.status()) <= 0) {
                 return null;
             }
 
@@ -209,11 +208,11 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> updateNodeStatus(String id, Version version, String nodeId, DeploymentStatus status) {
+    public CompletableFuture<Boolean> updateNodeStatus(String nodeId, String id, Version version, DeploymentStatus status) {
         return updateStatus(NodeStatusKey.builder().withId(id).withVersion(version).withNodeId(nodeId).build().toKey(), bytes -> {
             UnitNodeStatus prev = UnitNodeStatus.deserialize(bytes);
 
-            if (prev == null || status.compareTo(prev.status()) <= 0) {
+            if (status.compareTo(prev.status()) <= 0) {
                 return null;
             }
 
@@ -240,13 +239,6 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
         return nodesFuture.thenCompose(nodes ->
                 metaStorage.invoke(existsAll(key, nodes), removeAll(key, nodes), Collections.emptyList())
         );
-    }
-
-    private CompletableFuture<List<UnitClusterStatus>> getStatuses(Predicate<UnitClusterStatus> filter) {
-        CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
-        metaStorage.prefix(ClusterStatusKey.builder().build().toKey())
-                .subscribe(new ClusterStatusAccumulator(filter).toSubscriber(result));
-        return result;
     }
 
     private static Condition existsAll(ByteArray key, List<byte[]> nodeKeys) {
