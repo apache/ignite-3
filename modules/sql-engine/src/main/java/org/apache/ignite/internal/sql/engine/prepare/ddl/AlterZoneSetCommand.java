@@ -27,6 +27,7 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
     /** Quietly ignore this command if zone does not exists. */
     private boolean ifExists;
 
+    /** Number of partitions. */
     private Integer partitions;
 
     /** Replicas number. */
