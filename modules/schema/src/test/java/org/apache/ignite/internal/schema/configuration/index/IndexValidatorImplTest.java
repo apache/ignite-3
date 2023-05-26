@@ -19,11 +19,11 @@ package org.apache.ignite.internal.schema.configuration.index;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
@@ -46,8 +46,8 @@ public class IndexValidatorImplTest {
     private TablesConfiguration tablesConfig;
 
     @BeforeEach
-    void setupTableConfig() throws Exception {
-        tablesConfig.tables().get("fooTable").id().update(TABLE_ID).get(1, TimeUnit.SECONDS);
+    void setupTableConfig() {
+        assertThat(tablesConfig.tables().get("fooTable").id().update(TABLE_ID), willSucceedFast());
     }
 
     @Test
