@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.Collection;
 import java.util.Set;
+import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,6 +54,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     private @Nullable Flow.Subscription subscription;
 
+    private @Nullable Timer flushTimer;
+
     /**
      * Constructor.
      *
@@ -85,7 +88,13 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         this.subscription = subscription;
 
         // Refresh schemas and partition assignment, then request initial batch.
-        partitionAwarenessProvider.refreshAsync().thenAccept(unused -> requestMore());
+        partitionAwarenessProvider.refreshAsync().thenAccept(unused -> {
+            requestMore();
+
+            if (options.autoFlushFrequency() > 0) {
+                flushTimer = initFlushTimer();
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -154,6 +163,10 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     }
 
     private void close(@Nullable Throwable throwable) {
+        if (flushTimer != null) {
+            flushTimer.cancel();
+        }
+
         var s = subscription;
 
         if (s != null) {
@@ -194,6 +207,15 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         pendingItemCount.addAndGet(count);
     }
 
+    private Timer initFlushTimer() {
+        Timer timer = new Timer("client-data-streamer-flush-" + hashCode());
+
+        int interval = options.autoFlushFrequency();
+        timer.schedule(new PeriodicFlushTask(), interval, interval);
+
+        return timer;
+    }
+
     /**
      * Periodically flushes buffers.
      */
@@ -201,7 +223,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         @Override
         public void run() {
             for (StreamerBuffer<T> buf : buffers.values()) {
-                buf.flush(options.autoFlushFrequencyMs());
+                buf.flush(options.autoFlushFrequency());
             }
         }
     }

@@ -63,7 +63,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
-        view.streamData(publisher, new DataStreamerOptions().autoFlushFrequencyMs(100));
+        view.streamData(publisher, new DataStreamerOptions().autoFlushFrequency(100));
 
         publisher.submit(tuple(1L, "foo"));
         assertTrue(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));

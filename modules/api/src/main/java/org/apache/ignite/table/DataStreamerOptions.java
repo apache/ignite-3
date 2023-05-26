@@ -23,7 +23,7 @@ public class DataStreamerOptions {
 
     private int perNodeParallelOperations = 4;
 
-    private int autoFlushFrequencyMs = 5000;
+    private int autoFlushFrequency = 5000;
 
     public int batchSize() {
         return batchSize;
@@ -45,12 +45,12 @@ public class DataStreamerOptions {
         return this;
     }
 
-    public int autoFlushFrequencyMs() {
-        return autoFlushFrequencyMs;
+    public int autoFlushFrequency() {
+        return autoFlushFrequency;
     }
 
-    public DataStreamerOptions autoFlushFrequencyMs(int autoFlushFrequencyMs) {
-        this.autoFlushFrequencyMs = autoFlushFrequencyMs;
+    public DataStreamerOptions autoFlushFrequency(int autoFlushFrequencyMs) {
+        this.autoFlushFrequency = autoFlushFrequencyMs;
 
         return this;
     }
