@@ -25,6 +25,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
@@ -49,10 +50,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class InsertBenchmark extends AbstractOneNodeBenchmark {
     /**
-     * Benchmark for SQL insert.
+     * Benchmark for SQL insert via embedded client.
      */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
@@ -62,7 +63,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
     }
 
     /**
-     * Benchmark for KV insert.
+     * Benchmark for KV insert via embedded client.
      */
     @Benchmark
     @Warmup(iterations = 1, time = 10)
@@ -82,21 +83,43 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
     }
 
     /**
+     * Benchmark for SQL insert via thin client.
+     */
+    @Benchmark
+    @Warmup(iterations = 1, time = 10)
+    @Measurement(iterations = 1, time = 20)
+    public void sqlThinInsert(SqlThinState state) {
+        state.executeQuery();
+    }
+
+    /**
+     * Benchmark for KV insert via thin client.
+     */
+    @Benchmark
+    @Warmup(iterations = 1, time = 10)
+    @Measurement(iterations = 1, time = 20)
+    public void kvThinInsert(KvThinState state) {
+        state.executeQuery();
+    }
+
+    /**
      * Benchmark's entry point.
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + InsertBenchmark.class.getSimpleName() + ".*")
-                .forks(0)
+                .forks(1)
                 .threads(1)
-                .mode(Mode.SampleTime)
+                .mode(Mode.AverageTime)
                 .build();
 
         new Runner(opt).run();
     }
 
     /**
-     * Benchmark state for {@link #sqlInsert(SqlState)}. Holds {@link Session} and {@link Statement}.
+     * Benchmark state for {@link #sqlInsert(SqlState)}.
+     *
+     * <p>Holds {@link Session} and {@link Statement}.
      */
     @State(Scope.Benchmark)
     public static class SqlState {
@@ -136,7 +159,54 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #jdbcInsert(JdbcState)}. Holds {@link Connection} and {@link PreparedStatement}.
+     * Benchmark state for {@link #sqlThinInsert(SqlThinState)}.
+     *
+     * <p>Holds {@link Session}, {@link IgniteClient}, and {@link Statement}.
+     */
+    @State(Scope.Benchmark)
+    public static class SqlThinState {
+        private IgniteClient client;
+        private Statement statement;
+        private Session session;
+
+        /**
+         * Initializes session and statement.
+         */
+        @Setup
+        public void setUp() {
+            String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+            String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
+
+            String queryStr = String.format("insert into %s(%s, %s) values(?, %s);", TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+
+            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+
+            IgniteSql sql = client.sql();
+
+            statement = sql.createStatement(queryStr);
+            session = sql.createSession();
+        }
+
+        /**
+         * Closes resources.
+         */
+        @TearDown
+        public void tearDown() throws Exception {
+            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
+            IgniteUtils.closeAll(session/*, statement*/, client);
+        }
+
+        private int id = 0;
+
+        void executeQuery() {
+            session.execute(null, statement, id++);
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #jdbcInsert(JdbcState)}.
+     *
+     * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
     @State(Scope.Benchmark)
     public static class JdbcState {
@@ -177,7 +247,9 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
     }
 
     /**
-     * Benchmark state for {@link #kvInsert(KvState)}. Holds {@link Tuple} and {@link KeyValueView} for the table.
+     * Benchmark state for {@link #kvInsert(KvState)}.
+     *
+     * <p>Holds {@link Tuple} and {@link KeyValueView} for the table.
      */
     @State(Scope.Benchmark)
     public static class KvState {
@@ -195,6 +267,43 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
             for (int i = 1; i < 11; i++) {
                 tuple.set("field" + i, FIELD_VAL);
             }
+        }
+
+        void executeQuery() {
+            kvView.put(null, Tuple.create().set("ycsb_key", id++), tuple);
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #kvThinInsert(KvThinState)}.
+     *
+     * <p>Holds {@link Tuple}, {@link IgniteClient}, and {@link KeyValueView} for the table.
+     */
+    @State(Scope.Benchmark)
+    public static class KvThinState {
+        private final Tuple tuple = Tuple.create();
+
+        private IgniteClient client;
+        private KeyValueView<Tuple, Tuple> kvView;
+
+        private int id = 0;
+
+        /**
+         * Initializes the tuple.
+         */
+        @Setup
+        public void setUp() {
+            for (int i = 1; i < 11; i++) {
+                tuple.set("field" + i, FIELD_VAL);
+            }
+
+            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            kvView = client.tables().table(TABLE_NAME).keyValueView();
+        }
+
+        @TearDown
+        public void tearDown() throws Exception {
+            IgniteUtils.closeAll(client);
         }
 
         void executeQuery() {
