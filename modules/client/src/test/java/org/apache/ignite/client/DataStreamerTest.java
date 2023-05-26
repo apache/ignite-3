@@ -109,8 +109,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 }
             });
 
-            submitFuture.get(1, TimeUnit.SECONDS);
-            // assertThrows(Exception.class, () -> );
+            assertThrows(Exception.class, () -> submitFuture.get(1, TimeUnit.SECONDS));
         }
     }
 
