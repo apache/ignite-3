@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.RE
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -43,6 +43,8 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,9 +60,7 @@ public class DeploymentUnitStoreImplTest {
 
     private final List<UnitNodeStatus> history = new ArrayList<>();
 
-    private final NodeEventListener listener = (status, holders) -> {
-        history.add(status);
-    };
+    private final NodeEventListener listener = (status, holders) -> history.add(status);
 
     private DeploymentUnitStoreImpl metastore;
 
@@ -68,16 +68,17 @@ public class DeploymentUnitStoreImplTest {
     private Path workDir;
 
     @BeforeEach
-    public void setup() {
+    public void setup() throws NodeStoppingException {
         history.clear();
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
+        metastore = new DeploymentUnitStoreImpl(metaStorageManager, () -> LOCAL_NODE, listener);
 
         vaultManager.start();
         metaStorageManager.start();
 
-        metastore = new DeploymentUnitStoreImpl(metaStorageManager, () -> LOCAL_NODE, listener);
+        metaStorageManager.deployWatches();
     }
 
     @Test
@@ -140,24 +141,22 @@ public class DeploymentUnitStoreImplTest {
     }
 
     @Test
-    public void testNodeEventListener() {
+    public void testNodeEventListener() throws InterruptedException {
         String id = "id5";
         Version version = Version.parseVersion("1.1.1");
-        String node1 = "node1";
+        String node1 = LOCAL_NODE;
 
         assertThat(metastore.createNodeStatus(node1, id, version), willBe(true));
         assertThat(metastore.updateNodeStatus(id, version, node1, DEPLOYED), willBe(true));
         assertThat(metastore.updateNodeStatus(id, version, node1, OBSOLETE), willBe(true));
         assertThat(metastore.updateNodeStatus(id, version, node1, REMOVING), willBe(true));
 
-
-        assertThat(history, equalTo(
-                List.of(
+        Awaitility.await().untilAsserted(() ->
+                assertThat(history, containsInAnyOrder(
                         new UnitNodeStatus(id, version, UPLOADING, node1),
                         new UnitNodeStatus(id, version, DEPLOYED, node1),
                         new UnitNodeStatus(id, version, OBSOLETE, node1),
                         new UnitNodeStatus(id, version, REMOVING, node1)
-                )
-        ));
+                )));
     }
 }
