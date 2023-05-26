@@ -114,7 +114,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     private final PartitionExtractor partitionExtractor;
 
     /** Triggers statistic update. */
-    private static AtomicBoolean updateStat = new AtomicBoolean();
+    private static AtomicBoolean updateStat = new AtomicBoolean(true);
 
     /**
      * Constructor.

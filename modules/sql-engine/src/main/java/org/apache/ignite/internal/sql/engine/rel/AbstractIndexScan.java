@@ -117,11 +117,6 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         return idxName;
     }
 
-    /** Index type. */
-    public Type indexType() {
-        return type;
-    }
-
     /** {@inheritDoc} */
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
