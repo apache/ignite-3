@@ -117,10 +117,10 @@ public class DirectMessageWriter implements MessageWriter {
     }
 
     @Override
-    public boolean writeInteger(String name, Integer val) {
+    public boolean writeBoxedInt(String name, Integer val) {
         DirectByteBufferStream stream = state.item().stream;
 
-        stream.writeInteger(val);
+        stream.writeBoxedInt(val);
 
         return stream.lastFinished();
     }

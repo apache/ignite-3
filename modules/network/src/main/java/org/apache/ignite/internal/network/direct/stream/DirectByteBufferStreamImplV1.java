@@ -253,7 +253,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     @Override
-    public void writeInteger(Integer val) {
+    public void writeBoxedInt(Integer val) {
         if (val != null) {
             lastFinished = buf.remaining() >= 1 + 5;
 
@@ -925,7 +925,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     @Override
-    public Integer readInteger() {
+    public Integer readBoxedInt() {
         int pos = buf.position();
 
         int limit = buf.limit();

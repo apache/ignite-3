@@ -118,7 +118,7 @@ class BaseMethodNameResolver {
         if (typeUtils.isSameType(parameterType, String.class)) {
             return "String";
         } else if (typeUtils.isSameType(parameterType, Integer.class)) {
-            return "Integer";
+            return "BoxedInt";
         } else if (typeUtils.isSameType(parameterType, UUID.class)) {
             return "Uuid";
         } else if (typeUtils.isSameType(parameterType, IgniteUuid.class)) {

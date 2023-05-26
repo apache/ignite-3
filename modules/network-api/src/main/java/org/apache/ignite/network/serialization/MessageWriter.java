@@ -91,7 +91,7 @@ public interface MessageWriter {
      * @param val  {@code Integer} value.
      * @return Whether a value was fully written.
      */
-    public boolean writeInteger(String name, @Nullable Integer val);
+    public boolean writeBoxedInt(String name, @Nullable Integer val);
 
     /**
      * Writes a {@code long} value.

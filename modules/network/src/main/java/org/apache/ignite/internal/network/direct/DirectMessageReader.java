@@ -125,10 +125,10 @@ public class DirectMessageReader implements MessageReader {
     }
 
     @Override
-    public Integer readInteger(String name) {
+    public Integer readBoxedInt(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
-        Integer val = stream.readInteger();
+        Integer val = stream.readBoxedInt();
 
         lastRead = stream.lastFinished();
 

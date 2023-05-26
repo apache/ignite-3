@@ -81,7 +81,7 @@ public interface DirectByteBufferStream {
      *
      * @param val Value.
      */
-    void writeInteger(@Nullable Integer val);
+    void writeBoxedInt(@Nullable Integer val);
 
     /**
      * Writes {@code long}.
@@ -303,7 +303,7 @@ public interface DirectByteBufferStream {
      *
      * @return Value.
      */
-    @Nullable Integer readInteger();
+    @Nullable Integer readBoxedInt();
 
     /**
      * Reads {@code long}.
