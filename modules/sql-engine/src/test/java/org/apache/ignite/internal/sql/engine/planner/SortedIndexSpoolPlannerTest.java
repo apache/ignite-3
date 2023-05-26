@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Random;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -37,8 +36,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -66,7 +63,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
                         .build(),
-                affinity()
+                someAffinity()
         ).addIndex("t0_jid_idx", 1, 0);
 
         createTable(publicSchema,
@@ -76,7 +73,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .add("JID", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
                         .build(),
-                affinity()
+                someAffinity()
         ).addIndex("t1_jid_idx", 1, 0);
 
         String sql = "select * "
@@ -101,10 +98,6 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNull(searchBounds.get(1));
     }
 
-    private static IgniteDistribution affinity() {
-        return IgniteDistributions.affinity(0, new Random().nextInt(), DEFAULT_ZONE_ID);
-    }
-
     /**
      * Check case when exists index (collation) isn't applied not for whole join condition but may be used by part of condition.
      */
@@ -121,7 +114,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .add("JID1", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
                         .build(),
-                affinity()
+                someAffinity()
         );
 
         createTable(publicSchema,
@@ -132,7 +125,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         .add("JID1", f.createJavaType(Integer.class))
                         .add("VAL", f.createJavaType(String.class))
                         .build(),
-                affinity()
+                someAffinity()
         ).addIndex("t1_jid0_idx", 2, 1);
 
         String sql = "select * "
@@ -166,10 +159,10 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
     @Test
     public void testDescFields() throws Exception {
         IgniteSchema publicSchema = createSchema(
-                createTable("T0", 10, affinity(),
+                createTable("T0", 10, someAffinity(),
                         "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
                         .addIndex("t0_jid_idx", 1),
-                createTable("T1", 100, affinity(),
+                createTable("T1", 100, someAffinity(),
                         "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
                         .addIndex(RelCollations.of(TraitUtils.createFieldCollation(1, ColumnCollation.DESC_NULLS_LAST)), "t1_jid_idx")
         );

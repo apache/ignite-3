@@ -924,7 +924,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         return val;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Integer readInteger() {
         int pos = buf.position();

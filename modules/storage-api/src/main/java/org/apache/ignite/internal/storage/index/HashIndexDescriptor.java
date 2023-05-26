@@ -153,8 +153,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
                 .collect(toUnmodifiableList());
     }
 
-    @Nullable
-    private static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
+    private @Nullable static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
         for (TableView table : tablesView) {
             if (table.id() == tableId) {
                 return table;

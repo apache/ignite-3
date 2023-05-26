@@ -43,6 +43,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -118,6 +119,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -142,6 +144,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     protected static final int DEFAULT_ZONE_ID = 0;
+
+    private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
     /** Last error message. */
     String lastErrorMsg;
@@ -178,6 +182,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         v.visit(n, -1, null);
 
         n.childrenAccept(new TestRelVisitor(v));
+    }
+
+    protected static IgniteDistribution someAffinity() {
+        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+    }
+
+    protected static int nextTableId() {
+        return NEXT_TABLE_ID.getAndIncrement();
     }
 
     /**
@@ -807,7 +819,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final TableDescriptor desc;
 
-        private final int id = 1;
+        private final int id = nextTableId();
 
         /** Constructor. */
         public TestTable(RelDataType type) {

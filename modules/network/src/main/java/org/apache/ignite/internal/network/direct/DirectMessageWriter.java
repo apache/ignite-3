@@ -116,7 +116,6 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean writeInteger(String name, Integer val) {
         DirectByteBufferStream stream = state.item().stream;

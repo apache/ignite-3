@@ -125,8 +125,7 @@ public class IndexValidatorImpl implements Validator<IndexValidator, NamedListVi
         }
     }
 
-    @Nullable
-    private static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
+    private static @Nullable TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
         for (TableView table : tablesView) {
             if (table.id() == tableId) {
                 return table;

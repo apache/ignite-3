@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import org.apache.calcite.plan.RelOptUtil;
@@ -93,7 +92,7 @@ public class PlannerTest extends AbstractPlannerTest {
         NODES_WITH_TERM = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++) {
-            String nodeName = Integer.toString(randomTableId());
+            String nodeName = Integer.toString(nextTableId());
 
             NODES.add(nodeName);
             NODES_WITH_TERM.add(new NodeWithTerm(nodeName, 0L));
@@ -127,7 +126,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -147,7 +146,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -190,10 +189,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertNotNull(plan);
 
         assertEquals(2, plan.fragments().size());
-    }
-
-    private static int randomTableId() {
-        return new Random().nextInt();
     }
 
     @Test
@@ -312,7 +307,7 @@ public class PlannerTest extends AbstractPlannerTest {
             }
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -393,7 +388,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -475,7 +470,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
             @Override
             public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -821,7 +816,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
                     }
                 }
         );
@@ -856,7 +851,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .build(), "TAB0") {
 
             @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
             }
         };
 
@@ -875,10 +870,10 @@ public class PlannerTest extends AbstractPlannerTest {
     @Test
     public void checkTableHintsHandling() throws Exception {
         IgniteSchema publicSchema = createSchema(
-                createTable("PERSON", IgniteDistributions.affinity(0, randomTableId(), Integer.MIN_VALUE),
+                createTable("PERSON", IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE),
                         "PK", Integer.class, "ORG_ID", Integer.class
                 ),
-                createTable("COMPANY", IgniteDistributions.affinity(0, randomTableId(), Integer.MIN_VALUE),
+                createTable("COMPANY", IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE),
                         "PK", Integer.class, "ID", Integer.class
                 )
         );

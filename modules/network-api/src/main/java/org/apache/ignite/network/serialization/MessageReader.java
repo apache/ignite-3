@@ -102,8 +102,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code Integer} value.
      */
-    @Nullable
-    public Integer readInteger(String name);
+    public @Nullable Integer readInteger(String name);
 
     /**
      * Reads a {@code long} value.

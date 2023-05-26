@@ -44,6 +44,8 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
+import static org.apache.ignite.internal.util.GridUnsafe.getInt;
+import static org.apache.ignite.internal.util.GridUnsafe.getShort;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
@@ -1124,8 +1126,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     private static ReadResult wrapUncommittedValue(RowId rowId, byte[] valueBytes, @Nullable HybridTimestamp newestCommitTs) {
         UUID txId = bytesToUuid(valueBytes, TX_ID_OFFSET);
-        int commitTableId = GridUnsafe.getInt(valueBytes, GridUnsafe.BYTE_ARR_OFF + TABLE_ID_OFFSET);
-        int commitPartitionId = GridUnsafe.getShort(valueBytes, GridUnsafe.BYTE_ARR_OFF + PARTITION_ID_OFFSET) & 0xFFFF;
+        int commitTableId = getInt(valueBytes, GridUnsafe.BYTE_ARR_OFF + TABLE_ID_OFFSET);
+        int commitPartitionId = getShort(valueBytes, GridUnsafe.BYTE_ARR_OFF + PARTITION_ID_OFFSET) & 0xFFFF;
 
         BinaryRow row;
 

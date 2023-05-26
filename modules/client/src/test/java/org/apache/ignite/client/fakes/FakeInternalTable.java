@@ -89,7 +89,6 @@ public class FakeInternalTable implements InternalTable {
         return 1;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int tableId() {
         return tableId;

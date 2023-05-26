@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.plan.RelOptCost;
@@ -72,7 +71,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
                     }
                 },
                 new TestTable(
@@ -83,14 +82,10 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
                     @Override
                     public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, randomTableId(), DEFAULT_ZONE_ID);
+                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
                     }
                 }
         );
-    }
-
-    private static int randomTableId() {
-        return new Random().nextInt();
     }
 
     @Test

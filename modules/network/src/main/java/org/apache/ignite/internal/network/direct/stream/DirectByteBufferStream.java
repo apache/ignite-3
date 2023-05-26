@@ -303,8 +303,7 @@ public interface DirectByteBufferStream {
      *
      * @return Value.
      */
-    @Nullable
-    Integer readInteger();
+    @Nullable Integer readInteger();
 
     /**
      * Reads {@code long}.

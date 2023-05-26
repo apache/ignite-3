@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
@@ -45,8 +46,8 @@ public class IndexValidatorImplTest {
     private TablesConfiguration tablesConfig;
 
     @BeforeEach
-    void setupTableConfig() {
-        tablesConfig.tables().get("fooTable").id().update(TABLE_ID);
+    void setupTableConfig() throws Exception {
+        tablesConfig.tables().get("fooTable").id().update(TABLE_ID).get(1, TimeUnit.SECONDS);
     }
 
     @Test

@@ -124,7 +124,6 @@ public class DirectMessageReader implements MessageReader {
         return readInt(name);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Integer readInteger(String name) {
         DirectByteBufferStream stream = state.item().stream;
