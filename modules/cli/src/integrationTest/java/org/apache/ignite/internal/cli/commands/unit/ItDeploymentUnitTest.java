@@ -46,7 +46,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should deploy a unit with version")
     void deploy() {
         // When deploy with version
-        execute("unit", "deploy", "test.unit.id.1", "--version", "1.0.0", "--path", testFile);
+        execute("cluster", "unit", "deploy", "test.unit.id.1", "--version", "1.0.0", "--path", testFile);
 
         // Then
         assertAll(
@@ -60,7 +60,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display error when deploy a unit without version")
     void deployVersionIsMandatory() {
         // When deploy without version
-        execute("unit", "deploy", "test.unit.id.2", "--path", testFile);
+        execute("cluster", "unit", "deploy", "test.unit.id.2", "--path", testFile);
 
         // Then
         assertAll(
@@ -74,7 +74,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display error when undeploy a unit without version")
     void undeployVersionIsMandatory() {
         // When deploy without version
-        execute("unit", "undeploy", "test.unit.id.2");
+        execute("cluster", "unit", "undeploy", "test.unit.id.2");
 
         // Then
         assertAll(
@@ -88,10 +88,10 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should undeploy a unit with version")
     void undeploy() {
         // When deploy
-        execute("unit", "deploy", "test.unit.id.3", "--version", "1.0.0", "--path", testFile);
+        execute("cluster", "unit", "deploy", "test.unit.id.3", "--version", "1.0.0", "--path", testFile);
 
         // And undeploy
-        execute("unit", "undeploy", "test.unit.id.3", "--version", "1.0.0");
+        execute("cluster", "unit", "undeploy", "test.unit.id.3", "--version", "1.0.0");
 
         // Then
         assertAll(
@@ -105,7 +105,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display error when undeploy non-existing unit")
     void undeployNoSuch() {
         // When undeploy non-existing unit
-        execute("unit", "undeploy", "un.such.unit.id.4", "--version", "1.0.0");
+        execute("cluster", "unit", "undeploy", "un.such.unit.id.4", "--version", "1.0.0");
 
         // Then
         assertAll(
@@ -118,7 +118,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should display correct status after deploy")
     void deployAndStatusCheck() {
         // When undeploy non-existing unit
-        execute("unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", testFile);
+        execute("cluster", "unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", testFile);
 
         // Then
         assertAll(
@@ -129,7 +129,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
 
         await().untilAsserted(() -> {
             resetOutput();
-            execute("unit", "status", "test.unit.id.5");
+            execute("cluster", "unit", "list", "test.unit.id.5");
 
             assertAll(
                     this::assertExitCodeIsZero,
@@ -144,7 +144,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @DisplayName("Should deploy a unit from directory")
     void deployDirectory() {
         // When deploy with version
-        execute("unit", "deploy", "test.unit.id.6", "--version", "1.0.0", "--path", testDirectory.toString());
+        execute("cluster", "unit", "deploy", "test.unit.id.6", "--version", "1.0.0", "--path", testDirectory.toString());
 
         // Then
         assertAll(

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.unit.UndeployUnitCall;
-import org.apache.ignite.internal.cli.call.unit.UndeployUnitCallInput;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
@@ -37,7 +37,7 @@ import picocli.CommandLine.Parameters;
 
 /** Command to undeploy a unit. */
 @Command(name = "undeploy", description = "Undeploys a unit")
-public class UnitUndeployCommand extends BaseCommand implements Callable<Integer> {
+public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
     private ClusterUrlProfileMixin clusterUrl;

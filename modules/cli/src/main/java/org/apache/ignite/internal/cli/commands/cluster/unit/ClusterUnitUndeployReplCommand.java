@@ -15,30 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
+
+import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.unit.ListUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
-/** Command to list deployed units in REPL mode. */
-@Command(name = "list", description = "Shows a list of deployed units")
-public class UnitListReplCommand extends BaseCommand implements Runnable {
+/** Command to undeploy a unit in REPL mode. */
+@Command(name = "undeploy", description = "Undeploys a unit")
+public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
+    /** Unit id. */
+    @Parameters(index = "0", description = "Unit id")
+    private String id;
+
+    /** Unit version. */
+    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT},
+            description = UNIT_VERSION_OPTION_DESC,
+            required = true)
+    private String version;
+
     @Inject
-    private ListUnitCall call;
+    private UndeployUnitCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
@@ -46,11 +61,15 @@ public class UnitListReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(UrlCallInput::new)
+                .map(clusterUrl -> UndeployUnitCallInput.builder()
+                        .id(id)
+                        .version(version)
+                        .clusterUrl(clusterUrl)
+                        .build())
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot undeploy unit", "cluster init"))
                 .verbose(verbose)
-                .print(new UnitListDecorator())
+                .print()
                 .start();
     }
 }

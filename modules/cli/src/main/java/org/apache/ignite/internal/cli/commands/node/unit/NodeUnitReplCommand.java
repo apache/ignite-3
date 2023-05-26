@@ -15,20 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.decorators;
+package org.apache.ignite.internal.cli.commands.node.unit;
 
-import com.jakewharton.fliptables.FlipTable;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-/** Decorator for {@link UnitStatusRecord}. */
-public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(UnitStatusRecord record) {
-        return () -> FlipTable.of(new String[]{"version", "status"},
-                record.versionToStatus().entrySet().stream()
-                .map(e -> new String[] {e.getKey(), e.getValue().getValue()}).toArray(String[][]::new)
-        );
-    }
+/** Manages deployment units on node level in REPL mode. */
+@Command(name = "unit", subcommands = NodeUnitListReplCommand.class, description = "Manages deployment units")
+public class NodeUnitReplCommand extends BaseCommand {
 }
