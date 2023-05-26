@@ -164,7 +164,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWrite(rowId, row, UUID.randomUUID(), UUID.randomUUID(), PARTITION_ID);
+            storage.addWrite(rowId, row, UUID.randomUUID(), 999, PARTITION_ID);
 
             storage.commitWrite(rowId, timestamp);
 

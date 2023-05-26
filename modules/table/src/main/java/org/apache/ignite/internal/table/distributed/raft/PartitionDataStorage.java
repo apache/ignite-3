@@ -127,9 +127,9 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)
+     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**

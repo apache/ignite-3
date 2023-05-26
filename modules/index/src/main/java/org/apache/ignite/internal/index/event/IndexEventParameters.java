@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IndexEventParameters extends EventParameters {
     /** Table identifier. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Index identifier. */
     private final UUID indexId;
@@ -42,7 +42,7 @@ public class IndexEventParameters extends EventParameters {
      * @param tableId Table identifier.
      * @param indexId Index identifier.
      */
-    public IndexEventParameters(long revision, UUID tableId, UUID indexId) {
+    public IndexEventParameters(long revision, int tableId, UUID indexId) {
         this(revision, tableId, indexId, null);
     }
 
@@ -54,7 +54,7 @@ public class IndexEventParameters extends EventParameters {
      * @param indexId Index identifier.
      * @param indexDescriptor Index descriptor.
      */
-    public IndexEventParameters(long revision, UUID tableId, UUID indexId, @Nullable IndexDescriptor indexDescriptor) {
+    public IndexEventParameters(long revision, int tableId, UUID indexId, @Nullable IndexDescriptor indexDescriptor) {
         super(revision);
 
         this.tableId = tableId;
@@ -67,7 +67,7 @@ public class IndexEventParameters extends EventParameters {
      *
      * @return An id of the table.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 

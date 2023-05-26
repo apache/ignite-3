@@ -67,13 +67,13 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final TablePartitionId partition1Id = new TablePartitionId(UUID.randomUUID(), 1);
-    private final TablePartitionId partition2Id = new TablePartitionId(UUID.randomUUID(), 2);
+    private final TablePartitionId partition1Id = new TablePartitionId(1, 1);
+    private final TablePartitionId partition2Id = new TablePartitionId(2, 2);
 
     private final TxMeta meta1 = new TxMeta(TxState.ABORTED, List.of(partition1Id), clock.now());
     private final TxMeta meta2 = new TxMeta(TxState.COMMITED, List.of(partition1Id, partition2Id), clock.now());
 
-    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+    private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
     @BeforeEach
     void createTestInstance() {

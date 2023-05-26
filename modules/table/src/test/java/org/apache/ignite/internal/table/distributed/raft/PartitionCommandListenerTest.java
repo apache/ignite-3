@@ -513,7 +513,7 @@ public class PartitionCommandListenerTest {
         return msgFactory.buildIndexCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(UUID.randomUUID())
+                                .tableId(1)
                                 .partitionId(PARTITION_ID)
                                 .build()
                 )
@@ -623,7 +623,7 @@ public class PartitionCommandListenerTest {
     private void insertAll() {
         Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(txId, PARTITION_ID);
+        var commitPartId = new TablePartitionId(1, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, i);
@@ -659,7 +659,7 @@ public class PartitionCommandListenerTest {
      */
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(txId, PARTITION_ID);
+        var commitPartId = new TablePartitionId(1, PARTITION_ID);
         Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
@@ -694,7 +694,7 @@ public class PartitionCommandListenerTest {
      */
     private void deleteAll() {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(txId, PARTITION_ID);
+        var commitPartId = new TablePartitionId(1, PARTITION_ID);
         Map<UUID, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
@@ -746,7 +746,7 @@ public class PartitionCommandListenerTest {
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                    .tableId(txId)
+                                    .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(rowId.uuid())
                             .rowBuffer(row.byteBuffer())
@@ -791,7 +791,7 @@ public class PartitionCommandListenerTest {
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                    .tableId(txId)
+                                    .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(rowId.uuid())
                             .txId(txId)
@@ -865,7 +865,7 @@ public class PartitionCommandListenerTest {
             when(clo.command()).thenReturn(
                     msgFactory.updateCommand()
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                                    .tableId(txId)
+                                    .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(UUID.randomUUID())
                             .rowBuffer(row.byteBuffer())

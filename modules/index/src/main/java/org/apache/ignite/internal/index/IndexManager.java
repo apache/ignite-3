@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -47,8 +48,8 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
@@ -72,6 +73,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -216,9 +218,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new TableNotFoundException(schemaName, tableName);
                 }
 
-                ExtendedTableConfiguration exTableCfg = ((ExtendedTableConfiguration) tableCfg);
-
-                final UUID tableId = exTableCfg.id().value();
+                int tableId = tableCfg.id().value();
 
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
@@ -330,13 +330,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
-        UUID targetTableId = null;
+        Integer targetTableId = null;
+
+        NamedListView<TableView> tablesView = tablesCfg.tables().value();
 
         for (TableIndexView cfg : tablesCfg.indexes().value()) {
             if (targetTableId == null) {
-                TableConfiguration tbl = tablesCfg.tables().get(cfg.tableId());
+                TableView tbl = findTableView(cfg.tableId(), tablesView);
 
-                if (tbl == null || !tableName.equals(tbl.name().value())) {
+                if (tbl == null || !tableName.equals(tbl.name())) {
                     continue;
                 }
 
@@ -349,6 +351,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         return res;
+    }
+
+    @Nullable
+    private static TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
+        for (TableView tableView : tablesView) {
+            if (tableView.id() == tableId) {
+                return tableView;
+            }
+        }
+
+        return null;
     }
 
     private void validateName(String indexName) {
@@ -371,7 +384,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         UUID idxId = tableIndexView.id();
 
-        UUID tableId = tableIndexView.tableId();
+        int tableId = tableIndexView.tableId();
 
         long causalityToken = evt.storageRevision();
 
@@ -407,7 +420,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
-        UUID tableId = evt.newValue().tableId();
+        int tableId = evt.newValue().tableId();
 
         if (!busyLock.enterBusy()) {
             UUID idxId = evt.newValue().id();
@@ -429,7 +442,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<?> createIndexLocally(
             long causalityToken,
-            UUID tableId,
+            int tableId,
             TableIndexView tableIndexView,
             TablesView tablesView
     ) {

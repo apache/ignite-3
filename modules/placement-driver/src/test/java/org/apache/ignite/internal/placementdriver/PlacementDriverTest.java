@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -53,7 +52,7 @@ public class PlacementDriverTest {
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
-    private static final TablePartitionId GROUP_1 = new TablePartitionId(UUID.randomUUID(), 0);
+    private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
 
     private static final ByteArray MS_LEASE_KEY = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + GROUP_1);
 

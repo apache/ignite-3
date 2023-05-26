@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -332,7 +331,7 @@ public class ClientTableCommon {
      *                         </ul>
      */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
-        UUID tableId = unpacker.unpackUuid();
+        int tableId = unpacker.unpackInt();
 
         try {
             TableImpl table = ((IgniteTablesInternal) tables).table(tableId);

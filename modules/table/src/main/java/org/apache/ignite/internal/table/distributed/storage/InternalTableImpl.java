@@ -113,7 +113,7 @@ public class InternalTableImpl implements InternalTable {
     private final String tableName;
 
     /** Table identifier. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -160,7 +160,7 @@ public class InternalTableImpl implements InternalTable {
      */
     public InternalTableImpl(
             String tableName,
-            UUID tableId,
+            int tableId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<String, ClusterNode> clusterNodeResolver,
@@ -197,7 +197,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 

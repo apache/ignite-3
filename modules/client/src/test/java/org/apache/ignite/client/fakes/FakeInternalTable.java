@@ -54,7 +54,7 @@ public class FakeInternalTable implements InternalTable {
     private final String tableName;
 
     /** Table ID. */
-    private final UUID tableId;
+    private final int tableId;
 
     private final Function<BinaryRow, BinaryTuple> keyExtractor;
 
@@ -71,7 +71,7 @@ public class FakeInternalTable implements InternalTable {
      * @param tableId Id.
      * @param keyExtractor Function which converts given binary row to an index key.
      */
-    public FakeInternalTable(String tableName, UUID tableId, Function<BinaryRow, BinaryTuple> keyExtractor) {
+    public FakeInternalTable(String tableName, int tableId, Function<BinaryRow, BinaryTuple> keyExtractor) {
         this.tableName = tableName;
         this.tableId = tableId;
         this.keyExtractor = keyExtractor;
@@ -89,9 +89,8 @@ public class FakeInternalTable implements InternalTable {
         return 1;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 

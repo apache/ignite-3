@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -257,7 +258,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             LockManager lockManager,
             Executor scanRequestExecutor,
             int partId,
-            UUID tableId,
+            int tableId,
             Supplier<Map<UUID, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
             Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
@@ -1425,10 +1426,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         ReadResult writeIntent = findAny(writeIntents).orElseThrow();
 
         for (ReadResult wi : writeIntents) {
-            assert wi.transactionId().equals(writeIntent.transactionId())
+            assert Objects.equals(wi.transactionId(), writeIntent.transactionId())
                     : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
 
-            assert wi.commitTableId().equals(writeIntent.commitTableId())
+            assert Objects.equals(wi.commitTableId(), writeIntent.commitTableId())
                     : "Unexpected write intent, commitTableId1=" + writeIntent.commitTableId() + ", commitTableId2=" + wi.commitTableId();
 
             assert wi.commitPartitionId() == writeIntent.commitPartitionId()
@@ -2432,7 +2433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 inBusyLock(() -> {
                     TableIndexView tableIndexView = ctx.newValue();
 
-                    if (tableId().equals(tableIndexView.tableId())) {
+                    if (tableId() == tableIndexView.tableId()) {
                         startBuildIndex(createIndexDescriptor(ctx.newValue(TablesView.class), tableIndexView.id()));
                     }
                 });
@@ -2450,7 +2451,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 inBusyLock(() -> {
                     TableIndexView tableIndexView = ctx.oldValue();
 
-                    if (tableId().equals(tableIndexView.tableId())) {
+                    if (tableId() == tableIndexView.tableId()) {
                         indexBuilder.stopBuildIndex(tableId(), partId(), tableIndexView.id());
                     }
                 });
@@ -2480,7 +2481,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private List<UUID> collectIndexIds(TablesView tablesView) {
         return tablesView.indexes().stream()
-                .filter(tableIndexView -> replicationGroupId.tableId().equals(tableIndexView.tableId()))
+                .filter(tableIndexView -> replicationGroupId.tableId() == tableIndexView.tableId())
                 .map(TableIndexView::id)
                 .collect(toList());
     }
@@ -2489,7 +2490,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return replicationGroupId.partitionId();
     }
 
-    private UUID tableId() {
+    private int tableId() {
         return replicationGroupId.tableId();
     }
 

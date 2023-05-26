@@ -37,6 +37,8 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
 
     int intC();
 
+    Integer integerC2();
+
     long longD();
 
     float floatE();
