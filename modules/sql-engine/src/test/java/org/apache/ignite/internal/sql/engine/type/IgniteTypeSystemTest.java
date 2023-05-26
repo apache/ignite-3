@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
-import org.mockito.Mockito;
 
 /**
  * Tests for methods of {@link IgniteTypeSystem}.
