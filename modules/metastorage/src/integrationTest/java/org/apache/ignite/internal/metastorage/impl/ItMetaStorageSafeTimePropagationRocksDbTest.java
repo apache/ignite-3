@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
+/** {@link ItMetaStorageSafeTimePropagationAbstractTest} with {@link RocksDbKeyValueStorage} implementation. */
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
+public class ItMetaStorageSafeTimePropagationRocksDbTest extends ItMetaStorageSafeTimePropagationAbstractTest {
     @WorkDirectory
     private Path workDir;
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
+        return new RocksDbKeyValueStorage("test", workDir);
     }
 }

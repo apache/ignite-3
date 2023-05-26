@@ -19,19 +19,19 @@ package org.apache.ignite.internal.schema.configuration.index;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -40,13 +40,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class IndexValidatorImplTest {
+    private static final int TABLE_ID = 1;
+
     @InjectConfiguration("mock.tables.fooTable {columns.column0 {type.type: STRING}}")
     private TablesConfiguration tablesConfig;
 
+    @BeforeEach
+    void setupTableConfig() {
+        assertThat(tablesConfig.tables().get("fooTable").id().update(TABLE_ID), willSucceedFast());
+    }
+
     @Test
     void testMissingTable() {
-        createIndex("fooIndex", indexChange -> indexChange.convert(HashIndexChange.class));
-        createIndex("barIndex", indexChange -> indexChange.convert(SortedIndexChange.class));
+        createIndex("fooIndex", indexChange -> indexChange.changeTableId(999).convert(HashIndexChange.class));
+        createIndex("barIndex", indexChange -> indexChange.changeTableId(999).convert(SortedIndexChange.class));
 
         validate0(
                 "Unable to create index [name=fooIndex]. Table not found.",
@@ -124,8 +131,8 @@ public class IndexValidatorImplTest {
         validate(IndexValidatorImpl.INSTANCE, mock(IndexValidator.class), validationContext, errorMessagePrefixes);
     }
 
-    private UUID tableId() {
-        return ((ExtendedTableConfiguration) tablesConfig.tables().get("fooTable")).id().value();
+    private int tableId() {
+        return tablesConfig.tables().get("fooTable").id().value();
     }
 
     private void createIndex(String indexName, Consumer<TableIndexChange> indexChange) {

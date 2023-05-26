@@ -353,8 +353,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         final String accountsName = "accounts";
         final String customersName = "customers";
 
-        UUID accTblId = UUID.randomUUID();
-        UUID custTblId = UUID.randomUUID();
+        int accTblId = 1;
+        int custTblId = 2;
 
         accRaftClients = startTable(accTblId, ACCOUNTS_SCHEMA);
         custRaftClients = startTable(custTblId, CUSTOMERS_SCHEMA);
@@ -410,7 +410,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
+    private Int2ObjectOpenHashMap<RaftGroupService> startTable(int tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,

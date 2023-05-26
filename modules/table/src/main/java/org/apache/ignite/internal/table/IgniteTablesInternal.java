@@ -37,7 +37,7 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @return Table or {@code null} when not exists.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    TableImpl table(UUID id) throws NodeStoppingException;
+    TableImpl table(int id) throws NodeStoppingException;
 
     /**
      * Gets a table future by id. If the table exists, the future will point to it, otherwise to {@code null}.
@@ -46,7 +46,7 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
-    CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException;
+    CompletableFuture<TableImpl> tableAsync(int id) throws NodeStoppingException;
 
     // TODO: IGNITE-16750 - the following two methods look a bit ugly, separation of public/internal Table aspects should help
 
@@ -88,7 +88,7 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @return List of the current assignments.
      */
     @Nullable
-    List<String> assignments(UUID tableId) throws NodeStoppingException;
+    List<String> assignments(int tableId) throws NodeStoppingException;
 
     /**
      * Adds a listener to track changes in {@link #assignments(UUID)}.

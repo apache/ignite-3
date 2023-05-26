@@ -447,7 +447,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     }
 
     private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx) {
-        w.out().packUuid(tbl.tableId());
+        w.out().packInt(tbl.tableId());
         writeTx(tx, w);
         w.out().packInt(s.version());
     }

@@ -18,21 +18,20 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Uniquely identifies a partition. This is a pair of internal table ID and partition number (aka partition ID).
  */
 public class PartitionKey {
-    private final UUID tableId;
+    private final int tableId;
 
     private final int partitionId;
 
     /**
      * Returns ID of the table.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 
@@ -46,9 +45,7 @@ public class PartitionKey {
     /**
      * Constructs a new partition key.
      */
-    public PartitionKey(UUID tableId, int partitionId) {
-        Objects.requireNonNull(tableId, "tableId cannot be null");
-
+    public PartitionKey(int tableId, int partitionId) {
         this.tableId = tableId;
         this.partitionId = partitionId;
     }
@@ -62,7 +59,7 @@ public class PartitionKey {
             return false;
         }
         PartitionKey that = (PartitionKey) o;
-        return partitionId == that.partitionId && tableId.equals(that.tableId);
+        return partitionId == that.partitionId && tableId == that.tableId;
     }
 
     @Override

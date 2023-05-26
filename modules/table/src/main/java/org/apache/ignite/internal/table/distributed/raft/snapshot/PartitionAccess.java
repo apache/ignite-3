@@ -98,7 +98,7 @@ public interface PartitionAccess {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
@@ -147,7 +147,7 @@ public interface PartitionAccess {
      *         <li>{@link #maxLastAppliedTerm()};</li>
      *         <li>{@link #committedGroupConfiguration()};</li>
      *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
-     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
+     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, int, int)};</li>
      *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp)}.</li>
      *     </ul></li>
      * </ul>

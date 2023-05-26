@@ -53,14 +53,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientTupleSerializer {
     /** Table ID. */
-    private final UUID tableId;
+    private final int tableId;
 
     /**
      * Constructor.
      *
      * @param tableId Table id.
      */
-    ClientTupleSerializer(UUID tableId) {
+    ClientTupleSerializer(int tableId) {
         this.tableId = tableId;
     }
 
@@ -116,7 +116,7 @@ public class ClientTupleSerializer {
             boolean skipHeader
     ) {
         if (!skipHeader) {
-            out.out().packUuid(tableId);
+            out.out().packInt(tableId);
             writeTx(tx, out);
             out.out().packInt(schema.version());
         }
@@ -167,7 +167,7 @@ public class ClientTupleSerializer {
             boolean skipHeader
     ) {
         if (!skipHeader) {
-            out.out().packUuid(tableId);
+            out.out().packInt(tableId);
             writeTx(tx, out);
             out.out().packInt(schema.version());
         }
@@ -197,7 +197,7 @@ public class ClientTupleSerializer {
      * @param out Out.
      */
     void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
@@ -222,7 +222,7 @@ public class ClientTupleSerializer {
             PayloadOutputChannel out,
             boolean keyOnly
     ) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(tuples.size());

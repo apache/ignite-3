@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -47,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientRecordSerializer<R> {
     /** Table ID. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Mapper. */
     private final Mapper<R> mapper;
@@ -61,8 +60,7 @@ public class ClientRecordSerializer<R> {
      * @param tableId       Table ID.
      * @param mapper        Mapper.
      */
-    ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
-        assert tableId != null;
+    ClientRecordSerializer(int tableId, Mapper<R> mapper) {
         assert mapper != null;
 
         this.tableId = tableId;
@@ -122,7 +120,7 @@ public class ClientRecordSerializer<R> {
     }
 
     void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
 
@@ -137,7 +135,7 @@ public class ClientRecordSerializer<R> {
             PayloadOutputChannel out,
             TuplePart part
     ) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
 
@@ -155,7 +153,7 @@ public class ClientRecordSerializer<R> {
             PayloadOutputChannel out,
             TuplePart part
     ) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());

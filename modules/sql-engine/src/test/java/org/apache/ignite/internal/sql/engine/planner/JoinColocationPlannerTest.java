@@ -25,7 +25,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -52,7 +51,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     public void joinSameTableSimpleAff() throws Exception {
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
                 "VAL", String.class
         );
@@ -84,7 +83,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     public void joinSameTableComplexAff() throws Exception {
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
+                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -120,7 +119,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         TestTable complexTbl = createTable(
                 "COMPLEX_TBL",
                 2 * DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
+                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -131,7 +130,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         TestTable simpleTbl = createTable(
                 "SIMPLE_TBL",
                 DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -174,7 +173,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         TestTable complexTblDirect = createTable(
                 "COMPLEX_TBL_DIRECT",
                 2 * DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
+                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -186,7 +185,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         TestTable complexTblIndirect = createTable(
                 "COMPLEX_TBL_INDIRECT",
                 DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(1, 0), UUID.randomUUID(), DEFAULT_ZONE_ID),
+                IgniteDistributions.affinity(ImmutableIntList.of(1, 0), nextTableId(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class

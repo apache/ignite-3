@@ -158,7 +158,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-        TablePartitionId partitionId = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
         handler.handleUpdate(
                 TX_ID,
@@ -249,7 +249,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         };
 
         void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-            TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+            TablePartitionId tablePartitionId = new TablePartitionId(444, PARTITION_ID);
 
             addWrite(handler, tablePartitionId, rowUuid, row);
         }

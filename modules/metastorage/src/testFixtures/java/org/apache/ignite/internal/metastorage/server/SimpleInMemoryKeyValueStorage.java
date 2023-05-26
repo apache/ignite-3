@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -63,6 +64,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     /** Timestamp to revision mapping. */
     private final NavigableMap<Long, Long> tsToRevMap = new TreeMap<>();
+
+    /** Revision to timestamp mapping. */
+    private final Map<Long, HybridTimestamp> revToTsMap = new HashMap<>();
 
     /** Revisions index. Value contains all entries which were modified under particular revision. */
     private NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new TreeMap<>();
@@ -120,6 +124,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         rev = newRevision;
 
         tsToRevMap.put(ts.longValue(), rev);
+        revToTsMap.put(rev, ts);
 
         notifyWatches();
     }
@@ -468,7 +473,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return;
         }
 
-        watchProcessor.notifyWatches(List.copyOf(updatedEntries));
+        HybridTimestamp ts = revToTsMap.get(updatedEntries.get(0).revision());
+        assert ts != null;
+
+        watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
         updatedEntries.clear();
     }
@@ -747,13 +755,5 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     private static long lastRevision(List<Long> revs) {
         return revs.get(revs.size() - 1);
-    }
-
-    private static List<Long> listOf(long val) {
-        List<Long> res = new ArrayList<>();
-
-        res.add(val);
-
-        return res;
     }
 }

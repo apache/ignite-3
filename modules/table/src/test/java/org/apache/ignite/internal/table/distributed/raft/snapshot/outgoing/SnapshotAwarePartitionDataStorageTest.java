@@ -62,7 +62,7 @@ class SnapshotAwarePartitionDataStorageTest {
     private PartitionsSnapshots partitionsSnapshots;
 
     @Spy
-    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), PARTITION_ID);
+    private final PartitionKey partitionKey = new PartitionKey(1, PARTITION_ID);
 
     @InjectMocks
     private SnapshotAwarePartitionDataStorage testedStorage;
@@ -145,11 +145,11 @@ class SnapshotAwarePartitionDataStorageTest {
     void delegatesAddWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
 
-        when(partitionStorage.addWrite(any(), any(), any(), any(), anyInt())).thenReturn(resultRow);
+        when(partitionStorage.addWrite(any(), any(), any(), anyInt(), anyInt())).thenReturn(resultRow);
 
         BinaryRow argumentRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();
-        UUID commitTableId = UUID.randomUUID();
+        int commitTableId = 999;
 
         assertThat(testedStorage.addWrite(rowId, argumentRow, txId, commitTableId, 42), is(resultRow));
         verify(partitionStorage).addWrite(rowId, argumentRow, txId, commitTableId, 42);
@@ -288,7 +288,7 @@ class SnapshotAwarePartitionDataStorageTest {
         ADD_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.addWrite(rowId, mock(BinaryRow.class), UUID.randomUUID(), UUID.randomUUID(), 42);
+                storage.addWrite(rowId, mock(BinaryRow.class), UUID.randomUUID(), 999, 42);
             }
         },
         ABORT_WRITE {

@@ -81,12 +81,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         final @Nullable BinaryRow row;
         final @Nullable HybridTimestamp ts;
         final @Nullable UUID txId;
-        final @Nullable UUID commitTableId;
+        final @Nullable Integer commitTableId;
         final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
-        VersionChain(RowId rowId, @Nullable BinaryRow row, @Nullable HybridTimestamp ts, @Nullable UUID txId, @Nullable UUID commitTableId,
-                int commitPartitionId, @Nullable VersionChain next) {
+        VersionChain(
+                RowId rowId,
+                @Nullable BinaryRow row,
+                @Nullable HybridTimestamp ts,
+                @Nullable UUID txId,
+                @Nullable Integer commitTableId,
+                int commitPartitionId,
+                @Nullable VersionChain next
+        ) {
             this.rowId = rowId;
             this.row = row;
             this.ts = ts;
@@ -96,7 +103,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             this.next = next;
         }
 
-        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable UUID commitTableId,
+        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable Integer commitTableId,
                 int commitPartitionId, @Nullable VersionChain next) {
             return new VersionChain(rowId, row, null, txId, commitTableId, commitPartitionId, next);
         }
@@ -202,7 +209,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            UUID commitTableId,
+            int commitTableId,
             int commitPartitionId
     ) throws TxIdMismatchException {
         checkStorageClosed();

@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +54,7 @@ import org.jetbrains.annotations.Nullable;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
-    private final UUID id;
+    private final int id;
 
     private final String name;
 
@@ -84,9 +83,8 @@ public class ClientTable implements Table {
      * @param id   Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, UUID id, String name) {
+    public ClientTable(ReliableChannel ch, int id, String name) {
         assert ch != null;
-        assert id != null;
         assert name != null && !name.isEmpty();
 
         this.ch = ch;
@@ -100,7 +98,7 @@ public class ClientTable implements Table {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return id;
     }
 
@@ -168,7 +166,7 @@ public class ClientTable implements Table {
 
     private CompletableFuture<ClientSchema> loadSchema(int ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
-            w.out().packUuid(id);
+            w.out().packInt(id);
 
             if (ver == UNKNOWN_SCHEMA_VERSION) {
                 w.out().packNil();
@@ -409,7 +407,7 @@ public class ClientTable implements Table {
 
             // Load currentVersion or newer.
             partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                    w -> w.out().packUuid(id),
+                    w -> w.out().packInt(id),
                     r -> {
                         int cnt = r.in().unpackArrayHeader();
                         List<String> res = new ArrayList<>(cnt);
