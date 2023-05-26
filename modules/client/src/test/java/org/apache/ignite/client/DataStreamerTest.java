@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
@@ -30,6 +31,7 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -88,13 +90,27 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testBackPressure() throws Exception {
         var server2 = new FakeIgnite("server-2");
 
-        Function<Integer, Integer> responseDelay = idx -> idx > 2 ? 5000 : 0;
-        var testServer2 = new TestServer(10900, 10, 10_000, server2, null, responseDelay, null, UUID.randomUUID(), null);
+        Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 5000 : 0;
+        var testServer2 = new TestServer(10900, 10, 10_000, server2, idx -> false, responseDelay, null, UUID.randomUUID(), null);
 
         var port = testServer2.port();
 
         try (var client2 = IgniteClient.builder().addresses("localhost:" + port).build()) {
-            assert false;
+            ((FakeIgniteTables) server2.tables()).createTable(DEFAULT_TABLE);
+            var table = client2.tables().table(DEFAULT_TABLE);
+            var view = table.recordView();
+
+            var publisher = new SubmissionPublisher<Tuple>();
+            view.streamData(publisher, new DataStreamerOptions().batchSize(2));
+
+            var submitFuture = CompletableFuture.runAsync(() -> {
+                for (long i = 0; i < 10; i++) {
+                    publisher.submit(tuple(i, "foo_" + i));
+                }
+            });
+
+            submitFuture.get(1, TimeUnit.SECONDS);
+            // assertThrows(Exception.class, () -> );
         }
     }
 
