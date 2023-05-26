@@ -261,7 +261,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                     tablesListChange.update(tableView.name(), tableChange -> tableChange.changeId(finalI + 1));
                 }
             });
-        });
+        }).join();
     }
 
     @Test
