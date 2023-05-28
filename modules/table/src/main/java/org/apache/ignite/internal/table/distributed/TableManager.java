@@ -562,7 +562,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.storageRevision(),
                     ctx.newValue().name(),
                     ctx.newValue().id(),
-                    assignments);
+                    assignments
+            ).whenComplete((v, e) -> {
+                if (e == null) {
+                    for (var listener : assignmentsChangeListeners) {
+                        listener.accept(this);
+                    }
+                }
+            });
 
             writeTableAssignmentsToMetastore(ctx.newValue().id(), assignments);
 
