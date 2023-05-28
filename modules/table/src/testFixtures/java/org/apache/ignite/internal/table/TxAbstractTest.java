@@ -959,8 +959,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15939")
-    public void testRollbackUpgradedLock() throws Exception { // TODO asch IGNITE-15939
+    public void testRollbackUpgradedLock() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();

@@ -83,4 +83,10 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
 
         valueFutures.clear();
     }
+
+    /** Returns true if this tracker contains no waiters. */
+    @Override
+    public boolean isEmpty() {
+        return valueFutures.isEmpty();
+    }
 }

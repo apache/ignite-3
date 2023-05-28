@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 /** Compaction test for the simple in-memory implementation of {@link KeyValueStorage}. */
 public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
-    KeyValueStorage createStorage() {
+    public KeyValueStorage createStorage() {
         return new SimpleInMemoryKeyValueStorage("test");
     }
 }

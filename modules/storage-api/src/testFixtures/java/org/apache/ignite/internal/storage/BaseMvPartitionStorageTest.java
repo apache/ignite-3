@@ -41,7 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
-    protected static final UUID COMMIT_TABLE_ID = UUID.randomUUID();
+    protected static final int COMMIT_TABLE_ID = 999;
 
     protected static final UUID TX_ID = newTransactionId();
 

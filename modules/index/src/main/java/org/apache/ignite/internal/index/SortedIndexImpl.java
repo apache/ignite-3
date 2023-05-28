@@ -60,7 +60,7 @@ public class SortedIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override
-    public UUID tableId() {
+    public int tableId() {
         return table.tableId();
     }
 

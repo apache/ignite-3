@@ -132,7 +132,7 @@ public:
      * @param op Operation code.
      * @param tx Transaction.
      * @param wr Request writer function.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */
@@ -151,7 +151,7 @@ public:
      * @param op Operation code.
      * @param tx Transaction.
      * @param wr Request writer function.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */
@@ -168,7 +168,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */
@@ -185,7 +185,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */
@@ -201,7 +201,7 @@ public:
      *
      * @tparam T Result type.
      * @param op Operation code.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */
@@ -216,7 +216,7 @@ public:
      *
      * @tparam T Result type.
      * @param op Operation code.
-     * @param rd Response reader function.
+     * @param rd response reader function.
      * @param callback Callback to call on result.
      * @return Channel used for the request.
      */

@@ -40,7 +40,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
     String name();
 
     /** Returns table id index belong to. */
-    UUID tableId();
+    int tableId();
 
     /** Returns index descriptor. */
     DescriptorT descriptor();

@@ -60,7 +60,7 @@ public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListen
                 return output.body().stream()
                         .collect(Collectors.toMap(
                                 UnitStatusRecord::id,
-                                record -> record.versionToDeploymentInfo().keySet())
+                                record -> record.versionToStatus().keySet())
                         );
             } else {
                 return null;

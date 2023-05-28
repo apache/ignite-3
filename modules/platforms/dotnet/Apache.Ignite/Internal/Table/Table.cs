@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
@@ -38,6 +39,9 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal sealed class Table : ITable
     {
+        /** Unknown schema version. */
+        private const int UnknownSchemaVersion = -1;
+
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
@@ -45,7 +49,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly Sql _sql;
 
         /** Schemas. */
-        private readonly ConcurrentDictionary<int, Schema> _schemas = new();
+        private readonly ConcurrentDictionary<int, Task<Schema>> _schemas = new();
 
         /** Cached record views. */
         private readonly ConcurrentDictionary<Type, object> _recordViews = new();
@@ -60,7 +64,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
 
         /** */
-        private volatile int _latestSchemaVersion = -1;
+        private volatile int _latestSchemaVersion = UnknownSchemaVersion;
 
         /** */
         private volatile int _partitionAssignmentVersion = -1;
@@ -75,7 +79,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
         /// <param name="sql">SQL.</param>
-        public Table(string name, Guid id, ClientFailoverSocket socket, Sql sql)
+        public Table(string name, int id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
             _sql = sql;
@@ -117,7 +121,7 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Gets the table id.
         /// </summary>
-        internal Guid Id { get; }
+        internal int Id { get; }
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
@@ -155,32 +159,23 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <returns>Schema or null.</returns>
-        internal async ValueTask<Schema> ReadSchemaAsync(PooledBuffer buf)
+        internal Task<Schema> ReadSchemaAsync(PooledBuffer buf)
         {
-            var ver = buf.GetReader().ReadInt32();
+            var version = buf.GetReader().ReadInt32();
 
-            if (_schemas.TryGetValue(ver, out var res))
-            {
-                return res;
-            }
-
-            return await LoadSchemaAsync(ver).ConfigureAwait(false);
+            return GetCachedSchemaAsync(version);
         }
 
         /// <summary>
         /// Gets the latest schema.
         /// </summary>
         /// <returns>Schema.</returns>
-        internal async ValueTask<Schema> GetLatestSchemaAsync()
+        internal Task<Schema> GetLatestSchemaAsync()
         {
-            var latestSchemaVersion = _latestSchemaVersion;
-
-            if (latestSchemaVersion >= 0)
-            {
-                return _schemas[latestSchemaVersion];
-            }
-
-            return await LoadSchemaAsync(null).ConfigureAwait(false);
+            // _latestSchemaVersion can be -1 (unknown) or a valid version.
+            // In case of unknown version, we request latest from the server and cache it with -1 key
+            // to avoid duplicate requests for latest schema.
+            return GetCachedSchemaAsync(_latestSchemaVersion);
         }
 
         /// <summary>
@@ -208,6 +203,23 @@ namespace Apache.Ignite.Internal.Table
             var nodeId = assignment[partition];
 
             return PreferredNode.FromId(nodeId);
+        }
+
+        private Task<Schema> GetCachedSchemaAsync(int version)
+        {
+            var task = GetOrAdd();
+
+            if (!task.IsFaulted)
+            {
+                return task;
+            }
+
+            // Do not return failed task. Remove it from the cache and try again.
+            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+
+            return GetOrAdd();
+
+            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         private async ValueTask<string[]?> GetPartitionAssignmentAsync()
@@ -251,7 +263,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="version">Version.</param>
         /// <returns>Schema.</returns>
-        private async Task<Schema> LoadSchemaAsync(int? version)
+        private async Task<Schema> LoadSchemaAsync(int version)
         {
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -264,14 +276,14 @@ namespace Apache.Ignite.Internal.Table
                 var w = writer.MessageWriter;
                 w.Write(Id);
 
-                if (version == null)
+                if (version == UnknownSchemaVersion)
                 {
                     w.WriteNil();
                 }
                 else
                 {
                     w.WriteArrayHeader(1);
-                    w.Write(version.Value);
+                    w.Write(version);
                 }
             }
 
@@ -338,8 +350,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var schema = new Schema(schemaVersion, keyColumnCount, columns);
-
-            _schemas[schemaVersion] = schema;
+            _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)
             {

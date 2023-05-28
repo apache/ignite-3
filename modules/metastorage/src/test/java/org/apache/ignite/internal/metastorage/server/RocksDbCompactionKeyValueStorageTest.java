@@ -30,7 +30,7 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
     private Path workDir;
 
     @Override
-    KeyValueStorage createStorage() {
+    public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
     }
 }

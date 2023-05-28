@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -64,7 +63,7 @@ public class TestTable implements IgniteTable {
     private static final String DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE =
             "DataProvider is not configured [table={}, node={}]";
 
-    private final UUID id = UUID.randomUUID();
+    private final int id = 1;
     private final Map<String, IgniteIndex> indexes = new HashMap<>();
 
     private final String name;
@@ -122,7 +121,7 @@ public class TestTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override
-    public UUID id() {
+    public int id() {
         return id;
     }
 

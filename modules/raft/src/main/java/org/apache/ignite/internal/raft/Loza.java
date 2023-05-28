@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftView;
 import org.apache.ignite.internal.raft.configuration.VolatileRaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -147,7 +148,11 @@ public class Loza implements RaftManager {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        opts.setRpcInstallSnapshotTimeout(raftConfiguration.rpcInstallSnapshotTimeout().value());
+        RaftView raftConfig = raftConfiguration.value();
+
+        opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
+
+        opts.getRaftOptions().setSync(raftConfig.fsync());
 
         raftServer.start();
     }

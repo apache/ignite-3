@@ -24,19 +24,19 @@
 TEST(uuid, construct) {
     {
         ignite::uuid uuid;
-        EXPECT_EQ(0, uuid.getMostSignificantBits());
-        EXPECT_EQ(0, uuid.getLeastSignificantBits());
+        EXPECT_EQ(0, uuid.get_most_significant_bits());
+        EXPECT_EQ(0, uuid.get_least_significant_bits());
     }
     {
         ignite::uuid uuid(1, 2);
-        EXPECT_EQ(1, uuid.getMostSignificantBits());
-        EXPECT_EQ(2, uuid.getLeastSignificantBits());
+        EXPECT_EQ(1, uuid.get_most_significant_bits());
+        EXPECT_EQ(2, uuid.get_least_significant_bits());
     }
     {
         ignite::uuid uuid(1, 2);
         ignite::uuid uuid2(uuid);
-        EXPECT_EQ(1, uuid2.getMostSignificantBits());
-        EXPECT_EQ(2, uuid2.getLeastSignificantBits());
+        EXPECT_EQ(1, uuid2.get_most_significant_bits());
+        EXPECT_EQ(2, uuid2.get_least_significant_bits());
         EXPECT_EQ(uuid, uuid2);
     }
 }
@@ -50,8 +50,8 @@ TEST(uuid, stream) {
     ignite::uuid uuid;
     stream >> uuid;
 
-    EXPECT_EQ(0x123e4567e89b12d3, uuid.getMostSignificantBits());
-    EXPECT_EQ(0xa456426614174000, uuid.getLeastSignificantBits());
+    EXPECT_EQ(0x123e4567e89b12d3, uuid.get_most_significant_bits());
+    EXPECT_EQ(0xa456426614174000, uuid.get_least_significant_bits());
 
     EXPECT_EQ(1, uuid.version());
     EXPECT_EQ(2, uuid.variant());

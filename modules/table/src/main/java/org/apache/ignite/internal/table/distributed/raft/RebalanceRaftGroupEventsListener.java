@@ -24,11 +24,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.utils.RebalanceUtil.intersect;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.union;
@@ -333,20 +333,20 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> stable = createAssignments(configuration);
 
             // Were reduced
-            Set<Assignment> reducedNodes = subtract(retrievedSwitchReduce, stable);
+            Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stable);
 
             // Were added
-            Set<Assignment> addedNodes = subtract(stable, retrievedStable);
+            Set<Assignment> addedNodes = difference(stable, retrievedStable);
 
             // For further reduction
-            Set<Assignment> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
+            Set<Assignment> calculatedSwitchReduce = difference(retrievedSwitchReduce, reducedNodes);
 
             // For further addition
             Set<Assignment> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
-            calculatedSwitchAppend = subtract(calculatedSwitchAppend, addedNodes);
+            calculatedSwitchAppend = difference(calculatedSwitchAppend, addedNodes);
             calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
 
-            Set<Assignment> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
+            Set<Assignment> calculatedPendingReduction = difference(stable, retrievedSwitchReduce);
 
             Set<Assignment> calculatedPendingAddition = union(stable, reducedNodes);
             calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);

@@ -23,11 +23,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
@@ -48,16 +46,19 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         CompletableFuture<Void> createIndexFuture = tablesCfg.indexes()
                 .change(chg -> chg.create(indexDefinition.name(), idx -> {
-                    UUID tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), TABLE_NAME);
+                    int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
 
                     addIndex(indexDefinition, tableId, idx);
                 }));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        TableIndexView indexConfig = tablesCfg.indexes().get(indexDefinition.name()).value();
+        TablesView tablesView = tablesCfg.value();
 
-        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id());
+        return tableStorage.getOrCreateHashIndex(
+                TEST_PARTITION,
+                new HashIndexDescriptor(tablesView.indexes().get(indexDefinition.name()).id(), tablesView)
+        );
     }
 
     @Override

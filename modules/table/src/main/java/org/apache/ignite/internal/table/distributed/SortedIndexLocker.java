@@ -20,12 +20,9 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -44,10 +41,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SortedIndexLocker implements IndexLocker {
     /** Index INF+ value object. */
-    private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
-            BinaryTupleSchema.create(new Element[0]),
-            new BinaryTupleBuilder(0, false).build()
-    );
+    private final Object positiveInf;
 
     private final UUID indexId;
     private final LockManager lockManager;
@@ -62,16 +56,18 @@ public class SortedIndexLocker implements IndexLocker {
      * Constructs the object.
      *
      * @param indexId An identifier of the index this locker is created for.
+     * @param partId Partition number.
      * @param lockManager A lock manager to acquire locks in.
      * @param storage A storage of an index this locker is created for.
      * @param indexRowResolver A convertor which derives an index key from given table row.
      */
-    public SortedIndexLocker(UUID indexId, LockManager lockManager, SortedIndexStorage storage,
+    public SortedIndexLocker(UUID indexId, int partId, LockManager lockManager, SortedIndexStorage storage,
             Function<BinaryRow, BinaryTuple> indexRowResolver) {
         this.indexId = indexId;
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
+        this.positiveInf = Integer.valueOf(partId);
     }
 
     /** {@inheritDoc} */
@@ -119,7 +115,7 @@ public class SortedIndexLocker implements IndexLocker {
     private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
         IndexRow peekedRow = peekCursor.peek();
 
-        LockKey lockKey = new LockKey(indexId, indexKey(peekedRow).byteBuffer());
+        LockKey lockKey = new LockKey(indexId, indexKey(peekedRow));
 
         return lockManager.acquire(txId, lockKey, LockMode.S)
                 .thenCompose(ignore -> {
@@ -143,8 +139,8 @@ public class SortedIndexLocker implements IndexLocker {
         return row0 == row1 || row0.rowId().equals(row1.rowId());
     }
 
-    private static BinaryTuple indexKey(@Nullable IndexRow indexRow) {
-        return (indexRow == null) ? POSITIVE_INF : indexRow.indexColumns();
+    private Object indexKey(@Nullable IndexRow indexRow) {
+        return (indexRow == null) ? positiveInf : indexRow.indexColumns().byteBuffer();
     }
 
     /** {@inheritDoc} */
@@ -154,17 +150,16 @@ public class SortedIndexLocker implements IndexLocker {
 
         BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        // Find next key.
-        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+        IndexRow nextRow = null;
 
-        BinaryTuple nextKey;
-        if (cursor.hasNext()) {
-            nextKey = cursor.next().indexColumns();
-        } else { // Otherwise INF.
-            nextKey = POSITIVE_INF;
+        // Find next key.
+        try (Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER)) {
+            if (cursor.hasNext()) {
+                nextRow = cursor.next();
+            }
         }
 
-        var nextLockKey = new LockKey(indexId, nextKey.byteBuffer());
+        var nextLockKey = new LockKey(indexId, indexKey(nextRow));
 
         return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
                 lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->

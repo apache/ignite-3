@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -32,7 +30,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -288,46 +285,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Objects.requireNonNull(recs);
 
         return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(this::wrap);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> T invoke(
-            @Nullable Transaction tx,
-            @NotNull Tuple keyRec,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull Tuple keyRec,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> Map<Tuple, T> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**

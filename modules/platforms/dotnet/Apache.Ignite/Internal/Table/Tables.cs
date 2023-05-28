@@ -39,7 +39,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly Sql _sql;
 
         /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
-        private readonly ConcurrentDictionary<Guid, Table> _cachedTables = new();
+        private readonly ConcurrentDictionary<int, Table> _cachedTables = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tables"/> class.
@@ -72,12 +72,12 @@ namespace Apache.Ignite.Internal.Table
 
                 for (var i = 0; i < len; i++)
                 {
-                    var id = r.ReadGuid();
+                    var id = r.ReadInt32();
                     var name = r.ReadString();
 
                     var table = _cachedTables.GetOrAdd(
                         id,
-                        static (Guid id0, (string Name, Tables Tables) arg) =>
+                        static (int id0, (string Name, Tables Tables) arg) =>
                             new Table(arg.Name, id0, arg.Tables._socket, arg.Tables._sql),
                         (name, this));
 
@@ -114,8 +114,8 @@ namespace Apache.Ignite.Internal.Table
                 r.TryReadNil()
                     ? null
                     : _cachedTables.GetOrAdd(
-                        r.ReadGuid(),
-                        (Guid id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
+                        r.ReadInt32(),
+                        (int id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
                         (name, this));
         }
     }

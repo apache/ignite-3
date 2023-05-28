@@ -17,22 +17,27 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
-import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.placementdriver.LeaseMeta;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * A lease representation in memory.
  * The real lease is stored in Meta storage.
  */
-public class Lease implements Serializable {
+public class Lease implements LeaseMeta {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE);
 
-    /** A node that holds a lease until {@code stopLeas}. */
-    private final ClusterNode leaseholder;
+    /** A node that holds a lease. */
+    private final String leaseholder;
 
     /** The lease is accepted, when the holder knows about it and applies all related obligations. */
     private final boolean accepted;
@@ -53,7 +58,7 @@ public class Lease implements Serializable {
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
      */
-    public Lease(ClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime) {
+    public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime) {
         this(leaseholder, startTime, leaseExpirationTime, false, false);
     }
 
@@ -66,8 +71,8 @@ public class Lease implements Serializable {
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is true when the holder accepted the lease, the false otherwise.
      */
-    private Lease(
-            ClusterNode leaseholder,
+    Lease(
+            String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
             boolean prolong,
@@ -127,29 +132,17 @@ public class Lease implements Serializable {
         return new Lease(leaseholder, startTime, expirationTime, false, true);
     }
 
-    /**
-     * Get a leaseholder node.
-     *
-     * @return Leaseholder or {@code null} if nothing holds the lease.
-     */
-    public ClusterNode getLeaseholder() {
+    @Override
+    public String getLeaseholder() {
         return leaseholder;
     }
 
-    /**
-     * Gets a lease start timestamp.
-     *
-     * @return Lease start timestamp.
-     */
+    @Override
     public HybridTimestamp getStartTime() {
         return startTime;
     }
 
-    /**
-     * Gets a lease expiration timestamp.
-     *
-     * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
-     */
+    @Override
     public HybridTimestamp getExpirationTime() {
         return expirationTime;
     }
@@ -172,14 +165,76 @@ public class Lease implements Serializable {
         return accepted;
     }
 
+    /**
+     * Encodes this lease into sequence of bytes.
+     *
+     * @return Lease representation in a byte array.
+     */
+    public byte[] bytes() {
+        byte[] leaseholderBytes = leaseholder == null ? null : leaseholder.getBytes(StandardCharsets.UTF_8);
+        short leaseholderBytesSize = (short) (leaseholderBytes == null ? 0 : leaseholderBytes.length);
+        int bufSize = leaseholderBytesSize + Short.BYTES + HYBRID_TIMESTAMP_SIZE * 2 + 1 + 1;
+
+        ByteBuffer buf = ByteBuffer.allocate(bufSize);
+
+        buf.put((byte) (accepted ? 1 : 0));
+        buf.put((byte) (prolongable ? 1 : 0));
+        buf.putLong(startTime.longValue());
+        buf.putLong(expirationTime.longValue());
+        buf.putShort(leaseholderBytesSize);
+        if (leaseholderBytes != null) {
+            buf.put(leaseholderBytes);
+        }
+
+        return buf.array();
+    }
+
+    /**
+     * Decodes a lease from the sequence of bytes.
+     *
+     * @param bytes Lease representation in a byte array.
+     * @return Decoded lease.
+     */
+    public static Lease fromBytes(byte[] bytes) {
+        ByteBuffer buf = ByteBuffer.wrap(bytes);
+
+        boolean accepted = buf.get() == 1;
+        boolean prolongable = buf.get() == 1;
+        HybridTimestamp startTime = hybridTimestamp(buf.getLong());
+        HybridTimestamp expirationTime = hybridTimestamp(buf.getLong());
+        short leaseholderBytesSize = buf.getShort();
+        String leaseholder;
+        if (leaseholderBytesSize > 0) {
+            byte[] leaseholderBytes = new byte[leaseholderBytesSize];
+            buf.get(leaseholderBytes);
+            leaseholder = new String(leaseholderBytes, StandardCharsets.UTF_8);
+        } else {
+            leaseholder = null;
+        }
+
+        return new Lease(leaseholder, startTime, expirationTime, prolongable, accepted);
+    }
+
     @Override
     public String toString() {
-        return "Lease{"
-                + "leaseholder=" + leaseholder
-                + ", accepted=" + accepted
-                + ", startTime=" + startTime
-                + ", expirationTime=" + expirationTime
-                + ", prolongable=" + prolongable
-                + '}';
+        return S.toString(Lease.class, this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Lease lease = (Lease) o;
+        return accepted == lease.accepted && prolongable == lease.prolongable && Objects.equals(leaseholder, lease.leaseholder)
+                && Objects.equals(startTime, lease.startTime) && Objects.equals(expirationTime, lease.expirationTime);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(leaseholder, accepted, startTime, expirationTime, prolongable);
     }
 }

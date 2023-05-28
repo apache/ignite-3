@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -46,9 +48,10 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
@@ -56,6 +59,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -68,8 +72,8 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -94,29 +98,21 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Index builder. */
-    private final IndexBuilder indexBuilder;
-
     /**
      * Constructor.
      *
-     * @param nodeName Node name.
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
-     * @param clusterService Cluster service.
      */
     public IndexManager(
-            String nodeName,
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
-            TableManager tableManager,
-            ClusterService clusterService
+            TableManager tableManager
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
-        this.indexBuilder = new IndexBuilder(nodeName, busyLock, clusterService);
     }
 
     /** {@inheritDoc} */
@@ -173,8 +169,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         busyLock.block();
 
-        indexBuilder.stop();
-
         LOG.info("Index manager stopped");
     }
 
@@ -224,9 +218,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new TableNotFoundException(schemaName, tableName);
                 }
 
-                ExtendedTableConfiguration exTableCfg = ((ExtendedTableConfiguration) tableCfg);
-
-                final UUID tableId = exTableCfg.id().value();
+                int tableId = tableCfg.id().value();
 
                 Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
 
@@ -251,7 +243,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         future.complete(true);
                     } else {
                         var exception = new IgniteInternalException(
-                                Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
+                                Common.INTERNAL_ERR, "Looks like the index was concurrently deleted");
 
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
                                 exception, schemaName, tableName, indexName);
@@ -338,13 +330,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
-        UUID targetTableId = null;
+        Integer targetTableId = null;
+
+        NamedListView<TableView> tablesView = tablesCfg.tables().value();
 
         for (TableIndexView cfg : tablesCfg.indexes().value()) {
             if (targetTableId == null) {
-                TableConfiguration tbl = tablesCfg.tables().get(cfg.tableId());
+                TableView tbl = findTableView(cfg.tableId(), tablesView);
 
-                if (tbl == null || !tableName.equals(tbl.name().value())) {
+                if (tbl == null || !tableName.equals(tbl.name())) {
                     continue;
                 }
 
@@ -357,6 +351,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         return res;
+    }
+
+    @Nullable
+    private static TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
+        for (TableView tableView : tablesView) {
+            if (tableView.id() == tableId) {
+                return tableView;
+            }
+        }
+
+        return null;
     }
 
     private void validateName(String indexName) {
@@ -379,7 +384,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         UUID idxId = tableIndexView.id();
 
-        UUID tableId = tableIndexView.tableId();
+        int tableId = tableIndexView.tableId();
 
         long causalityToken = evt.storageRevision();
 
@@ -398,8 +403,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             CompletableFuture<?> dropIndexFuture = tableManager.tableAsync(causalityToken, tableId)
                     .thenAccept(table -> {
                         if (table != null) { // in case of DROP TABLE the table will be removed first
-                            indexBuilder.stopIndexBuild(tableIndexView, table);
-
                             table.unregisterIndex(idxId);
                         }
                     });
@@ -417,7 +420,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
-        UUID tableId = evt.newValue().tableId();
+        int tableId = evt.newValue().tableId();
 
         if (!busyLock.enterBusy()) {
             UUID idxId = evt.newValue().id();
@@ -431,13 +434,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            return createIndexLocally(evt.storageRevision(), tableId, evt.newValue());
+            return createIndexLocally(evt.storageRevision(), tableId, evt.newValue(), evt.newValue(TablesView.class));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
+    private CompletableFuture<?> createIndexLocally(
+            long causalityToken,
+            int tableId,
+            TableIndexView tableIndexView,
+            TablesView tablesView
+    ) {
         assert tableIndexView != null;
 
         UUID indexId = tableIndexView.id();
@@ -446,6 +454,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 tableIndexView.name(), indexId, tableId, causalityToken);
 
         IndexDescriptor descriptor = newDescriptor(tableIndexView);
+
+        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(tablesView, indexId);
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, descriptor));
@@ -461,16 +471,21 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             );
 
             if (descriptor instanceof SortedIndexDescriptor) {
-                table.registerSortedIndex(indexId, tableRowConverter::convert);
+                table.registerSortedIndex(
+                        (org.apache.ignite.internal.storage.index.SortedIndexDescriptor) storageIndexDescriptor,
+                        tableRowConverter::convert
+                );
             } else {
-                table.registerHashIndex(indexId, tableIndexView.uniq(), tableRowConverter::convert);
+                table.registerHashIndex(
+                        (HashIndexDescriptor) storageIndexDescriptor,
+                        tableIndexView.uniq(),
+                        tableRowConverter::convert
+                );
 
                 if (tableIndexView.uniq()) {
                     table.pkId(indexId);
                 }
             }
-
-            indexBuilder.startIndexBuild(tableIndexView, table);
         });
 
         return allOf(createIndexFuture, fireEventFuture);

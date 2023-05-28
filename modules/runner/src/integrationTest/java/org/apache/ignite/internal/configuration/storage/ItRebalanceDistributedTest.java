@@ -54,7 +54,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -69,8 +68,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -585,11 +587,13 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+        private final CatalogManager catalogManager;
 
         private List<IgniteComponent> nodeComponents;
 
-        private final ConfigurationTreeGenerator generator;
+        private final ConfigurationTreeGenerator nodeCfgGenerator;
+
+        private final ConfigurationTreeGenerator clusterCfgGenerator;
 
         private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
                 = new ConcurrentHashMap<>();
@@ -608,7 +612,7 @@ public class ItRebalanceDistributedTest {
 
             vaultManager = createVault(name, dir);
 
-            generator = new ConfigurationTreeGenerator(
+            nodeCfgGenerator = new ConfigurationTreeGenerator(
                     NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
             );
 
@@ -617,9 +621,9 @@ public class ItRebalanceDistributedTest {
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
-                    Set.of(),
-                    new LocalFileConfigurationStorage(configPath, generator),
-                    generator
+                    new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
+                    nodeCfgGenerator,
+                    new TestConfigurationValidator()
             );
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -635,8 +639,6 @@ public class ItRebalanceDistributedTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -644,9 +646,8 @@ public class ItRebalanceDistributedTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             replicaManager = new ReplicaManager(
                     clusterService,
@@ -682,15 +683,13 @@ public class ItRebalanceDistributedTest {
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
 
-            clusterCfgMgr = new ConfigurationManager(
+            clusterCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
                             DistributionZonesConfiguration.KEY
                     ),
-                    Set.of(),
-                    cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
@@ -702,6 +701,17 @@ public class ItRebalanceDistributedTest {
                             NullValueDefaultConfigurationSchema.class,
                             TestDataStorageConfigurationSchema.class
                     )
+            );
+            clusterCfgMgr = new ConfigurationManager(
+                    List.of(
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY,
+                            TablesConfiguration.KEY,
+                            DistributionZonesConfiguration.KEY
+                    ),
+                    cfgStorage,
+                    clusterCfgGenerator,
+                    new TestConfigurationValidator()
             );
 
             Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->
@@ -732,6 +742,8 @@ public class ItRebalanceDistributedTest {
                     clusterCfgMgr,
                     metaStorageManager,
                     clusterService);
+
+            catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageManager, vaultManager));
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
@@ -822,14 +834,14 @@ public class ItRebalanceDistributedTest {
                     cmgManager,
                     metaStorageManager,
                     clusterCfgMgr,
+                    catalogManager,
                     distributionZoneManager,
                     replicaManager,
                     txManager,
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager,
-                    distributedConfigurationUpdater
+                    tableManager
             );
 
             nodeComponents.forEach(IgniteComponent::start);
@@ -867,7 +879,8 @@ public class ItRebalanceDistributedTest {
             });
 
 
-            generator.close();
+            nodeCfgGenerator.close();
+            clusterCfgGenerator.close();
         }
 
         NetworkAddress address() {
@@ -884,7 +897,7 @@ public class ItRebalanceDistributedTest {
             }
 
             int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-            UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+            int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
             return new TablePartitionId(tableId, partitionId);
         }

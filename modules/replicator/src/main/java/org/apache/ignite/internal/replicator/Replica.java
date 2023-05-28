@@ -49,7 +49,7 @@ public class Replica {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
-    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    public static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
@@ -69,7 +69,7 @@ public class Replica {
     /** Instance of the local node. */
     private final ClusterNode localNode;
 
-    // TODO IGNITE-18960 after replica inoperability logic is introduced, this future should be replaced with something like
+    // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
     private CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
 
@@ -145,6 +145,8 @@ public class Replica {
         if (!leaderFuture.isDone()) {
             leaderFuture.complete(leaderRef);
         }
+
+        listener.onBecomePrimary(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {
@@ -266,5 +268,12 @@ public class Replica {
         Peer leased = raftClient.leader();
 
         return leased != null ? leased.consistentId() : localNode.name();
+    }
+
+    /**
+     * Shutdowns the replica.
+     */
+    public void shutdown() {
+        listener.onShutdown();
     }
 }

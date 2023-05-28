@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -45,7 +44,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,6 +53,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -74,7 +73,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -122,8 +121,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        when(distributionZoneManager.getDataNodesByZoneId(anyInt())).thenReturn(Set.of("node0"));
-
         doAnswer(invocation -> {
             ByteArray key = invocation.getArgument(0);
 
@@ -232,6 +229,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                             + "table5 = { zoneId = 2 }}")
             TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -256,10 +255,24 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any());
     }
 
+    private static void assignTableIds(TablesConfiguration tablesConfiguration) {
+        tablesConfiguration.change(tablesChange -> {
+            tablesChange.changeTables(tablesListChange -> {
+                for (int i = 0; i < tablesListChange.size(); i++) {
+                    TableView tableView = tablesListChange.get(i);
+                    int finalI = i;
+                    tablesListChange.update(tableView.name(), tableChange -> tableChange.changeId(finalI + 1));
+                }
+            });
+        }).join();
+    }
+
     @Test
     void sequentialAssignmentsChanging(
             @InjectConfiguration ("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -299,6 +312,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void sequentialEmptyAssignmentsChanging(
             @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -324,22 +339,24 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
 
-        nodes = emptySet();
+        Set<String> emptyNodes = emptySet();
 
-        watchListenerOnUpdate(1, nodes, 3);
+        watchListenerOnUpdate(1, emptyNodes, 3);
 
         zoneNodes.clear();
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(1, null);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
     }
 
     @Test
     void staleDataNodesEvent(
             @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
+        assignTableIds(tablesConfiguration);
+
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
@@ -369,7 +386,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
-        TablePartitionId partId = new TablePartitionId(new UUID(0, 0), 0);
+        TablePartitionId partId = new TablePartitionId(1, 0);
 
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
@@ -382,9 +399,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             Function<TablePartitionId, ByteArray> assignmentFunction
     ) {
         tablesConfiguration.tables().value().forEach(tableView -> {
-            ExtendedTableView extendedTableView = (ExtendedTableView) tableView;
-
-            UUID tableId = extendedTableView.id();
+            int tableId = tableView.id();
 
             DistributionZoneConfiguration distributionZoneConfiguration =
                     getZoneById(distributionZonesConfiguration, tableView.zoneId());
@@ -420,7 +435,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = toBytes(toDataNodesMap(nodes));
+            newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
+                    .map(n -> new Node(n, n))
+                    .collect(Collectors.toSet())));
         } else {
             newLogicalTopology = null;
         }

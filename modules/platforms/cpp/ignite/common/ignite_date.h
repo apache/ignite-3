@@ -63,7 +63,7 @@ public:
     [[nodiscard]] constexpr std::int_fast8_t get_day_of_month() const noexcept { return m_day; }
 
     /**
-     * Compare to another value.
+     * compare to another value.
      *
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.

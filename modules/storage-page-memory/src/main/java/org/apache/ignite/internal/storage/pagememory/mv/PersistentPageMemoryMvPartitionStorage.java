@@ -39,6 +39,8 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -129,7 +131,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 dataRegion.pageMemory(),
-                tableStorage.configuration().value().tableId(),
+                tableStorage.configuration().value().id(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -297,13 +299,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return runConsistently(locker -> super.getOrCreateHashIndex(indexId));
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(HashIndexDescriptor indexDescriptor) {
+        return runConsistently(locker -> super.getOrCreateHashIndex(indexDescriptor));
     }
 
     @Override
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return runConsistently(locker -> super.getOrCreateSortedIndex(indexId));
+    public PageMemorySortedIndexStorage getOrCreateSortedIndex(SortedIndexDescriptor indexDescriptor) {
+        return runConsistently(locker -> super.getOrCreateSortedIndex(indexDescriptor));
     }
 
     @Override
@@ -393,7 +395,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
-                tableStorage.configuration().tableId().value(),
+                tableStorage.configuration().id().value(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );

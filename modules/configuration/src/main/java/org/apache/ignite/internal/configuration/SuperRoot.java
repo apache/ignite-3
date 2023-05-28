@@ -102,7 +102,7 @@ public final class SuperRoot extends InnerNode {
     public <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal) {
         for (Map.Entry<String, RootInnerNode> e : roots.entrySet()) {
             if (includeInternal || !e.getValue().internal()) {
-                visitor.visitInnerNode(e.getKey(), e.getValue().node());
+                visitor.visitInnerNode(null, e.getKey(), e.getValue().node());
             }
         }
     }
@@ -119,7 +119,7 @@ public final class SuperRoot extends InnerNode {
         if (root == null || (!includeInternal && root.internal())) {
             throw new NoSuchElementException(key);
         } else {
-            return visitor.visitInnerNode(key, root.node());
+            return visitor.visitInnerNode(null, key, root.node());
         }
     }
 

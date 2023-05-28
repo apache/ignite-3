@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
@@ -29,7 +28,7 @@ import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.ReplExceptionHandlers;
-import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReader;
+import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
@@ -88,7 +87,7 @@ public class ReplExecutor {
         this.nodeNameRegistry = nodeNameRegistry;
     }
 
-    private static TailTipWidgets createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
+    private static void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
         TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                 TailTipWidgets.TipType.COMPLETER);
         widgets.enable();
@@ -101,7 +100,6 @@ public class ReplExecutor {
         });
         // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
         registry.setScriptDescription(cmdLine -> null);
-        return widgets;
     }
 
     /**
@@ -152,32 +150,15 @@ public class ReplExecutor {
         }
     }
 
-    private static void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
-        Consumer<Boolean> widgetsEnabler;
+    private void setupWidgets(Repl repl, SystemRegistryImpl registry, LineReader reader) {
         if (repl.isTailTipWidgetsEnabled()) {
-            TailTipWidgets widgets = createTailTipWidgets(registry, reader);
-            widgetsEnabler = enable -> {
-                if (enable) {
-                    widgets.enable();
-                } else {
-                    widgets.disable();
-                }
-            };
+            createTailTipWidgets(registry, reader);
         } else if (repl.isAutosuggestionsWidgetsEnabled()) {
             AutosuggestionWidgets widgets = new AutosuggestionWidgets(reader);
             widgets.enable();
-            widgetsEnabler = enable -> {
-                if (enable) {
-                    widgets.enable();
-                } else {
-                    widgets.disable();
-                }
-            };
-        } else {
-            widgetsEnabler = enable -> {};
         }
 
-        QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgetsEnabler));
+        QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
     }
 
     private LineReader createReader(Completer completer) {

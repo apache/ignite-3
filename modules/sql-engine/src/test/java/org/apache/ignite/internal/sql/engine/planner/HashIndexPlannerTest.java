@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -43,7 +42,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                someAffinity(),
                 "ID", Integer.class,
                 "VAL", Integer.class
         );
@@ -70,7 +69,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                someAffinity(),
                 "ID", Integer.class,
                 "VAL", Integer.class
         );

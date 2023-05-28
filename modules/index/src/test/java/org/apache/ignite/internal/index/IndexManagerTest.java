@@ -26,7 +26,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -45,7 +45,6 @@ import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.table.InternalTable;
@@ -54,7 +53,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +66,7 @@ import org.mockito.Mockito;
 public class IndexManagerTest {
     @InjectConfiguration(
             "mock.tables.tName {"
+                    + "id: 1, "
                     + "columns.c1 {type.type: STRING}, "
                     + "columns.c2 {type.type: STRING}, "
                     + "primaryKey {columns: [c1], colocationColumns: [c1]}"
@@ -81,7 +80,7 @@ public class IndexManagerTest {
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), any(UUID.class))).thenAnswer(inv -> {
+        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
             Mockito.doReturn(inv.getArgument(1)).when(tbl).tableId();
@@ -91,9 +90,9 @@ public class IndexManagerTest {
 
         SchemaManager schManager = mock(SchemaManager.class);
 
-        when(schManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(null));
+        when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager("test", tablesConfig, schManager, tableManagerMock, mock(ClusterService.class));
+        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
         indexManager.start();
 
         assertThat(
@@ -140,7 +139,7 @@ public class IndexManagerTest {
                         "name", indexName,
                         "type", "SORTED",
                         "uniq", false,
-                        "tableId", tableId().toString()
+                        "tableId", tableId()
                 )
         );
 
@@ -212,7 +211,13 @@ public class IndexManagerTest {
     private static Object toMap(Object obj) {
         assert obj instanceof TraversableTreeNode;
 
-        return ((TraversableTreeNode) obj).accept(null, new ConverterToMapVisitor(false));
+        return ((TraversableTreeNode) obj).accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
     }
 
     private static void assertSameObjects(Object expected, Object actual) {
@@ -290,7 +295,7 @@ public class IndexManagerTest {
         }
     }
 
-    private UUID tableId() {
-        return ((ExtendedTableConfiguration) tablesConfig.tables().get("tName")).id().value();
+    private int tableId() {
+        return tablesConfig.tables().get("tName").id().value();
     }
 }

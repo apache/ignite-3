@@ -25,14 +25,13 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -133,7 +132,7 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Table id.
      */
-    public static UUID extractTableId(byte[] key) {
+    public static int extractTableId(byte[] key) {
         return extractTableId(key, "");
     }
 
@@ -144,10 +143,10 @@ public class RebalanceUtil {
      * @param prefix Key prefix.
      * @return Table id.
      */
-    public static UUID extractTableId(byte[] key, String prefix) {
+    public static int extractTableId(byte[] key, String prefix) {
         String strKey = new String(key, StandardCharsets.UTF_8);
 
-        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
     /**
@@ -250,7 +249,7 @@ public class RebalanceUtil {
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 
-        Set<Assignment> pendingAssignments = subtract(assignments, switchReduce);
+        Set<Assignment> pendingAssignments = difference(assignments, switchReduce);
 
         byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
         byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
@@ -295,17 +294,6 @@ public class RebalanceUtil {
     }
 
     /**
-     * Removes nodes from set of nodes.
-     *
-     * @param minuend Set to remove nodes from.
-     * @param subtrahend Set of nodes to be removed.
-     * @return Result of the subtraction.
-     */
-    public static <T> Set<T> subtract(Set<T> minuend, Set<T> subtrahend) {
-        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toSet());
-    }
-
-    /**
      * Adds nodes to the set of nodes.
      *
      * @param op1 First operand.
@@ -318,16 +306,5 @@ public class RebalanceUtil {
         res.addAll(op2);
 
         return res;
-    }
-
-    /**
-     * Returns an intersection of two set of nodes.
-     *
-     * @param op1 First operand.
-     * @param op2 Second operand.
-     * @return Result of the intersection.
-     */
-    public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
-        return op1.stream().filter(op2::contains).collect(Collectors.toSet());
     }
 }

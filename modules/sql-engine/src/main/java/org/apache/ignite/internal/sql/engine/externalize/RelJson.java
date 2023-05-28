@@ -37,7 +37,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.AvaticaUtils;
@@ -540,7 +539,7 @@ class RelJson {
 
                 if (function.affinity()) {
                     map.put("zoneId", ((AffinityDistribution) function).zoneId());
-                    map.put("tableId", ((AffinityDistribution) function).tableId().toString());
+                    map.put("tableId", Integer.toString(((AffinityDistribution) function).tableId()));
                 }
 
                 return map;
@@ -676,7 +675,7 @@ class RelJson {
         String tableIdStr = (String) map.get("tableId");
 
         if (tableIdStr != null) {
-            UUID tableId = UUID.fromString(tableIdStr);
+            int tableId = Integer.parseInt(tableIdStr);
             Object zoneId = map.get("zoneId");
 
             return IgniteDistributions.affinity((List<Integer>) map.get("keys"), tableId, zoneId);

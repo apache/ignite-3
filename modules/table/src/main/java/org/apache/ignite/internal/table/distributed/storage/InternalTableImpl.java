@@ -21,7 +21,7 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
@@ -113,7 +113,7 @@ public class InternalTableImpl implements InternalTable {
     private final String tableName;
 
     /** Table identifier. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -160,7 +160,7 @@ public class InternalTableImpl implements InternalTable {
      */
     public InternalTableImpl(
             String tableName,
-            UUID tableId,
+            int tableId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<String, ClusterNode> clusterNodeResolver,
@@ -197,7 +197,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 
@@ -217,7 +217,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             IgniteTetraFunction<TablePartitionId, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
@@ -279,7 +279,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
@@ -380,6 +380,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
+                .timestampLong(clock.nowLong())
                 .transactionId(tx.id())
                 .scanId(scanId)
                 .indexToUse(indexId)
@@ -388,8 +389,7 @@ public class InternalTableImpl implements InternalTable {
                 .upperBound(upperBound)
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
-                .batchSize(batchSize)
-                .timestampLong(clock.nowLong());
+                .batchSize(batchSize);
 
         if (primaryReplicaAndTerm != null) {
             ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
@@ -1011,6 +1011,7 @@ public class InternalTableImpl implements InternalTable {
 
                     ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
+                            .timestampLong(clock.nowLong())
                             .transactionId(txId)
                             .scanId(scanId)
                             .indexToUse(indexId)
@@ -1408,8 +1409,12 @@ public class InternalTableImpl implements InternalTable {
 
                     if (binaryRows.size() < n) {
                         cancel();
-                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
-                        scanBatch(Math.min(n, INTERNAL_BATCH_SIZE));
+                    } else {
+                        long remaining = requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size()));
+
+                        if (remaining > 0) {
+                            scanBatch((int) Math.min(remaining, INTERNAL_BATCH_SIZE));
+                        }
                     }
                 }).exceptionally(t -> {
                     cancel(t);
@@ -1471,7 +1476,7 @@ public class InternalTableImpl implements InternalTable {
         } else if (e instanceof LockException) {
             e0 = withCause(TransactionException::new, ACQUIRE_LOCK_ERR, e);
         } else if (!(e instanceof RuntimeException)) {
-            e0 = withCause(IgniteException::new, UNEXPECTED_ERR, e);
+            e0 = withCause(IgniteException::new, INTERNAL_ERR, e);
         } else {
             e0 = (RuntimeException) e;
         }

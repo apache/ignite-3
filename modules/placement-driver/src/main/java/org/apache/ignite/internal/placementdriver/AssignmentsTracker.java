@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -140,10 +141,14 @@ public class AssignmentsTracker {
     private class AssignmentsListener implements WatchListener {
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            assert !event.entryEvent().newEntry().empty() : "New assignments are empty";
+            assert !event.entryEvents().stream().anyMatch(e -> e.newEntry().empty()) : "New assignments are empty";
 
-            LOG.debug("Assignment update [revision={}, key={}]", event.revision(),
-                    new ByteArray(event.entryEvent().newEntry().key()));
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Assignment update [revision={}, keys={}]", event.revision(),
+                        event.entryEvents().stream()
+                                .map(e -> new ByteArray(e.newEntry().key()).toString())
+                                .collect(Collectors.joining(",")));
+            }
 
             boolean leaseRenewalRequired = false;
 

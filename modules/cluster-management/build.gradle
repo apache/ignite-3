@@ -30,6 +30,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-network')
@@ -69,4 +70,6 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.jetbrains.annotations
 }

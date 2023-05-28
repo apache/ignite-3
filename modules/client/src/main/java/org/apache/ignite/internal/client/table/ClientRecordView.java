@@ -19,16 +19,13 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -353,41 +350,5 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull R keyRec, InvokeProcessor<R, R, T> proc) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull R keyRec,
-            InvokeProcessor<R, R, T> proc
-    ) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> Map<R, T> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc
-    ) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<Map<R, T>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<R> keyRecs,
-            InvokeProcessor<R, R, T> proc
-    ) {
-        throw new UnsupportedOperationException();
     }
 }

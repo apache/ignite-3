@@ -22,9 +22,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
@@ -44,6 +46,13 @@ class DdlToCatalogCommandConverter {
 
                 .zone(cmd.zone())
 
+                .build();
+    }
+
+    static DropTableParams convert(DropTableCommand cmd) {
+        return DropTableParams.builder()
+                .schemaName(cmd.schemaName())
+                .tableName(cmd.tableName())
                 .build();
     }
 

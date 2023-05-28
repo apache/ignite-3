@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -332,7 +331,7 @@ public class ClientTableCommon {
      *                         </ul>
      */
     public static TableImpl readTable(ClientMessageUnpacker unpacker, IgniteTables tables) {
-        UUID tableId = unpacker.unpackUuid();
+        int tableId = unpacker.unpackInt();
 
         try {
             TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
@@ -373,58 +372,13 @@ public class ClientTableCommon {
      * @return Client type code.
      */
     public static ColumnType getColumnType(NativeTypeSpec spec) {
-        switch (spec) {
-            case INT8:
-                return ColumnType.INT8;
+        ColumnType columnType = spec.asColumnTypeOrNull();
 
-            case INT16:
-                return ColumnType.INT16;
-
-            case INT32:
-                return ColumnType.INT32;
-
-            case INT64:
-                return ColumnType.INT64;
-
-            case FLOAT:
-                return ColumnType.FLOAT;
-
-            case DOUBLE:
-                return ColumnType.DOUBLE;
-
-            case DECIMAL:
-                return ColumnType.DECIMAL;
-
-            case NUMBER:
-                return ColumnType.NUMBER;
-
-            case UUID:
-                return ColumnType.UUID;
-
-            case STRING:
-                return ColumnType.STRING;
-
-            case BYTES:
-                return ColumnType.BYTE_ARRAY;
-
-            case BITMASK:
-                return ColumnType.BITMASK;
-
-            case DATE:
-                return ColumnType.DATE;
-
-            case TIME:
-                return ColumnType.TIME;
-
-            case DATETIME:
-                return ColumnType.DATETIME;
-
-            case TIMESTAMP:
-                return ColumnType.TIMESTAMP;
-
-            default:
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
+        if (columnType == null) {
+            throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
         }
+
+        return columnType;
     }
 
     /**

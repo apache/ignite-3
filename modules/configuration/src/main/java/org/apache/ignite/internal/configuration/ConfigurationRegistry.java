@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.to
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -38,10 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -57,11 +54,8 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-import org.apache.ignite.internal.configuration.validation.ExceptKeysValidator;
-import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
-import org.apache.ignite.internal.configuration.validation.OneOfValidator;
-import org.apache.ignite.internal.configuration.validation.PowerOfTwoValidator;
-import org.apache.ignite.internal.configuration.validation.RangeValidator;
+import org.apache.ignite.internal.configuration.util.NodeValue;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -83,12 +77,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /** Runtime implementations generator for node classes. */
-    private final ConfigurationTreeGenerator generator;
-
-    /** Flag that indicates if the {@link ConfigurationTreeGenerator} instance is owned by this object or not. */
-    private boolean ownConfigTreeGenerator = false;
-
     /** Configuration storage revision change listeners. */
     private final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> storageRevisionListeners =
             new ConfigurationListenerHolder<>();
@@ -97,61 +85,23 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      * Constructor.
      *
      * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
      * @param storage                     Configuration storage.
-     * @param internalSchemaExtensions    Internal extensions ({@link InternalConfiguration}) of configuration schemas ({@link
-     *                                    ConfigurationRoot} and {@link Config}).
-     * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas.
+     * @param generator                   Configuration tree generator.
+     * @param configurationValidator      Configuration validator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
-            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
-            Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
     ) {
-        this(
-                rootKeys,
-                validators,
-                storage,
-                new ConfigurationTreeGenerator(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions)
-        );
-
-        this.ownConfigTreeGenerator = true;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param validators                  Validators.
-     * @param storage                     Configuration storage.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
-     */
-    public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
-            Set<Validator<?, ?>> validators,
-            ConfigurationStorage storage,
-            ConfigurationTreeGenerator generator
-    ) {
-        this.generator = generator;
-
         checkConfigurationType(rootKeys, storage);
 
         this.rootKeys = rootKeys;
 
-        Set<Validator<?, ?>> validators0 = new HashSet<>(validators);
-
-        validators0.add(new ImmutableValidator());
-        validators0.add(new OneOfValidator());
-        validators0.add(new ExceptKeysValidator());
-        validators0.add(new PowerOfTwoValidator());
-        validators0.add(new RangeValidator());
-
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, validators0, storage) {
+        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());
@@ -193,10 +143,6 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         changer.stop();
 
         storageRevisionListeners.clear();
-
-        if (ownConfigTreeGenerator) {
-            generator.close();
-        }
     }
 
     /**
@@ -237,20 +183,21 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
         SuperRoot superRoot = changer.superRoot();
 
-        Object node;
+        NodeValue<?> node;
         try {
             node = ConfigurationUtil.find(path, superRoot, false);
         } catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
         }
 
-        if (node instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) node).accept(null, visitor);
+        Object value = node.value();
+        if (value instanceof TraversableTreeNode) {
+            return ((TraversableTreeNode) value).accept(node.field(), null, visitor);
         }
 
-        assert node == null || node instanceof Serializable;
+        assert value == null || value instanceof Serializable;
 
-        return visitor.visitLeafNode(null, (Serializable) node);
+        return visitor.visitLeafNode(node.field(), null, (Serializable) value);
     }
 
     /**
@@ -306,7 +253,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
                 newSuperRoot.traverseChildren(new ConfigurationVisitor<Void>() {
                     @Override
-                    public Void visitInnerNode(String key, InnerNode newRoot) {
+                    public Void visitInnerNode(Field field, String key, InnerNode newRoot) {
                         DynamicConfiguration<InnerNode, ?> config = (DynamicConfiguration<InnerNode, ?>) configs.get(key);
 
                         assert config != null : key;

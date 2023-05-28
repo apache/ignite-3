@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
@@ -63,7 +62,7 @@ public abstract class DistributionFunction {
         return false;
     }
 
-    public static DistributionFunction affinity(UUID tableId, Object zoneId) {
+    public static DistributionFunction affinity(int tableId, Object zoneId) {
         return new AffinityDistribution(tableId, zoneId);
     }
 
@@ -245,7 +244,7 @@ public abstract class DistributionFunction {
      * Affinity distribution.
      */
     public static final class AffinityDistribution extends HashDistribution {
-        private final UUID tableId;
+        private final int tableId;
 
         private final Object zoneId;
 
@@ -255,7 +254,7 @@ public abstract class DistributionFunction {
          * @param tableId Table ID.
          * @param zoneId  Distribution zone ID.
          */
-        private AffinityDistribution(UUID tableId, Object zoneId) {
+        private AffinityDistribution(int tableId, Object zoneId) {
             this.zoneId = zoneId;
             this.tableId = tableId;
         }
@@ -266,7 +265,7 @@ public abstract class DistributionFunction {
             return true;
         }
 
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 

@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
@@ -32,13 +33,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -164,7 +164,7 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
+                    Set<Node> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
 
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);
@@ -174,16 +174,27 @@ public class DistributionZoneRebalanceEngine {
                         DistributionZoneConfiguration distributionZoneConfiguration =
                                 getZoneById(zonesConfiguration, tableZoneId);
 
+                        Set<String> filteredDataNodes = filterDataNodes(
+                                dataNodes,
+                                distributionZoneConfiguration.filter().value(),
+                                distributionZoneManager.nodesAttributes()
+                        );
+
+                        if (filteredDataNodes.isEmpty()) {
+                            continue;
+                        }
+
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
-                            UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+                            int tableId = tableCfg.id().value();
 
                             CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                                     metaStorageManager,
                                     tableId, distributionZoneConfiguration.partitions().value());
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
+
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
                                 int replicas = distributionZoneConfiguration.replicas().value();
@@ -194,7 +205,7 @@ public class DistributionZoneRebalanceEngine {
                                         updatePendingAssignmentsKeys(
                                                 tableView.name(),
                                                 replicaGrpId,
-                                                dataNodes,
+                                                filteredDataNodes,
                                                 replicas,
                                                 evt.entryEvent().newEntry().revision(),
                                                 metaStorageManager,
@@ -254,7 +265,6 @@ public class DistributionZoneRebalanceEngine {
                 int furCur = 0;
 
                 for (TableConfiguration tblCfg : tblsCfg) {
-
                     LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
                             tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
 
@@ -262,14 +272,22 @@ public class DistributionZoneRebalanceEngine {
 
                     int newReplicas = replicasCtx.newValue();
 
-                    UUID tableId = ((ExtendedTableConfiguration) tblCfg).id().value();
+                    int tableId = tblCfg.id().value();
 
                     CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                             metaStorageManager,
                             tableId, partCnt);
 
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+
+                    if (dataNodes.isEmpty()) {
+                        futs[furCur++] = completedFuture(null);
+
+                        continue;
+                    }
+
                     for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
+                        TablePartitionId replicaGrpId = new TablePartitionId(tblCfg.id().value(), i);
 
                         int partId = i;
 
@@ -277,7 +295,7 @@ public class DistributionZoneRebalanceEngine {
                                 updatePendingAssignmentsKeys(
                                         tblCfg.name().value(),
                                         replicaGrpId,
-                                        distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
+                                        dataNodes,
                                         newReplicas,
                                         replicasCtx.storageRevision(),
                                         metaStorageManager,

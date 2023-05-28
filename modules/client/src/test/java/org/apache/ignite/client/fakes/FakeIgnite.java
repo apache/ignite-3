@@ -22,6 +22,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -42,6 +44,8 @@ import org.jetbrains.annotations.NotNull;
  */
 public class FakeIgnite implements Ignite {
     private final String name;
+
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Default constructor.
@@ -85,6 +89,8 @@ public class FakeIgnite implements Ignite {
             public CompletableFuture<Transaction> beginAsync(TransactionOptions options) {
                 return CompletableFuture.completedFuture(new InternalTransaction() {
                     private final UUID id = UUID.randomUUID();
+
+                    private final HybridTimestamp timestamp = clock.now();
 
                     @Override
                     public @NotNull UUID id() {
@@ -149,6 +155,11 @@ public class FakeIgnite implements Ignite {
                     @Override
                     public HybridTimestamp readTimestamp() {
                         return null;
+                    }
+
+                    @Override
+                    public HybridTimestamp startTimestamp() {
+                        return timestamp;
                     }
                 });
             }

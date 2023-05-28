@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -47,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClientRecordSerializer<R> {
     /** Table ID. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Mapper. */
     private final Mapper<R> mapper;
@@ -61,8 +60,7 @@ public class ClientRecordSerializer<R> {
      * @param tableId       Table ID.
      * @param mapper        Mapper.
      */
-    ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
-        assert tableId != null;
+    ClientRecordSerializer(int tableId, Mapper<R> mapper) {
         assert mapper != null;
 
         this.tableId = tableId;
@@ -113,7 +111,7 @@ public class ClientRecordSerializer<R> {
 
             out.packBinaryTuple(builder, noValueSet);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 
@@ -122,7 +120,7 @@ public class ClientRecordSerializer<R> {
     }
 
     void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
 
@@ -137,7 +135,7 @@ public class ClientRecordSerializer<R> {
             PayloadOutputChannel out,
             TuplePart part
     ) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
 
@@ -155,7 +153,7 @@ public class ClientRecordSerializer<R> {
             PayloadOutputChannel out,
             TuplePart part
     ) {
-        out.out().packUuid(tableId);
+        out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(recs.size());
@@ -190,7 +188,7 @@ public class ClientRecordSerializer<R> {
                 }
             }
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
 
         return res;
@@ -208,7 +206,7 @@ public class ClientRecordSerializer<R> {
         try {
             return (R) marshaller.readObject(reader, null);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 
@@ -225,7 +223,7 @@ public class ClientRecordSerializer<R> {
         try {
             return (R) valMarshaller.readObject(reader, null);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 

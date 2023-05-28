@@ -194,4 +194,9 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     Map.Entry<T, R> currentEntry() {
         return current;
     }
+
+    /** Returns true if this tracker contains no waiters. */
+    public boolean isEmpty() {
+        return valueFutures.isEmpty();
+    }
 }

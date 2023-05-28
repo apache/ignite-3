@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -27,7 +29,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -166,7 +166,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
     /** {@inheritDoc} */
     @Override
-    public UUID id() {
+    public int id() {
         return table.tableId();
     }
 
@@ -335,8 +335,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
         assert commitPartitionId != null;
 
-        UUID tableId = table.tableId();
-
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
@@ -350,7 +348,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            TablePartitionId partGroupId = new TablePartitionId(table.tableId(), partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
@@ -382,8 +380,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
         RowHandler<RowT> handler = ectx.rowHandler();
 
-        UUID tableId = table.tableId();
-
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
@@ -397,7 +393,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            TablePartitionId partGroupId = new TablePartitionId(table.tableId(), partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
@@ -447,8 +443,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
         assert commitPartitionId != null;
 
-        UUID tableId = table.tableId();
-
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
@@ -462,7 +456,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            TablePartitionId partGroupId = new TablePartitionId(table.tableId(), partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
@@ -493,7 +487,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             Object value = hnd.get(colDesc.logicalIndex(), row);
 
             // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-            assert value != RexImpTable.DEFAULT_VALUE_PLACEHOLDER;
+            assert value != DEFAULT_VALUE_PLACEHOLDER;
 
             if (value == null) {
                 hasNulls = true;

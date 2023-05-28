@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -380,8 +382,21 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.
      */
+    // TODO: IGNITE-19494 We need to correctly stop the replica
     private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
-        return replicas.remove(replicaGrpId) != null;
+        CompletableFuture<Replica> removed = replicas.remove(replicaGrpId);
+
+        if (removed != null) {
+            removed.whenComplete((replica, throwable) -> {
+                if (throwable != null) {
+                    replica.shutdown();
+                }
+            });
+
+            return true;
+        }
+
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -418,7 +433,15 @@ public class ReplicaManager implements IgniteComponent {
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
 
-        assert replicas.isEmpty() : "There are replicas alive [replicas=" + replicas.keySet() + ']';
+        assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
+                : "There are replicas alive [replicas="
+                    + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+
+        for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
+            if (!replicaFuture.isDone()) {
+                replicaFuture.completeExceptionally(new NodeStoppingException());
+            }
+        }
     }
 
     /**
