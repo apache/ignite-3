@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionsAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.updatePendingAssignmentsKeys;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -179,7 +179,7 @@ public class DistributionZoneRebalanceEngine {
 
                             UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
-                            CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = partitionsAssignments(
+                            CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                                     metaStorageManager,
                                     tableId, distributionZoneConfiguration.partitions().value());
 
@@ -264,7 +264,7 @@ public class DistributionZoneRebalanceEngine {
 
                     UUID tableId = ((ExtendedTableConfiguration) tblCfg).id().value();
 
-                    CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = partitionsAssignments(
+                    CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                             metaStorageManager,
                             tableId, partCnt);
 
@@ -273,17 +273,17 @@ public class DistributionZoneRebalanceEngine {
 
                         int partId = i;
 
-                        futs[furCur++] =
-                                tableAssignmentsFut.thenCompose(tableAssignments -> updatePendingAssignmentsKeys(
-                                tblCfg.name().value(),
-                                replicaGrpId,
-                                distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
-                                newReplicas,
-                                replicasCtx.storageRevision(),
-                                metaStorageManager,
+                        futs[furCur++] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                                updatePendingAssignmentsKeys(
+                                        tblCfg.name().value(),
+                                        replicaGrpId,
+                                        distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
+                                        newReplicas,
+                                        replicasCtx.storageRevision(),
+                                        metaStorageManager,
                                         partId,
-                                tableAssignments.get(partId)
-                        ));
+                                        tableAssignments.get(partId)
+                                ));
                     }
                 }
                 return allOf(futs);

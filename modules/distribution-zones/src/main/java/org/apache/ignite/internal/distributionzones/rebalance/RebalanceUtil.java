@@ -383,11 +383,12 @@ public class RebalanceUtil {
 
     public static CompletableFuture<Set<Assignment>> partitionAssignments(
             MetaStorageManager metaStorageManager, UUID tableId, int partitionNumber) {
-        return metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
                 .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
     }
 
-    public static CompletableFuture<List<Set<Assignment>>> partitionsAssignments(
+    public static CompletableFuture<List<Set<Assignment>>> tableAssignments(
             MetaStorageManager metaStorageManager, UUID tableId, int numberOfPartitions) {
         Map<ByteArray, Integer> partitionKeysToPartitionNumb = new HashMap<>();
 

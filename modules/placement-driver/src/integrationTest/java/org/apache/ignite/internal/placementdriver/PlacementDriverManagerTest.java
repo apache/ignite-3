@@ -480,12 +480,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         int zoneId = createZone();
 
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-            tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
-                var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changeZoneId(zoneId);
+                    tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
+                        var extConfCh = ((ExtendedTableChange) tableChange);
+                        extConfCh.changeZoneId(zoneId);
 
-                tblIdRef.set(extConfCh.id());
-            });
+                        tblIdRef.set(extConfCh.id());
+                    });
                 }).thenCompose(v -> {
                     Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 

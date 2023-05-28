@@ -45,7 +45,6 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -574,18 +573,18 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     private TablePartitionId createTableAssignment() throws Exception {
         AtomicReference<UUID> tblIdRef = new AtomicReference<>();
 
-        final List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
+        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
 
         int zoneId = createZone();
 
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-            tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
-                var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changeZoneId(zoneId);
+                    tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
+                        var extConfCh = ((ExtendedTableChange) tableChange);
+                        extConfCh.changeZoneId(zoneId);
 
-                tblIdRef.set(extConfCh.id());
-            });
-        }).thenCompose(v -> {
+                        tblIdRef.set(extConfCh.id());
+                    });
+                }).thenCompose(v -> {
                     Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
                     for (int i = 0; i < assignments.size(); i++) {

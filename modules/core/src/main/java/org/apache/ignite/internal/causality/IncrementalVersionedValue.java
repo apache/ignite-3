@@ -221,7 +221,6 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
         synchronized (updateMutex) {
             assert expectedToken == -1 || expectedToken == causalityToken
                     : String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken);
-            System.out.println("KKK complele token " + causalityToken);
 
             lastCompleteToken = causalityToken;
             expectedToken = -1;
