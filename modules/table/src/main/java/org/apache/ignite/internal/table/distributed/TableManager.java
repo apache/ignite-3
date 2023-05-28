@@ -66,7 +66,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -97,7 +96,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -543,47 +541,50 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneView zone =
                     getZoneById(distributionZonesConfiguration, (ctx.newValue()).zoneId()).value();
 
-            List<Operation> partitionAssignments = new ArrayList<>(zone.partitions());
-
             List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
-                    baselineMgr.nodes().stream().map(n -> n.name()).collect(Collectors.toList()),
+                    baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                     zone.partitions(),
                     zone.replicas());
 
+            assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
+
             UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
-
-            for (int i = 0; i < zone.partitions(); i++) {
-                partitionAssignments.add(put(
-                        stablePartAssignmentsKey(
-                                new TablePartitionId(tblId, i)),
-                        ByteUtils.toBytes(assignments.get(i))));
-
-            }
 
             var createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
-                    ((ExtendedTableView) ctx.newValue()).id());
+                    ((ExtendedTableView) ctx.newValue()).id(),
+                    assignments);
 
-            updateAssignmentInternal(ctx.storageRevision(), assignments, (ExtendedTableView) ctx.newValue());
+            writeTableAssignmentsToMetastore(tblId, assignments);
 
-            var resultFuture = createTableFut;
-
-            resultFuture.thenCompose((notUsed) -> {
-                System.out.println("KKK writing metastore");
-                Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
-                return metaStorageMgr.invoke(condition, partitionAssignments, Collections.emptyList());
-            }).exceptionally(e -> {
-                LOG.error("Can't write to metastore assignments", e);
-                return null;
-            });
-
-            return resultFuture;
-
-
+            return createTableFut;
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private void writeTableAssignmentsToMetastore(UUID tableId, List<Set<Assignment>> assignments) {
+        assert !assignments.isEmpty();
+
+        List<Operation> partitionAssignments = new ArrayList<>(assignments.size());
+
+        for (int i = 0; i < assignments.size(); i++) {
+            partitionAssignments.add(put(
+                    stablePartAssignmentsKey(
+                            new TablePartitionId(tableId, i)),
+                    ByteUtils.toBytes(assignments.get(i))));
+        }
+
+        Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
+
+        metaStorageMgr
+                .invoke(condition, partitionAssignments, Collections.emptyList())
+                .exceptionally(e -> {
+                    LOG.error("Couldn't write assignments to metastore", e);
+
+                    return null;
+                });
     }
 
     /**
@@ -626,7 +627,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param evt Change assignment event.
      */
-    private CompletableFuture<?> updateAssignmentInternal(long causalityToken, List<Set<Assignment>> assignments, ExtendedTableView tblCfg) {
+    private CompletableFuture<?> createTablePartitionsLocally(
+            long causalityToken,
+            List<Set<Assignment>> assignments,
+            ExtendedTableView tblCfg,
+            TableImpl table) {
         UUID tblId = tblCfg.id();
 
         DistributionZoneConfiguration dstCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId());
@@ -659,8 +664,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 Set<Assignment> newPartAssignment = newAssignments.get(partId);
 
-                TableImpl table = tablesById.get(tblId);
-
                 InternalTable internalTbl = table.internalTable();
 
                 Assignment localMemberAssignment = newPartAssignment.stream()
@@ -676,7 +679,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
                         new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-                PendingComparableValuesTracker<Long, Void>  storageIndexTracker =
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker =
                         new PendingComparableValuesTracker<>(0L);
 
                 ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -1090,7 +1093,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId) {
+    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId, List<Set<Assignment>> assignments) {
         LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
@@ -1127,6 +1130,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return val;
                     });
         }));
+
+        createTablePartitionsLocally(causalityToken, assignments, (ExtendedTableView) tableCfg.value(), table);
 
         pendingTables.put(tblId, table);
 
@@ -1415,7 +1420,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<TableChange> tableInitChange,
             CompletableFuture<Table> tblFut
     ) {
-
         tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
             if (tablesListChange.get(name) != null) {
                 throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
@@ -1436,9 +1440,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
 
                 tableCreateFuts.put(extConfCh.id(), tblFut);
-
-                DistributionZoneConfiguration distributionZoneConfiguration =
-                        getZoneById(distributionZonesConfiguration, zoneId);
             });
         })).exceptionally(t -> {
             Throwable ex = getRootCause(t);
@@ -1988,7 +1989,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         byte[] stableAssignmentsBytes = stableAssignmentsEntry.value();
 
-        // TODO: KKK stable assignments must be filled on table creation
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsBytes);
 
         PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
@@ -2292,9 +2292,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
         if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
+            // It's the initial write to table stable assignments on table create event.
             return completedFuture(null);
         }
 
+        // here we can receive only update from the rebalance logic
+        // these updates always processing only 1 partition, so, only 1 stable partition key.
         assert evt.single() : evt;
 
         Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
