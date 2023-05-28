@@ -483,27 +483,27 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         int zoneId = createZone();
 
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-                    tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
-                        var extConfCh = ((ExtendedTableChange) tableChange);
+            tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
+                var extConfCh = ((ExtendedTableChange) tableChange);
 
-                        extConfCh.changeId(tableId);
+                extConfCh.changeId(tableId);
 
-                        extConfCh.changeZoneId(zoneId);
-                    });
-                }).thenCompose(v -> {
-                    Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
+                extConfCh.changeZoneId(zoneId);
+            });
+        }).thenCompose(v -> {
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
-                    for (int i = 0; i < assignments.size(); i++) {
-                        partitionAssignments.put(
-                                stablePartAssignmentsKey(
-                                        new TablePartitionId(tableId, i)),
-                                ByteUtils.toBytes(assignments.get(i)));
+            for (int i = 0; i < assignments.size(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
 
-                    }
+            }
 
-                    return metaStorageManager.putAll(partitionAssignments);
-                })
-                .get();
+            return metaStorageManager.putAll(partitionAssignments);
+        })
+        .get();
 
         var grpPart0 = new TablePartitionId(tableId, 0);
 

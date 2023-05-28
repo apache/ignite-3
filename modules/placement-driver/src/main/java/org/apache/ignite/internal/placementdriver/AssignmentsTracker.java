@@ -57,12 +57,6 @@ public class AssignmentsTracker {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
-    // TODO: KKK remove unused fields
-    /** Tables configuration. */
-    private final TablesConfiguration tablesCfg;
-
-    private final DistributionZonesConfiguration distributionZonesConfiguration;
-
     /** Map replication group id to assignment nodes. */
     private final Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
 
@@ -74,14 +68,10 @@ public class AssignmentsTracker {
      *
      * @param vaultManager Vault manager.
      * @param msManager Metastorage manager.
-     * @param tablesCfg Table configuration.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager,
-            TablesConfiguration tablesCfg, DistributionZonesConfiguration distributionZonesConfiguration) {
+    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
-        this.tablesCfg = tablesCfg;
-        this.distributionZonesConfiguration = distributionZonesConfiguration;
 
         this.groupAssignments = new ConcurrentHashMap<>();
         this.assignmentsListener = new AssignmentsListener();

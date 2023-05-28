@@ -381,6 +381,14 @@ public class RebalanceUtil {
         return op1.stream().filter(op2::contains).collect(Collectors.toSet());
     }
 
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param partitionNumber Partition number.
+     * @return Future with partition assignments as a value.
+     */
     public static CompletableFuture<Set<Assignment>> partitionAssignments(
             MetaStorageManager metaStorageManager, int tableId, int partitionNumber) {
         return metaStorageManager
@@ -388,20 +396,28 @@ public class RebalanceUtil {
                 .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
     }
 
+    /**
+     * Returns table assignments for all table partitions from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @return Future with table assignments as a value.
+     */
     public static CompletableFuture<List<Set<Assignment>>> tableAssignments(
             MetaStorageManager metaStorageManager, int tableId, int numberOfPartitions) {
-        Map<ByteArray, Integer> partitionKeysToPartitionNumb = new HashMap<>();
+        Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
 
         for (int i = 0; i < numberOfPartitions; i++) {
-            partitionKeysToPartitionNumb.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
+            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
         }
 
-        return metaStorageManager.getAll(partitionKeysToPartitionNumb.keySet())
+        return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
                     List<Set<Assignment>> result = new ArrayList<>(numberOfPartitions);
                     for (var entry : entries.entrySet()) {
                         result.add(
-                                partitionKeysToPartitionNumb.get(entry.getKey()),
+                                partitionKeysToPartitionNumber.get(entry.getKey()),
                                 ByteUtils.fromBytes(entry.getValue().value()));
                     }
                     return result;
