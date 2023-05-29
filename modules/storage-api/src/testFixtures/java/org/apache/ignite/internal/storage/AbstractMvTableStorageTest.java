@@ -833,7 +833,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
                 indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
-                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, c)
+                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, idxDef.name().hashCode(), c)
                 ))
         );
 
