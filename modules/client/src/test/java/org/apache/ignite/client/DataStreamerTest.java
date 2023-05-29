@@ -117,6 +117,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 }
             });
 
+            // Due to `responseDelay` above, `publisher.submit` is blocking when buffer is full => submitFut can't complete in 200 ms.
             assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
             assertFalse(streamFut.isDone());
         }
