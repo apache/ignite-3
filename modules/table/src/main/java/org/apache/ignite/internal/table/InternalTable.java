@@ -277,7 +277,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return scan(partId, readTimestamp, recipientNode, (Integer) null, null, null, 0, null);
+        return scan(partId, readTimestamp, recipientNode, null, null, null, 0, null);
     }
 
     /**
@@ -298,7 +298,7 @@ public interface InternalTable extends ManuallyCloseable {
             int partId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
-            int indexId,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,

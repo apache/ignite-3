@@ -865,7 +865,7 @@ public class InternalTableImpl implements InternalTable {
             int partId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
-            int indexId,
+            @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,

@@ -47,7 +47,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
@@ -202,7 +201,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxExist = new AtomicBoolean(false);
 
-            tablesCfg.indexes().change(indexListChange -> {
+            tablesCfg.change(tablesChange -> tablesChange.changeIndexes(indexListChange -> {
                 idxExist.set(false);
 
                 if (indexListChange.get(indexName) != null) {
@@ -211,18 +210,22 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new IndexAlreadyExistsException(schemaName, indexName);
                 }
 
-                TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
+                TableView tableCfg = tablesChange.tables().get(tableName);
 
                 if (tableCfg == null) {
                     throw new TableNotFoundException(schemaName, tableName);
                 }
 
-                int tableId = tableCfg.id().value();
+                int tableId = tableCfg.id();
 
-                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
+                int indexId = tablesChange.globalIdCounter() + 1;
+
+                tablesChange.changeGlobalIdCounter(indexId);
+
+                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId).changeId(indexId));
 
                 indexListChange.create(indexName, chg);
-            }).whenComplete((index, th) -> {
+            })).whenComplete((index, th) -> {
                 if (th != null) {
                     LOG.debug("Unable to create index [schema={}, table={}, index={}]",
                             th, schemaName, tableName, indexName);

@@ -65,7 +65,10 @@ public interface IndexDescriptor {
      * @param indexId Index ID.
      */
     static IndexDescriptor createIndexDescriptor(TablesView tablesView, int indexId) {
-        TableIndexView indexView = tablesView.indexes().get(indexId);
+        TableIndexView indexView = tablesView.indexes().stream()
+                .filter(tableIndexView -> indexId == tableIndexView.id())
+                .findFirst()
+                .orElse(null);
 
         if (indexView instanceof HashIndexView) {
             return new HashIndexDescriptor(indexId, tablesView);
