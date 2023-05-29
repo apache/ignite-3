@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -44,16 +43,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     public void hashIndexIsAppliedForEquiCondition() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
-        TestTable tbl = createTable(
-                "TEST_TBL",
-                someAffinity(),
-                "ID", Integer.class,
-                "VAL", Integer.class
-        );
-
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL"), indexName)));
-
-        IgniteSchema schema = createSchema(tbl);
+        IgniteSchema schema = makeCommonSchema();
 
         String sql = "SELECT id FROM test_tbl WHERE val = 10";
 
@@ -129,7 +119,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
+                someAffinity(),
                 "ID", Integer.class,
                 "VAL", Integer.class
         );
