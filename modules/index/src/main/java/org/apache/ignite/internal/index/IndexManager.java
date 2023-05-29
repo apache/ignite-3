@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -382,7 +381,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
         TableIndexView tableIndexView = evt.oldValue();
 
-        UUID idxId = tableIndexView.id();
+        int idxId = tableIndexView.id();
 
         int tableId = tableIndexView.tableId();
 
@@ -423,7 +422,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         int tableId = evt.newValue().tableId();
 
         if (!busyLock.enterBusy()) {
-            UUID idxId = evt.newValue().id();
+            int idxId = evt.newValue().id();
 
             fireEvent(IndexEvent.CREATE,
                     new IndexEventParameters(evt.storageRevision(), tableId, idxId),
@@ -448,7 +447,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     ) {
         assert tableIndexView != null;
 
-        UUID indexId = tableIndexView.id();
+        int indexId = tableIndexView.id();
 
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), indexId, tableId, causalityToken);

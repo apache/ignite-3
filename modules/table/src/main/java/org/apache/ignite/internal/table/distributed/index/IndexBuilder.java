@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.index;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -89,7 +88,7 @@ public class IndexBuilder implements ManuallyCloseable {
     public void startBuildIndex(
             int tableId,
             int partitionId,
-            UUID indexId,
+            int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             RaftGroupService raftClient
@@ -123,7 +122,7 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param partitionId Partition ID.
      * @param indexId Index ID.
      */
-    public void stopBuildIndex(int tableId, int partitionId, UUID indexId) {
+    public void stopBuildIndex(int tableId, int partitionId, int indexId) {
         inBusyLock(() -> {
             IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(tableId, partitionId, indexId));
 

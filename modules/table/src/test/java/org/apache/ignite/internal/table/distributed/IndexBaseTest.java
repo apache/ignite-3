@@ -89,9 +89,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp(@InjectConfiguration DataStorageConfiguration dsCfg) {
-        UUID pkIndexId = UUID.randomUUID();
-        UUID sortedIndexId = UUID.randomUUID();
-        UUID hashIndexId = UUID.randomUUID();
+        int pkIndexId = 1;
+        int sortedIndexId = 2;
+        int hashIndexId = 3;
 
         pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, null);
 
@@ -125,7 +125,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
 
-        Map<UUID, TableSchemaAwareIndexStorage> indexes = Map.of(
+        Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
                 pkIndexId, pkStorage,
                 sortedIndexId, sortedIndexStorage,
                 hashIndexId, hashIndexStorage

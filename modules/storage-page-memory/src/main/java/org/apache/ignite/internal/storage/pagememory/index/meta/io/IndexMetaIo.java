@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.meta.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
 import java.util.UUID;
@@ -31,20 +33,17 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
  *
  * <p>Defines a following data layout:
  * <ul>
- *     <li>Index ID - {@link UUID} (16 bytes);</li>
+ *     <li>Index ID - int (4 bytes);</li>
  *     <li>Index root page ID - long (8 bytes);</li>
  *     <li>Row ID uuid for which the index needs to be built - {@link UUID} (16 bytes).</li>
  * </ul>
  */
 public interface IndexMetaIo {
-    /** Offset of the {@link UUID#getMostSignificantBits() most significant bits} of the index ID (8 bytes). */
-    int INDEX_ID_MSB_OFFSET = 0;
-
-    /** Offset of the {@link UUID#getLeastSignificantBits() least significant bits} of the index ID (8 bytes). */
-    int INDEX_ID_LSB_OFFSET = INDEX_ID_MSB_OFFSET + Long.BYTES;
+    /** Offset of the index ID (4 bytes). */
+    int INDEX_ID_OFFSET = 0;
 
     /** Index tree meta page id offset - long (8 bytes). */
-    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_LSB_OFFSET + Long.BYTES;
+    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_OFFSET + Long.BYTES;
 
     /**
      * Offset of the {@link UUID#getMostSignificantBits() most significant bits} of Row ID uuid for which the index needs to be built (8
@@ -59,7 +58,7 @@ public interface IndexMetaIo {
     int NEXT_ROW_ID_TO_BUILT_LSB_OFFSET = NEXT_ROW_ID_TO_BUILT_MSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
-    int SIZE_IN_BYTES = 2 * Long.BYTES /* Index ID - {@link UUID} (16 bytes) */
+    int SIZE_IN_BYTES = Integer.BYTES /* Index ID - int (4 bytes) */
             + Long.BYTES /* Index root page ID - long (8 bytes) */
             + 2 * Long.BYTES /* Row ID uuid for which the index needs to be built - {@link UUID} (16 bytes) */;
 
@@ -81,13 +80,10 @@ public interface IndexMetaIo {
     default int compare(long pageAddr, int idx, IndexMetaKey indexMeta) {
         int elementOffset = offset(idx);
 
-        int cmp = Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_MSB_OFFSET), indexMeta.indexId().getMostSignificantBits());
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
-        return Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_LSB_OFFSET), indexMeta.indexId().getLeastSignificantBits());
+        return Integer.compare(
+                getInt(pageAddr, elementOffset + INDEX_ID_OFFSET),
+                indexMeta.indexId()
+        );
     }
 
     /**
@@ -99,8 +95,7 @@ public interface IndexMetaIo {
     default IndexMeta getRow(long pageAddr, int idx) {
         int elementOffset = offset(idx);
 
-        long indexIdMsb = getLong(pageAddr, elementOffset + INDEX_ID_MSB_OFFSET);
-        long indexIdLsb = getLong(pageAddr, elementOffset + INDEX_ID_LSB_OFFSET);
+        int indexId = getInt(pageAddr, elementOffset + INDEX_ID_OFFSET);
 
         long indexTreeMetaPageId = getLong(pageAddr, elementOffset + INDEX_TREE_META_PAGE_ID_OFFSET);
 
@@ -111,7 +106,7 @@ public interface IndexMetaIo {
                 ? null
                 : new UUID(nextRowIdUuidToBuiltMsb, nextRowIdUuidToBuiltLsb);
 
-        return new IndexMeta(new UUID(indexIdMsb, indexIdLsb), indexTreeMetaPageId, nextRowIdUuid);
+        return new IndexMeta(indexId, indexTreeMetaPageId, nextRowIdUuid);
     }
 
     /**
@@ -136,8 +131,7 @@ public interface IndexMetaIo {
 
         IndexMeta row = (IndexMeta) rowKey;
 
-        putLong(pageAddr, off + INDEX_ID_MSB_OFFSET, row.indexId().getMostSignificantBits());
-        putLong(pageAddr, off + INDEX_ID_LSB_OFFSET, row.indexId().getLeastSignificantBits());
+        putInt(pageAddr, off + INDEX_ID_OFFSET, row.indexId());
 
         putLong(pageAddr, off + INDEX_TREE_META_PAGE_ID_OFFSET, row.metaPageId());
 

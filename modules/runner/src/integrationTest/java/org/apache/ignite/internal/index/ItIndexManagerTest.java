@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -77,7 +76,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
                 tableIndexChange -> tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")
                 ));
 
-        UUID createdIndexId;
+        int createdIndexId;
         {
             IndexEventParameters parameters = await(indexCreatedFuture);
 

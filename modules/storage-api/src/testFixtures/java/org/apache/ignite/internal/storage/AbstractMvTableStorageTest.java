@@ -343,16 +343,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         tableStorage.createMvPartition(PARTITION_ID);
 
-        UUID invalidUuid = UUID.randomUUID();
+        int invalidId = Integer.MAX_VALUE;
 
         TablesView tablesView = tableStorage.tablesConfiguration().value();
 
         e = assertThrows(
                 StorageException.class,
-                () -> new HashIndexDescriptor(invalidUuid, tablesView)
+                () -> new HashIndexDescriptor(invalidId, tablesView)
         );
 
-        assertThat(e.getMessage(), containsString(String.format("Index configuration for \"%s\" could not be found", invalidUuid)));
+        assertThat(e.getMessage(), containsString(String.format("Index configuration for \"%s\" could not be found", invalidId)));
 
         e = assertThrows(
                 StorageException.class,
