@@ -43,7 +43,7 @@ public interface IndexMetaIo {
     int INDEX_ID_OFFSET = 0;
 
     /** Index tree meta page id offset - long (8 bytes). */
-    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_OFFSET + Long.BYTES;
+    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_OFFSET + Integer.BYTES;
 
     /**
      * Offset of the {@link UUID#getMostSignificantBits() most significant bits} of Row ID uuid for which the index needs to be built (8
