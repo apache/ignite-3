@@ -70,9 +70,6 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
 
     private final MetaStorageManager metaStorage;
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(
-            4, new NamedThreadFactory("deployment", LOG));
-
     /**
      * Constructor.
      *
@@ -266,6 +263,9 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
         private final Supplier<String> localNodeProvider;
 
         private final NodeEventListener listener;
+
+        private final ExecutorService executor = Executors.newFixedThreadPool(
+                4, new NamedThreadFactory("deployment", LOG));
 
         private NodeEventsListener(Supplier<String> localNodeProvider, NodeEventListener listener) {
             this.localNodeProvider = localNodeProvider;
