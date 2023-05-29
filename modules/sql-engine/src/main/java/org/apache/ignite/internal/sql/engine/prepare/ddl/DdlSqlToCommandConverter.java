@@ -891,16 +891,6 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private static IgniteException unexpectedZoneOption(PlanningContext ctx, String optionName) {
-        return new IgniteException(QUERY_VALIDATION_ERR,
-                String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
-    }
-
-    private static IgniteException duplicateZoneOption(PlanningContext ctx, String optionName) {
-        return new IgniteException(QUERY_VALIDATION_ERR,
-                String.format("Duplicate zone option has been specified [option=%s, query=%s]", optionName, ctx.query()));
-    }
-
     private static @Nullable Object fromLiteral(SqlLiteral literal, ColumnType columnType) {
         try {
             switch (columnType) {
@@ -949,5 +939,15 @@ public class DdlSqlToCommandConverter {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
             throw new SqlException(SQL_TO_REL_CONVERSION_ERR, "Unable co convert literal", th);
         }
+    }
+
+    private static IgniteException unexpectedZoneOption(PlanningContext ctx, String optionName) {
+        return new IgniteException(QUERY_VALIDATION_ERR,
+                String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
+    }
+
+    private static IgniteException duplicateZoneOption(PlanningContext ctx, String optionName) {
+        return new IgniteException(QUERY_VALIDATION_ERR,
+                String.format("Duplicate zone option has been specified [option=%s, query=%s]", optionName, ctx.query()));
     }
 }
