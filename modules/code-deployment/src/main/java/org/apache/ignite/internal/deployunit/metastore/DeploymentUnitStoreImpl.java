@@ -290,7 +290,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                 UnitNodeStatus nodeStatus = UnitNodeStatus.deserialize(value);
 
                 CompletableFuture.supplyAsync(() -> nodeStatus, executor)
-                        .thenComposeAsync(status1 -> getAllNodes(status1.id(), status1.version()), executor)
+                        .thenComposeAsync(status -> getAllNodes(status.id(), status.version()), executor)
                         .thenAccept(nodes -> listener.call(nodeStatus, new HashSet<>(nodes)));
             }
             return completedFuture(null);
