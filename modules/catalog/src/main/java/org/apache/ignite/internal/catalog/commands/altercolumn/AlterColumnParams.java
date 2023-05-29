@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands.altercolumn;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 
 /**
  * ALTER TABLE ... ALTER COLUMN statement.
@@ -36,23 +35,9 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         return columnName;
     }
 
-    /** Returns composite change action for the column descriptor. */
-    public AlterColumnAction action() {
-        return (source, isPkColumn) -> {
-            boolean changed = false;
-            TableColumnDescriptor target = source;
-
-            for (AlterColumnAction action : changeActions) {
-                TableColumnDescriptor newDesc = action.apply(target, isPkColumn);
-
-                if (newDesc != null) {
-                    target = newDesc;
-                    changed = true;
-                }
-            }
-
-            return changed ? target : null;
-        };
+    /** Returns list of column change actions. */
+    public List<AlterColumnAction> changeActions() {
+        return changeActions;
     }
 
     public static AlterColumnParams.Builder builder() {

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnAction;
 import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
@@ -255,14 +256,20 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new ColumnNotFoundException(columnName);
             }
 
-            TableColumnDescriptor result = params.action().apply(source, table.primaryKeyColumns().contains(source.name()));
+            TableColumnDescriptor target = source;
+            boolean isPkColumn = table.primaryKeyColumns().contains(source.name());
 
-            if (result == null) {
-                // No-op.
-                return Collections.emptyList();
+            for (AlterColumnAction change : params.changeActions()) {
+                TableColumnDescriptor newDesc = change.apply(target, isPkColumn);
+
+                if (newDesc != null) {
+                    assert target != newDesc;
+
+                    target = newDesc;
+                }
             }
 
-            return List.of(new AlterColumnEntry(table.id(), result));
+            return target == source ? Collections.emptyList() : List.of(new AlterColumnEntry(table.id(), target));
         });
     }
 
