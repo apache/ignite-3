@@ -177,7 +177,7 @@ public class DeployMessagingService {
     private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
         LOG.info("Start to undeploy " + executeRequest.id() + " with version " + executeRequest.version() + " from "
                 + clusterService.topologyService().localMember().name());
-        deployerService.undeploy(executeRequest.id(), executeRequest.version())
+        deployerService.undeploy(executeRequest.id(), Version.parseVersion(executeRequest.version()))
                 .thenRun(() -> clusterService.messagingService()
                         .respond(senderConsistentId,
                                 UndeployUnitResponseImpl.builder().build(),
@@ -186,7 +186,7 @@ public class DeployMessagingService {
     }
 
     private void processDownloadRequest(DownloadUnitRequest request, String senderConsistentId, long correlationId) {
-        deployerService.getUnitContent(request.id(), request.version())
+        deployerService.getUnitContent(request.id(), Version.parseVersion(request.version()))
                 .thenApply(content -> clusterService.messagingService()
                         .respond(senderConsistentId,
                                 DownloadUnitResponseImpl.builder().unitContent(content).build(),

@@ -35,6 +35,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -71,12 +72,12 @@ public class FileDeployerService {
      * @param unitContent Map of deploy unit file names to file content.
      * @return Future with deploy result.
      */
-    public CompletableFuture<Boolean> deploy(String id, String version, UnitContent unitContent) {
+    public CompletableFuture<Boolean> deploy(String id, Version version, UnitContent unitContent) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Path unitFolder = unitsFolder
                         .resolve(id)
-                        .resolve(version);
+                        .resolve(version.render());
 
                 Files.createDirectories(unitFolder);
 
@@ -102,12 +103,12 @@ public class FileDeployerService {
      * @param version Deployment unit version.
      * @return Future with undeploy result
      */
-    public CompletableFuture<Boolean> undeploy(String id, String version) {
+    public CompletableFuture<Boolean> undeploy(String id, Version version) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Path unitPath = unitsFolder
                         .resolve(id)
-                        .resolve(version);
+                        .resolve(version.render());
 
                 IgniteUtils.deleteIfExistsThrowable(unitPath);
                 return true;
@@ -125,13 +126,13 @@ public class FileDeployerService {
      * @param version Deployment unit version.
      * @return Deployment unit content.
      */
-    public CompletableFuture<UnitContent> getUnitContent(String id, String version) {
+    public CompletableFuture<UnitContent> getUnitContent(String id, Version version) {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, byte[]> result = new HashMap<>();
             try {
                 Path unitPath = unitsFolder
                         .resolve(id)
-                        .resolve(version);
+                        .resolve(version.render());
 
                 Files.walkFileTree(unitPath, new SimpleFileVisitor<>() {
                     @Override

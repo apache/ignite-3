@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.UnitContent;
+import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -63,13 +64,12 @@ public class FileDeployerServiceTest {
 
     @Test
     public void test() throws IOException {
-        CompletableFuture<Boolean> deployed = service.deploy("id", "1.0.0", content());
+        CompletableFuture<Boolean> deployed = service.deploy("id", Version.parseVersion("1.0.0"), content());
         assertThat(deployed, willBe(true));
 
-        CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", "1.0.0");
+        CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", Version.parseVersion("1.0.0"));
         assertThat(unitContent, willBe(Matchers.equalTo(content())));
     }
-
 
     private UnitContent content() throws IOException {
         byte[] content1 = Files.readAllBytes(file1);

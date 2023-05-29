@@ -126,7 +126,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     private void onUnitRegister(UnitNodeStatus status, Set<String> deployedNodes) {
         if (status.status() == UPLOADING) {
             messaging.downloadUnitContent(status.id(), status.version(), new ArrayList<>(deployedNodes))
-                    .thenCompose(content -> deployer.deploy(status.id(), status.version().render(), content))
+                    .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
                     .thenApply(deployed -> {
                         if (deployed) {
                             return deploymentUnitStore.updateNodeStatus(
@@ -195,7 +195,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
-        return deployer.deploy(id, version.render(), unitContent)
+        return deployer.deploy(id, version, unitContent)
                 .thenCompose(deployed -> {
                     if (deployed) {
                         String nodeId = clusterService.topologyService().localMember().name();
