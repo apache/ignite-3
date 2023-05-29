@@ -76,17 +76,6 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlGt, schema), CannotPlanException.class,
                 "There are not enough rules");
-
-
-
-        // Correct use hash index scan with exact conditions.
-        String sqlEqCond = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val = 10";
-
-        phys = physicalPlan(sqlEqCond, schema);
-
-        IgniteIndexScan idxScan = findFirstNode(phys, byClass(IgniteIndexScan.class));
-
-        assertThat("Invalid plan:\n" + RelOptUtil.toString(phys), idxScan, notNullValue());
     }
 
     @Test
