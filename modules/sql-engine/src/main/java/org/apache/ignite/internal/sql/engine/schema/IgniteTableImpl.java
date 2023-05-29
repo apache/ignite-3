@@ -113,9 +113,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
     private final PartitionExtractor partitionExtractor;
 
-    /** Triggers statistic update. */
-    private static AtomicBoolean updateStat = new AtomicBoolean(true);
-
     /**
      * Constructor.
      *
@@ -530,7 +527,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     private class StatisticsImpl implements Statistic {
-        private static final int STATS_UPDATE_THRESHOLD = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+        private final int updateThreshold = table.storage().distributionZoneConfiguration().partitions().value();
 
         private final AtomicLong lastUpd = new AtomicLong();
 
@@ -540,46 +537,44 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         @Override
         // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
         public Double getRowCount() {
-            if (updateStat.get()) {
-                int parts = table.storage().distributionZoneConfiguration().partitions().value();
+            int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
-                long size = 0L;
+            long partitionsRevisionCounter = 0L;
 
-                for (int p = 0; p < parts; ++p) {
-                    @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
+            for (int p = 0; p < parts; ++p) {
+                @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
-                    if (part == null) {
-                        continue;
-                    }
-
-                    long upd = part.lastAppliedIndex();
-
-                    size += upd;
+                if (part == null) {
+                    continue;
                 }
 
-                long prev = lastUpd.get();
+                long upd = part.lastAppliedIndex();
 
-                if (size - lastUpd.get() > STATS_UPDATE_THRESHOLD) {
-                    synchronized (this) {
-                        if (lastUpd.compareAndSet(prev, size)) {
-                            size = 0L;
+                partitionsRevisionCounter += upd;
+            }
 
-                            for (int p = 0; p < parts; ++p) {
-                                @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
+            long prev = lastUpd.get();
 
-                                if (part == null) {
-                                    continue;
-                                }
+            if (partitionsRevisionCounter - lastUpd.get() > updateThreshold) {
+                synchronized (this) {
+                    if (lastUpd.compareAndSet(prev, partitionsRevisionCounter)) {
+                        long size = 0L;
 
-                                try {
-                                    size += part.rowsCount();
-                                } catch (StorageRebalanceException ignore) {
-                                    // No-op.
-                                }
+                        for (int p = 0; p < parts; ++p) {
+                            @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
+
+                            if (part == null) {
+                                continue;
                             }
 
-                            localRowCnt = size;
+                            try {
+                                size += part.rowsCount();
+                            } catch (StorageRebalanceException ignore) {
+                                // No-op.
+                            }
                         }
+
+                        localRowCnt = size;
                     }
                 }
             }
@@ -639,8 +634,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             RowHandler<RowT> handler,
             CompletableFuture<List<RowT>>[] futs
     ) {
-        updateStat.set(true);
-
         return CompletableFuture.allOf(futs)
                 .thenApply(response -> {
                     List<String> conflictRows = null;
