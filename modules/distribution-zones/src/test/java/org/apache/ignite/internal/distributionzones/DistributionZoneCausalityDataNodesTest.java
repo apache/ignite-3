@@ -81,7 +81,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             new LogicalNode("node_id_2", "node_name_2", new NetworkAddress("localhost", 123));
 
     /**
-     * Contains futures that is completed when the topology watch listener receive the event with expected data nodes.
+     * Contains futures that is completed when the topology watch listener receive the event with expected logical topology.
      * Mapping of node names -> future with event revision.
      */
     private final ConcurrentHashMap<Set<String>, CompletableFuture<Long>> topologyRevisions = new ConcurrentHashMap<>();
@@ -511,7 +511,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     /**
-     * Removes given nodes from the logical topology and return future with revision of topology watch listener event.
+     * Returns a future which will be completed when expected data nodes will be saved to the meta storage.
+     * In order to complete the future need to invoke one of the methods that change the logical topology.
      *
      * @param zoneId Zone id.
      * @param nodes Expected data nodes.
@@ -591,7 +592,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Creates a topology watch listener which completes futures from {@code topologyRevisions}
-     * when receives event with expected data nodes.
+     * when receives event with expected logical topology.
      *
      * @return Watch listener.
      */
