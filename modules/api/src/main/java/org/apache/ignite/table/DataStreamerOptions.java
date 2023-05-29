@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table;
 
+import java.util.Objects;
+
 /**
  * Data streamer options. See {@link DataStreamerTarget} for more information.
  */
@@ -41,7 +43,7 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the batch size. The batch size is the number of entries that will be sent to the cluster in one network call.
+     * Gets the batch size (the number of entries that will be sent to the cluster in one network call).
      *
      * @return Batch size.
      */
@@ -49,14 +51,28 @@ public class DataStreamerOptions {
         return batchSize;
     }
 
+    /**
+     * Gets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+     *
+     * @return Per node parallel operations.
+     */
     public int perNodeParallelOperations() {
         return perNodeParallelOperations;
     }
 
+    /**
+     * Gets the auto flush frequency, in milliseconds
+     * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
+     *
+     * @return Auto flush frequency.
+     */
     public int autoFlushFrequency() {
         return autoFlushFrequency;
     }
 
+    /**
+     * Builder.
+     */
     static class Builder {
         private int batchSize = 1000;
 
@@ -64,20 +80,43 @@ public class DataStreamerOptions {
 
         private int autoFlushFrequency = 5000;
 
+        /**
+         * Sets the batch size (the number of entries that will be sent to the cluster in one network call).
+         *
+         * @param batchSize Batch size.
+         * @return This builder instance.
+         */
         public Builder batchSize(int batchSize) {
+            if (batchSize <= 0) {
+                throw new IllegalArgumentException("Batch size must be positive: " + batchSize);
+            }
+
             this.batchSize = batchSize;
 
             return this;
         }
 
+        /**
+         * Sets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+         *
+         * @param perNodeParallelOperations Per node parallel operations.
+         * @return This builder instance.
+         */
         public Builder perNodeParallelOperations(int perNodeParallelOperations) {
             this.perNodeParallelOperations = perNodeParallelOperations;
 
             return this;
         }
 
-        public Builder autoFlushFrequency(int autoFlushFrequencyMs) {
-            this.autoFlushFrequency = autoFlushFrequencyMs;
+        /**
+         * Sets the auto flush frequency, in milliseconds
+         * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
+         *
+         * @param autoFlushFrequency Auto flush frequency, in milliseconds.
+         * @return This builder instance.
+         */
+        public Builder autoFlushFrequency(int autoFlushFrequency) {
+            this.autoFlushFrequency = autoFlushFrequency;
 
             return this;
         }
