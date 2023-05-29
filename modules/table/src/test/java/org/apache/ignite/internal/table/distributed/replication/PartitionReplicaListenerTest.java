@@ -178,7 +178,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final int FUTURE_SCHEMA_ROW_INDEXED_VALUE = 0;
 
     /** Table id. */
-    private final UUID tblId = UUID.randomUUID();
+    private final int tblId = 1;
 
     private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
 
@@ -344,11 +344,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         lenient().when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
 
         lenient().when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
-        lenient().when(schemas.waitForSchemaAvailability(any(), anyInt())).thenReturn(completedFuture(null));
+        lenient().when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
-        UUID pkIndexId = UUID.randomUUID();
-        UUID sortedIndexId = UUID.randomUUID();
-        UUID hashIndexId = UUID.randomUUID();
+        int pkIndexId = 1;
+        int sortedIndexId = 2;
+        int hashIndexId = 3;
 
         schemaDescriptor = schemaDescriptorWith(CURRENT_SCHEMA_VERSION);
         schemaDescriptorVersion2 = schemaDescriptorWith(FUTURE_SCHEMA_VERSION);
@@ -621,7 +621,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testWriteScanRetrieveBatchReplicaRequestWithSortedIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
-        UUID sortedIndexId = sortedIndexStorage.id();
+        int sortedIndexId = sortedIndexStorage.id();
 
         IntStream.range(0, 6).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -728,7 +728,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testReadOnlyScanRetrieveBatchReplicaRequestSortedIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
-        UUID sortedIndexId = sortedIndexStorage.id();
+        int sortedIndexId = sortedIndexStorage.id();
 
         IntStream.range(0, 6).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -830,7 +830,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testReadOnlyScanRetrieveBatchReplicaRequstHashIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
-        UUID hashIndexId = hashIndexStorage.id();
+        int hashIndexId = hashIndexStorage.id();
 
         IntStream.range(0, 7).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -991,9 +991,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .requestType(requestType)
                 .binaryRow(binaryRow)
                 .term(1L)
-                .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
+                .commitPartitionId(commitPartitionId())
                 .build()
         );
+    }
+
+    private static TablePartitionId commitPartitionId() {
+        return new TablePartitionId(999, partId);
     }
 
     private CompletableFuture<?> doMultiRowRequest(UUID txId, Collection<BinaryRow> binaryRows, RequestType requestType) {
@@ -1002,7 +1006,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .requestType(requestType)
                 .binaryRows(binaryRows)
                 .term(1L)
-                .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
+                .commitPartitionId(commitPartitionId())
                 .build()
         );
     }
@@ -1022,7 +1026,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                             .requestType(RequestType.RW_INSERT)
                             .binaryRow(binaryRow)
                             .term(1L)
-                            .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
+                            .commitPartitionId(commitPartitionId())
                             .build();
                 },
                 () -> checkRowInMvStorage(binaryRow(0), true)
@@ -1048,7 +1052,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                             .requestType(RequestType.RW_UPSERT_ALL)
                             .binaryRows(asList(binaryRow0, binaryRow1))
                             .term(1L)
-                            .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
+                            .commitPartitionId(commitPartitionId())
                             .build();
                 },
                 () -> checkRowInMvStorage(binaryRow(0), true)
@@ -1266,7 +1270,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void commitsOnSameSchemaSuccessfully() {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
                 ));
@@ -1328,7 +1332,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     @Disabled("IGNITE-19229")
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col1"))),
                         tableSchema(FUTURE_SCHEMA_VERSION, List.of(nullableColumn("col1"), nullableColumn("col2")))
@@ -1360,12 +1364,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void simulateForwardIncompatibleSchemaChange(int fromSchemaVersion, int toSchemaVersion) {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), any()))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(incompatibleSchemaVersions(fromSchemaVersion, toSchemaVersion));
     }
 
     private void simulateBackwardIncompatibleSchemaChange(int fromSchemaVersion, int toSchemaVersion) {
-        when(schemas.tableSchemaVersionsBetween(any(), any(), anyInt()))
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), anyInt()))
                 .thenReturn(incompatibleSchemaVersions(fromSchemaVersion, toSchemaVersion));
     }
 
@@ -1463,7 +1467,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .oldBinaryRow(binaryRow(key, new TestValue(1, "v1"), kvMarshaller))
                         .binaryRow(binaryRow(key, new TestValue(3, "v3"), kvMarshaller))
                         .term(1L)
-                        .commitPartitionId(new TablePartitionId(UUID.randomUUID(), partId))
+                        .commitPartitionId(commitPartitionId())
                         .build()
                 )
         );

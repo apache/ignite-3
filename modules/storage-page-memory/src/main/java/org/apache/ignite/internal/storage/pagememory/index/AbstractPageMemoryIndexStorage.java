@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class AbstractPageMemoryIndexStorage implements IndexStorage {
     /** Index ID. */
-    private final UUID indexId;
+    private final int indexId;
 
     /** Partition id. */
     protected final int partitionId;

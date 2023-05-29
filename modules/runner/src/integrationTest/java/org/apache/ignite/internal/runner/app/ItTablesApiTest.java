@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -411,7 +410,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table table = createTable(clusterNodes.get(0), TABLE_NAME);
 
-        UUID tblId = ((TableImpl) table).tableId();
+        int tblId = ((TableImpl) table).tableId();
 
         CompletableFuture<Table> tableByNameFut = supplyAsync(() -> ignite1.tables().table(TABLE_NAME));
 

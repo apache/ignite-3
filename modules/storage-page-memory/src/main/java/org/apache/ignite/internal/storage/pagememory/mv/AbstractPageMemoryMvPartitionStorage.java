@@ -121,9 +121,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final DataPageReader rowVersionDataPageReader;
 
-    protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<Integer, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
-    protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<Integer, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /** Busy lock. */
     protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -167,7 +167,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        groupId = tableStorage.configuration().value().tableId();
+        groupId = tableStorage.configuration().value().id();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
     }
@@ -183,9 +183,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 TablesView tablesView = tableStorage.tablesConfiguration().value();
 
                 for (IndexMeta indexMeta : cursor) {
-                    UUID indexId = indexMeta.indexId();
+                    int indexId = indexMeta.indexId();
 
-                    TableIndexView indexCfgView = tablesView.indexes().get(indexId);
+                    TableIndexView indexCfgView = tablesView.indexes().stream()
+                            .filter(tableIndexView -> indexId == tableIndexView.id())
+                            .findFirst()
+                            .orElse(null);
 
                     if (indexCfgView instanceof HashIndexView) {
                         hashIndexes.put(
@@ -515,7 +518,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
-        UUID commitTableId = chain.commitTableId();
+        int commitTableId = chain.commitTableId();
         int commitPartitionId = chain.commitPartitionId();
 
         BinaryRow row = rowVersionToBinaryRow(rowVersion);
@@ -544,7 +547,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
@@ -984,7 +987,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return removeWriteOnGc.getResult();
     }
 
-    IndexMeta createIndexMetaForNewIndex(UUID indexId) {
+    IndexMeta createIndexMetaForNewIndex(int indexId) {
         return new IndexMeta(indexId, 0L, RowId.lowestRowId(partitionId).uuid());
     }
 

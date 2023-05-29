@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -481,7 +482,7 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(any())).thenReturn(table);
+        when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
 
         when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 

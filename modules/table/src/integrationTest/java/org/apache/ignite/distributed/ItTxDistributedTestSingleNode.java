@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -353,8 +352,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         final String accountsName = "accounts";
         final String customersName = "customers";
 
-        UUID accTblId = UUID.randomUUID();
-        UUID custTblId = UUID.randomUUID();
+        int accTblId = 1;
+        int custTblId = 2;
 
         accRaftClients = startTable(accTblId, ACCOUNTS_SCHEMA);
         custRaftClients = startTable(custTblId, CUSTOMERS_SCHEMA);
@@ -410,7 +409,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
+    private Int2ObjectOpenHashMap<RaftGroupService> startTable(int tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -429,6 +428,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
+        int globalIndexId = 1;
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
@@ -446,7 +447,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                UUID indexId = UUID.randomUUID();
+                int indexId = globalIndexId++;
 
                 Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 

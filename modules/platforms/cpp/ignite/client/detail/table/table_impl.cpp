@@ -36,7 +36,7 @@ namespace ignite::detail {
  * @param id Table ID.
  * @param sch Table schema.
  */
-void write_table_operation_header(protocol::writer &writer, uuid id, transaction_impl *tx, const schema &sch) {
+void write_table_operation_header(protocol::writer &writer, std::int32_t id, transaction_impl *tx, const schema &sch) {
     writer.write(id);
 
     if (!tx)

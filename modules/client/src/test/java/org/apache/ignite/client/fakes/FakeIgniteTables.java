@@ -20,10 +20,10 @@ package org.apache.ignite.client.fakes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -37,7 +37,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 
@@ -63,11 +62,13 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, TableImpl> tablesById = new ConcurrentHashMap<>();
 
     private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     private volatile List<String> partitionAssignments = null;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1);
 
     /**
      * Creates a table.
@@ -76,7 +77,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @return Table.
      */
     public Table createTable(String name) {
-        return createTable(name, UUID.randomUUID());
+        return createTable(name, nextTableId.getAndIncrement());
     }
 
     /**
@@ -86,7 +87,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @param id Table id.
      * @return Table.
      */
-    public TableImpl createTable(String name, UUID id) {
+    public TableImpl createTable(String name, int id) {
         var newTable = getNewTable(name, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
@@ -137,7 +138,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(UUID id) {
+    public TableImpl table(int id) {
         return tablesById.get(id);
     }
 
@@ -149,7 +150,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(UUID id) {
+    public CompletableFuture<TableImpl> tableAsync(int id) {
         return CompletableFuture.completedFuture(tablesById.get(id));
     }
 
@@ -167,7 +168,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> assignments(UUID tableId) throws NodeStoppingException {
+    public List<String> assignments(int tableId) {
         return partitionAssignments;
     }
 
@@ -201,7 +202,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     }
 
     @NotNull
-    private TableImpl getNewTable(String name, UUID id) {
+    private TableImpl getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {

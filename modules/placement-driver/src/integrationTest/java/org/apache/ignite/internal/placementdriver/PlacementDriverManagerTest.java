@@ -38,9 +38,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -130,6 +130,8 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
+
+    private final AtomicInteger nextTableId = new AtomicInteger();
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
@@ -470,7 +472,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TablePartitionId createTableAssignment() throws Exception {
-        AtomicReference<UUID> tblIdRef = new AtomicReference<>();
+        int tableId = nextTableId.incrementAndGet();
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(List.of(nodeName, anotherNodeName), 1, 2);
 
@@ -479,17 +481,16 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
+                extConfCh.changeId(tableId);
                 extConfCh.changeZoneId(zoneId);
-
-                tblIdRef.set(extConfCh.id());
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
             });
         }).get();
 
-        var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
+        var grpPart0 = new TablePartitionId(tableId, 0);
 
-        log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
+        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
 
         return grpPart0;
     }

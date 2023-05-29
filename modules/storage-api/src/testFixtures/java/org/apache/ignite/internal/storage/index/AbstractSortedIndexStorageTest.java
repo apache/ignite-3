@@ -45,12 +45,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -122,9 +120,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     protected SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
         CompletableFuture<Void> createIndexFuture =
                 tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
-                    UUID tableId = ConfigurationUtil.internalId(tablesCfg.tables().value(), TABLE_NAME);
+                    int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
 
-                    addIndex(indexDefinition, tableId, idx);
+                    addIndex(indexDefinition, tableId, indexDefinition.name().hashCode(), idx);
                 }));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());

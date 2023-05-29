@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -43,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PredefinedSchemaManager implements SqlSchemaManager {
     private final SchemaPlus root;
-    private final Map<UUID, IgniteTable> tableById;
+    private final Map<Integer, IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
     PredefinedSchemaManager(IgniteSchema schema) {
@@ -80,7 +79,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteTable tableById(UUID id) {
+    public IgniteTable tableById(int id) {
         return tableById.get(id);
     }
 }

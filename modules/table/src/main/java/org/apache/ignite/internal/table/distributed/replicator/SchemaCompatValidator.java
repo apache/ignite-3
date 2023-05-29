@@ -58,7 +58,7 @@ class SchemaCompatValidator {
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        Set<UUID> tableIds = enlistedGroupIds.stream()
+        Set<Integer> tableIds = enlistedGroupIds.stream()
                 .map(TablePartitionId::tableId)
                 .collect(toSet());
 
@@ -73,11 +73,11 @@ class SchemaCompatValidator {
     }
 
     private CompatValidationResult validateForwardSchemasCompatibility(
-            Set<UUID> tableIds,
+            Set<Integer> tableIds,
             HybridTimestamp commitTimestamp,
             HybridTimestamp beginTimestamp
     ) {
-        for (UUID tableId : tableIds) {
+        for (int tableId : tableIds) {
             CompatValidationResult validationResult = validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
 
             if (!validationResult.isSuccessful()) {
@@ -91,7 +91,7 @@ class SchemaCompatValidator {
     private CompatValidationResult validateForwardSchemaCompatibility(
             HybridTimestamp beginTimestamp,
             HybridTimestamp commitTimestamp,
-            UUID tableId
+            int tableId
     ) {
         List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
 
@@ -130,7 +130,7 @@ class SchemaCompatValidator {
      * @param txId ID of the transaction that gets validated.
      * @return Future of validation result.
      */
-    CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, UUID tableId, UUID txId) {
+    CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
         return schemas.waitForSchemasAvailability(beginTimestamp)
@@ -140,7 +140,7 @@ class SchemaCompatValidator {
 
     private CompatValidationResult validateBackwardSchemaCompatibility(
             int tupleSchemaVersion,
-            UUID tableId,
+            int tableId,
             HybridTimestamp beginTimestamp
     ) {
         List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, tupleSchemaVersion);
