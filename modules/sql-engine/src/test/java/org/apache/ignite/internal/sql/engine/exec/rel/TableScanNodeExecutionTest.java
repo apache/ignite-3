@@ -168,7 +168,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 int partId,
                 HybridTimestamp readTime,
                 ClusterNode recipient,
-                int indexId,
+                @Nullable Integer indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
