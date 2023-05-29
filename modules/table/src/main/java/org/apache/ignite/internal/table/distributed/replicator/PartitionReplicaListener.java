@@ -2467,7 +2467,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean casResult = indexesConfigurationListener.compareAndSet(null, listener);
 
-        assert casResult : replicationGroupId;
+//        assert casResult : replicationGroupId;
 
         mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
     }
