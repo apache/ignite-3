@@ -102,6 +102,10 @@ public class TableDescriptor extends ObjectDescriptor {
         return columnsMap.get(name);
     }
 
+    public boolean isPrimaryKeyColumn(String name) {
+        return primaryKeyColumns.contains(name);
+    }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));

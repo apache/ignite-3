@@ -41,12 +41,12 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         return columnName;
     }
 
-    public List<AlterColumnAction> changes() {
-        return changes;
-    }
-
     void columnName(String name) {
         columnName = name;
+    }
+
+    public List<AlterColumnAction> changes() {
+        return changes;
     }
 
     void alterType(RelDataType type) {

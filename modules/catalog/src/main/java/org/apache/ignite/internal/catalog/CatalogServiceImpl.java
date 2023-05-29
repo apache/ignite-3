@@ -257,7 +257,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             TableColumnDescriptor target = source;
-            boolean isPkColumn = table.primaryKeyColumns().contains(source.name());
+            boolean isPkColumn = table.isPrimaryKeyColumn(source.name());
 
             for (AlterColumnAction change : params.changeActions()) {
                 TableColumnDescriptor newDesc = change.apply(target, isPkColumn);

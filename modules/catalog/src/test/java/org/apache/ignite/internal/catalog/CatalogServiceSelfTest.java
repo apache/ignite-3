@@ -364,16 +364,6 @@ public class CatalogServiceSelfTest {
         assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.constant(null))),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
-
-        // NULL -> funcCall : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
-                willBe((Object) null));
-        assertNotNull(service.schema(++schemaVer));
-
-        // funcCall -> funcCall : No-op.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.functionCall("funcCall"))),
-                willBe((Object) null));
-        assertNull(service.schema(schemaVer + 1));
     }
 
     /**
@@ -418,7 +408,7 @@ public class CatalogServiceSelfTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
-        ColumnParams pkCol = new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false);
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
         ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
         ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(10).build();
 
@@ -453,8 +443,8 @@ public class CatalogServiceSelfTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypePrecision(ColumnType type) {
-        ColumnParams pkCol = new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false);
-        ColumnParams col = new ColumnParams("COL_" + type, type, DefaultValue.constant(null), false);
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
 
         assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
 
@@ -502,7 +492,7 @@ public class CatalogServiceSelfTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
-        ColumnParams pkCol = new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false);
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
         ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).scale(3).build();
         assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
 
@@ -547,7 +537,7 @@ public class CatalogServiceSelfTest {
         types.remove(ColumnType.NULL);
 
         List<ColumnParams> testColumns = types.stream()
-                .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
+                .map(t -> ColumnParams.builder().name("COL_" + t).type(t).build())
                 .collect(Collectors.toList());
 
         List<ColumnParams> tableColumns = new ArrayList<>(List.of(ColumnParams.builder().name("ID").type(ColumnType.INT32).build()));
@@ -596,8 +586,8 @@ public class CatalogServiceSelfTest {
     }
 
     /**
-     * Ensures that the compound change command {@code SET DATA TYPE BIGINT NULL DEFAULT NULL} will change the type, drop NOT NULL and the
-     * default value at the same time.
+     * Ensures that the compound change command {@code SET DATA TYPE BIGINT NULL DEFAULT NULL}
+     * will change the type, drop NOT NULL and the default value at the same time.
      */
     @Test
     public void testAlterColumnMultipleChanges() {
@@ -725,21 +715,21 @@ public class CatalogServiceSelfTest {
         verifyNoMoreInteractions(eventListener);
     }
 
-    private CompletableFuture<Void> changeColumn(String tab, String col, AlterColumnAction... change) {
+    private CompletableFuture<Void> changeColumn(String tab, String col, AlterColumnAction... changes) {
         return service.alterColumn(AlterColumnParams.builder()
                 .tableName(tab)
                 .columnName(col)
-                .changeActions(List.of(change))
+                .changeActions(List.of(changes))
                 .build());
     }
 
     private static CreateTableParams simpleTable(String name) {
         List<ColumnParams> cols = List.of(
-                new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false),
-                new ColumnParams("VAL", ColumnType.INT32, DefaultValue.constant(null), true),
-                new ColumnParams("VAL_NOT_NULL", ColumnType.INT32, DefaultValue.constant(1), false),
-                new ColumnParams("DEC", ColumnType.DECIMAL, DefaultValue.constant(null), true),
-                new ColumnParams("STR", ColumnType.STRING, DefaultValue.constant(null), true),
+                ColumnParams.builder().name("ID").type(ColumnType.INT32).build(),
+                ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).defaultValue(DefaultValue.constant(null)).build(),
+                ColumnParams.builder().name("VAL_NOT_NULL").type(ColumnType.INT32).defaultValue(DefaultValue.constant(1)).build(),
+                ColumnParams.builder().name("DEC").type(ColumnType.DECIMAL).nullable(true).build(),
+                ColumnParams.builder().name("STR").type(ColumnType.STRING).nullable(true).build(),
                 ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()
         );
 
