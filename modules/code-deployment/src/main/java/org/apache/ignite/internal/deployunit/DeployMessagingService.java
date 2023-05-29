@@ -108,7 +108,7 @@ public class DeployMessagingService {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @param nodes Nodes where
+     * @param nodes Nodes where unit deployed.
      * @return Downloaded deployment unit content.
      */
     CompletableFuture<UnitContent> downloadUnitContent(String id, Version version, List<String> nodes) {

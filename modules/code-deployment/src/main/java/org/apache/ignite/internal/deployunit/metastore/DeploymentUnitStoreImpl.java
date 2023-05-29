@@ -70,7 +70,6 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
 
     private final MetaStorageManager metaStorage;
 
-
     private final ExecutorService executor = Executors.newFixedThreadPool(
             4, new NamedThreadFactory("deployment", LOG));
 
@@ -78,7 +77,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
      * Constructor.
      *
      * @param metaStorage Meta storage manager.
-     * @param localNodeProvider Cluster service.
+     * @param localNodeProvider Local node id provider.
      * @param listener Node events listener.
      */
     public DeploymentUnitStoreImpl(MetaStorageManager metaStorage,
@@ -87,36 +86,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     ) {
         this.metaStorage = metaStorage;
 
-        metaStorage.registerPrefixWatch(NodeStatusKey.builder().build().toKey(), new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                for (EntryEvent e : event.entryEvents()) {
-                    Entry entry = e.newEntry();
-
-                    byte[] key = entry.key();
-                    byte[] value = entry.value();
-
-                    NodeStatusKey nodeStatusKey = NodeStatusKey.fromKey(key);
-
-                    if (!Objects.equals(localNodeProvider.get(), nodeStatusKey.nodeId())
-                            || value == null) {
-                        continue;
-                    }
-
-                    UnitNodeStatus nodeStatus = UnitNodeStatus.deserialize(value);
-
-                    CompletableFuture.supplyAsync(() -> nodeStatus, executor)
-                            .thenCompose(status1 -> getAllNodes(status1.id(), status1.version()))
-                            .thenAccept(nodes -> listener.call(nodeStatus, new HashSet<>(nodes)));
-                }
-                return completedFuture(null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Failed to process metastore deployment unit event. ", e);
-            }
-        });
+        metaStorage.registerPrefixWatch(NodeStatusKey.builder().build().toKey(), new NodeEventsListener(localNodeProvider, listener));
     }
 
     @Override
@@ -290,5 +260,45 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                                 return completedFuture(finished);
                             });
                 });
+    }
+
+    private class NodeEventsListener implements WatchListener {
+        private final Supplier<String> localNodeProvider;
+
+        private final NodeEventListener listener;
+
+        private NodeEventsListener(Supplier<String> localNodeProvider, NodeEventListener listener) {
+            this.localNodeProvider = localNodeProvider;
+            this.listener = listener;
+        }
+
+        @Override
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
+            for (EntryEvent e : event.entryEvents()) {
+                Entry entry = e.newEntry();
+
+                byte[] key = entry.key();
+                byte[] value = entry.value();
+
+                NodeStatusKey nodeStatusKey = NodeStatusKey.fromKey(key);
+
+                if (!Objects.equals(localNodeProvider.get(), nodeStatusKey.nodeId())
+                        || value == null) {
+                    continue;
+                }
+
+                UnitNodeStatus nodeStatus = UnitNodeStatus.deserialize(value);
+
+                CompletableFuture.supplyAsync(() -> nodeStatus, executor)
+                        .thenComposeAsync(status1 -> getAllNodes(status1.id(), status1.version()), executor)
+                        .thenAccept(nodes -> listener.call(nodeStatus, new HashSet<>(nodes)));
+            }
+            return completedFuture(null);
+        }
+
+        @Override
+        public void onError(Throwable e) {
+            LOG.warn("Failed to process metastore deployment unit event. ", e);
+        }
     }
 }

@@ -63,8 +63,8 @@ public class FileDeployerServiceTest {
 
     @Test
     public void test() throws IOException {
-        CompletableFuture<Boolean> de = service.deploy("id", "1.0.0", content());
-        assertThat(de, willBe(true));
+        CompletableFuture<Boolean> deployed = service.deploy("id", "1.0.0", content());
+        assertThat(deployed, willBe(true));
 
         CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", "1.0.0");
         assertThat(unitContent, willBe(Matchers.equalTo(content())));

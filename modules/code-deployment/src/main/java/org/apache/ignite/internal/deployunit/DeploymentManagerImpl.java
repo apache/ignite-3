@@ -90,7 +90,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     /**
      * Deployment units metastore service.
      */
-    private final DeploymentUnitStore metastore;
+    private final DeploymentUnitStore deploymentUnitStore;
 
     /**
      * Deploy tracker.
@@ -118,7 +118,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         tracker = new DeployTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
-        metastore = new DeploymentUnitStoreImpl(metaStorage,
+        deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage,
                 () -> this.clusterService.topologyService().localMember().name(),
                 this::onUnitRegister);
     }
@@ -129,7 +129,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     .thenCompose(content -> deployer.deploy(status.id(), status.version().render(), content))
                     .thenApply(deployed -> {
                         if (deployed) {
-                            return metastore.updateNodeStatus(
+                            return deploymentUnitStore.updateNodeStatus(
                                     clusterService.topologyService().localMember().name(),
                                     status.id(),
                                     status.version(),
@@ -138,12 +138,12 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         return deployed;
                     });
         } else if (status.status() == DEPLOYED) {
-            metastore.getClusterStatus(status.id(), status.version())
+            deploymentUnitStore.getClusterStatus(status.id(), status.version())
                     .thenApply(UnitClusterStatus::initialNodesToDeploy)
                     .thenApply(deployedNodes::containsAll)
                     .thenAccept(allRequiredDeployed -> {
                         if (allRequiredDeployed) {
-                            metastore.updateClusterStatus(status.id(), status.version(), DEPLOYED);
+                            deploymentUnitStore.updateClusterStatus(status.id(), status.version(), DEPLOYED);
                         }
                     });
         }
@@ -156,7 +156,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(deploymentUnit);
 
         return cmgManager.cmgNodes()
-                .thenCompose(cmg -> metastore.createClusterStatus(id, version, cmg))
+                .thenCompose(cmg -> deploymentUnitStore.createClusterStatus(id, version, cmg))
                 .thenCompose(success -> {
                     if (success) {
                         return doDeploy(id, version, deploymentUnit);
@@ -187,7 +187,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 .thenApply(completed -> {
                     if (completed) {
                         cmgManager.cmgNodes().thenAccept(nodes ->
-                                nodes.forEach(node -> metastore.createNodeStatus(node, id, version)));
+                                nodes.forEach(node -> deploymentUnitStore.createNodeStatus(node, id, version)));
                     }
                     return completed;
                 })
@@ -199,7 +199,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 .thenCompose(deployed -> {
                     if (deployed) {
                         String nodeId = clusterService.topologyService().localMember().name();
-                        return metastore.createNodeStatus(nodeId, id, version, DEPLOYED);
+                        return deploymentUnitStore.createNodeStatus(nodeId, id, version, DEPLOYED);
                     }
                     return completedFuture(false);
                 });
@@ -211,11 +211,11 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
 
         return messaging.stopInProgressDeploy(id, version)
-                .thenCompose(v -> metastore.updateClusterStatus(id, version, OBSOLETE))
+                .thenCompose(v -> deploymentUnitStore.updateClusterStatus(id, version, OBSOLETE))
                 .thenCompose(success -> {
                     if (success) {
                         //TODO: Check unit usages here. If unit used in compute task we cannot just remove it.
-                        return metastore.updateClusterStatus(id, version, REMOVING);
+                        return deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
                     }
                     return completedFuture(false);
                 })
@@ -229,12 +229,12 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         logicalTopologySnapshot.nodes().stream()
                                 .map(node -> messaging.undeploy(node, id, version))
                                 .toArray(CompletableFuture[]::new))
-                ).thenCompose(unused -> metastore.remove(id, version));
+                ).thenCompose(unused -> deploymentUnitStore.remove(id, version));
     }
 
     @Override
     public CompletableFuture<List<UnitStatuses>> unitsAsync() {
-        return metastore.getAllClusterStatuses()
+        return deploymentUnitStore.getAllClusterStatuses()
                 .thenApply(DeploymentManagerImpl::map);
     }
 
@@ -242,7 +242,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     public CompletableFuture<List<Version>> versionsAsync(String id) {
         checkId(id);
 
-        return metastore.getClusterStatuses(id)
+        return deploymentUnitStore.getClusterStatuses(id)
                 .thenApply(statuses -> statuses.stream().map(UnitClusterStatus::version)
                         .sorted()
                         .collect(Collectors.toList()));
@@ -251,7 +251,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     @Override
     public CompletableFuture<UnitStatuses> statusAsync(String id) {
         checkId(id);
-        return metastore.getClusterStatuses(id)
+        return deploymentUnitStore.getClusterStatuses(id)
                 .thenApply(statuses -> {
                     UnitStatusesBuilder builder = UnitStatuses.builder(id);
                     for (UnitClusterStatus status : statuses) {
@@ -264,7 +264,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
-        return metastore.getAllNodes(id, version)
+        return deploymentUnitStore.getAllNodes(id, version)
                 .thenCompose(nodes -> {
                     if (nodes.isEmpty()) {
                         return completedFuture(false);

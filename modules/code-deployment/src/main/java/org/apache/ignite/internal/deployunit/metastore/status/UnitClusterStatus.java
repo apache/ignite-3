@@ -83,7 +83,7 @@ public class UnitClusterStatus extends UnitStatus {
      */
     public static UnitClusterStatus deserialize(byte[] value) {
         if (value == null || value.length == 0) {
-            return new UnitClusterStatus(null, null, null, null);
+            return new UnitClusterStatus(null, null, null, Set.of());
         }
 
         String[] values = SerializeUtils.deserialize(value);
@@ -91,7 +91,7 @@ public class UnitClusterStatus extends UnitStatus {
         String id = values.length > 0 ? SerializeUtils.decode(values[0]) : null;
         Version version = values.length > 1 ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
         DeploymentStatus status = values.length > 2 ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
-        Set<String> nodes = values.length > 3 ? SerializeUtils.decodeAsSet(values[3]) : Collections.emptySet();
+        Set<String> nodes = values.length > 3 ? SerializeUtils.decodeAsSet(values[3]) : Set.of();
 
         return new UnitClusterStatus(id, version, status, nodes);
     }

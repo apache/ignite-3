@@ -139,11 +139,11 @@ public interface DeploymentUnitStore {
     CompletableFuture<Boolean> updateNodeStatus(String nodeId, String id, Version version, DeploymentStatus status);
 
     /**
-     * Returns all nodes list where deployed unit with provided identifier and version.
+     * Returns a list of nodes where unit with provided identifier and version is deployed.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @return All nodes list where deployed unit with provided identifier and version or empty list.
+     * @return A list of nodes where unit with provided identifier and version is deployed or empty list.
      */
     CompletableFuture<List<String>> getAllNodes(String id, Version version);
 
