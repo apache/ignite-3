@@ -101,9 +101,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var port = testServer2.port();
 
         try (var client2 = IgniteClient.builder().addresses("localhost:" + port).build()) {
-            ((FakeIgniteTables) server2.tables()).createTable(DEFAULT_TABLE);
-            var table = client2.tables().table(DEFAULT_TABLE);
-            var view = table.recordView();
+            RecordView<Tuple> view = defaultTableView(server2, client2);
 
             var bufferSize = 2;
             var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
@@ -134,8 +132,43 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testRetry() {
-        assert false;
+    public void testRetry() throws Exception {
+        var server2 = new FakeIgnite("server-2");
+
+        Function<Integer, Integer> responseDelay = idx -> 0;
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 2 && idx % 2 == 0;
+        var testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+
+        var port = testServer2.port();
+
+        try (var client2 = IgniteClient.builder().addresses("localhost:" + port).build()) {
+            RecordView<Tuple> view = defaultTableView(server2, client2);
+
+            var bufferSize = 2;
+            try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize)) {
+                var options = DataStreamerOptions.builder()
+                        .batchSize(bufferSize)
+                        .perNodeParallelOperations(1)
+                        .build();
+
+                view.streamData(publisher, options);
+
+                for (long i = 0; i < 100; i++) {
+                    publisher.submit(tuple(i, "foo_" + i));
+                }
+            }
+
+            for (long i = 0; i < 100; i++) {
+                assertNotNull(view.get(null, tupleKey(i)));
+            }
+        }
+    }
+
+    private static RecordView<Tuple> defaultTableView(FakeIgnite server2, IgniteClient client2) {
+        ((FakeIgniteTables) server2.tables()).createTable(DEFAULT_TABLE);
+        var table = client2.tables().table(DEFAULT_TABLE);
+        var view = table.recordView();
+        return view;
     }
 
     @Test
