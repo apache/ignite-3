@@ -211,6 +211,11 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     public void createTables() {
         System.out.println("Test started");
         Ignite ignite = CLUSTER_NODES.get(0);
+
+        try (Session session = ignite.sql().createSession()) {
+            session.execute(null, "create zone test_zone engine rocksdb with partitions=25");
+        }
+
         for (int i = 0; i < TABLES_COUNT; i++) {
             String createTableQuery = createTableQuery("table_" + i, COLUMNS_COUNT);
             String selectQuery = "select * from table_" + i;
@@ -239,7 +244,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 sb.append(", ");
             }
         }
-        sb.append(")");
+        sb.append(") with primary_zone='TEST_ZONE'");
         return sb.toString();
     }
 
