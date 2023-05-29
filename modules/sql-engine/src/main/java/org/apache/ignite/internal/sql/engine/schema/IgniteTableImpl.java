@@ -47,6 +47,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -525,7 +526,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     private class StatisticsImpl implements Statistic {
-        private final int updateThreshold = table.storage().distributionZoneConfiguration().partitions().value();
+        private final int updateThreshold = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 
         private final AtomicLong lastUpd = new AtomicLong();
 
