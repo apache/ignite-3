@@ -75,7 +75,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
         this.batchSender = batchSender;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
-        this.options = options != null ? options : new DataStreamerOptions();
+        this.options = options != null ? options : DataStreamerOptions.DEFAULT;
     }
 
     /** {@inheritDoc} */
@@ -97,9 +97,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
                     else {
                         requestMore();
 
-                        if (options.autoFlushFrequency() > 0) {
-                            flushTimer = initFlushTimer();
-                        }
+                        flushTimer = initFlushTimer();
                     }
                 });
     }
@@ -221,10 +219,15 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         pendingItemCount.addAndGet(count);
     }
 
-    private Timer initFlushTimer() {
+    private @Nullable Timer initFlushTimer() {
+        int interval = options.autoFlushFrequency();
+
+        if (interval <= 0) {
+            return null;
+        }
+
         Timer timer = new Timer("client-data-streamer-flush-" + hashCode());
 
-        int interval = options.autoFlushFrequency();
         timer.schedule(new PeriodicFlushTask(), interval, interval);
 
         return timer;

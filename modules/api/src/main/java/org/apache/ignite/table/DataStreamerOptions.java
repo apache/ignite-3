@@ -17,12 +17,13 @@
 
 package org.apache.ignite.table;
 
-import java.util.Objects;
-
 /**
  * Data streamer options. See {@link DataStreamerTarget} for more information.
  */
 public class DataStreamerOptions {
+    /** Default options. */
+    public static final DataStreamerOptions DEFAULT = builder().build();
+
     private final int batchSize;
 
     private final int perNodeParallelOperations;
@@ -40,6 +41,15 @@ public class DataStreamerOptions {
         this.batchSize = batchSize;
         this.perNodeParallelOperations = perNodeParallelOperations;
         this.autoFlushFrequency = autoFlushFrequency;
+    }
+
+    /**
+     * Creates a new builder.
+     *
+     * @return Builder.
+     */
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
