@@ -103,6 +103,10 @@ public class DataStreamerOptions {
          * @return This builder instance.
          */
         public Builder perNodeParallelOperations(int perNodeParallelOperations) {
+            if (perNodeParallelOperations <= 0) {
+                throw new IllegalArgumentException("Per node parallel operations must be positive: " + perNodeParallelOperations);
+            }
+
             this.perNodeParallelOperations = perNodeParallelOperations;
 
             return this;
@@ -112,7 +116,7 @@ public class DataStreamerOptions {
          * Sets the auto flush frequency, in milliseconds
          * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
          *
-         * @param autoFlushFrequency Auto flush frequency, in milliseconds.
+         * @param autoFlushFrequency Auto flush frequency, in milliseconds. 0 or less means no auto flush.
          * @return This builder instance.
          */
         public Builder autoFlushFrequency(int autoFlushFrequency) {
@@ -121,6 +125,11 @@ public class DataStreamerOptions {
             return this;
         }
 
+        /**
+         * Builds the options.
+         *
+         * @return Data streamer options.
+         */
         public DataStreamerOptions build() {
             return new DataStreamerOptions(batchSize, perNodeParallelOperations, autoFlushFrequency);
         }
