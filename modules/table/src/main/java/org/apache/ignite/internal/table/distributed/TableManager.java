@@ -1296,6 +1296,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Set<Assignment> calculateAssignments(TableConfiguration tableCfg, int partNum) {
         return AffinityUtils.calculateAssignmentForPartition(
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 we must use distribution zone keys here
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                 partNum,
                 getZoneById(distributionZonesConfiguration, tableCfg.zoneId().value()).replicas().value()

@@ -1038,7 +1038,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
-    @Test
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 here we receive the empty nodes from baseline manager,
+    // but should get the nodes from metastore instead
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
