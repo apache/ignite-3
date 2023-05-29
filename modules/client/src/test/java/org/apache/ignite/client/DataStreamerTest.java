@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -90,7 +91,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testBackPressure() throws Exception {
         var server2 = new FakeIgnite("server-2");
 
-        Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 5000 : 0;
+        Function<Integer, Integer> responseDelay = idx -> idx > 3 ? 5000 : 0;
         var testServer2 = new TestServer(10900, 10, 10_000, server2, idx -> false, responseDelay, null, UUID.randomUUID(), null);
 
         var port = testServer2.port();
@@ -101,15 +102,17 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var view = table.recordView();
 
             var publisher = new SubmissionPublisher<Tuple>();
-            view.streamData(publisher, new DataStreamerOptions().batchSize(2));
+            var streamFut = view.streamData(publisher, new DataStreamerOptions().batchSize(2));
+            publisher.submit(tuple(111L, "foo_"));
 
-            var submitFuture = CompletableFuture.runAsync(() -> {
+            var submitFut = CompletableFuture.runAsync(() -> {
                 for (long i = 0; i < 10; i++) {
                     publisher.submit(tuple(i, "foo_" + i));
                 }
             });
 
-            assertThrows(Exception.class, () -> submitFuture.get(1, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> submitFut.get(1, TimeUnit.SECONDS));
+            assertFalse(streamFut.isDone(), () -> streamFut.join().toString());
         }
     }
 
