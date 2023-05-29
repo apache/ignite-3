@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Replaces {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
  *
- * <p>The following changes are supported:
+ * <p>The following changes are supported for non-PK columns:
  * <ul>
  *     <li>Precision increase for {@code DECIMAL}.</li>
  *     <li>Length increase for {@code VARCHAR} and {@code VARBINARY}.</li>
@@ -42,11 +42,6 @@ import org.jetbrains.annotations.Nullable;
  * All other modifications are rejected.
  */
 public class AlterColumnType implements AlterColumnAction {
-    private static final String UNSUPPORTED_TYPE = "Cannot change data type for column '{}' [from={}, to={}].";
-    private static final String UNSUPPORTED_SCALE = "Cannot change scale for column '{}' [from={}, to={}].";
-    private static final String UNSUPPORTED_LENGTH = "Cannot decrease length for column '{}' [from={}, to={}].";
-    private static final String UNSUPPORTED_PRECISION = "Cannot {} precision for column '{}' [from={}, to={}].";
-
     private static final EnumSet<ColumnType> varLenTypes = EnumSet.of(ColumnType.STRING, ColumnType.BYTE_ARRAY);
     private static final Map<ColumnType, Set<ColumnType>> supportedTransitions = new EnumMap<>(ColumnType.class);
 
@@ -71,7 +66,7 @@ public class AlterColumnType implements AlterColumnAction {
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
+    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
         boolean varLenType = varLenTypes.contains(type);
 
         if (origin.type() == type
@@ -85,30 +80,34 @@ public class AlterColumnType implements AlterColumnAction {
             return null;
         }
 
+        if (isPkColumn) {
+            throwException("Cannot change data type for primary key column '{}'.", origin.name(), origin.type(), type);
+        }
+
         if (origin.type() != type) {
             Set<ColumnType> supportedTypes = supportedTransitions.get(origin.type());
 
             if (supportedTypes == null || !supportedTypes.contains(type)) {
-                throwException(UNSUPPORTED_TYPE, origin.name(), origin.type(), type);
+                throwException("Cannot change data type for column '{}' [from={}, to={}].", origin.name(), origin.type(), type);
             }
         }
 
         if (precision != null) {
             if (varLenType) {
                 if (precision < origin.length()) {
-                    throwException(UNSUPPORTED_LENGTH, origin.name(), origin.length(), precision);
+                    throwException("Cannot decrease length to {} for column '{}'.", precision, origin.name());
                 }
             } else if (type == ColumnType.DECIMAL) {
                 if (precision < origin.precision()) {
-                    throwException(UNSUPPORTED_PRECISION, "decrease", origin.name(), origin.precision(), precision);
+                    throwException("Cannot decrease precision to {} for column '{}'.", precision, origin.name());
                 }
             } else {
-                throwException(UNSUPPORTED_PRECISION, "change", origin.name(), origin.precision(), precision);
+                throwException("Cannot change precision to {} for column '{}'.", precision, origin.name());
             }
         }
 
         if (scale != null && origin.scale() != scale) {
-            throwException(UNSUPPORTED_SCALE, origin.name(), origin.scale(), scale);
+            throwException("Cannot change scale to {} for column '{}'.", scale, origin.name());
         }
 
         return new TableColumnDescriptor(

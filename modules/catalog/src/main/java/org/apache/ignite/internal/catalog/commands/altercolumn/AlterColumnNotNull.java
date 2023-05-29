@@ -35,7 +35,7 @@ public class AlterColumnNotNull implements AlterColumnAction {
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
+    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
         if (notNull == !origin.nullable()) {
             return null;
         }
@@ -44,6 +44,11 @@ public class AlterColumnNotNull implements AlterColumnAction {
         if (notNull) {
             throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
                     IgniteStringFormatter.format("Cannot set NOT NULL for column '{}'.", origin.name()));
+        }
+
+        if (isPkColumn) {
+            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
+                    IgniteStringFormatter.format("Cannot drop NOT NULL for the primary key column '{}'.", origin.name()));
         }
 
         return new TableColumnDescriptor(

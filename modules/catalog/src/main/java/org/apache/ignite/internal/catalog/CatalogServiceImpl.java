@@ -255,7 +255,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new ColumnNotFoundException(columnName);
             }
 
-            TableColumnDescriptor result = params.action().apply(source);
+            TableColumnDescriptor result = params.action().apply(source, table.primaryKeyColumns().contains(source.name()));
 
             if (result == null) {
                 // No-op.

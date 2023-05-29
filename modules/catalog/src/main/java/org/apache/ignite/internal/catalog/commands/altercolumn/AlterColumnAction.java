@@ -29,7 +29,8 @@ public interface AlterColumnAction {
      * Changes column descriptor.
      *
      * @param origin Column descriptor.
+     * @param isPkColumn {@code True} if this column is part of the primary key, {@code false} otherwise.
      * @return Modified copy of the specified column descriptor, or {@code null} if no changes were made.
      */
-    @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin);
+    @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn);
 }

@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -379,7 +380,7 @@ public class CatalogServiceSelfTest {
      * Checks for possible changes of the nullable flag of a column descriptor.
      *
      * <ul>
-     *  <li>DROP NOT NULL is allowed on any column.
+     *  <li>DROP NOT NULL is allowed on any non-PK column.
      *  <li>SET NOT NULL is forbidden.
      * </ul>
      */
@@ -401,21 +402,27 @@ public class CatalogServiceSelfTest {
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new AlterColumnNotNull(false)), willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
+        // DROP NOT NULL for PK : Error.
+        assertThat(changeColumn(TABLE_NAME, "ID", new AlterColumnNotNull(false)),
+                willThrowFast(SqlException.class, "Cannot drop NOT NULL for the primary key column 'ID'."));
+
         // NULlABLE -> NOT NULL : Error.
         assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnNotNull(true)),
-                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'"));
+                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'."));
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new AlterColumnNotNull(true)),
-                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL_NOT_NULL'"));
+                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL_NOT_NULL'."));
+
         assertNull(service.schema(schemaVer + 1));
     }
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
+        ColumnParams pkCol = new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false);
         ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
         ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(10).build();
 
-        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(col, colWithPrecision))), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
@@ -423,12 +430,12 @@ public class CatalogServiceSelfTest {
 
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new AlterColumnType(type, 10, null)),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'")
+                willThrowFast(SqlException.class, "Cannot change precision to 10 for column '" + col.name() + "'")
         );
 
         assertThat(
                 changeColumn(TABLE_NAME, colWithPrecision.name(), new AlterColumnType(type, 10, null)),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'")
+                willThrowFast(SqlException.class, "Cannot change precision to 10 for column '" + colWithPrecision.name() + "'")
         );
 
         assertNull(service.schema(schemaVer + 1));
@@ -439,15 +446,17 @@ public class CatalogServiceSelfTest {
      *
      * <ul>
      *  <li>Decreasing precision (and length for varlen types) is forbidden.</li>
-     *  <li>Increasing precision is allowed for {@link ColumnType#DECIMAL}.</li>
-     *  <li>Increasing length is allowed for {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY}.</li>
+     *  <li>Increasing precision is allowed for non-PK {@link ColumnType#DECIMAL} column.</li>
+     *  <li>Increasing length is allowed for non-PK {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY} column.</li>
      * </ul>
      */
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypePrecision(ColumnType type) {
+        ColumnParams pkCol = new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false);
         ColumnParams col = new ColumnParams("COL_" + type, type, DefaultValue.constant(null), false);
-        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(col))), willBe((Object) null));
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
@@ -480,8 +489,8 @@ public class CatalogServiceSelfTest {
 
         // 11 -> 10 : Error.
         String expMsg = col.type() == ColumnType.DECIMAL
-                ? "Cannot decrease precision for column '" + col.name() + "' [from=11, to=10]."
-                : "Cannot decrease length for column '" + col.name() + "' [from=11, to=10].";
+                ? "Cannot decrease precision to 10 for column '" + col.name() + "'."
+                : "Cannot decrease length to 10 for column '" + col.name() + "'.";
 
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), 10, null)),
@@ -490,12 +499,12 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
     }
 
-    /** Ensures that the scale cannot be changed for any type. */
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
-    public void testAlterColumnTypeScale(ColumnType type) {
+    public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
+        ColumnParams pkCol = new ColumnParams("ID", ColumnType.INT32, DefaultValue.constant(null), false);
         ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).scale(3).build();
-        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(col))), willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
 
         int schemaVer = 1;
         assertNotNull(service.schema(schemaVer));
@@ -512,12 +521,12 @@ public class CatalogServiceSelfTest {
 
         // 3 -> 4 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, 4)),
-                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=4]."));
+                willThrowFast(SqlException.class, "Cannot change scale to 4 for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, 2)),
-                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "' [from=3, to=2]."));
+                willThrowFast(SqlException.class, "Cannot change scale to 2 for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
     }
 
@@ -525,7 +534,7 @@ public class CatalogServiceSelfTest {
     /**
      * Checks for possible changes of the type of a column descriptor.
      *
-     * <p>The following transitions are allowed:
+     * <p>The following transitions are allowed for non-PK columns:
      * <ul>
      *     <li>INT8 -> INT16 -> INT32 -> INT64</li>
      *     <li>FLOAT -> DOUBLE</li>
@@ -538,11 +547,14 @@ public class CatalogServiceSelfTest {
         EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
         types.remove(ColumnType.NULL);
 
-        List<ColumnParams> columns = types.stream()
+        List<ColumnParams> testColumns = types.stream()
                 .map(t -> new ColumnParams("COL_" + t, t, DefaultValue.constant(null), false))
                 .collect(Collectors.toList());
 
-        CreateTableParams createTableParams = simpleTable(TABLE_NAME, columns);
+        List<ColumnParams> tableColumns = new ArrayList<>(List.of(ColumnParams.builder().name("ID").type(ColumnType.INT32).build()));
+        tableColumns.addAll(testColumns);
+
+        CreateTableParams createTableParams = simpleTable(TABLE_NAME, tableColumns);
 
         Map<ColumnType, Set<ColumnType>> validTransitions = new EnumMap<>(ColumnType.class);
         validTransitions.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
@@ -558,7 +570,7 @@ public class CatalogServiceSelfTest {
 
         AlterColumnType changeType = new AlterColumnType(target, null, null);
 
-        for (ColumnParams col : columns) {
+        for (ColumnParams col : testColumns) {
             TypeSafeMatcher<CompletableFuture<?>> matcher;
             boolean sameType = col.type() == target;
 
@@ -576,6 +588,18 @@ public class CatalogServiceSelfTest {
         }
     }
 
+    @Test
+    public void testAlterColumnTypeRejectedForPrimaryKey() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        assertThat(changeColumn(TABLE_NAME, "ID", new AlterColumnType(ColumnType.INT64, null, null)),
+                willThrowFast(SqlException.class, "Cannot change data type for primary key column 'ID'."));
+    }
+
+    /**
+     * Ensures that the compound change command {@code SET DATA TYPE BIGINT NULL DEFAULT NULL} will change the type, drop NOT NULL and the
+     * default value at the same time.
+     */
     @Test
     public void testAlterColumnMultipleChanges() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));

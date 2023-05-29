@@ -34,7 +34,7 @@ public class AlterColumnDefault implements AlterColumnAction {
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin) {
+    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
         DefaultValue dflt = resolveDfltFunc.apply(origin.type());
 
         if (dflt.equals(origin.defaultValue())) {

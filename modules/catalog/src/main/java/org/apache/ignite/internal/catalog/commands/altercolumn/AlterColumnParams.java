@@ -38,12 +38,12 @@ public class AlterColumnParams extends AbstractTableCommandParams {
 
     /** Returns composite change action for the column descriptor. */
     public AlterColumnAction action() {
-        return source -> {
+        return (source, isPkColumn) -> {
             boolean changed = false;
             TableColumnDescriptor target = source;
 
             for (AlterColumnAction action : changeActions) {
-                TableColumnDescriptor newDesc = action.apply(target);
+                TableColumnDescriptor newDesc = action.apply(target, isPkColumn);
 
                 if (newDesc != null) {
                     target = newDesc;
