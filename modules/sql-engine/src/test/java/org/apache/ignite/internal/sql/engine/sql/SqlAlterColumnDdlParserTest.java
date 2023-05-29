@@ -22,15 +22,16 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.pretty.SqlFormatOptions;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +66,7 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
      *     <li>Command {@code DROP DEFAULT} must be equivalent to {@code SET DEFAULT NULL}, and {@link IgniteSqlAlterColumn#expression()}
      *         in this case must contain SQL literal with type NULL.</li>
      *     <li>For {@code SET DEFAULT &lt;LITERAL&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected SQL literal.</li>
-     *     <li>For {@code SET DEFAULT &lt;ID&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected SQL identifier.</li>
+     *     <li>For {@code SET DEFAULT &lt;ID&gt;} parser should throw an exception.</li>
      * </ul>
      */
     @Test
@@ -77,9 +78,7 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         assertThat(dflt, instanceOf(SqlLiteral.class));
         assertThat(((SqlLiteral) dflt).getValueAs(Integer.class), equalTo(10));
 
-        dflt = parseAlterColumn("SET DEFAULT FUNC").expression();
-        assertThat(dflt, instanceOf(SqlIdentifier.class));
-        assertThat(((SqlIdentifier) dflt).getSimple(), equalTo("FUNC"));
+        assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DEFAULT FUNC"));
     }
 
     /**
@@ -98,10 +97,11 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         validateDataType("SET DATA TYPE INTEGER NOT NULL", "INTEGER", true, null);
         validateDataType("SET DATA TYPE INTEGER NULL", "INTEGER", false, null);
         validateDataType("SET DATA TYPE INTEGER DEFAULT -1", "INTEGER", null, -1L);
-        validateDataType("SET DATA TYPE INTEGER DEFAULT FUNC", "INTEGER", null, "FUNC");
         validateDataType("SET DATA TYPE INTEGER DEFAULT NULL", "INTEGER", null, null);
         validateDataType("SET DATA TYPE INTEGER NOT NULL DEFAULT -1", "INTEGER", true, -1);
         validateDataType("SET DATA TYPE INTEGER NULL DEFAULT NULL", "INTEGER", false, null);
+
+        assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DATA TYPE INTEGER DEFAULT FUNC"));
     }
 
     private void validateDataType(String querySuffix, @Nullable String typeName, @Nullable Boolean notNull, @Nullable Object expDefault) {
@@ -115,8 +115,6 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
             if (alterColumn.expression() != null) {
                 checkDefaultIsNull(alterColumn.expression());
             }
-        } else if (alterColumn.expression() instanceof SqlIdentifier) {
-            assertThat(((SqlIdentifier) alterColumn.expression()).getSimple(), equalTo(expDefault));
         } else {
             assertThat(alterColumn.expression(), instanceOf(SqlLiteral.class));
             assertThat(((SqlLiteral) alterColumn.expression()).getValueAs(expDefault.getClass()), equalTo(expDefault));

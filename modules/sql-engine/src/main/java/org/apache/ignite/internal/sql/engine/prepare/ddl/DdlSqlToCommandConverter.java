@@ -444,11 +444,7 @@ public class DdlSqlToCommandConverter {
 
             Function<ColumnType, DefaultValue> resolveDfltFunc;
 
-            if (expr instanceof SqlIdentifier) {
-                DefaultValue dfltVal = DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
-
-                resolveDfltFunc = type -> dfltVal;
-            } else if (expr instanceof SqlLiteral) {
+            if (expr instanceof SqlLiteral) {
                 resolveDfltFunc = type -> DefaultValue.constant(fromLiteral((SqlLiteral) expr, type));
             } else if (expr == null) {
                 resolveDfltFunc = type -> DefaultValue.constant(null);
