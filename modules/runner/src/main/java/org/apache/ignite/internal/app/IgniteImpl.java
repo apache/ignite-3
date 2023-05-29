@@ -90,7 +90,6 @@ import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -212,9 +211,6 @@ public class IgniteImpl implements Ignite {
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
-
-//    /** Placement driver manager. */
-//    private final PlacementDriverManager placementDriverMgr;
 
     /** Distributed configuration validator. */
     private final ConfigurationValidator distributedConfigurationValidator;
@@ -442,20 +438,6 @@ public class IgniteImpl implements Ignite {
 
         DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
                 .getConfiguration(DistributionZonesConfiguration.KEY);
-
-//        placementDriverMgr = new PlacementDriverManager(
-//                metaStorageMgr,
-//                vaultMgr,
-//                MetastorageGroupId.INSTANCE,
-//                clusterSvc,
-//                cmgMgr::metaStorageNodes,
-//                logicalTopologyService,
-//                raftMgr,
-//                topologyAwareRaftGroupServiceFactory,
-//                tablesConfiguration,
-//                zonesConfiguration,
-//                clock
-//        );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
@@ -706,7 +688,6 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
                                     clusterCfgMgr,
-//                                    placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
