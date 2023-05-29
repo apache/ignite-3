@@ -64,7 +64,6 @@ import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -141,7 +140,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", nodes = 1)
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -201,58 +200,6 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     @AfterAll
     static void shutdown() throws Exception {
         stopNodes();
-    }
-
-    private static final int COLUMNS_COUNT = 5;
-    private static final int TABLES_COUNT = 1000;
-    private static final int SLEEP = 30;
-
-    @Test
-    public void createTables() {
-        System.out.println("Test started");
-        Ignite ignite = CLUSTER_NODES.get(0);
-
-        try (Session session = ignite.sql().createSession()) {
-            session.execute(null, "create zone test_zone engine rocksdb with partitions=25");
-        }
-
-        for (int i = 0; i < TABLES_COUNT; i++) {
-            String createTableQuery = createTableQuery("table_" + i, COLUMNS_COUNT);
-            String selectQuery = "select * from table_" + i;
-            long timestampBefore = System.currentTimeMillis();
-            try (Session session = ignite.sql().createSession()) {
-                session.execute(null, createTableQuery);
-                session.execute(null, selectQuery);
-            }
-            long timestampAfter = System.currentTimeMillis();
-            System.out.println("Create table " + i + " took " + (timestampAfter - timestampBefore) + " ms");
-            sleep();
-        }
-    }
-
-    public static String createTableQuery(String tableName, int columnsAmount){
-        StringBuilder sb = new StringBuilder();
-        sb.append("CREATE TABLE ").append(tableName).append("(");
-        for (int i = 0; i < columnsAmount; i++) {
-            if (i == 0){
-                sb.append("id INT PRIMARY KEY");
-            } else {
-                sb.append("column_").append(i).append(" VARCHAR");
-            }
-
-            if (i != columnsAmount - 1){
-                sb.append(", ");
-            }
-        }
-        sb.append(") with primary_zone='TEST_ZONE'");
-        return sb.toString();
-    }
-
-    public static void sleep(){
-        try {
-            Thread.sleep(SLEEP);
-        } catch (InterruptedException ignored) {
-        }
     }
 
     @TestFactory

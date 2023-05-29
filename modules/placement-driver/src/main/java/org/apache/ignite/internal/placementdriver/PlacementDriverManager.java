@@ -234,7 +234,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         isActiveActor = true;
 
-        //leaseUpdater.activate();
+        leaseUpdater.activate();
     }
 
 
@@ -246,7 +246,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         isActiveActor = false;
 
-        //leaseUpdater.deactivate();
+        leaseUpdater.deactivate();
     }
 
     @TestOnly

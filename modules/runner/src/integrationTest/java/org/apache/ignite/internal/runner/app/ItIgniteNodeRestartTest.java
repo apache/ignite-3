@@ -732,10 +732,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
     public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
         IgniteImpl ignite1 = startNode(0);
-        startNode(1);
-        startNode(2);
 
-        createTableWithoutData(ignite1, TABLE_NAME, 2, 25);
+        createTableWithoutData(ignite1, TABLE_NAME, 2, 1);
 
         IgniteImpl ignite2 = startNode(1);
 

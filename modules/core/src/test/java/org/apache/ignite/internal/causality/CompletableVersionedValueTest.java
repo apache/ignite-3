@@ -36,8 +36,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -331,31 +329,5 @@ public class CompletableVersionedValueTest {
         assertThat(future1, willBe(1));
         assertThat(future2, willBe(1));
         assertThat(future3, willBe(2));
-    }
-
-    @Test
-    public void test0() {
-        CompletableFuture f1 = CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        CompletableFuture f2 = f1.thenRun(() -> {
-            System.out.println("f2");
-        }).orTimeout(1000, TimeUnit.MILLISECONDS);
-
-        try {
-            f2.get();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        System.out.println("f1: " + f1.isDone());
     }
 }
