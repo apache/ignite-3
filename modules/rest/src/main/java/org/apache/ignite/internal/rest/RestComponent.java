@@ -130,7 +130,7 @@ public class RestComponent implements IgniteComponent {
                 + " [HTTP ports=[" + desiredHttpPort + ", " + desiredHttpPort + portRange + "]],"
                 + " [HTTPS ports=[" + desiredHttpsPort + ", " + desiredHttpsPort + httpsPortRange + "]]";
 
-        throw new IgniteException(Common.UNEXPECTED_ERR, msg);
+        throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, msg);
     }
 
     /** Starts Micronaut application using the provided ports.
@@ -154,7 +154,7 @@ public class RestComponent implements IgniteComponent {
             if (bindException != null) {
                 return false;
             }
-            throw new IgniteException(Common.UNEXPECTED_ERR, e);
+            throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
         }
     }
 

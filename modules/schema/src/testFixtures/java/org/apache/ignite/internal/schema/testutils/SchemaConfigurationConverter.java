@@ -488,7 +488,7 @@ public class SchemaConfigurationConverter {
      * @param change Indexes change to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableIndexChange addIndex(IndexDefinition idx, UUID tableId, TableIndexChange change) {
+    public static TableIndexChange addIndex(IndexDefinition idx, int tableId, TableIndexChange change) {
         return convert(idx, change).changeTableId(tableId);
     }
 

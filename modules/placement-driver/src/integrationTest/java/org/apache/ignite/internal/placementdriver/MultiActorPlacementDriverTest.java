@@ -36,7 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -118,6 +118,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1);
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws Exception {
@@ -571,7 +573,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TablePartitionId createTableAssignment() throws Exception {
-        AtomicReference<UUID> tblIdRef = new AtomicReference<>();
+        int tableId = nextTableId.incrementAndGet();
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
 
@@ -580,17 +582,16 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
+                extConfCh.changeId(tableId);
                 extConfCh.changeZoneId(zoneId);
-
-                tblIdRef.set(extConfCh.id());
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
             });
         }).get();
 
-        var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
+        var grpPart0 = new TablePartitionId(tableId, 0);
 
-        log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
+        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
 
         return grpPart0;
     }

@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.configuration.validation;
 
 import java.util.List;
-import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.SuperRoot;
-import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 import org.jetbrains.annotations.Nullable;
@@ -38,9 +35,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
 
     /** Updated values that need to be validated. */
     private final SuperRoot newRoots;
-
-    /** Provider for arbitrary roots that might not be accociated with the same storage. */
-    private final Function<RootKey<?, ?>, InnerNode> otherRoots;
 
     /**
      * Current node/configuration value.
@@ -63,7 +57,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
      *
      * @param oldRoots Old roots.
      * @param newRoots New roots.
-     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
      * @param val New value of currently validated configuration.
      * @param currentKey Key corresponding to the value.
      * @param currentPath List representation of {@code currentKey}.
@@ -72,7 +65,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     ValidationContextImpl(
             SuperRoot oldRoots,
             SuperRoot newRoots,
-            Function<RootKey<?, ?>, InnerNode> otherRoots,
             VIEWT val,
             String currentKey,
             List<String> currentPath,
@@ -80,7 +72,6 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     ) {
         this.oldRoots = oldRoots;
         this.newRoots = newRoots;
-        this.otherRoots = otherRoots;
         this.val = val;
         this.currentKey = currentKey;
         this.currentPath = currentPath;
@@ -114,17 +105,13 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     /** {@inheritDoc} */
     @Override
     public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
-        InnerNode root = oldRoots.getRoot(rootKey);
-
-        return (ROOT) (root == null ? otherRoots.apply(rootKey) : root);
+        return (ROOT) oldRoots.getRoot(rootKey);
     }
 
     /** {@inheritDoc} */
     @Override
     public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
-        TraversableTreeNode root = newRoots.getRoot(rootKey);
-
-        return (ROOT) (root == null ? otherRoots.apply(rootKey) : root);
+        return (ROOT) newRoots.getRoot(rootKey);
     }
 
     /** {@inheritDoc} */

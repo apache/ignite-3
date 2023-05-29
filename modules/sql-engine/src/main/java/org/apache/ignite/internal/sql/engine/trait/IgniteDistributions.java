@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.trait;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.util.ImmutableIntList;
 
@@ -72,7 +71,7 @@ public class IgniteDistributions {
      * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(int key, UUID tableId, Object zoneId) {
+    public static IgniteDistribution affinity(int key, int tableId, Object zoneId) {
         return hash(ImmutableIntList.of(key), DistributionFunction.affinity(tableId, zoneId));
     }
 
@@ -85,7 +84,7 @@ public class IgniteDistributions {
      * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(List<Integer> keys, UUID tableId, Object zoneId) {
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, Object zoneId) {
         return hash(keys, DistributionFunction.affinity(tableId, zoneId));
     }
 

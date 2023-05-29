@@ -47,7 +47,7 @@ class OutgoingSnapshotCommonTest {
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
 
-    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+    private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
     @BeforeEach
     void createTestInstance() {

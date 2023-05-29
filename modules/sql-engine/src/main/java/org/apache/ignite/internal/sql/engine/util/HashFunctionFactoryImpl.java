@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryIm
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -46,7 +45,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
 
     /** {@inheritDoc} */
     @Override
-    public RowHashFunction<T> create(int[] fields, UUID tableId) {
+    public RowHashFunction<T> create(int[] fields, int tableId) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
         TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId).descriptor();

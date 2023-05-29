@@ -158,7 +158,7 @@ public class ItColocationTest {
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
-        UUID tblId = UUID.randomUUID();
+        int tblId = 1;
 
         for (int i = 0; i < PARTS; ++i) {
             TablePartitionId groupId = new TablePartitionId(tblId, i);
@@ -191,7 +191,7 @@ public class ItColocationTest {
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
-            var commitPartId = new TablePartitionId(UUID.randomUUID(), 0);
+            var commitPartId = new TablePartitionId(2, 0);
 
             RaftGroupService r = groupRafts.get(request.groupId());
 

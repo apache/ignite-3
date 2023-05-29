@@ -74,9 +74,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
@@ -143,7 +144,7 @@ public class IncomingSnapshotCopierTest {
 
     private final UUID snapshotId = UUID.randomUUID();
 
-    private final UUID tableId = UUID.randomUUID();
+    private final int tableId = 1;
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
@@ -205,7 +206,7 @@ public class IncomingSnapshotCopierTest {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
-        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
 
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
         TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
@@ -300,8 +301,9 @@ public class IncomingSnapshotCopierTest {
                         new PartitionKey(tableId, TEST_PARTITION),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
-                        mock(StorageUpdateHandler.class),
-                        mvGc
+                        mvGc,
+                        mock(IndexUpdateHandler.class),
+                        mock(GcUpdateHandler.class)
                 )),
                 mock(SnapshotMeta.class),
                 executorService
@@ -324,7 +326,7 @@ public class IncomingSnapshotCopierTest {
                     storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), HYBRID_CLOCK.now());
                 } else {
                     // Writes an intent to write (uncommitted version).
-                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
+                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), UUID.randomUUID(), 999, TEST_PARTITION);
                 }
             }
 
@@ -344,7 +346,7 @@ public class IncomingSnapshotCopierTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
-        UUID tableId = UUID.randomUUID();
+        int tableId = 2;
 
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITED : ABORTED;
@@ -367,7 +369,7 @@ public class IncomingSnapshotCopierTest {
             long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
-            UUID commitTableId = null;
+            Integer commitTableId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             int j = 0;
@@ -526,7 +528,7 @@ public class IncomingSnapshotCopierTest {
 
             return null;
         }).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), any(UUID.class), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -586,7 +588,7 @@ public class IncomingSnapshotCopierTest {
 
         // Let's add an error on the rebalance.
         doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), any(UUID.class), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -602,7 +604,7 @@ public class IncomingSnapshotCopierTest {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
-        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
     }
 
     @Test
@@ -610,7 +612,7 @@ public class IncomingSnapshotCopierTest {
     void cancellationsFromMultipleThreadsDoNotBlockEachOther() throws Exception {
         PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class, Answers.RETURNS_DEEP_STUBS);
 
-        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
+        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(1, 0));
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,

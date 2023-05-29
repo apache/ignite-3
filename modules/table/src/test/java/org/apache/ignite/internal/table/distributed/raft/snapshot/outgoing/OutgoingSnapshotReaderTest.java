@@ -23,7 +23,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -42,7 +41,7 @@ public class OutgoingSnapshotReaderTest {
     void testForChoosingMaximumAppliedIndexForMeta() {
         PartitionAccess partitionAccess = mock(PartitionAccess.class);
 
-        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
+        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 0));
         when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);

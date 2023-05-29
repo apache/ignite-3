@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -82,7 +81,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("distributions")
     public void testInsertSelectFrom(IgniteDistribution distribution) throws Exception {
-        IgniteDistribution anotherDistribution = IgniteDistributions.affinity(1, new UUID(1, 0), "0");
+        IgniteDistribution anotherDistribution = IgniteDistributions.affinity(1, 1, "0");
 
         IgniteTable test1 = newTestTable("TEST1", distribution);
         IgniteTable test2 = newTestTable("TEST2", anotherDistribution);
@@ -150,7 +149,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
-                IgniteDistributions.affinity(0, new UUID(1, 1), "0")
+                IgniteDistributions.affinity(0, 2, "0")
         );
     }
 

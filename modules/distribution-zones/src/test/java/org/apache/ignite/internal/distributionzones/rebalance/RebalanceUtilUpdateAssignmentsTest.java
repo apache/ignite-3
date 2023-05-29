@@ -34,14 +34,15 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -83,6 +84,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationManager clusterCfgMgr;
 
     private ClusterService clusterService;
@@ -104,12 +107,16 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        clusterCfgMgr = new ConfigurationManager(
+        generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
-                new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
+        );
+        clusterCfgMgr = new ConfigurationManager(
+                List.of(DistributionZonesConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED),
+                generator,
+                new TestConfigurationValidator()
         );
 
         clusterService = mock(ClusterService.class);
@@ -195,6 +202,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         clusterCfgMgr.stop();
 
         keyValueStorage.close();
+
+        generator.close();
     }
 
     /**
@@ -477,7 +486,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             Set<Assignment> expectedPendingAssignments,
             Set<Assignment> expectedPlannedAssignments
     ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
         if (currentStableAssignments != null) {
             keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),

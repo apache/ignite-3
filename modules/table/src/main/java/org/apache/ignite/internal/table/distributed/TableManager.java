@@ -73,6 +73,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -131,7 +132,10 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -243,16 +247,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final PlacementDriver placementDriver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
-    private final Map<UUID, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
+    private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
 
     /** Versioned store for tables by id. */
-    private final IncrementalVersionedValue<Map<UUID, TableImpl>> tablesByIdVv;
+    private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
      * can stop resources associated with the table or to clean up table resources on {@code TableManager#stop()}.
      */
-    private final Map<UUID, TableImpl> pendingTables = new ConcurrentHashMap<>();
+    private final Map<Integer, TableImpl> pendingTables = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -321,6 +325,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final MvGc mvGc;
 
     private final LowWatermark lowWatermark;
+
+    private final IndexBuilder indexBuilder;
 
     /**
      * Creates a new table manager.
@@ -432,6 +438,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc = new MvGc(nodeName, tablesCfg);
 
         lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
+
+        indexBuilder = new IndexBuilder(nodeName, cpus);
     }
 
     @Override
@@ -491,7 +499,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 HasDataRequest msg = (HasDataRequest) message;
 
-                UUID tableId = msg.tableId();
+                int tableId = msg.tableId();
                 int partitionId = msg.partitionId();
 
                 boolean contains = false;
@@ -525,7 +533,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
         if (!busyLock.enterBusy()) {
-            UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
+            int tblId = ctx.newValue().id();
 
             fireEvent(TableEvent.CREATE,
                     new TableEventParameters(ctx.storageRevision(), tblId),
@@ -539,7 +547,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
-                    ((ExtendedTableView) ctx.newValue()).id()
+                    ctx.newValue().id()
             );
         } finally {
             busyLock.leaveBusy();
@@ -554,7 +562,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
         if (!busyLock.enterBusy()) {
-            UUID tblId = ((ExtendedTableView) ctx.oldValue()).id();
+            int tblId = ctx.oldValue().id();
 
             fireEvent(
                     TableEvent.DROP,
@@ -569,8 +577,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             dropTableLocally(
                     ctx.storageRevision(),
                     ctx.oldValue().name(),
-                    ((ExtendedTableView) ctx.oldValue()).id(),
-                    ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
+                    ctx.oldValue().id(),
+                    ByteUtils.fromBytes(ctx.oldValue(ExtendedTableView.class).assignments())
             );
         } finally {
             busyLock.leaveBusy();
@@ -612,7 +620,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<?> updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
         ExtendedTableView tblCfg = assignmentsCtx.newValue(ExtendedTableView.class);
 
-        UUID tblId = tblCfg.id();
+        int tblId = tblCfg.id();
 
         DistributionZoneConfiguration dstCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId());
 
@@ -635,7 +643,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             futures[i] = new CompletableFuture<>();
         }
 
-        String localMemberName = clusterService.topologyService().localMember().name();
+        String localMemberName = localNode().name();
 
         // Create new raft nodes according to new assignments.
         return tablesByIdVv.update(causalityToken, (tablesById, e) -> inBusyLock(busyLock, () -> {
@@ -678,20 +686,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                                 internalTbl, partId));
 
-                CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
+                CompletableFuture<PartitionUpdateHandlers> partitionUpdateHandlersFut = partitionDataStorageFut
                         .thenApply(storage -> {
-                            StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                                     partId,
                                     storage,
-                                    table.indexStorageAdapters(partId),
+                                    table,
                                     dsCfg,
-                                    safeTimeTracker,
-                                    lowWatermark
+                                    safeTimeTracker
                             );
 
-                            mvGc.addStorage(replicaGrpId, storageUpdateHandler);
+                            mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                            return storageUpdateHandler;
+                            return partitionUpdateHandlers;
                         });
 
                 CompletableFuture<Void> startGroupFut;
@@ -736,15 +743,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return partitionDataStorageFut.thenAcceptBothAsync(storageUpdateHandlerFut,
-                                    (partitionDataStorage, storageUpdateHandler) -> inBusyLock(busyLock, () -> {
+                            return partitionDataStorageFut.thenAcceptBothAsync(partitionUpdateHandlersFut,
+                                    (partitionDataStorage, partitionUpdateHandlers) -> inBusyLock(busyLock, () -> {
                                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                storageUpdateHandler
+                                                partitionUpdateHandlers
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -758,7 +765,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     newConfiguration,
                                                     new PartitionListener(
                                                             partitionDataStorage,
-                                                            storageUpdateHandler,
+                                                            partitionUpdateHandlers.storageUpdateHandler,
                                                             txStatePartitionStorage,
                                                             safeTimeTracker,
                                                             storageIndexTracker
@@ -800,8 +807,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return partitionStoragesFut.thenAcceptBoth(storageUpdateHandlerFut,
-                                    (partitionStorages, storageUpdateHandler) -> {
+                            return partitionStoragesFut.thenAcceptBoth(partitionUpdateHandlersFut,
+                                    (partitionStorages, partitionUpdateHandlers) -> {
                                         MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
                                         TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
@@ -827,10 +834,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             safeTimeTracker,
                                                             txStateStorage,
                                                             placementDriver,
-                                                            storageUpdateHandler,
+                                                            partitionUpdateHandlers.storageUpdateHandler,
                                                             new NonHistoricSchemas(schemaManager),
-                                                            this::isLocalPeer,
-                                                            schemaManager.schemaRegistry(causalityToken, tblId)
+                                                            schemaManager.schemaRegistry(causalityToken, tblId),
+                                                            localNode(),
+                                                            table.internalTable().storage(),
+                                                            indexBuilder
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -854,7 +863,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(clusterService.topologyService().localMember().name());
+        return peer.consistentId().equals(localNode().name());
     }
 
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
@@ -877,7 +886,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param peers Raft peers.
      * @return A future that will hold the quantity of data nodes.
      */
-    private CompletableFuture<Long> queryDataNodesCount(UUID tblId, int partId, Collection<Peer> peers) {
+    private CompletableFuture<Long> queryDataNodesCount(int tblId, int partId, Collection<Peer> peers) {
         HasDataRequest request = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId).build();
 
         //noinspection unchecked
@@ -903,7 +912,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            StorageUpdateHandler storageUpdateHandler
+            PartitionUpdateHandlers partitionUpdateHandlers
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -923,8 +932,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionKey,
                         mvTableStorage,
                         txStateTableStorage,
-                        storageUpdateHandler,
-                        mvGc
+                        mvGc,
+                        partitionUpdateHandlers.indexUpdateHandler,
+                        partitionUpdateHandlers.gcUpdateHandler
                 ),
                 incomingSnapshotsExecutor
         ));
@@ -944,13 +954,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Map<UUID, TableImpl> tablesToStop = Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream())
+        Map<Integer, TableImpl> tablesToStop = Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
 
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc, indexBuilder);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }
@@ -968,7 +978,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tables Tables to stop.
      */
-    private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
+    private void cleanUpTablesResources(Map<Integer, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
             table.beforeClose();
 
@@ -1041,7 +1051,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public List<String> assignments(UUID tableId) throws NodeStoppingException {
+    public List<String> assignments(int tableId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -1082,7 +1092,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId) {
+    private CompletableFuture<?> createTableLocally(long causalityToken, String name, int tblId) {
         LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
 
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
@@ -1159,7 +1169,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     protected TxStateTableStorage createTxStateTableStorage(
             TableConfiguration tableCfg, DistributionZoneConfiguration distributionZoneCfg) {
-        Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().tableId());
+        Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().id());
 
         try {
             Files.createDirectories(path);
@@ -1206,7 +1216,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @param assignment Affinity assignment.
      */
-    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<Set<ClusterNode>> assignment) {
+    private void dropTableLocally(long causalityToken, String name, int tblId, List<Set<ClusterNode>> assignment) {
         try {
             int partitions = assignment.size();
 
@@ -1421,10 +1431,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                int intTableId = tablesChange.globalIdCounter() + 1;
-                tablesChange.changeGlobalIdCounter(intTableId);
+                int tableId = tablesChange.globalIdCounter() + 1;
 
-                extConfCh.changeTableId(intTableId);
+                extConfCh.changeId(tableId);
+
+                tablesChange.changeGlobalIdCounter(tableId);
 
                 extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
 
@@ -1594,7 +1605,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             })
                             .changeIndexes(idxChg -> {
                                 for (TableIndexView index : idxChg) {
-                                    if (index.tableId().equals(tbl.tableId())) {
+                                    if (index.tableId() == tbl.tableId()) {
                                         idxChg.delete(index.name());
                                     }
                                 }
@@ -1643,7 +1654,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     var i = 0;
 
-                    for (UUID tblId : tableIds) {
+                    for (int tblId : tableIds) {
                         tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
 
@@ -1668,8 +1679,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @return A list of direct table ids.
      */
-    private List<UUID> directTableIds() {
-        return directProxy(tablesCfg.tables()).internalIds();
+    private List<Integer> directTableIds() {
+        return directProxy(tablesCfg.tables()).value().stream()
+                .map(TableView::id)
+                .collect(toList());
     }
 
     /**
@@ -1688,9 +1701,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
      */
     @Nullable
-    private UUID directTableId(String tblName) {
+    private Integer directTableId(String tblName) {
         try {
-            ExtendedTableConfiguration exTblCfg = ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName));
+            TableConfiguration exTblCfg = directProxy(tablesCfg.tables()).get(tblName);
 
             if (exTblCfg == null) {
                 return null;
@@ -1708,7 +1721,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Actual tables map.
      */
     @TestOnly
-    public Map<UUID, TableImpl> latestTables() {
+    public Map<Integer, TableImpl> latestTables() {
         return unmodifiableMap(tablesByIdVv.latest());
     }
 
@@ -1720,7 +1733,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(UUID id) throws NodeStoppingException {
+    public TableImpl table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
@@ -1738,7 +1751,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param id Table id.
      * @return Future.
      */
-    public CompletableFuture<TableImpl> tableAsync(long causalityToken, UUID id) {
+    public CompletableFuture<TableImpl> tableAsync(long causalityToken, int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1751,7 +1764,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(UUID id) {
+    public CompletableFuture<TableImpl> tableAsync(int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1808,7 +1821,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         otherwise.
      * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
+    public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
                 // TODO: IGNITE-16288 isTableConfigured should use async configuration API
                 ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
@@ -1819,7 +1832,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(null);
             }
 
-            var tbl = tablesByIdVv.latest().get(id);
+            TableImpl tbl = tablesByIdVv.latest().get(id);
 
             if (tbl != null) {
                 return completedFuture(tbl);
@@ -1827,7 +1840,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-            CompletionListener<Map<UUID, TableImpl>> tablesListener = (token, tables, th) -> {
+            CompletionListener<Map<Integer, TableImpl>> tablesListener = (token, tables, th) -> {
                 if (th == null) {
                     TableImpl table = tables.get(id);
 
@@ -1861,14 +1874,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param id Table id.
      * @return True when the table is configured into cluster, false otherwise.
      */
-    private boolean isTableConfigured(UUID id) {
-        try {
-            ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(id)).id().value();
+    private boolean isTableConfigured(int id) {
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = directProxy(tablesCfg.tables());
 
-            return true;
-        } catch (NoSuchElementException e) {
-            return false;
+        for (TableView tableConfig : tables.value()) {
+            if (tableConfig.id() == id) {
+                return true;
+            }
         }
+
+        return false;
     }
 
     /**
@@ -1942,7 +1957,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         int partId = extractPartitionNumber(pendingAssignmentsWatchEntry.key());
-        UUID tblId = extractTableId(pendingAssignmentsWatchEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
+        int tblId = extractTableId(pendingAssignmentsWatchEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
 
         var replicaGrpId = new TablePartitionId(tblId, partId);
 
@@ -2000,7 +2015,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
 
-        ClusterNode localMember = clusterService.topologyService().localMember();
+        ClusterNode localMember = localNode();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()
@@ -2028,25 +2043,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-                        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+
+                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                                 partId,
                                 partitionDataStorage,
-                                tbl.indexStorageAdapters(partId),
+                                tbl,
                                 dstZoneCfg.dataStorage(),
-                                safeTimeTracker,
-                                lowWatermark
+                                safeTimeTracker
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                storageUpdateHandler
+                                partitionUpdateHandlers
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
                                 partitionDataStorage,
-                                storageUpdateHandler,
+                                partitionUpdateHandlers.storageUpdateHandler,
                                 txStatePartitionStorage,
                                 safeTimeTracker,
                                 storageIndexTracker
@@ -2077,8 +2092,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     groupOptions
                             );
 
-                            UUID tblId = tbl.tableId();
-
                             replicaMgr.startReplica(
                                     replicaGrpId,
                                     allOf(
@@ -2092,7 +2105,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             lockMgr,
                                             scanRequestExecutor,
                                             partId,
-                                            tblId,
+                                            tbl.tableId(),
                                             tbl.indexesLockers(partId),
                                             new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
                                             () -> tbl.indexStorageAdapters(partId).get(),
@@ -2100,10 +2113,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             safeTimeTracker,
                                             txStatePartitionStorage,
                                             placementDriver,
-                                            storageUpdateHandler,
+                                            partitionUpdateHandlers.storageUpdateHandler,
                                             new NonHistoricSchemas(schemaManager),
-                                            this::isLocalPeer,
-                                            completedFuture(schemaManager.schemaRegistry(tblId))
+                                            completedFuture(schemaManager.schemaRegistry(tbl.tableId())),
+                                            localNode(),
+                                            internalTable.storage(),
+                                            indexBuilder
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                     storageIndexTracker
@@ -2187,7 +2202,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     byte[] key = evt.entryEvent().newEntry().key();
 
                     int partitionNumber = extractPartitionNumber(key);
-                    UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
+                    int tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tblId, partitionNumber);
 
@@ -2306,7 +2321,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-        UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+        int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
@@ -2320,7 +2335,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? Set.of()
                             : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
-                    String localMemberName = clusterService.topologyService().localMember().name();
+                    String localMemberName = localNode().name();
 
                     boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
@@ -2373,7 +2388,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private Collection<UUID> collectTableIndexes(UUID tableId) {
+    private Collection<UUID> collectTableIndexes(int tableId) {
         NamedListView<? extends TableIndexView> indexes = tablesCfg.value().indexes();
 
         List<UUID> indexIds = new ArrayList<>();
@@ -2381,7 +2396,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         for (int i = 0; i < indexes.size(); i++) {
             TableIndexView indexConfig = indexes.get(i);
 
-            if (indexConfig.tableId().equals(tableId)) {
+            if (indexConfig.tableId() == tableId) {
                 indexIds.add(indexConfig.id());
             }
         }
@@ -2399,5 +2414,34 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (tracker != null) {
             tracker.close();
         }
+    }
+
+    private ClusterNode localNode() {
+        return clusterService.topologyService().localMember();
+    }
+
+    private PartitionUpdateHandlers createPartitionUpdateHandlers(
+            int partitionId,
+            PartitionDataStorage partitionDataStorage,
+            TableImpl table,
+            DataStorageConfiguration dsCfg,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker
+    ) {
+        TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
+
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
+        GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
+
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                partitionId,
+                partitionDataStorage,
+                dsCfg,
+                lowWatermark,
+                indexUpdateHandler,
+                gcUpdateHandler
+        );
+
+        return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
 }

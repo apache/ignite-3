@@ -17,19 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import java.util.Objects;
-import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Result of a schema compatibility validation.
  */
 public class CompatValidationResult {
-    private static final CompatValidationResult SUCCESS = new CompatValidationResult(true, null, -1, -1);
+    private static final CompatValidationResult SUCCESS = new CompatValidationResult(true, -1, -1, -1);
 
     private final boolean successful;
-    @Nullable
-    private final UUID failedTableId;
+    private final int failedTableId;
     private final int fromSchemaVersion;
     private final int toSchemaVersion;
 
@@ -50,11 +45,11 @@ public class CompatValidationResult {
      * @param toSchemaVersion Version number of the schema to which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static CompatValidationResult failure(UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+    public static CompatValidationResult failure(int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
         return new CompatValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
     }
 
-    private CompatValidationResult(boolean successful, @Nullable UUID failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+    private CompatValidationResult(boolean successful, int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
         this.successful = successful;
         this.failedTableId = failedTableId;
         this.fromSchemaVersion = fromSchemaVersion;
@@ -76,8 +71,10 @@ public class CompatValidationResult {
      *
      * @return Table ID.
      */
-    public UUID failedTableId() {
-        return Objects.requireNonNull(failedTableId);
+    public int failedTableId() {
+        assert !successful : "Should not be called on a successful result";
+
+        return failedTableId;
     }
 
     /**
