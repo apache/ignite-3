@@ -578,7 +578,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ctx.storageRevision(),
                     ctx.oldValue().name(),
                     ctx.oldValue().id(),
-                    ByteUtils.fromBytes(ctx.oldValue(ExtendedTableView.class).assignments())
+                    Assignments.fromBytes(ctx.oldValue(ExtendedTableView.class).assignments())
             );
         } finally {
             busyLock.leaveBusy();
@@ -1214,11 +1214,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param name Table name.
      * @param tblId Table id.
-     * @param assignment Affinity assignment.
+     * @param assignments Affinity assignments.
      */
-    private void dropTableLocally(long causalityToken, String name, int tblId, List<Set<ClusterNode>> assignment) {
+    private void dropTableLocally(long causalityToken, String name, int tblId, Assignments assignments) {
         try {
-            int partitions = assignment.size();
+            int partitions = assignments.size();
 
             CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
 
