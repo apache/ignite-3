@@ -125,7 +125,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param indexId Index ID.
      */
-    CompletableFuture<Void> destroyIndex(UUID indexId);
+    CompletableFuture<Void> destroyIndex(int indexId);
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.

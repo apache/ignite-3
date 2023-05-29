@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -135,7 +134,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         InternalTransaction tx0 = (InternalTransaction) transactions.begin();
         InternalTransaction tx1 = startTxWithEnlistedPartition(PART_ID, false);
 
-        UUID sortedIndexId = getSortedIndexId();
+        int sortedIndexId = getSortedIndexId();
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
@@ -174,7 +173,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertDuringScan() throws Exception {
-        UUID sortedIndexId = getSortedIndexId();
+        int sortedIndexId = getSortedIndexId();
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
@@ -399,7 +398,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     public void testTwiceScanInTransaction() throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        UUID sortedIndexId = getSortedIndexId();
+        int sortedIndexId = getSortedIndexId();
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
@@ -454,7 +453,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(sortedIndexBinarySchema,
                 new BinaryTupleBuilder(1, false).appendInt(9).build()));
 
-        UUID soredIndexId = getSortedIndexId();
+        int soredIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
         PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
@@ -529,7 +528,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         for (int i = 0; i < iterations; i++) {
             KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-            UUID sortedIndexId = getSortedIndexId();
+            int sortedIndexId = getSortedIndexId();
 
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
@@ -611,7 +610,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         kvView.remove(null, Tuple.create().set("key", ROW_IDS.get(1)));
         kvView.put(null, Tuple.create().set("key", ROW_IDS.get(2)), Tuple.create().set("valInt", 999).set("valStr", "Str_999"));
 
-        UUID sortedIndexId = getSortedIndexId();
+        int sortedIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, readOnly);
 
@@ -713,10 +712,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Gets an index id.
-     *
-     * @return Index id.
      */
-    private static UUID getSortedIndexId() {
+    private static int getSortedIndexId() {
         return getSortedIndexConfig(CLUSTER_NODES.get(0)).id().value();
     }
 

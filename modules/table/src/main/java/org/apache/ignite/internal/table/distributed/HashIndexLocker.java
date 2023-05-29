@@ -34,7 +34,7 @@ import org.apache.ignite.internal.tx.LockMode;
  * <p>Simply acquires lock on a given row.
  */
 public class HashIndexLocker implements IndexLocker {
-    private final UUID indexId;
+    private final int indexId;
     private final LockMode modificationMode;
     private final LockManager lockManager;
     private final Function<BinaryRow, BinaryTuple> indexRowResolver;
@@ -46,7 +46,7 @@ public class HashIndexLocker implements IndexLocker {
      * @param lockManager A lock manager to acquire locks in.
      * @param indexRowResolver A convertor which derives an index key from given table row.
      */
-    public HashIndexLocker(UUID indexId, boolean unique, LockManager lockManager,
+    public HashIndexLocker(int indexId, boolean unique, LockManager lockManager,
             Function<BinaryRow, BinaryTuple> indexRowResolver) {
         this.indexId = indexId;
         this.modificationMode = unique ? LockMode.X : LockMode.IX;
@@ -54,9 +54,8 @@ public class HashIndexLocker implements IndexLocker {
         this.indexRowResolver = indexRowResolver;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public UUID id() {
+    public int id() {
         return indexId;
     }
 

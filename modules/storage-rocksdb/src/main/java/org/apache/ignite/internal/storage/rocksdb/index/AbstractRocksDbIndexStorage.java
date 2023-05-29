@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.storage.RowId;
@@ -41,7 +40,7 @@ import org.rocksdb.WriteBatchWithIndex;
  * Abstract index storage base on RocksDB.
  */
 abstract class AbstractRocksDbIndexStorage implements IndexStorage {
-    private final UUID indexId;
+    private final int indexId;
 
     final PartitionDataHelper helper;
 
@@ -56,7 +55,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
     private volatile @Nullable RowId nextRowIdToBuilt;
 
-    AbstractRocksDbIndexStorage(UUID indexId, PartitionDataHelper helper, RocksDbMetaStorage indexMetaStorage) {
+    AbstractRocksDbIndexStorage(int indexId, PartitionDataHelper helper, RocksDbMetaStorage indexMetaStorage) {
         this.indexId = indexId;
         this.helper = helper;
         this.indexMetaStorage = indexMetaStorage;

@@ -43,7 +43,7 @@ public class SortedIndexLocker implements IndexLocker {
     /** Index INF+ value object. */
     private final Object positiveInf;
 
-    private final UUID indexId;
+    private final int indexId;
     private final LockManager lockManager;
 
 
@@ -61,7 +61,7 @@ public class SortedIndexLocker implements IndexLocker {
      * @param storage A storage of an index this locker is created for.
      * @param indexRowResolver A convertor which derives an index key from given table row.
      */
-    public SortedIndexLocker(UUID indexId, int partId, LockManager lockManager, SortedIndexStorage storage,
+    public SortedIndexLocker(int indexId, int partId, LockManager lockManager, SortedIndexStorage storage,
             Function<BinaryRow, BinaryTuple> indexRowResolver) {
         this.indexId = indexId;
         this.lockManager = lockManager;
@@ -70,9 +70,8 @@ public class SortedIndexLocker implements IndexLocker {
         this.positiveInf = Integer.valueOf(partId);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public UUID id() {
+    public int id() {
         return indexId;
     }
 
