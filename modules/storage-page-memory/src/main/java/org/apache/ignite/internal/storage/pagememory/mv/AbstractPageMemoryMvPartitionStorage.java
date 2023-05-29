@@ -185,7 +185,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 for (IndexMeta indexMeta : cursor) {
                     int indexId = indexMeta.indexId();
 
-                    TableIndexView indexCfgView = tablesView.indexes().get(indexId);
+                    TableIndexView indexCfgView = tablesView.indexes().stream()
+                            .filter(tableIndexView -> indexId == tableIndexView.id())
+                            .findFirst()
+                            .orElse(null);
 
                     if (indexCfgView instanceof HashIndexView) {
                         hashIndexes.put(

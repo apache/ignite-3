@@ -73,7 +73,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SqlSchemaManagerTest {
     private final int tableId = 1;
 
-    private final int indexId = 1;
+    private final int indexId = 2;
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             1,
