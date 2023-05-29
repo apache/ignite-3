@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -91,7 +92,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testBackPressure() throws Exception {
         var server2 = new FakeIgnite("server-2");
 
-        Function<Integer, Integer> responseDelay = idx -> idx > 3 ? 5000 : 0;
+        Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 500 : 0;
         var testServer2 = new TestServer(10900, 10, 10_000, server2, idx -> false, responseDelay, null, UUID.randomUUID(), null);
 
         var port = testServer2.port();
@@ -101,9 +102,14 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var table = client2.tables().table(DEFAULT_TABLE);
             var view = table.recordView();
 
-            var publisher = new SubmissionPublisher<Tuple>();
-            var streamFut = view.streamData(publisher, new DataStreamerOptions().batchSize(2));
-            publisher.submit(tuple(111L, "foo_"));
+            var bufferSize = 2;
+            var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
+
+            var options = new DataStreamerOptions()
+                    .batchSize(bufferSize)
+                    .perNodeParallelOperations(1);
+
+            var streamFut = view.streamData(publisher, options);
 
             var submitFut = CompletableFuture.runAsync(() -> {
                 for (long i = 0; i < 10; i++) {
@@ -111,8 +117,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 }
             });
 
-            assertThrows(TimeoutException.class, () -> submitFut.get(1, TimeUnit.SECONDS));
-            assertFalse(streamFut.isDone(), () -> streamFut.join().toString());
+            assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
+            assertFalse(streamFut.isDone());
         }
     }
 

@@ -107,6 +107,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     /** {@inheritDoc} */
     @Override
     public void onNext(T item) {
+        pendingItemCount.decrementAndGet();
+
         TPartition partition = partitionAwarenessProvider.partition(item);
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
