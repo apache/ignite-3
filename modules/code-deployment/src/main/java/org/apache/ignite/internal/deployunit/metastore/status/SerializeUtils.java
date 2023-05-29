@@ -104,8 +104,4 @@ public final class SerializeUtils {
     static String decode(String s) {
         return new String(Base64.getDecoder().decode(s), UTF_8);
     }
-
-    private static Collection<String> decode(Collection<String> collection) {
-        return collection.stream().map(SerializeUtils::decode).collect(Collectors.toList());
-    }
 }
