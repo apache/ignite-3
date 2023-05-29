@@ -182,7 +182,7 @@ public class BinaryRowConverter {
     }
 
     /** Helper method to convert from a full row or key-only row to the tuple with specified columns. */
-    public static Function<BinaryRow, BinaryTuple> columnsExtractor(SchemaDescriptor schema, int[] columns) {
+    public static Function<BinaryRow, BinaryTuple> columnsExtractor(SchemaDescriptor schema, int... columns) {
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
         BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
         BinaryTupleSchema trimmedSchema = BinaryTupleSchema.createSchema(schema, columns);

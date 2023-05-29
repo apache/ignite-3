@@ -15,24 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table;
+package org.apache.ignite.internal.table.distributed;
 
-import java.util.UUID;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 
 /**
- * InvokeProcessor invocation exception.
+ * Partition update handler container.
  */
-public class InvokeProcessorException extends IgniteException {
-    /**
-     * Creates a new exception with the given trace id, error code, detail message and cause.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param message Detail message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public InvokeProcessorException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
+class PartitionUpdateHandlers {
+    final StorageUpdateHandler storageUpdateHandler;
+
+    final IndexUpdateHandler indexUpdateHandler;
+
+    final GcUpdateHandler gcUpdateHandler;
+
+    PartitionUpdateHandlers(
+            StorageUpdateHandler storageUpdateHandler,
+            IndexUpdateHandler indexUpdateHandler,
+            GcUpdateHandler gcUpdateHandler
+    ) {
+        this.storageUpdateHandler = storageUpdateHandler;
+        this.indexUpdateHandler = indexUpdateHandler;
+        this.gcUpdateHandler = gcUpdateHandler;
     }
 }

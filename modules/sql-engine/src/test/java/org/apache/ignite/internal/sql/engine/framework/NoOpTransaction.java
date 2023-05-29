@@ -41,7 +41,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final IgniteBiTuple<ClusterNode, Long> tuple;
 
-    private final TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
+    private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
     /**
      * Constructs the object.

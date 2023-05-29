@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
@@ -43,7 +42,7 @@ public interface Schemas {
      * @param schemaVersion ID of the schema version.
      * @return Future that completes when the given schema version becomes available.
      */
-    CompletableFuture<?> waitForSchemaAvailability(UUID tableId, int schemaVersion);
+    CompletableFuture<?> waitForSchemaAvailability(int tableId, int schemaVersion);
 
     /**
      * Returns all schema versions between (including) the two that were effective at the given timestamps.
@@ -53,7 +52,7 @@ public interface Schemas {
      * @param toIncluding End timestamp.
      * @return All schema versions between (including) the two that were effective at the given timestamps.
      */
-    List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding);
+    List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding);
 
     /**
      * Returns all schema versions between (including) the one that was effective at the given timestamp and
@@ -65,5 +64,5 @@ public interface Schemas {
      * @param toIncluding End schema version ID.
      * @return All schema versions between (including) the given timestamp and schema version.
      */
-    List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, int toIncluding);
+    List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding);
 }

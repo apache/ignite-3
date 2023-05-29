@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +37,7 @@ public interface SqlSchemaManager {
      *
      * @return The table.
      */
-    IgniteTable tableById(UUID id);
+    IgniteTable tableById(int id);
 
     /**
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.

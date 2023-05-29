@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -48,12 +47,12 @@ public class DummySchemas implements Schemas {
     }
 
     @Override
-    public CompletableFuture<?> waitForSchemaAvailability(UUID tableId, int schemaVersion) {
+    public CompletableFuture<?> waitForSchemaAvailability(int tableId, int schemaVersion) {
         return completedFuture(null);
     }
 
     @Override
-    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
+    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
 
         List<TableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
@@ -77,7 +76,7 @@ public class DummySchemas implements Schemas {
     }
 
     @Override
-    public List<FullTableSchema> tableSchemaVersionsBetween(UUID tableId, HybridTimestamp fromIncluding, int toIncluding) {
+    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
         // Returning an empty list makes sure that backward validation never fails, which is what we want before
         // we switch to CatalogService completely.
         return List.of();

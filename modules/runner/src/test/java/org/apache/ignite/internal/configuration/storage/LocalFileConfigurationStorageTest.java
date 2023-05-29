@@ -42,6 +42,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.hamcrest.Matchers;
@@ -88,9 +89,9 @@ public class LocalFileConfigurationStorageTest {
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
-                Set.of(),
                 storage,
-                treeGenerator
+                treeGenerator,
+                new ConfigurationValidatorImpl(treeGenerator, Set.of())
         );
 
         changer.start();

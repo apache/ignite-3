@@ -121,6 +121,7 @@ public class PlacementDriverManager implements IgniteComponent {
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
 
         this.raftClientFuture = new CompletableFuture<>();
+
         this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
                 clusterService,

@@ -102,7 +102,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 0);
+        TablePartitionId tablePartitionId = new TablePartitionId(1, 0);
 
         ClusterNode node = mock(ClusterNode.class);
 

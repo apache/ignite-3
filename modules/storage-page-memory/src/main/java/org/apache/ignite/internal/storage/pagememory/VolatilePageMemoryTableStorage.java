@@ -87,8 +87,12 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         );
     }
 
+    private static int tableId(TableView tableView) {
+        return tableView.id();
+    }
+
     private IndexMetaTree createIndexMetaTree(int partitionId, TableView tableCfgView) {
-        int grpId = tableCfgView.tableId();
+        int grpId = tableId(tableCfgView);
 
         long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partitionId, FLAG_AUX);
 
@@ -110,7 +114,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     private GcQueue createGarbageCollectionTree(int partitionId, TableView tableCfgView) {
-        int grpId = tableCfgView.tableId();
+        int grpId = tableId(tableCfgView);
 
         long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partitionId, FLAG_AUX);
 
@@ -149,7 +153,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @throws StorageException If failed.
      */
     private VersionChainTree createVersionChainTree(int partId, TableView tableView) throws StorageException {
-        int grpId = tableView.tableId();
+        int grpId = tableId(tableView);
 
         try {
             long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX);

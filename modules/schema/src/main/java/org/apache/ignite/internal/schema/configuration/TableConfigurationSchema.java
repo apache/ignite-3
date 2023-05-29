@@ -22,7 +22,6 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -30,15 +29,14 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class TableConfigurationSchema {
+    /** Table id. */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public int id = 1;
+
     /** Table name. */
     @InjectedName
     public String name;
-
-    /** Integer table id. */
-    @Immutable
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int tableId = 1;
 
     /** Distribution zone id. */
     @Value(hasDefault = true)

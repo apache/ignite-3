@@ -210,7 +210,7 @@ public class ClientCompute implements IgniteCompute {
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
 
-                    w.packUuid(t.tableId());
+                    w.packInt(t.tableId());
                     w.packInt(schema.version());
 
                     ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
@@ -232,7 +232,7 @@ public class ClientCompute implements IgniteCompute {
                 (schema, outputChannel) -> {
                     ClientMessagePacker w = outputChannel.out();
 
-                    w.packUuid(t.tableId());
+                    w.packInt(t.tableId());
                     w.packInt(schema.version());
 
                     ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true);

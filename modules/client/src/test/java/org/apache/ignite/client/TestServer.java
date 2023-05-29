@@ -26,7 +26,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -39,7 +38,9 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -57,6 +58,8 @@ import org.mockito.Mockito;
  * Test server.
  */
 public class TestServer implements AutoCloseable {
+    private final ConfigurationTreeGenerator generator;
+
     private final ConfigurationRegistry cfg;
 
     private final IgniteComponent module;
@@ -113,12 +116,12 @@ public class TestServer implements AutoCloseable {
             UUID clusterId,
             @Nullable AuthenticationConfiguration authenticationConfiguration
     ) {
+        generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                generator,
+                new TestConfigurationValidator()
         );
 
         cfg.start();
@@ -229,6 +232,7 @@ public class TestServer implements AutoCloseable {
         module.stop();
         bootstrapFactory.stop();
         cfg.stop();
+        generator.close();
     }
 
     private ClusterNode getClusterNode(String name) {

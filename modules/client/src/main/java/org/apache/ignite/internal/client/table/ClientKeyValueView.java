@@ -19,9 +19,8 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.io.Serializable;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -426,50 +424,6 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> R invoke(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> Map<K, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, @NotNull K key, V val) {
         writeSchemaAndTx(s, w, tx);
         writeKeyValueRaw(s, w, key, val);
@@ -484,14 +438,14 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
             s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
             s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
 
         w.out().packBinaryTuple(builder, noValueSet);
     }
 
     private void writeSchemaAndTx(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx) {
-        w.out().packUuid(tbl.tableId());
+        w.out().packInt(tbl.tableId());
         writeTx(tx, w);
         w.out().packInt(s.version());
     }
@@ -515,7 +469,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
             return res;
         } catch (MarshallerException e) {
-            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
     }
 }

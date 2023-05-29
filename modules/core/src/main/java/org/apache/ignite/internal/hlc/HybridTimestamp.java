@@ -82,6 +82,11 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         }
     }
 
+    /**
+     * The constructor.
+     *
+     * @param time Long time value.
+     */
     private HybridTimestamp(long time) {
         this.time = time;
 

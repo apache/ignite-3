@@ -19,9 +19,10 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -48,11 +51,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Abstract class for testing {@link StorageUpdateHandler} using different implementations of {@link MvPartitionStorage}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(MockitoExtension.class)
 abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 100;
@@ -69,11 +75,14 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     private StorageUpdateHandler storageUpdateHandler;
 
+    @InjectConfiguration
+    private DistributionZoneConfiguration distributionZoneConfig;
+
+    @Mock
+    private LowWatermark lowWatermark;
+
     @BeforeEach
-    void setUp(
-            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig,
-            @InjectConfiguration DistributionZoneConfiguration distributionZoneConfig
-    ) {
+    void setUp(@InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig) {
         storageEngine = createStorageEngine();
 
         storageEngine.start();
@@ -93,13 +102,19 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
 
         partitionDataStorage = new TestPartitionDataStorage(partitionStorage);
 
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()));
+
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                 distributionZoneConfig.dataStorage(),
-                new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
-                mock(LowWatermark.class)
+                lowWatermark,
+                indexUpdateHandler,
+                new GcUpdateHandler(
+                        partitionDataStorage,
+                        new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE),
+                        indexUpdateHandler
+                )
         );
     }
 
@@ -115,7 +130,11 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
     protected abstract StorageEngine createStorageEngine();
 
     @Test
-    void testConcurrentVacuumBatch() {
+    void testConcurrentExecuteBatchGc() {
+        assertThat(distributionZoneConfig.dataStorage().gcOnUpdateBatchSize().update(2), willSucceedFast());
+
+        when(lowWatermark.getLowWatermark()).thenReturn(HybridTimestamp.MAX_VALUE);
+
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
 
@@ -133,8 +152,8 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionDataStorage, rowId1, null, clock.now());
 
             runRace(
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
-                    () -> storageUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2)
+                    () -> storageUpdateHandler.executeBatchGc(),
+                    () -> storageUpdateHandler.executeBatchGc()
             );
 
             assertNull(partitionDataStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));
@@ -145,7 +164,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
         storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWrite(rowId, row, UUID.randomUUID(), UUID.randomUUID(), PARTITION_ID);
+            storage.addWrite(rowId, row, UUID.randomUUID(), 999, PARTITION_ID);
 
             storage.commitWrite(rowId, timestamp);
 

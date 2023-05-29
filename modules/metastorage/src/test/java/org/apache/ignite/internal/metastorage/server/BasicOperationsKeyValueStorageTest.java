@@ -1887,7 +1887,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches(event -> completedFuture(null));
+        storage.startWatches((event, ts) -> completedFuture(null));
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
@@ -2226,7 +2226,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
-        when(mockCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
+        when(mockCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
 
         storage.startWatches(mockCallback);
 
@@ -2238,7 +2238,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         verify(mockListener3, timeout(10_000)).onUpdate(any());
 
-        verify(mockCallback, never()).onRevisionApplied(any());
+        verify(mockCallback, never()).onRevisionApplied(any(), any());
     }
 
     @Test
@@ -2423,7 +2423,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(event -> completedFuture(null));
+        storage.startWatches((event, ts) -> completedFuture(null));
 
         return resultFuture;
     }

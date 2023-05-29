@@ -48,11 +48,11 @@ namespace Apache.Ignite.Tests
 
         public const string CustomColocationKeyTableName = "tbl3";
 
-        private static readonly Guid ExistingTableId = Guid.NewGuid();
+        private const int ExistingTableId = 1001;
 
-        private static readonly Guid CompositeKeyTableId = Guid.NewGuid();
+        private const int CompositeKeyTableId = 1002;
 
-        private static readonly Guid CustomColocationKeyTableId = Guid.NewGuid();
+        private const int CustomColocationKeyTableId = 1003;
 
         private readonly Socket _listener;
 
@@ -350,7 +350,7 @@ namespace Apache.Ignite.Tests
 
         private void GetSchemas(MsgPackReader reader, Socket handler, long requestId)
         {
-            var tableId = reader.ReadGuid();
+            var tableId = reader.ReadInt32();
 
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,7 +34,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -393,50 +391,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
             Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> R invoke(
-            @Nullable Transaction tx,
-            @NotNull Tuple key,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull Tuple key,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> Map<Tuple, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keys,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<Tuple, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keys,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**

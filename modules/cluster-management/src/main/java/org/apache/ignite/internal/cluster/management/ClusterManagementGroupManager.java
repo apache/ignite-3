@@ -38,6 +38,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -137,6 +140,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Node's attributes configuration. */
     private final NodeAttributesConfiguration nodeAttributes;
 
+    private final ConfigurationValidator clusterConfigurationValidator;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -145,8 +150,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            NodeAttributesConfiguration nodeAttributes
-    ) {
+            NodeAttributesConfiguration nodeAttributes,
+            ConfigurationValidator clusterConfigurationValidator) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
@@ -155,6 +160,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
         this.nodeAttributes = nodeAttributes;
+        this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
 
     /**
@@ -330,13 +336,25 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> doInit(CmgRaftService service, CmgInitMessage msg) {
-        return service.initClusterState(createClusterState(msg))
+        return validateConfiguration(msg.clusterConfigurationToApply())
+                .thenCompose(ignored -> service.initClusterState(createClusterState(msg)))
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
                     return localStateStorage.saveLocalState(localState)
                             .thenCompose(v -> joinCluster(service, state.clusterTag()));
                 });
+    }
+
+    private CompletableFuture<Void> validateConfiguration(@Nullable String configuration) {
+        if (configuration != null) {
+            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(configuration);
+            if (!issues.isEmpty()) {
+                return failedFuture(new ConfigurationValidationException(issues));
+            }
+        }
+
+        return completedFuture(null);
     }
 
     private ClusterState createClusterState(CmgInitMessage msg) {
