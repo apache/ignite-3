@@ -380,8 +380,8 @@ public class CatalogServiceSelfTest {
      * Checks for possible changes of the nullable flag of a column descriptor.
      *
      * <ul>
-     *  <li>DROP NOT NULL is allowed on any non-PK column.
-     *  <li>SET NOT NULL is forbidden.
+     *  <li>{@code DROP NOT NULL} is allowed on any non-PK column.
+     *  <li>{@code SET NOT NULL} is forbidden.
      * </ul>
      */
     @Test
@@ -445,9 +445,9 @@ public class CatalogServiceSelfTest {
      * Checks for possible changes of the precision of a column descriptor.
      *
      * <ul>
-     *  <li>Decreasing precision (and length for varlen types) is forbidden.</li>
      *  <li>Increasing precision is allowed for non-PK {@link ColumnType#DECIMAL} column.</li>
      *  <li>Increasing length is allowed for non-PK {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY} column.</li>
+     *  <li>Decreasing precision (and length for varlen types) is forbidden.</li>
      * </ul>
      */
     @ParameterizedTest
@@ -530,7 +530,6 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
     }
 
-
     /**
      * Checks for possible changes of the type of a column descriptor.
      *
@@ -539,7 +538,7 @@ public class CatalogServiceSelfTest {
      *     <li>INT8 -> INT16 -> INT32 -> INT64</li>
      *     <li>FLOAT -> DOUBLE</li>
      * </ul>
-     * All other transitions must be rejected.
+     * All other transitions are forbidden.
      */
     @ParameterizedTest(name = "set data type {0}")
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)

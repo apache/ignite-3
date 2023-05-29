@@ -61,8 +61,12 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
      *
      * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified table name and the
      * column name.
-     * For {@code SET DEFAULT 'EXPRESSION'}, {@link IgniteSqlAlterColumn#expression()} must return expected default expression.
-     * For {@code DROP DEFAULT}, {@link IgniteSqlAlterColumn#expression()} must return {@code null}.
+     * <ul>
+     *     <li>Command {@code DROP DEFAULT} must be equivalent to {@code SET DEFAULT NULL}, and {@link IgniteSqlAlterColumn#expression()}
+     *         in this case must contain SQL literal with type NULL.</li>
+     *     <li>For {@code SET DEFAULT &lt;LITERAL&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected SQL literal.</li>
+     *     <li>For {@code SET DEFAULT &lt;ID&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected SQL identifier.</li>
+     * </ul>
      */
     @Test
     public void testDefault() {
@@ -81,9 +85,12 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
      *
-     * <p>The parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified {@link
+     * <p>Parser must support the following syntax {@code SET DATA TYPE &lt;new_type&gt; [NOT NULL | NULL] [DEFAULT &lt;default value&gt;]}.
+     *
+     * <p>Parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified {@link
      * IgniteSqlAlterColumn#name() table name}, {@link IgniteSqlAlterColumn#columnName() column name}, column {@link
-     * IgniteSqlAlterColumn#dataType() data type} and an optional {@link IgniteSqlAlterColumn#expression() default expression}.
+     * IgniteSqlAlterColumn#dataType() data type}, an optional {@link IgniteSqlAlterColumn#expression() default expression}, and an optional
+     * {@link IgniteSqlAlterColumn#notNull() notNull flag}.
      */
     @Test
     public void testSetDataType() {

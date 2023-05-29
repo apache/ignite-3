@@ -441,7 +441,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
 {
     id = SimpleIdentifier()
     (
-        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultOrNull() {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, dflt, nullable == null ? null : !nullable);
         }
     |
@@ -468,7 +468,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
     )
 }
 
-SqlNode DefaultLiteralOrNull() :
+SqlNode DefaultOrNull() :
 {
     SqlNode dflt;
 }
