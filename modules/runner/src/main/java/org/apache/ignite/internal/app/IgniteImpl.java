@@ -84,7 +84,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
@@ -214,8 +213,8 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Placement driver manager. */
-    private final PlacementDriverManager placementDriverMgr;
+//    /** Placement driver manager. */
+//    private final PlacementDriverManager placementDriverMgr;
 
     /** Distributed configuration validator. */
     private final ConfigurationValidator distributedConfigurationValidator;
@@ -444,19 +443,19 @@ public class IgniteImpl implements Ignite {
         DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
-        placementDriverMgr = new PlacementDriverManager(
-                metaStorageMgr,
-                vaultMgr,
-                MetastorageGroupId.INSTANCE,
-                clusterSvc,
-                cmgMgr::metaStorageNodes,
-                logicalTopologyService,
-                raftMgr,
-                topologyAwareRaftGroupServiceFactory,
-                tablesConfiguration,
-                zonesConfiguration,
-                clock
-        );
+//        placementDriverMgr = new PlacementDriverManager(
+//                metaStorageMgr,
+//                vaultMgr,
+//                MetastorageGroupId.INSTANCE,
+//                clusterSvc,
+//                cmgMgr::metaStorageNodes,
+//                logicalTopologyService,
+//                raftMgr,
+//                topologyAwareRaftGroupServiceFactory,
+//                tablesConfiguration,
+//                zonesConfiguration,
+//                clock
+//        );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
@@ -707,7 +706,7 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
                                     clusterCfgMgr,
-                                    placementDriverMgr,
+//                                    placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
