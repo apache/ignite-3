@@ -17,41 +17,73 @@
 
 package org.apache.ignite.table;
 
-// TODO: Builder pattern
+/**
+ * Data streamer options. See {@link DataStreamerTarget} for more information.
+ */
 public class DataStreamerOptions {
-    private int batchSize = 1000;
+    private final int batchSize;
 
-    private int perNodeParallelOperations = 4;
+    private final int perNodeParallelOperations;
 
-    private int autoFlushFrequency = 5000;
+    private final int autoFlushFrequency;
 
-    public int batchSize() {
-        return batchSize;
+    /**
+     * Constructor.
+     *
+     * @param batchSize Batch size.
+     * @param perNodeParallelOperations Per node parallel operations.
+     * @param autoFlushFrequency Auto flush frequency.
+     */
+    private DataStreamerOptions(int batchSize, int perNodeParallelOperations, int autoFlushFrequency) {
+        this.batchSize = batchSize;
+        this.perNodeParallelOperations = perNodeParallelOperations;
+        this.autoFlushFrequency = autoFlushFrequency;
     }
 
-    public DataStreamerOptions batchSize(int batchSize) {
-        this.batchSize = batchSize;
-
-        return this;
+    /**
+     * Gets the batch size. The batch size is the number of entries that will be sent to the cluster in one network call.
+     *
+     * @return Batch size.
+     */
+    public int batchSize() {
+        return batchSize;
     }
 
     public int perNodeParallelOperations() {
         return perNodeParallelOperations;
     }
 
-    public DataStreamerOptions perNodeParallelOperations(int perNodeParallelOperations) {
-        this.perNodeParallelOperations = perNodeParallelOperations;
-
-        return this;
-    }
-
     public int autoFlushFrequency() {
         return autoFlushFrequency;
     }
 
-    public DataStreamerOptions autoFlushFrequency(int autoFlushFrequencyMs) {
-        this.autoFlushFrequency = autoFlushFrequencyMs;
+    static class Builder {
+        private int batchSize = 1000;
 
-        return this;
+        private int perNodeParallelOperations = 4;
+
+        private int autoFlushFrequency = 5000;
+
+        public Builder batchSize(int batchSize) {
+            this.batchSize = batchSize;
+
+            return this;
+        }
+
+        public Builder perNodeParallelOperations(int perNodeParallelOperations) {
+            this.perNodeParallelOperations = perNodeParallelOperations;
+
+            return this;
+        }
+
+        public Builder autoFlushFrequency(int autoFlushFrequencyMs) {
+            this.autoFlushFrequency = autoFlushFrequencyMs;
+
+            return this;
+        }
+
+        public DataStreamerOptions build() {
+            return new DataStreamerOptions(batchSize, perNodeParallelOperations, autoFlushFrequency);
+        }
     }
 }
