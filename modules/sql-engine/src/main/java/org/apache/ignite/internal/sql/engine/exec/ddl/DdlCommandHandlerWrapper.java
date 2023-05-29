@@ -78,7 +78,6 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
                     );
         }
 
-
         return ddlCommandFuture;
     }
 }

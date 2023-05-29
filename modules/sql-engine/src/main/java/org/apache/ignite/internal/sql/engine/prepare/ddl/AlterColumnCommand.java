@@ -41,6 +41,10 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         return columnName;
     }
 
+    public List<AlterColumnAction> changes() {
+        return changes;
+    }
+
     void columnName(String name) {
         columnName = name;
     }
@@ -55,9 +59,5 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
 
     void alterDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
         changes.add(new AlterColumnDefault(resolveDfltFunc));
-    }
-
-    public List<AlterColumnAction> changes() {
-        return changes;
     }
 }
