@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.commands.node;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
@@ -54,7 +55,7 @@ public class NodeUrlMixin {
         /**
          * Node name option.
          */
-        @Option(names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION}, description = NODE_URL_OPTION_DESC)
+        @Option(names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION}, description = NODE_NAME_OPTION_DESC)
         private String nodeName;
     }
 
