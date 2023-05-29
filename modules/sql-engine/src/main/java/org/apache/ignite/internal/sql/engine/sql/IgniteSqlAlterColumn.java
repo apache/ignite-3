@@ -18,26 +18,41 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN} statement.
  */
 public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
-    private final SqlNodeList actions;
     private final SqlIdentifier columnName;
+    private final SqlDataTypeSpec type;
+    private final SqlNode dflt;
+    private final Boolean notNull;
 
     /** Constructor. */
-    public IgniteSqlAlterColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName, SqlIdentifier columnName, SqlNodeList actions) {
+    public IgniteSqlAlterColumn(
+            SqlParserPos pos,
+            boolean ifExists,
+            SqlIdentifier tblName,
+            SqlIdentifier columnName,
+            SqlDataTypeSpec type,
+            SqlNode dflt,
+            Boolean notNull
+    ) {
         super(pos, ifExists, tblName);
 
         this.columnName = columnName;
-        this.actions = actions;
+        this.type = type;
+        this.dflt = dflt;
+        this.notNull = notNull;
     }
 
     /** Gets column name. */
@@ -45,9 +60,31 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
         return columnName;
     }
 
-    /** ets alter column actions list. */
-    public List<SqlNode> actions() {
-        return actions;
+    /**
+     * Gets column data type specification.
+     *
+     * @return Column data type specification.
+     */
+    public @Nullable SqlDataTypeSpec dataType() {
+        return type;
+    }
+
+    /**
+     * Gets the new column DEFAULT expression.
+     *
+     * @return DEFAULT expression or {@code null} if the DEFAULT needs to be dropped.
+     */
+    public @Nullable SqlNode expression() {
+        return dflt;
+    }
+
+    /**
+     * Gets the {@code NOT NULL} constraint change flag.
+     *
+     * @return {@code True} if the constraint should be added, @code false} if the constraint should be removed.
+     */
+    public @Nullable Boolean notNull() {
+        return notNull;
     }
 
     /** {@inheritDoc} */
@@ -57,11 +94,50 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
 
         columnName().unparse(writer, leftPrec, rightPrec);
 
-        actions.unparse(writer, leftPrec, rightPrec);
+        if (type != null) {
+            writer.keyword("SET DATA TYPE");
+
+            type.unparse(writer, 0, 0);
+
+            if (notNull != null) {
+                if (notNull) {
+                    writer.keyword("NOT");
+                }
+
+                writer.keyword("NULL");
+            }
+
+            if (dflt != null) {
+                writer.keyword("DEFAULT");
+
+                dflt.unparse(writer, leftPrec, rightPrec);
+            }
+
+            return;
+        }
+
+        if (notNull != null) {
+            writer.keyword(notNull ? "SET" : "DROP");
+            writer.keyword("NOT NULL");
+        }
+
+        if (dflt != null) {
+            if (dflt instanceof SqlLiteral && ((SqlLiteral) dflt).getTypeName() == SqlTypeName.NULL) {
+                writer.keyword("DROP DEFAULT");
+            } else {
+                writer.keyword("SET DEFAULT");
+
+                dflt.unparse(writer, leftPrec, rightPrec);
+            }
+        }
     }
 
     /** {@inheritDoc} */
     @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columnName, actions);
+        return ImmutableNullableList.of(name, columnName, type, dflt);
+    }
+
+    public SqlNode[] actions() {
+        return null;
     }
 }

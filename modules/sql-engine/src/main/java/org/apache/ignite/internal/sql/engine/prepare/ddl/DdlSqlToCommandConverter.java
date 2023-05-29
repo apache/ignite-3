@@ -82,9 +82,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumnDefault;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumnNotNull;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumnType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
@@ -99,7 +96,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -435,39 +431,32 @@ public class DdlSqlToCommandConverter {
         cmd.ifTableExists(alterColumnNode.ifExists());
         cmd.columnName(alterColumnNode.columnName().getSimple());
 
-        Set<Class<?>> existingActionClasses = new HashSet<>();
+        if (alterColumnNode.dataType() != null) {
+            cmd.alterType(ctx.planner().convert(alterColumnNode.dataType(), true));
+        }
 
-        for (SqlNode actionNode : alterColumnNode.actions()) {
-            if (!existingActionClasses.add(actionNode.getClass())) {
-                throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR,
-                        IgniteStringFormatter.format("Duplicate ALTER COLUMN action: '{}'.", actionNode));
-            }
+        if (alterColumnNode.notNull() != null) {
+            cmd.alterNotNull(alterColumnNode.notNull());
+        }
 
-            if (actionNode instanceof IgniteSqlAlterColumnType) {
-                cmd.alterType(ctx.planner().convert(((IgniteSqlAlterColumnType) actionNode).dataType(), true));
-            } else if (actionNode instanceof IgniteSqlAlterColumnNotNull) {
-                cmd.alterNotNull(((IgniteSqlAlterColumnNotNull) actionNode).notNull());
+        if (alterColumnNode.expression() != null) {
+            SqlNode expr = alterColumnNode.expression();
+
+            Function<ColumnType, DefaultValue> resolveDfltFunc;
+
+            if (expr instanceof SqlIdentifier) {
+                DefaultValue dfltVal = DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
+
+                resolveDfltFunc = type -> dfltVal;
+            } else if (expr instanceof SqlLiteral) {
+                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral((SqlLiteral) expr, type));
+            } else if (expr == null) {
+                resolveDfltFunc = type -> DefaultValue.constant(null);
             } else {
-                assert actionNode instanceof IgniteSqlAlterColumnDefault : actionNode;
-
-                SqlNode expr = ((IgniteSqlAlterColumnDefault) actionNode).expression();
-
-                Function<ColumnType, DefaultValue> resolveDfltFunc;
-
-                if (expr instanceof SqlIdentifier) {
-                    DefaultValue dfltVal = DefaultValue.functionCall(((SqlIdentifier) expr).getSimple());
-
-                    resolveDfltFunc = type -> dfltVal;
-                } else if (expr instanceof SqlLiteral) {
-                    resolveDfltFunc = type -> DefaultValue.constant(fromLiteral((SqlLiteral) expr, type));
-                } else if (expr == null) {
-                    resolveDfltFunc = type -> DefaultValue.constant(null);
-                } else {
-                    throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
-                }
-
-                cmd.alterDefault(resolveDfltFunc);
+                throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
             }
+
+            cmd.alterDefault(resolveDfltFunc);
         }
 
         return cmd;
@@ -912,9 +901,11 @@ public class DdlSqlToCommandConverter {
                 String.format("Duplicate zone option has been specified [option=%s, query=%s]", optionName, ctx.query()));
     }
 
-    private static Object fromLiteral(SqlLiteral literal, ColumnType columnType) {
+    private static @Nullable Object fromLiteral(SqlLiteral literal, ColumnType columnType) {
         try {
             switch (columnType) {
+                case NULL:
+                    return null;
                 case STRING:
                     return literal.getValueAs(String.class);
                 case DATE: {
