@@ -72,9 +72,9 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, scan, notNullValue());
 
         // Can`t use hash index scan with range.
-        String sqlGT = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val >= 10";
+        String sqlGt = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val >= 10";
 
-        IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlGT, schema), CannotPlanException.class,
+        IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlGt, schema), CannotPlanException.class,
                 "There are not enough rules");
 
 
