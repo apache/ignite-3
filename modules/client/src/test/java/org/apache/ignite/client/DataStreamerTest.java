@@ -32,6 +32,7 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -136,27 +137,31 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var server2 = new FakeIgnite("server-2");
 
         Function<Integer, Integer> responseDelay = idx -> 0;
-        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 2 && idx % 2 == 0;
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 3 && idx % 3 == 0;
         var testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
 
-        var port = testServer2.port();
+        Builder builder = IgniteClient.builder()
+                .addresses("localhost:" + testServer2.port())
+                .retryPolicy(new RetryLimitPolicy().retryLimit(3));
 
-        try (var client2 = IgniteClient.builder().addresses("localhost:" + port).build()) {
+        try (var client2 = builder.build()) {
             RecordView<Tuple> view = defaultTableView(server2, client2);
+            CompletableFuture<Void> streamFut;
 
-            var bufferSize = 2;
-            try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize)) {
+            try (var publisher = new SubmissionPublisher<Tuple>()) {
                 var options = DataStreamerOptions.builder()
-                        .batchSize(bufferSize)
+                        .batchSize(2)
                         .perNodeParallelOperations(1)
                         .build();
 
-                view.streamData(publisher, options);
+                streamFut = view.streamData(publisher, options);
 
                 for (long i = 0; i < 100; i++) {
                     publisher.submit(tuple(i, "foo_" + i));
                 }
             }
+
+            streamFut.get(1, TimeUnit.SECONDS);
 
             for (long i = 0; i < 100; i++) {
                 assertNotNull(view.get(null, tupleKey(i)));
@@ -164,16 +169,15 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    private static RecordView<Tuple> defaultTableView(FakeIgnite server2, IgniteClient client2) {
-        ((FakeIgniteTables) server2.tables()).createTable(DEFAULT_TABLE);
-        var table = client2.tables().table(DEFAULT_TABLE);
-        var view = table.recordView();
-        return view;
-    }
-
     @Test
     public void testAssignmentRefreshErrorClosesStreamer() {
         // TODO:
         assert false;
+    }
+
+    private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
+
+        return client.tables().table(DEFAULT_TABLE).recordView();
     }
 }
