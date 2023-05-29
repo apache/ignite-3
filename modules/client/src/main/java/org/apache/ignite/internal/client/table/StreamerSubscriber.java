@@ -91,6 +91,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         partitionAwarenessProvider.refreshAsync()
                 .whenComplete((res, err) -> {
                     if (err != null) {
+                        // TODO: Log
                         close(err);
                     }
                     else {
@@ -151,6 +152,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             if (err != null) {
                 // Retry is handled by RetryPolicy as usual in ReliableChannel.
                 // If we get here, then retries are exhausted and we should fail the streamer.
+                // TODO: Log
                 close(err);
             }
             else {
@@ -162,6 +164,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
                 // Refresh partition assignment asynchronously.
                 partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
+                    // TODO: Log
                     close(refreshErr);
                     return null;
                 });
