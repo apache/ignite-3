@@ -51,7 +51,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
-        CompletableFuture<Void> fut = view.streamData(publisher, new DataStreamerOptions().batchSize(batchSize));
+        var options = DataStreamerOptions.builder().batchSize(batchSize).build();
+        CompletableFuture<Void> fut = view.streamData(publisher, options);
 
         publisher.submit(tuple(1L, "foo"));
         publisher.submit(tuple(2L, "bar"));
@@ -71,7 +72,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
-        view.streamData(publisher, new DataStreamerOptions().autoFlushFrequency(100));
+        var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
+        view.streamData(publisher, options);
 
         publisher.submit(tuple(1L, "foo"));
         assertTrue(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
@@ -82,7 +84,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
-        view.streamData(publisher, new DataStreamerOptions().autoFlushFrequency(-1));
+        var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
+        view.streamData(publisher, options);
 
         publisher.submit(tuple(1L, "foo"));
         assertFalse(waitForCondition(() -> view.get(null, tupleKey(1L)) != null, 1000));
@@ -105,9 +108,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var bufferSize = 2;
             var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
 
-            var options = new DataStreamerOptions()
+            var options = DataStreamerOptions.builder()
                     .batchSize(bufferSize)
-                    .perNodeParallelOperations(1);
+                    .perNodeParallelOperations(1)
+                    .build();
 
             var streamFut = view.streamData(publisher, options);
 

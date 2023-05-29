@@ -83,7 +83,7 @@ public class DataStreamerOptions {
     /**
      * Builder.
      */
-    static class Builder {
+    public static class Builder {
         private int batchSize = 1000;
 
         private int perNodeParallelOperations = 4;
