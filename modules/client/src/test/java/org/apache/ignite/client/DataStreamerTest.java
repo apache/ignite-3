@@ -126,4 +126,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testRetry() {
         assert false;
     }
+
+    @Test
+    public void testAssignmentRefreshErrorClosesStreamer() {
+        // TODO:
+        assert false;
+    }
 }

@@ -89,16 +89,17 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
         // Refresh schemas and partition assignment, then request initial batch.
         partitionAwarenessProvider.refreshAsync()
-                .thenAccept(unused -> {
-                    requestMore();
-
-                    if (options.autoFlushFrequency() > 0) {
-                        flushTimer = initFlushTimer();
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        close(err);
                     }
-                }).exceptionally(err -> {
-                    close(err);
+                    else {
+                        requestMore();
 
-                    return null;
+                        if (options.autoFlushFrequency() > 0) {
+                            flushTimer = initFlushTimer();
+                        }
+                    }
                 });
     }
 
@@ -160,7 +161,10 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
                 requestMore();
 
                 // Refresh partition assignment asynchronously.
-                partitionAwarenessProvider.refreshAsync();
+                partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
+                    close(refreshErr);
+                    return null;
+                });
             }
         });
 
