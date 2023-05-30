@@ -137,10 +137,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var server2 = new FakeIgnite("server-2");
 
         Function<Integer, Integer> responseDelay = idx -> 0;
-        Function<Integer, Boolean> shouldDropConnection = idx -> {
-            System.out.println("shouldDropConnection: " + idx);
-            return idx % 4 == 3;
-        };
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
         var testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
@@ -170,7 +167,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             streamFut.get(1, TimeUnit.SECONDS);
 
             for (long i = 0; i < 100; i++) {
-                assertNotNull(view.get(null, tupleKey(i)));
+                assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
             }
         }
     }
