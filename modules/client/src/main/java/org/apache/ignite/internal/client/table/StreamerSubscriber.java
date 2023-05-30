@@ -188,8 +188,10 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             s.cancel();
         }
 
-        for (StreamerBuffer<T> buf : buffers.values()) {
-            buf.flushAndClose();
+        if (throwable == null) {
+            for (StreamerBuffer<T> buf : buffers.values()) {
+                buf.flushAndClose();
+            }
         }
 
         var futs = pendingFuts.toArray(new CompletableFuture[0]);
