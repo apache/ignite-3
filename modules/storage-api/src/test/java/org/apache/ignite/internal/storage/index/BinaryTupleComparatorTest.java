@@ -53,7 +53,7 @@ public class BinaryTupleComparatorTest {
     public void testCompareSingleColumnTuples(NativeType type) {
         var columnDescriptor = new SortedIndexColumnDescriptor("column", type, false, true);
 
-        var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), List.of(columnDescriptor));
+        var descriptor = new SortedIndexDescriptor(1, List.of(columnDescriptor));
 
         var comparator = new BinaryTupleComparator(descriptor);
 
@@ -305,7 +305,7 @@ public class BinaryTupleComparatorTest {
                 new SortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         );
 
-        var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
+        var descriptor = new SortedIndexDescriptor(1, columnDescriptors);
 
         var comparator = new BinaryTupleComparator(descriptor);
 
@@ -339,7 +339,7 @@ public class BinaryTupleComparatorTest {
                 new SortedIndexColumnDescriptor("column", NativeTypes.STRING, true,  false)
         );
 
-        var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
+        var descriptor = new SortedIndexDescriptor(1, columnDescriptors);
 
         var comparator = new BinaryTupleComparator(descriptor);
 
@@ -382,7 +382,7 @@ public class BinaryTupleComparatorTest {
                 new SortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         );
 
-        var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
+        var descriptor = new SortedIndexDescriptor(1, columnDescriptors);
 
         var comparator = new BinaryTupleComparator(descriptor);
 
@@ -425,7 +425,7 @@ public class BinaryTupleComparatorTest {
                 new SortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
         );
 
-        var descriptor = new SortedIndexDescriptor(UUID.randomUUID(), columnDescriptors);
+        var descriptor = new SortedIndexDescriptor(1, columnDescriptors);
 
         var comparator = new BinaryTupleComparator(descriptor);
 

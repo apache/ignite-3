@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
@@ -52,7 +51,7 @@ public interface IndexDescriptor {
     /**
      * Returns the index ID.
      */
-    UUID id();
+    int id();
 
     /**
      * Returns index column descriptions.
@@ -65,8 +64,11 @@ public interface IndexDescriptor {
      * @param tablesView Tables configuration.
      * @param indexId Index ID.
      */
-    static IndexDescriptor createIndexDescriptor(TablesView tablesView, UUID indexId) {
-        TableIndexView indexView = tablesView.indexes().get(indexId);
+    static IndexDescriptor createIndexDescriptor(TablesView tablesView, int indexId) {
+        TableIndexView indexView = tablesView.indexes().stream()
+                .filter(tableIndexView -> indexId == tableIndexView.id())
+                .findFirst()
+                .orElse(null);
 
         if (indexView instanceof HashIndexView) {
             return new HashIndexDescriptor(indexId, tablesView);

@@ -63,7 +63,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
-        TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
+        TablePartitionId partId = testTablePartitionId();
 
         tx.enlist(partId, new IgniteBiTuple<>(clusterNode, 1L));
 
@@ -100,6 +100,10 @@ public class RepeatedFinishReadWriteTransactionTest {
         assertTrue(rollbackFut.isDone());
     }
 
+    private static TablePartitionId testTablePartitionId() {
+        return new TablePartitionId(1, 1);
+    }
+
     @Test
     public void testRepeatedCommitRollbackAfterRollback() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
@@ -109,7 +113,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
-        TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
+        TablePartitionId partId = testTablePartitionId();
 
         tx.enlist(partId, new IgniteBiTuple<>(clusterNode, 1L));
 
@@ -155,7 +159,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
-        TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
+        TablePartitionId partId = testTablePartitionId();
 
         tx.enlist(partId, new IgniteBiTuple<>(null, null));
 
@@ -190,7 +194,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
-        TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
+        TablePartitionId partId = testTablePartitionId();
 
         tx.enlist(partId, new IgniteBiTuple<>(null, null));
 

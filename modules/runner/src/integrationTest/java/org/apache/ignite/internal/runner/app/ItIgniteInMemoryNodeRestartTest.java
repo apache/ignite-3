@@ -29,7 +29,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
@@ -197,7 +196,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
         TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
-        UUID tableId = table.tableId();
 
         // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
@@ -226,7 +224,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
                 () -> {
                     boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
                         if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
+                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
                         }
 
                         return false;
@@ -264,7 +262,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
         TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
-        UUID tableId = table.tableId();
 
         // Lose the majority.
         stopNode(1);
@@ -278,7 +275,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(
                 () -> loza.localNodes().stream().anyMatch(nodeId -> {
                     if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
+                        return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
                     }
 
                     return true;
@@ -304,7 +301,6 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
         TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
-        UUID tableId = table.tableId();
 
         stopNode(0);
         stopNode(1);
@@ -321,7 +317,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             assertTrue(IgniteTestUtils.waitForCondition(
                     () -> loza.localNodes().stream().anyMatch(nodeId -> {
                         if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
+                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
                         }
 
                         return true;

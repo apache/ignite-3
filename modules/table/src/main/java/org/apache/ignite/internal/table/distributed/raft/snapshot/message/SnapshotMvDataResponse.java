@@ -60,7 +60,7 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         @Nullable UUID txId();
 
         /** Commit table id for write-intent if it's present. */
-        @Nullable UUID commitTableId();
+        @Nullable Integer commitTableId();
 
         /** Commit partition id for write-intent if it's present. {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID} otherwise. */
         int commitPartitionId();

@@ -24,7 +24,7 @@ import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -60,6 +60,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     private String lastOp;
 
     private String lastOpServerName;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(101);
 
     /**
      * Before all.
@@ -457,7 +459,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private Table table(String name) {
         // Create table on both servers with the same ID.
-        var tableId = UUID.randomUUID();
+        int tableId = nextTableId.getAndIncrement();
 
         createTable(server, tableId, name);
         createTable(server2, tableId, name);
@@ -469,7 +471,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return client2.compute();
     }
 
-    private void createTable(Ignite ignite, UUID id, String name) {
+    private void createTable(Ignite ignite, int id, String name) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
         TableImpl tableImpl = tables.createTable(name, id);
 

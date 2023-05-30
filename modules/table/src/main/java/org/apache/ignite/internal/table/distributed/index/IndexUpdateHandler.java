@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import java.nio.ByteBuffer;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -129,7 +128,7 @@ public class IndexUpdateHandler {
      * @param rowStream Stream of rows to build the index without tombstones.
      * @param nextRowIdToBuild Row ID for which the index needs to be build next, {@code null} means that the index is build.
      */
-    public void buildIndex(UUID indexId, Stream<BinaryRowAndRowId> rowStream, @Nullable RowId nextRowIdToBuild) {
+    public void buildIndex(int indexId, Stream<BinaryRowAndRowId> rowStream, @Nullable RowId nextRowIdToBuild) {
         // TODO: IGNITE-19082 Need another way to wait for index creation
         indexes.addIndexToWaitIfAbsent(indexId);
 
@@ -150,5 +149,14 @@ public class IndexUpdateHandler {
     // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
     public void waitIndexes() {
         indexes.get();
+    }
+
+    /**
+     * Waits for the specific index to be created.
+     */
+    public void waitForIndex(int indexId) {
+        indexes.addIndexToWaitIfAbsent(indexId);
+
+        waitIndexes();
     }
 }

@@ -24,19 +24,19 @@ import org.apache.ignite.internal.tostring.S;
  * ID of the index build task.
  */
 class BuildIndexTaskId {
-    private final UUID tableId;
+    private final int tableId;
 
     private final UUID indexId;
 
     private final int partitionId;
 
-    BuildIndexTaskId(UUID tableId, UUID indexId, int partitionId) {
+    BuildIndexTaskId(int tableId, UUID indexId, int partitionId) {
         this.tableId = tableId;
         this.indexId = indexId;
         this.partitionId = partitionId;
     }
 
-    UUID getTableId() {
+    int getTableId() {
         return tableId;
     }
 
@@ -62,7 +62,7 @@ class BuildIndexTaskId {
         if (partitionId != that.partitionId) {
             return false;
         }
-        if (!tableId.equals(that.tableId)) {
+        if (tableId != that.tableId) {
             return false;
         }
         return indexId.equals(that.indexId);
@@ -70,7 +70,7 @@ class BuildIndexTaskId {
 
     @Override
     public int hashCode() {
-        int result = tableId.hashCode();
+        int result = tableId;
         result = 31 * result + indexId.hashCode();
         result = 31 * result + partitionId;
         return result;

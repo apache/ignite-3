@@ -766,7 +766,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
             locker.lock(rowId);
 
-            storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0);
+            storage.addWrite(rowId, binaryRow, txId, 999, 0);
             commitWrite(rowId, clock.now());
 
             addWrite(rowId, binaryRow2, newTransactionId());

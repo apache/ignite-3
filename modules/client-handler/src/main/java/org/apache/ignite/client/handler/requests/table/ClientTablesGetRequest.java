@@ -43,7 +43,7 @@ public class ClientTablesGetRequest {
             for (var table : tables) {
                 var tableImpl = (TableImpl) table;
 
-                out.packUuid(tableImpl.tableId());
+                out.packInt(tableImpl.tableId());
                 out.packString(table.name());
             }
         });

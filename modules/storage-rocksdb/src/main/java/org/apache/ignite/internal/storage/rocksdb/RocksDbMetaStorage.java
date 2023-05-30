@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.put
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -131,7 +130,7 @@ public class RocksDbMetaStorage {
      * @param partitionId Partition ID.
      * @param ifAbsent Will be returned if next the row ID for which the index needs to be built has never been saved.
      */
-    public @Nullable RowId getNextRowIdToBuilt(UUID indexId, int partitionId, RowId ifAbsent) {
+    public @Nullable RowId getNextRowIdToBuilt(int indexId, int partitionId, RowId ifAbsent) {
         try {
             byte[] lastBuiltRowIdBytes = metaColumnFamily.get(indexMetaKey(partitionId, indexId));
 
@@ -161,7 +160,7 @@ public class RocksDbMetaStorage {
      * @param indexId Index ID.
      * @param rowId Row ID.
      */
-    public void putNextRowIdToBuilt(AbstractWriteBatch writeBatch, UUID indexId, int partitionId, @Nullable RowId rowId) {
+    public void putNextRowIdToBuilt(AbstractWriteBatch writeBatch, int indexId, int partitionId, @Nullable RowId rowId) {
         try {
             writeBatch.put(metaColumnFamily.handle(), indexMetaKey(partitionId, indexId), indexLastBuildRowId(rowId));
         } catch (RocksDBException e) {
@@ -173,7 +172,7 @@ public class RocksDbMetaStorage {
         }
     }
 
-    private static byte[] indexMetaKey(int partitionId, UUID indexId) {
+    private static byte[] indexMetaKey(int partitionId, int indexId) {
         assert partitionId >= 0 && partitionId <= 0xFFFF : partitionId;
 
         ByteBuffer buffer = ByteBuffer.allocate(INDEX_META_KEY_SIZE).order(KEY_BYTE_ORDER);

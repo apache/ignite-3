@@ -40,7 +40,7 @@ public class IndexMeta extends IndexMetaKey {
      * @param nextRowIdUuidToBuild Row ID uuid for which the index needs to be built, {@code null} means that the index building has
      *      completed.
      */
-    public IndexMeta(UUID id, long metaPageId, @Nullable UUID nextRowIdUuidToBuild) {
+    public IndexMeta(int id, long metaPageId, @Nullable UUID nextRowIdUuidToBuild) {
         super(id);
 
         this.metaPageId = metaPageId;
