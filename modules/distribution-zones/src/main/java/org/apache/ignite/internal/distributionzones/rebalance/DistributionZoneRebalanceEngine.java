@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -191,7 +192,7 @@ public class DistributionZoneRebalanceEngine {
 
                             List<Set<Assignment>> tableAssignments = assignmentsBytes == null
                                     ? Collections.emptyList()
-                                    : ByteUtils.fromBytes(assignmentsBytes);
+                                    : Assignments.fromBytes(assignmentsBytes).assignments();
 
                             for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
                                 int tableId = tableCfg.id().value();
@@ -273,7 +274,7 @@ public class DistributionZoneRebalanceEngine {
 
                     byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
 
-                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+                    List<Set<Assignment>> tableAssignments = Assignments.fromBytes(assignmentsBytes).assignments();
 
                     Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
 
