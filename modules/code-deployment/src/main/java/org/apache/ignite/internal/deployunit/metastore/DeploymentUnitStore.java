@@ -25,6 +25,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**

@@ -468,6 +468,9 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
+        // It's important to not block any thread while being inside of the "runConsistently" section.
+        storageUpdateHandler.getIndexUpdateHandler().waitForIndex(cmd.indexId());
+
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
 
