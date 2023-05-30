@@ -279,6 +279,19 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
+
+                    if (provider != null) {
+                        //noinspection resource
+                        ClientChannel c = provider.channel();
+
+                        // No retries when a specific channel is provided.
+                        if (c != null) {
+                            return c.serviceAsync(opCode,
+                                    w -> writer.accept(schema, w),
+                                    r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue));
+                        }
+                    }
+
                     String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
@@ -334,6 +347,23 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
+
+                    if (provider != null) {
+                        //noinspection resource
+                        ClientChannel c = provider.channel();
+
+                        // No retries when a specific channel is provided.
+                        if (c != null) {
+                            return c.serviceAsync(opCode,
+                                    w -> writer.accept(schema, w),
+                                    r -> {
+                                        ensureSchemaLoadedAsync(r.in().unpackInt());
+
+                                        return reader.apply(r.in());
+                                    });
+                        }
+                    }
+
                     String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
@@ -452,14 +482,6 @@ public class ClientTable implements Table {
             ClientSchema schema) {
         if (provider == null) {
             return null;
-        }
-
-        @SuppressWarnings("resource")
-        ClientChannel ch = provider.channel();
-
-        if (ch != null) {
-            // TODO: This is not correct - when channel is provided, we cant use a different channel with the same node id.
-            return ch.protocolContext().clusterNode().id();
         }
 
         if (partitions == null || partitions.isEmpty()) {
