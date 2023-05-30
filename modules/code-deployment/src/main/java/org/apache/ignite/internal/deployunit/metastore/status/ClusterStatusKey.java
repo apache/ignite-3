@@ -60,7 +60,7 @@ public class ClusterStatusKey {
      * @return {@link ByteArray} instance with serialized content.
      */
     public ByteArray toByteArray() {
-        return UnitKey.toKey(UNITS_PREFIX, id, version == null ? null : version.render());
+        return UnitKey.toByteArray(UNITS_PREFIX, id, version == null ? null : version.render());
     }
 
     /**
@@ -70,7 +70,7 @@ public class ClusterStatusKey {
      * @return Deserialized deployment unit cluster key.
      */
     public static ClusterStatusKey fromBytes(byte[] key) {
-        String[] parse = UnitKey.fromKey(UNITS_PREFIX, key);
+        String[] parse = UnitKey.fromBytes(UNITS_PREFIX, key);
         int length = parse.length;
         String id = length > 0 ? parse[0] : null;
         Version version = length > 1 ? Version.parseVersion(parse[1]) : null;

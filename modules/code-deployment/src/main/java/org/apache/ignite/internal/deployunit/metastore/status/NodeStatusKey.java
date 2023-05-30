@@ -48,7 +48,7 @@ public class NodeStatusKey {
     }
 
     public ByteArray toByteArray() {
-        return UnitKey.toKey(NODES_PREFIX, id, version == null ? null : version.render(), nodeId);
+        return UnitKey.toByteArray(NODES_PREFIX, id, version == null ? null : version.render(), nodeId);
     }
 
     /**
@@ -58,7 +58,7 @@ public class NodeStatusKey {
      * @return Deserialized node status key.
      */
     public static NodeStatusKey fromBytes(byte[] key) {
-        String[] parse = UnitKey.fromKey(NODES_PREFIX, key);
+        String[] parse = UnitKey.fromBytes(NODES_PREFIX, key);
         int length = parse.length;
         String id = length > 0 ? parse[0] : null;
         Version version = length > 1 ? Version.parseVersion(parse[1]) : null;

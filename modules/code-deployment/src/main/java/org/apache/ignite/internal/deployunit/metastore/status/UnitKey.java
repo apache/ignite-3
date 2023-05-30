@@ -37,7 +37,7 @@ public final class UnitKey {
 
     }
 
-    static String[] fromKey(String prefix, byte[] key) {
+    static String[] fromBytes(String prefix, byte[] key) {
         String s = new String(key, StandardCharsets.UTF_8);
 
         if (!s.startsWith(prefix)) {
@@ -50,7 +50,7 @@ public final class UnitKey {
                 .toArray(String[]::new);
     }
 
-    static ByteArray toKey(String prefix, String... args) {
+    static ByteArray toByteArray(String prefix, String... args) {
         Encoder encoder = Base64.getEncoder();
         String collect = Arrays.stream(args).filter(Objects::nonNull)
                 .map(arg -> encoder.encodeToString(arg.getBytes(StandardCharsets.UTF_8)))
