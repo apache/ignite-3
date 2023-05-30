@@ -67,7 +67,14 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <K, R> CompletableFuture<R> executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
 
     /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
@@ -77,5 +84,10 @@ public interface IgniteCompute {
      * @param <R>      Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args);
+    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    );
 }

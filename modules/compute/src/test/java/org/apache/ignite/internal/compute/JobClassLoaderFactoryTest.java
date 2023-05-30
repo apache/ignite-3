@@ -34,6 +34,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,9 @@ class JobClassLoaderFactoryTest {
 
     @BeforeEach
     void setUp() {
-        jobClassLoaderFactory = new JobClassLoaderFactory(units, detectLastUnitVersion);
+        FileDeployerService deployerService = new FileDeployerService();
+        deployerService.initUnitsFolder(units);
+        jobClassLoaderFactory = new JobClassLoaderFactory(detectLastUnitVersion, deployerService);
     }
 
     @Test
@@ -220,17 +223,6 @@ class JobClassLoaderFactoryTest {
                 assertEquals(expectedContent, subDirResourceStreamString);
             }
         }
-    }
-
-    @Test
-    @DisplayName("Create class loader with empty units")
-    public void emptyUnits() {
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> jobClassLoaderFactory.createClassLoader(List.of())
-        );
-
-        assertThat(exception.getMessage(), containsString("At least one unit must be specified"));
     }
 
     @Test

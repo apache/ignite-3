@@ -32,6 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -44,24 +45,24 @@ public class JobClassLoaderFactory {
     private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
     /**
-     * Directory for units.
-     */
-    private final Path unitsDir;
-
-    /**
      * The function to detect the last version of the unit.
      */
     private final Function<String, Version> detectLastUnitVersion;
 
     /**
+     * The deployer service.
+     */
+    private final FileDeployerService deployerService;
+
+    /**
      * Constructor.
      *
-     * @param unitsDir The directory for units.
      * @param detectLastUnitVersion The function to detect the last version of the unit.
+     * @param deployerService The deployer service.
      */
-    public JobClassLoaderFactory(Path unitsDir, Function<String, Version> detectLastUnitVersion) {
-        this.unitsDir = unitsDir;
+    public JobClassLoaderFactory(Function<String, Version> detectLastUnitVersion, FileDeployerService deployerService) {
         this.detectLastUnitVersion = detectLastUnitVersion;
+        this.deployerService = deployerService;
     }
 
     /**
@@ -71,10 +72,6 @@ public class JobClassLoaderFactory {
      * @return The class loader.
      */
     public JobClassLoader createClassLoader(List<DeploymentUnit> units) {
-        if (units.isEmpty()) {
-            throw new IllegalArgumentException("At least one unit must be specified");
-        }
-
         URL[] classPath = units.stream()
                 .map(this::constructPath)
                 .flatMap(JobClassLoaderFactory::collectClasspath)
@@ -89,7 +86,7 @@ public class JobClassLoaderFactory {
 
     private Path constructPath(DeploymentUnit unit) {
         Version version = unit.version() == Version.LATEST ? detectLastUnitVersion.apply(unit.name()) : unit.version();
-        return unitsDir.resolve(unit.name()).resolve(version.toString());
+        return deployerService.unitPath(unit.name(), version);
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {

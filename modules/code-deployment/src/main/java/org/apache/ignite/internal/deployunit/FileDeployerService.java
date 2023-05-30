@@ -65,7 +65,7 @@ public class FileDeployerService {
     }
 
     /**
-     * Deploy provided unit on local fs.
+     * Deploys provided unit on local fs.
      *
      * @param id Deploy unit identifier.
      * @param version Deploy unit version.
@@ -97,7 +97,7 @@ public class FileDeployerService {
     }
 
     /**
-     * Undeploy unit with provided identifier and version.
+     * Undeploys unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
@@ -120,7 +120,7 @@ public class FileDeployerService {
     }
 
     /**
-     * Read from local FileSystem and returns deployment unit content.
+     * Reads from local FileSystem and returns deployment unit content.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
@@ -147,5 +147,18 @@ public class FileDeployerService {
             }
             return new UnitContent(result);
         }, executor);
+    }
+
+    /**
+     * Returns path to unit folder.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     * @return Path to unit folder.
+     */
+    public Path unitPath(String id, Version version) {
+        return unitsFolder
+                .resolve(id)
+                .resolve(version.render());
     }
 }

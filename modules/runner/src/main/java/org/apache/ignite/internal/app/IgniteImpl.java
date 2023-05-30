@@ -73,6 +73,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
+import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -341,22 +342,20 @@ public class IgniteImpl implements Ignite {
                 new VaultStateIds(vaultMgr)
         );
 
-
-        DeploymentConfiguration configuration = nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY);
-        Path deploymentUnitsDir = workDir.resolve(configuration.deploymentLocation().value());
+        var deployerService = new FileDeployerService();
 
         JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(
-                deploymentUnitsDir,
                 unitName -> {
                     throw new UnsupportedOperationException("LATEST version is not supported for job class loading");
-                }
-        );
+                },
+                deployerService);
 
         computeComponent = new ComputeComponentImpl(
                 this,
                 clusterSvc.messagingService(),
                 nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
-                jobClassLoaderFactory);
+                jobClassLoaderFactory
+        );
 
         clock = new HybridClockImpl();
 
@@ -570,7 +569,8 @@ public class IgniteImpl implements Ignite {
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
                 metaStorageMgr,
-                deploymentUnitsDir,
+                workDir,
+                deployerService,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr);
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -99,12 +100,13 @@ public class ComputeComponentImpl implements ComputeComponent {
     @Override
     public <R> CompletableFuture<R> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return completedFuture(null)
-                    .thenCompose(ignored -> doExecuteLocally(jobClass(jobClassLoader(units), jobClassName), args));
+            return doExecuteLocally(jobClass(jobClassLoader(units), jobClassName), args);
+        } catch (Exception e) {
+            return failedFuture(e);
         } finally {
             busyLock.leaveBusy();
         }
@@ -123,7 +125,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         try {
             return CompletableFuture.supplyAsync(() -> executeJob(jobClass, args), jobExecutorService);
         } catch (RejectedExecutionException e) {
-            return CompletableFuture.failedFuture(e);
+            return failedFuture(e);
         }
     }
 
@@ -157,7 +159,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     public <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, List<DeploymentUnit> units, String jobClassName,
             Object... args) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -187,7 +189,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private <R> CompletableFuture<R> resultFromExecuteResponse(ExecuteResponse executeResponse) {
         if (executeResponse.throwable() != null) {
-            return CompletableFuture.failedFuture(executeResponse.throwable());
+            return failedFuture(executeResponse.throwable());
         }
 
         return completedFuture((R) executeResponse.result());

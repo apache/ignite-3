@@ -110,14 +110,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     public DeploymentManagerImpl(ClusterService clusterService,
             MetaStorageManager metaStorage,
             Path workDir,
+            FileDeployerService deployer,
             DeploymentConfiguration configuration,
             ClusterManagementGroupManager cmgManager) {
         this.clusterService = clusterService;
         this.configuration = configuration;
         this.cmgManager = cmgManager;
         this.workDir = workDir;
+        this.deployer = deployer;
         tracker = new DeployTracker();
-        deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
     }
