@@ -77,9 +77,12 @@ class StreamerBuffer<T> {
         }
 
         closed = true;
-        flush(buf);
 
-        return flushFut;
+        if (!buf.isEmpty()) {
+            flush(buf);
+        }
+
+        return flushFut == null ? CompletableFuture.completedFuture(null) : flushFut;
     }
 
     private void flush(List<T> b) {
