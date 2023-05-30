@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -37,6 +38,7 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -126,7 +128,13 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
         if (type == Type.HASH) {
             boolean notExact = (searchBounds() == null)
-                    || (searchBounds().stream().anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT));
+                    || searchBounds().stream().anyMatch(bound -> bound.type() == SearchBounds.Type.RANGE);
+
+            if (!notExact) {
+                notExact = searchBounds().stream().flatMap(bound -> bound instanceof MultiBounds
+                                ? ((MultiBounds) bound).bounds().stream() : Stream.of(bound))
+                        .anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT);
+            }
 
             if (notExact) {
                 // now bounds index scan is only available for sorted index, check:

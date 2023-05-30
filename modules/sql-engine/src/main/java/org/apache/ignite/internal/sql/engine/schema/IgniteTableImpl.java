@@ -554,7 +554,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
             long prev = lastUpd.get();
 
-            if (partitionsRevisionCounter - lastUpd.get() > updateThreshold) {
+            if (partitionsRevisionCounter - prev > updateThreshold) {
                 synchronized (this) {
                     if (lastUpd.compareAndSet(prev, partitionsRevisionCounter)) {
                         long size = 0L;
