@@ -32,6 +32,14 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
  */
 public interface DeploymentUnitStore {
 
+
+    /**
+     * Register node statuses change events listener.
+     *
+     * @param listener Node statuses update listener.
+     */
+    void registerListener(NodeStatusWatchListener listener);
+
     /**
      * Returns cluster statuses of all existed deployment units.
      *

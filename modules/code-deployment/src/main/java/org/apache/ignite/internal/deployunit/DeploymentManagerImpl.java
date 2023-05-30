@@ -42,6 +42,7 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundExc
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
@@ -118,9 +119,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         tracker = new DeployTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
-        deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage,
-                () -> this.clusterService.topologyService().localMember().name(),
-                this::onUnitRegister);
+        deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
     }
 
     private void onUnitRegister(UnitNodeStatus status, Set<String> deployedNodes) {
@@ -280,6 +279,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     @Override
     public void start() {
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
+        deploymentUnitStore.registerListener(new NodeStatusWatchListener(
+                deploymentUnitStore,
+                () -> this.clusterService.topologyService().localMember().name(),
+                this::onUnitRegister));
         messaging.subscribe();
     }
 

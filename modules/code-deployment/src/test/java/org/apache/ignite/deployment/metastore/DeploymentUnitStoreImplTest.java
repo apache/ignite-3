@@ -32,7 +32,8 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
-import org.apache.ignite.internal.deployunit.metastore.NodeEventListener;
+import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
+import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
@@ -61,7 +62,7 @@ public class DeploymentUnitStoreImplTest {
 
     private final List<UnitNodeStatus> history = Collections.synchronizedList(new ArrayList<>());
 
-    private final NodeEventListener listener = (status, holders) -> history.add(status);
+    private final NodeEventCallback listener = (status, holders) -> history.add(status);
 
     private DeploymentUnitStoreImpl metastore;
 
@@ -74,7 +75,8 @@ public class DeploymentUnitStoreImplTest {
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
-        metastore = new DeploymentUnitStoreImpl(metaStorageManager, () -> LOCAL_NODE, listener);
+        metastore = new DeploymentUnitStoreImpl(metaStorageManager);
+        metastore.registerListener(new NodeStatusWatchListener(metastore, () -> LOCAL_NODE, listener));
 
         vaultManager.start();
         metaStorageManager.start();

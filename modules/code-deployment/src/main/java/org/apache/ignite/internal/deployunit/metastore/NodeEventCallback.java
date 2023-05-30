@@ -24,7 +24,7 @@ import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
  * Listener of deployment unit node status changes.
  */
 @FunctionalInterface
-public interface NodeEventListener {
+public interface NodeEventCallback {
     /**
      * Change event.
      *

@@ -29,15 +29,11 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UP
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.ClusterStatusAccumulator;
 import org.apache.ignite.internal.deployunit.metastore.accumulator.KeyAccumulator;
@@ -47,43 +43,32 @@ import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.deployunit.version.Version;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.ByteArray;
 
 /**
  * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
  */
 public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
-    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitStoreImpl.class);
-
     private final MetaStorageManager metaStorage;
 
     /**
      * Constructor.
      *
      * @param metaStorage Meta storage manager.
-     * @param localNodeProvider Local node id provider.
-     * @param listener Node events listener.
      */
-    public DeploymentUnitStoreImpl(MetaStorageManager metaStorage,
-            Supplier<String> localNodeProvider,
-            NodeEventListener listener
-    ) {
+    public DeploymentUnitStoreImpl(MetaStorageManager metaStorage) {
         this.metaStorage = metaStorage;
+    }
 
-        metaStorage.registerPrefixWatch(NodeStatusKey.builder().build().toByteArray(), new NodeEventsListener(localNodeProvider, listener));
+    @Override
+    public void registerListener(NodeStatusWatchListener listener) {
+        metaStorage.registerPrefixWatch(NodeStatusKey.builder().build().toByteArray(), listener);
     }
 
     @Override
@@ -259,46 +244,4 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                 });
     }
 
-    private class NodeEventsListener implements WatchListener {
-        private final Supplier<String> localNodeProvider;
-
-        private final NodeEventListener listener;
-
-        private final ExecutorService executor = Executors.newFixedThreadPool(
-                4, new NamedThreadFactory("deployment", LOG));
-
-        private NodeEventsListener(Supplier<String> localNodeProvider, NodeEventListener listener) {
-            this.localNodeProvider = localNodeProvider;
-            this.listener = listener;
-        }
-
-        @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            for (EntryEvent e : event.entryEvents()) {
-                Entry entry = e.newEntry();
-
-                byte[] key = entry.key();
-                byte[] value = entry.value();
-
-                NodeStatusKey nodeStatusKey = NodeStatusKey.fromBytes(key);
-
-                if (!Objects.equals(localNodeProvider.get(), nodeStatusKey.nodeId())
-                        || value == null) {
-                    continue;
-                }
-
-                UnitNodeStatus nodeStatus = UnitNodeStatus.deserialize(value);
-
-                CompletableFuture.supplyAsync(() -> nodeStatus, executor)
-                        .thenComposeAsync(status -> getAllNodes(status.id(), status.version()), executor)
-                        .thenAccept(nodes -> listener.onUpdate(nodeStatus, new HashSet<>(nodes)));
-            }
-            return completedFuture(null);
-        }
-
-        @Override
-        public void onError(Throwable e) {
-            LOG.warn("Failed to process metastore deployment unit event. ", e);
-        }
-    }
 }
