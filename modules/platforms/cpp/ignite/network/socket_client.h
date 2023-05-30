@@ -1,11 +1,12 @@
 /*
- * Copyright 2019 GridGain Systems, Inc. and Contributors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
  *
- * Licensed under the GridGain Community Edition License (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.gridgain.com/products/software/community-edition/gridgain-community-edition-license
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -65,7 +66,7 @@ public:
      * @param size Size of the data in bytes.
      * @param timeout Timeout.
      * @return Number of bytes that have been sent on success,
-     *     WaitResult::TIMEOUT on timeout and -errno on failure.
+     *     wait_result::TIMEOUT on timeout and -errno on failure.
      */
     virtual int send(const std::byte* data, std::size_t size, std::int32_t timeout) = 0;
 
@@ -76,7 +77,7 @@ public:
      * @param size Size of the buffer in bytes.
      * @param timeout Timeout.
      * @return Number of bytes that have been received on success,
-     *     WaitResult::TIMEOUT on timeout and -errno on failure.
+     *     wait_result::TIMEOUT on timeout and -errno on failure.
      */
     virtual int receive(std::byte* buffer, std::size_t size, std::int32_t timeout) = 0;
 

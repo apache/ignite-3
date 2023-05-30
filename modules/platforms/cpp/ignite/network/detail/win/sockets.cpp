@@ -17,7 +17,8 @@
 
 #include "sockets.h"
 
-#include "../utils.h"
+#include "ignite/network/detail/utils.h"
+#include "ignite/network/socket_client.h"
 
 #include <mutex>
 #include <sstream>
@@ -82,10 +83,10 @@ void try_set_socket_options(SOCKET socket, int buf_size, BOOL no_delay, BOOL out
 
     int res = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&keep_alive), sizeof(keep_alive));
 
-    // TODO: IGNITE-17606 Disable keep-alive once heartbeats are implemented.
+    // TODO: Disable keep-alive once heartbeats are implemented.
     if (keep_alive) {
         if (SOCKET_ERROR == res) {
-            // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
+            // There is no sense in configuring keep alive params if we failed to set up keep-alive mode.
             return;
         }
 
@@ -123,6 +124,12 @@ void try_set_socket_options(SOCKET socket, int buf_size, BOOL no_delay, BOOL out
     }
 }
 
+bool set_non_blocking_mode(SOCKET socket_handle, bool non_blocking)
+{
+    ULONG opt = non_blocking ? TRUE : FALSE;
+    return ::ioctlsocket(socket_handle, FIONBIO, &opt) != SOCKET_ERROR;
+}
+
 void init_wsa() {
     static std::mutex init_mutex;
     static bool network_inited = false;
@@ -139,6 +146,45 @@ void init_wsa() {
                     status_code::NETWORK, "Networking initialisation failed: " + get_last_socket_error_message());
         }
     }
+}
+
+int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd)
+{
+    int ready;
+    int last_error{0};
+
+    fd_set fds;
+
+    do {
+        timeval tv{};
+
+        tv.tv_sec = timeout;
+
+        FD_ZERO(&fds);
+        FD_SET(socket, &fds);
+
+        fd_set* readFds = 0;
+        fd_set* writeFds = 0;
+
+        if (rd)
+            readFds = &fds;
+        else
+            writeFds = &fds;
+
+        ready = select(static_cast<int>(socket) + 1, readFds, writeFds, NULL, timeout == 0 ? NULL : &tv);
+
+        if (ready == SOCKET_ERROR)
+            last_error = WSAGetLastError();
+
+    } while (ready == SOCKET_ERROR && last_error == WSAEINTR);
+
+    if (ready == SOCKET_ERROR)
+        return -last_error;
+
+    if (ready == 0)
+        return socket_client::wait_result::TIMEOUT;
+
+    return socket_client::wait_result::SUCCESS;
 }
 
 } // namespace ignite::network::detail

@@ -22,6 +22,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
+#include <random>
 
 namespace ignite::network::detail {
 
@@ -102,6 +104,26 @@ inline std::string get_last_system_error(std::string_view description, std::stri
  */
 inline void throw_last_system_error(std::string_view description, std::string_view advice = {}) {
     throw ignite_error(status_code::OS, get_last_system_error(description, advice));
+}
+
+/**
+ * Shuffle addresses randomly.
+ *
+ * @param addrsIn Addresses.
+ * @return Randomly shuffled addresses.
+ */
+template<typename Addrinfo>
+std::vector<Addrinfo*> shuffle_addresses(Addrinfo* addrsIn) {
+    std::vector<Addrinfo*> res;
+
+    for (Addrinfo *it = addrsIn; it != NULL; it = it->ai_next)
+        res.push_back(it);
+
+    std::random_device device;
+    std::mt19937 generator(device());
+    std::shuffle(res.begin(), res.end(), generator);
+
+    return res;
 }
 
 } // namespace ignite::network::detail
