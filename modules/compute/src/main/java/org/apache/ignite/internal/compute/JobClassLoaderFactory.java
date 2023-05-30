@@ -43,7 +43,6 @@ import org.apache.ignite.lang.IgniteException;
 public class JobClassLoaderFactory {
     private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
-
     /**
      * Directory for units.
      */

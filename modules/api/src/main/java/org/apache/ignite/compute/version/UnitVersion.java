@@ -36,7 +36,7 @@ class UnitVersion implements Version {
      * @param minor Minor part of version.
      * @param patch Patch part of version.
      */
-    public UnitVersion(short major, short minor, short patch) {
+    UnitVersion(short major, short minor, short patch) {
         this.major = major;
         this.minor = minor;
         this.patch = patch;
