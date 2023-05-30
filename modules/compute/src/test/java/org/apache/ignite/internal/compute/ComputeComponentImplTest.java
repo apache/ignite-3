@@ -38,7 +38,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -48,11 +50,13 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -69,7 +73,6 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -77,6 +80,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @Timeout(10)
 class ComputeComponentImplTest {
     private static final String INSTANCE_NAME = "Ignite-0";
+
+    private final Path units = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
 
     @Mock
     private Ignite ignite;
@@ -89,10 +94,10 @@ class ComputeComponentImplTest {
 
     @Mock
     private ConfigurationValue<Integer> threadPoolSizeValue;
+
     @Mock
     private ConfigurationValue<Long> threadPoolStopTimeoutMillisValue;
 
-    @InjectMocks
     private ComputeComponentImpl computeComponent;
 
     @Captor
@@ -100,11 +105,25 @@ class ComputeComponentImplTest {
     @Captor
     private ArgumentCaptor<ExecuteResponse> executeResponseCaptor;
 
+    private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(units, name -> {
+        throw new UnsupportedOperationException("LATEST version is not supported");
+    });
+
     private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 
     private final AtomicBoolean responseSent = new AtomicBoolean(false);
+
+    private final ComputeMessagesFactory messagesFactory = new ComputeMessagesFactory();
+
+    private final List<DeploymentUnit> testDeploymentUnits = List.of(
+            new DeploymentUnit("ignite-job", Version.parseVersion("1.0.0"))
+    );
+
+    private final List<DeploymentUnitMsg> testDeploymentUnitMsgs = testDeploymentUnits.stream()
+            .map(it -> DeploymentUnitMsg.fromDeploymentUnit(messagesFactory, it))
+            .collect(Collectors.toList());
 
     @BeforeEach
     void setUp() {
@@ -120,6 +139,7 @@ class ComputeComponentImplTest {
             return null;
         }).when(messagingService).addMessageHandler(eq(ComputeMessageTypes.class), any());
 
+        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobClassLoaderFactory);
         computeComponent.start();
     }
 
@@ -130,7 +150,11 @@ class ComputeComponentImplTest {
 
     @Test
     void executesLocally() throws Exception {
-        String result = computeComponent.executeLocally(SimpleJob.class, "a", 42).get();
+        String result = computeComponent.<String>executeLocally(
+                testDeploymentUnits,
+                "org.example.SimpleJob",
+                "a", 42
+        ).get();
 
         assertThat(result, is("jobResponse"));
 
@@ -143,27 +167,26 @@ class ComputeComponentImplTest {
 
     @Test
     void executesLocallyWithException() {
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> computeComponent.executeLocally(FailingJob.class).get());
+        ExecutionException ex = assertThrows(
+                ExecutionException.class,
+                () -> computeComponent.executeLocally(testDeploymentUnits, "org.example.FailingJob").get()
+        );
 
-        assertThat(ex.getCause(), is(instanceOf(JobException.class)));
+        assertThat(ex.getCause().getClass().getName(), is("org.example.JobException"));
         assertThat(ex.getCause().getMessage(), is("Oops"));
         assertThat(ex.getCause().getCause(), is(notNullValue()));
-    }
-
-    @Test
-    void executesLocallyByClassName() throws Exception {
-        String result = computeComponent.<String>executeLocally(SimpleJob.class.getName(), "a", 42).get();
-
-        assertThat(result, is("jobResponse"));
-
-        assertThatExecuteRequestWasNotSent();
     }
 
     @Test
     void executesRemotelyUsingNetworkCommunication() throws Exception {
         respondWithExecuteResponseWhenExecuteRequestIsSent();
 
-        String result = computeComponent.executeRemotely(remoteNode, SimpleJob.class, "a", 42).get();
+        String result = computeComponent.<String>executeRemotely(
+                remoteNode,
+                testDeploymentUnits,
+                "org.example.SimpleJob",
+                "a", 42
+        ).get();
 
         assertThat(result, is("remoteResponse"));
 
@@ -178,42 +201,32 @@ class ComputeComponentImplTest {
                 .thenReturn(CompletableFuture.completedFuture(executeResponse));
     }
 
-    private void assertThatExecuteRequestWasSent() {
-        verify(messagingService).invoke(eq(remoteNode), executeRequestCaptor.capture(), anyLong());
-
-        ExecuteRequest capturedRequest = executeRequestCaptor.getValue();
-
-        assertThat(capturedRequest.jobClassName(), is(SimpleJob.class.getName()));
-        assertThat(capturedRequest.args(), is(equalTo(new Object[]{"a", 42})));
-    }
-
     @Test
     void executesRemotelyWithException() {
         ExecuteResponse executeResponse = new ComputeMessagesFactory().executeResponse()
-                .throwable(new JobException("Oops", new Exception()))
+                .throwable(new RemoteJobException("Oops", new Exception()))
                 .build();
         when(messagingService.invoke(any(ClusterNode.class), any(ExecuteRequest.class), anyLong()))
                 .thenReturn(CompletableFuture.completedFuture(executeResponse));
 
         ExecutionException ex = assertThrows(
                 ExecutionException.class,
-                () -> computeComponent.executeRemotely(remoteNode, FailingJob.class).get()
+                () -> computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.FailingJob").get()
         );
 
-        assertThat(ex.getCause(), is(instanceOf(JobException.class)));
+        assertThat(ex.getCause(), is(instanceOf(RemoteJobException.class)));
         assertThat(ex.getCause().getMessage(), is("Oops"));
         assertThat(ex.getCause().getCause(), is(notNullValue()));
     }
 
-    @Test
-    void executesRemotelyByClassNameUsingNetworkCommunication() throws Exception {
-        respondWithExecuteResponseWhenExecuteRequestIsSent();
+    private void assertThatExecuteRequestWasSent() {
+        verify(messagingService).invoke(eq(remoteNode), executeRequestCaptor.capture(), anyLong());
 
-        String result = computeComponent.<String>executeRemotely(remoteNode, SimpleJob.class.getName(), "a", 42).get();
+        ExecuteRequest capturedRequest = executeRequestCaptor.getValue();
 
-        assertThat(result, is("remoteResponse"));
-
-        assertThatExecuteRequestWasSent();
+        assertThat(capturedRequest.deploymentUnits(), is(equalTo(testDeploymentUnitMsgs)));
+        assertThat(capturedRequest.jobClassName(), is("org.example.SimpleJob"));
+        assertThat(capturedRequest.args(), is(equalTo(new Object[]{"a", 42})));
     }
 
     @Test
@@ -223,8 +236,12 @@ class ComputeComponentImplTest {
 
         String sender = "test";
 
-        ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
-                .jobClassName(SimpleJob.class.getName())
+        List<DeploymentUnitMsg> deploymentUnitMsgs = testDeploymentUnits.stream()
+                .map(it -> DeploymentUnitMsg.fromDeploymentUnit(messagesFactory, it))
+                .collect(Collectors.toList());
+        ExecuteRequest request = messagesFactory.executeRequest()
+                .deploymentUnits(deploymentUnitMsgs)
+                .jobClassName("org.example.SimpleJob")
                 .args(new Object[]{"a", 42})
                 .build();
         computeMessageHandlerRef.get().onReceived(request, sender, 123L);
@@ -254,7 +271,7 @@ class ComputeComponentImplTest {
     void stoppedComponentReturnsExceptionOnLocalExecutionAttempt() throws Exception {
         computeComponent.stop();
 
-        Object result = computeComponent.executeLocally(SimpleJob.class)
+        Object result = computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob")
                 .handle((s, ex) -> ex != null ? ex : s)
                 .get();
 
@@ -263,7 +280,7 @@ class ComputeComponentImplTest {
 
     @Test
     void localExecutionReleasesStopLock() throws Exception {
-        computeComponent.executeLocally(SimpleJob.class).get();
+        computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob").get();
 
         assertTimeoutPreemptively(Duration.ofSeconds(3), () -> computeComponent.stop());
     }
@@ -272,7 +289,7 @@ class ComputeComponentImplTest {
     void stoppedComponentReturnsExceptionOnRemoteExecutionAttempt() throws Exception {
         computeComponent.stop();
 
-        Object result = computeComponent.executeRemotely(remoteNode, SimpleJob.class)
+        Object result = computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob")
                 .handle((s, ex) -> ex != null ? ex : s)
                 .get();
 
@@ -283,9 +300,15 @@ class ComputeComponentImplTest {
     void remoteExecutionReleasesStopLock() throws Exception {
         respondWithExecuteResponseWhenExecuteRequestIsSent();
 
-        computeComponent.executeRemotely(remoteNode, SimpleJob.class).get();
+        computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob").get();
 
         assertTimeoutPreemptively(Duration.ofSeconds(3), () -> computeComponent.stop());
+    }
+
+    public static class RemoteJobException extends RuntimeException {
+        public RemoteJobException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     @Test
@@ -298,7 +321,8 @@ class ComputeComponentImplTest {
         String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
-                .jobClassName(SimpleJob.class.getName())
+                .deploymentUnits(testDeploymentUnitMsgs)
+                .jobClassName("org.example.SimpleJob")
                 .args(new Object[]{"a", 42})
                 .build();
         computeMessageHandlerRef.get().onReceived(request, sender, 123L);
@@ -318,7 +342,7 @@ class ComputeComponentImplTest {
 
     @Test
     void executorThreadsAreNamedAccordingly() throws Exception {
-        String threadName = computeComponent.executeLocally(GetThreadNameJob.class).get();
+        String threadName = computeComponent.<String>executeLocally(testDeploymentUnits, "org.example.GetThreadNameJob").get();
 
         assertThat(threadName, startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")));
     }
@@ -327,7 +351,7 @@ class ComputeComponentImplTest {
     void executionRejectionCausesExceptionToBeReturnedViaFuture() throws Exception {
         restrictPoolSizeTo1();
 
-        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration) {
+        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobClassLoaderFactory) {
             @Override
             BlockingQueue<Runnable> newExecutorServiceTaskQueue() {
                 return new SynchronousQueue<>();
@@ -341,13 +365,13 @@ class ComputeComponentImplTest {
         computeComponent.start();
 
         // take the only executor thread
-        computeComponent.executeLocally(LongJob.class);
+        computeComponent.executeLocally(testDeploymentUnits, "org.example.LongJob");
 
-        Object result = computeComponent.executeLocally(SimpleJob.class)
+        Exception result = (Exception) computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob")
                 .handle((res, ex) -> ex != null ? ex : res)
                 .get();
 
-        assertThat(result, is(instanceOf(RejectedExecutionException.class)));
+        assertThat(result.getCause(), is(instanceOf(RejectedExecutionException.class)));
     }
 
     private void restrictPoolSizeTo1() {
@@ -358,7 +382,7 @@ class ComputeComponentImplTest {
     void stopCausesCancellationExceptionOnLocalExecution() throws Exception {
         restrictPoolSizeTo1();
 
-        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration) {
+        computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration, jobClassLoaderFactory) {
             @Override
             long stopTimeoutMillis() {
                 return 100;
@@ -367,26 +391,26 @@ class ComputeComponentImplTest {
         computeComponent.start();
 
         // take the only executor thread
-        computeComponent.executeLocally(LongJob.class);
+        computeComponent.executeLocally(testDeploymentUnits, "org.example.LongJob");
 
         // the corresponding task goes to work queue
-        CompletableFuture<Object> resultFuture = computeComponent.executeLocally(SimpleJob.class)
+        CompletableFuture<Object> resultFuture = computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob")
                 .handle((res, ex) -> ex != null ? ex : res);
 
         computeComponent.stop();
 
         // now work queue is dropped to the floor, so the future should be resolved with a cancellation
 
-        Object result = resultFuture.get(3, TimeUnit.SECONDS);
+        Exception result = (Exception) resultFuture.get(3, TimeUnit.SECONDS);
 
-        assertThat(result, is(instanceOf(CancellationException.class)));
+        assertThat(result.getCause(), is(instanceOf(CancellationException.class)));
     }
 
     @Test
     void stopCausesCancellationExceptionOnRemoteExecution() throws Exception {
         respondWithIncompleteFutureWhenExecuteRequestIsSent();
 
-        CompletableFuture<Object> resultFuture = computeComponent.executeRemotely(remoteNode, SimpleJob.class)
+        CompletableFuture<Object> resultFuture = computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob")
                 .handle((res, ex) -> ex != null ? ex : res);
 
         computeComponent.stop();
@@ -403,7 +427,7 @@ class ComputeComponentImplTest {
 
     @Test
     void executionOfJobOfNonExistentClassResultsInException() throws Exception {
-        Object result = computeComponent.executeLocally("no-such-class")
+        Object result = computeComponent.executeLocally(testDeploymentUnits, "no-such-class")
                 .handle((res, ex) -> ex != null ? ex : res)
                 .get();
 
@@ -413,55 +437,11 @@ class ComputeComponentImplTest {
 
     @Test
     void executionOfNonJobClassResultsInException() throws Exception {
-        Object result = computeComponent.executeLocally(Object.class.getName())
+        Object result = computeComponent.executeLocally(testDeploymentUnits, Object.class.getName())
                 .handle((res, ex) -> ex != null ? ex : res)
                 .get();
 
         assertThat(result, is(instanceOf(Exception.class)));
         assertThat(((Exception) result).getMessage(), containsString("'java.lang.Object' does not implement ComputeJob interface"));
-    }
-
-    private static class SimpleJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "jobResponse";
-        }
-    }
-
-    private static class FailingJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new JobException("Oops", new Exception());
-        }
-    }
-
-    private static class JobException extends RuntimeException {
-        public JobException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    private static class GetThreadNameJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return Thread.currentThread().getName();
-        }
-    }
-
-    private static class LongJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            try {
-                Thread.sleep(1_000_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-            return null;
-        }
     }
 }

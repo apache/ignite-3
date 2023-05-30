@@ -56,6 +56,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
+import org.apache.ignite.internal.compute.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -340,11 +341,22 @@ public class IgniteImpl implements Ignite {
                 new VaultStateIds(vaultMgr)
         );
 
+
+        DeploymentConfiguration configuration = nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY);
+        Path deploymentUnitsDir = workDir.resolve(configuration.deploymentLocation().value());
+
+        JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(
+                deploymentUnitsDir,
+                unitName -> {
+                    throw new UnsupportedOperationException("LATEST version is not supported for job class loading");
+                }
+        );
+
         computeComponent = new ComputeComponentImpl(
                 this,
                 clusterSvc.messagingService(),
-                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY)
-        );
+                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
+                jobClassLoaderFactory);
 
         clock = new HybridClockImpl();
 
@@ -558,7 +570,7 @@ public class IgniteImpl implements Ignite {
 
         deploymentManager = new DeploymentManagerImpl(clusterSvc,
                 metaStorageMgr,
-                workDir,
+                deploymentUnitsDir,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr);
 

@@ -42,6 +42,17 @@ public class DeploymentUnit {
     }
 
     /**
+     * Constructor.
+     *
+     * @param name Name of the deployment unit.
+     * @param version Version of the deployment unit.
+     */
+    public DeploymentUnit(String name, String version) {
+        this.name = name;
+        this.version = Version.parseVersion(version);
+    }
+
+    /**
      * Returns name of the deployment unit.
      *
      * @return Name of the deployment unit.

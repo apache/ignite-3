@@ -35,4 +35,6 @@ public class ComputeMessageTypes {
      * Type for {@link ExecuteResponse}.
      */
     public static final short EXECUTE_RESPONSE = 1;
+
+    public static final short DEPLOYMENT_UNIT = 2;
 }

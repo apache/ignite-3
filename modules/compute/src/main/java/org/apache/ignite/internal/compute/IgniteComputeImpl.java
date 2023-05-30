@@ -20,12 +20,13 @@ package org.apache.ignite.internal.compute;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
@@ -60,20 +61,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(jobClass);
-
-        if (nodes.isEmpty()) {
-            throw new IllegalArgumentException("nodes must not be empty.");
-        }
-
-        return executeOnOneNode(randomNode(nodes), jobClass, args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
@@ -81,7 +69,7 @@ public class IgniteComputeImpl implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return executeOnOneNode(randomNode(nodes), jobClassName, args);
+        return executeOnOneNode(randomNode(nodes), units, jobClassName, args);
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -95,19 +83,16 @@ public class IgniteComputeImpl implements IgniteCompute {
         return iterator.next();
     }
 
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode targetNode, Class<? extends ComputeJob<R>> jobClass, Object[] args) {
+    private <R> CompletableFuture<R> executeOnOneNode(
+            ClusterNode targetNode,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object[] args
+    ) {
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(jobClass, args);
+            return computeComponent.executeLocally(units, jobClassName, args);
         } else {
-            return computeComponent.executeRemotely(targetNode, jobClass, args);
-        }
-    }
-
-    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode targetNode, String jobClassName, Object[] args) {
-        if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(jobClassName, args);
-        } else {
-            return computeComponent.executeRemotely(targetNode, jobClassName, args);
+            return computeComponent.executeRemotely(targetNode, units, jobClassName, args);
         }
     }
 
@@ -117,14 +102,20 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
+    public <R> CompletableFuture<R> executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
-        Objects.requireNonNull(jobClass);
+        Objects.requireNonNull(jobClassName);
 
         return requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClass, args));
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args));
     }
 
     /** {@inheritDoc} */
@@ -133,42 +124,18 @@ public class IgniteComputeImpl implements IgniteCompute {
             String tableName,
             K key,
             Mapper<K> keyMapper,
-            Class<? extends ComputeJob<R>> jobClass,
+            List<DeploymentUnit> units,
+            String jobClassName,
             Object... args
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
-        Objects.requireNonNull(jobClass);
-
-        return requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClass, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(jobClassName);
-
-        return requiredTable(tableName)
-                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
-        Objects.requireNonNull(tableName);
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(jobClassName);
 
         return requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
-                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args));
     }
 
     private CompletableFuture<TableImpl> requiredTable(String tableName) {
@@ -204,23 +171,14 @@ public class IgniteComputeImpl implements IgniteCompute {
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
             Set<ClusterNode> nodes,
-            Class<? extends ComputeJob<R>> jobClass,
+            List<DeploymentUnit> units,
+            String jobClassName,
             Object... args
     ) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(jobClass);
-
-        return nodes.stream()
-                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClass, args)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
         return nodes.stream()
-                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClassName, args)));
+                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, units, jobClassName, args)));
     }
 }
