@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -414,13 +414,13 @@ public class RebalanceUtil {
 
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
-                    List<Set<Assignment>> result = new ArrayList<>(numberOfPartitions);
+                    Set<Assignment>[] result = new Set[numberOfPartitions];
+
                     for (var entry : entries.entrySet()) {
-                        result.add(
-                                partitionKeysToPartitionNumber.get(entry.getKey()),
-                                ByteUtils.fromBytes(entry.getValue().value()));
+                        result[partitionKeysToPartitionNumber.get(entry.getKey())] = ByteUtils.fromBytes(entry.getValue().value());
                     }
-                    return result;
+
+                    return Arrays.asList(result);
                 });
     }
 }

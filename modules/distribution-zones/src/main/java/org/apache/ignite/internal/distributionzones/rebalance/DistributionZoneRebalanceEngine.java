@@ -193,34 +193,41 @@ public class DistributionZoneRebalanceEngine {
                                     metaStorageManager,
                                     tableId, distributionZoneConfiguration.partitions().value());
 
-                            for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
+                            tableAssignmentsFut.thenAccept(tbls -> {
 
-                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
+                                for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
 
-                                int replicas = distributionZoneConfiguration.replicas().value();
+                                    TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
-                                int partId = part;
+                                    int replicas = distributionZoneConfiguration.replicas().value();
 
-                                tableAssignmentsFut.thenCompose(tableAssignments ->
-                                        updatePendingAssignmentsKeys(
-                                                tableView.name(),
-                                                replicaGrpId,
-                                                filteredDataNodes,
-                                                replicas,
-                                                evt.entryEvent().newEntry().revision(),
-                                                metaStorageManager,
-                                                partId,
-                                                tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(partId)
-                                        ).exceptionally(e -> {
-                                            LOG.error(
-                                                    "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
-                                                    partId
-                                            );
+                                    int partId = part;
 
-                                            return null;
-                                        })
-                                );
-                            }
+                                    updatePendingAssignmentsKeys(
+                                            tableView.name(),
+                                            replicaGrpId,
+                                            filteredDataNodes,
+                                            replicas,
+                                            evt.entryEvent().newEntry().revision(),
+                                            metaStorageManager,
+                                            partId,
+                                            tbls.isEmpty() ? Collections.emptySet() : tbls.get(partId)
+                                    ).exceptionally(e -> {
+                                        LOG.error(
+                                                "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                                partId
+                                        );
+
+                                        return null;
+                                    });
+
+                                }
+                            }).exceptionally(e -> {
+                                LOG.error("Exception on receiving table assignments from metastore for table={}",
+                                        e, tableView.name());
+
+                                return null;
+                            });
                         }
                     }
 
