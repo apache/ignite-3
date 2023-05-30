@@ -59,7 +59,7 @@ public class PartitionDataHelper implements ManuallyCloseable {
     private static final int TX_ID_SIZE = 2 * Long.BYTES;
 
     /** Commit table id size (part of the transaction state). */
-    private static final int TABLE_ID_SIZE = 2 * Long.BYTES;
+    private static final int TABLE_ID_SIZE = Integer.BYTES;
 
     /** Size of the value header (transaction state). */
     static final int VALUE_HEADER_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;

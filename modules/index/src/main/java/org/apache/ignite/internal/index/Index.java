@@ -34,13 +34,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface Index<DescriptorT extends IndexDescriptor> {
     /** Returns identifier of the index. */
-    UUID id();
+    int id();
 
     /** Returns name of the index. */
     String name();
 
     /** Returns table id index belong to. */
-    UUID tableId();
+    int tableId();
 
     /** Returns index descriptor. */
     DescriptorT descriptor();

@@ -79,7 +79,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
         /// <param name="sql">SQL.</param>
-        public Table(string name, Guid id, ClientFailoverSocket socket, Sql sql)
+        public Table(string name, int id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
             _sql = sql;
@@ -121,7 +121,7 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Gets the table id.
         /// </summary>
-        internal Guid Id { get; }
+        internal int Id { get; }
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()

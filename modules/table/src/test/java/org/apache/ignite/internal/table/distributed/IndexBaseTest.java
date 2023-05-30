@@ -89,9 +89,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp(@InjectConfiguration DataStorageConfiguration dsCfg) {
-        UUID pkIndexId = UUID.randomUUID();
-        UUID sortedIndexId = UUID.randomUUID();
-        UUID hashIndexId = UUID.randomUUID();
+        int pkIndexId = 1;
+        int sortedIndexId = 2;
+        int hashIndexId = 3;
 
         pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, null);
 
@@ -125,7 +125,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
 
-        Map<UUID, TableSchemaAwareIndexStorage> indexes = Map.of(
+        Map<Integer, TableSchemaAwareIndexStorage> indexes = Map.of(
                 pkIndexId, pkStorage,
                 sortedIndexId, sortedIndexStorage,
                 hashIndexId, hashIndexStorage
@@ -158,7 +158,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-        TablePartitionId partitionId = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
         handler.handleUpdate(
                 TX_ID,
@@ -249,7 +249,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         };
 
         void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-            TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+            TablePartitionId tablePartitionId = new TablePartitionId(444, PARTITION_ID);
 
             addWrite(handler, tablePartitionId, rowUuid, row);
         }

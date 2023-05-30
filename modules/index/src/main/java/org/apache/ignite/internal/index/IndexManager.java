@@ -27,11 +27,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -47,8 +47,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
@@ -72,6 +71,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -201,7 +201,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             // Check index existence flag, avoid usage of hasCause + IndexAlreadyExistsException.
             AtomicBoolean idxExist = new AtomicBoolean(false);
 
-            tablesCfg.indexes().change(indexListChange -> {
+            tablesCfg.change(tablesChange -> tablesChange.changeIndexes(indexListChange -> {
                 idxExist.set(false);
 
                 if (indexListChange.get(indexName) != null) {
@@ -210,20 +210,22 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     throw new IndexAlreadyExistsException(schemaName, indexName);
                 }
 
-                TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
+                TableView tableCfg = tablesChange.tables().get(tableName);
 
                 if (tableCfg == null) {
                     throw new TableNotFoundException(schemaName, tableName);
                 }
 
-                ExtendedTableConfiguration exTableCfg = ((ExtendedTableConfiguration) tableCfg);
+                int tableId = tableCfg.id();
 
-                final UUID tableId = exTableCfg.id().value();
+                int indexId = tablesChange.globalIdCounter() + 1;
 
-                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId));
+                tablesChange.changeGlobalIdCounter(indexId);
+
+                Consumer<TableIndexChange> chg = indexChange.andThen(c -> c.changeTableId(tableId).changeId(indexId));
 
                 indexListChange.create(indexName, chg);
-            }).whenComplete((index, th) -> {
+            })).whenComplete((index, th) -> {
                 if (th != null) {
                     LOG.debug("Unable to create index [schema={}, table={}, index={}]",
                             th, schemaName, tableName, indexName);
@@ -330,13 +332,15 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
-        UUID targetTableId = null;
+        Integer targetTableId = null;
+
+        NamedListView<TableView> tablesView = tablesCfg.tables().value();
 
         for (TableIndexView cfg : tablesCfg.indexes().value()) {
             if (targetTableId == null) {
-                TableConfiguration tbl = tablesCfg.tables().get(cfg.tableId());
+                TableView tbl = findTableView(cfg.tableId(), tablesView);
 
-                if (tbl == null || !tableName.equals(tbl.name().value())) {
+                if (tbl == null || !tableName.equals(tbl.name())) {
                     continue;
                 }
 
@@ -349,6 +353,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         return res;
+    }
+
+    @Nullable
+    private static TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
+        for (TableView tableView : tablesView) {
+            if (tableView.id() == tableId) {
+                return tableView;
+            }
+        }
+
+        return null;
     }
 
     private void validateName(String indexName) {
@@ -369,9 +384,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
         TableIndexView tableIndexView = evt.oldValue();
 
-        UUID idxId = tableIndexView.id();
+        int idxId = tableIndexView.id();
 
-        UUID tableId = tableIndexView.tableId();
+        int tableId = tableIndexView.tableId();
 
         long causalityToken = evt.storageRevision();
 
@@ -407,10 +422,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
-        UUID tableId = evt.newValue().tableId();
+        int tableId = evt.newValue().tableId();
 
         if (!busyLock.enterBusy()) {
-            UUID idxId = evt.newValue().id();
+            int idxId = evt.newValue().id();
 
             fireEvent(IndexEvent.CREATE,
                     new IndexEventParameters(evt.storageRevision(), tableId, idxId),
@@ -429,13 +444,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<?> createIndexLocally(
             long causalityToken,
-            UUID tableId,
+            int tableId,
             TableIndexView tableIndexView,
             TablesView tablesView
     ) {
         assert tableIndexView != null;
 
-        UUID indexId = tableIndexView.id();
+        int indexId = tableIndexView.id();
 
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), indexId, tableId, causalityToken);

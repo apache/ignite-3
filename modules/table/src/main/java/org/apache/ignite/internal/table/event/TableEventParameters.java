@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.event;
 
-import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
 
 /**
@@ -25,7 +24,7 @@ import org.apache.ignite.internal.manager.EventParameters;
  */
 public class TableEventParameters extends EventParameters {
     /** Table identifier. */
-    private final UUID tableId;
+    private final int tableId;
 
     /**
      * Constructor.
@@ -33,7 +32,7 @@ public class TableEventParameters extends EventParameters {
      * @param causalityToken Causality token.
      * @param tableId   Table identifier.
      */
-    public TableEventParameters(long causalityToken, UUID tableId) {
+    public TableEventParameters(long causalityToken, int tableId) {
         super(causalityToken);
         this.tableId = tableId;
     }
@@ -43,7 +42,7 @@ public class TableEventParameters extends EventParameters {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 }

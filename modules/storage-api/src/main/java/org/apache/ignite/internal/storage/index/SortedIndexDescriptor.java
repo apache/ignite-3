@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Descriptor for creating a Sorted Index Storage.
@@ -109,7 +109,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
         }
     }
 
-    private final UUID id;
+    private final int id;
 
     private final List<SortedIndexColumnDescriptor> columns;
 
@@ -121,7 +121,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
      * @param indexId Index ID.
      * @param tablesConfig Tables configuration.
      */
-    public SortedIndexDescriptor(UUID indexId, TablesView tablesConfig) {
+    public SortedIndexDescriptor(int indexId, TablesView tablesConfig) {
         this(indexId, extractIndexColumnsConfiguration(indexId, tablesConfig));
     }
 
@@ -131,14 +131,17 @@ public class SortedIndexDescriptor implements IndexDescriptor {
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
      */
-    public SortedIndexDescriptor(UUID indexId, List<SortedIndexColumnDescriptor> columnDescriptors) {
+    public SortedIndexDescriptor(int indexId, List<SortedIndexColumnDescriptor> columnDescriptors) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
     }
 
-    private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TablesView tablesConfig) {
-        TableIndexView indexConfig = tablesConfig.indexes().get(indexId);
+    private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(int indexId, TablesView tablesConfig) {
+        TableIndexView indexConfig = tablesConfig.indexes().stream()
+                .filter(tableIndexView -> tableIndexView.id() == indexId)
+                .findFirst()
+                .orElse(null);
 
         if (indexConfig == null) {
             throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
@@ -151,7 +154,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
             ));
         }
 
-        TableView tableConfig = tablesConfig.tables().get(indexConfig.tableId());
+        TableView tableConfig = findTableById(indexConfig.tableId(), tablesConfig.tables());
 
         if (tableConfig == null) {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
@@ -180,8 +183,18 @@ public class SortedIndexDescriptor implements IndexDescriptor {
         return BinaryTupleSchema.create(elements);
     }
 
+    private @Nullable static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
+        for (TableView table : tablesView) {
+            if (table.id() == tableId) {
+                return table;
+            }
+        }
+
+        return null;
+    }
+
     @Override
-    public UUID id() {
+    public int id() {
         return id;
     }
 

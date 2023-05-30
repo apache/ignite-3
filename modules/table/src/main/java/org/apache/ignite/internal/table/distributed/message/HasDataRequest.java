@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.message;
 
-import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -28,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(TableMessageGroup.HAS_DATA_REQUEST)
 public interface HasDataRequest extends NetworkMessage {
     /** ID of the table. */
-    UUID tableId();
+    int tableId();
 
     /** ID of the partition. */
     int partitionId();

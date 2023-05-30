@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -24,6 +25,9 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
@@ -31,11 +35,20 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests the conversion of a sql zone definition to a command.
  */
 public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
+
+    private static final List<String> NUMERIC_OPTIONS = Arrays.asList("PARTITIONS", "REPLICAS", "DATA_NODES_AUTO_ADJUST",
+            "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
+
+    private static final List<String> STRING_OPTIONS = Arrays.asList("AFFINITY_FUNCTION", "DATA_NODES_FILTER", "DATA_STORAGE_ENGINE");
+
     @Test
     public void testCreateZone() throws SqlParseException {
         SqlNode node = parse("CREATE ZONE test");
@@ -147,6 +160,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     public void testAlterZoneSetCommand() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE test SET "
                 + "replicas=3, "
+                + "partitions=8, "
                 + "data_nodes_filter='\"attr1\" && \"attr2\"', "
                 + "data_nodes_auto_adjust_scale_up=100, "
                 + "data_nodes_auto_adjust_scale_down=200, "
@@ -159,6 +173,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(zoneCmd.zoneName(), equalTo("TEST"));
 
         assertThat(zoneCmd.replicas(), equalTo(3));
+        assertThat(zoneCmd.partitions(), equalTo(8));
         assertThat(zoneCmd.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
         assertThat(zoneCmd.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(zoneCmd.dataNodesAutoAdjustScaleDown(), equalTo(200));
@@ -198,6 +213,54 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(zoneCmd.zoneName(), equalTo("TEST"));
     }
 
+    @ParameterizedTest
+    @MethodSource("numericOptions")
+    public void createZoneWithInvalidNumericOptionValue(String optionName) throws Exception {
+        SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}", optionName, "'bar'"));
+        expectInvalidOptionType(node, optionName);
+    }
+
+    @Test
+    public void createZoneWithUnexpectedOption() throws SqlParseException {
+        SqlDdl node = (SqlDdl) parse("create zone test_zone with ABC=1");
+        expectUnexpectedOption(node, "ABC");
+    }
+
+    @ParameterizedTest
+    @MethodSource("stringOptions")
+    public void createZoneWithInvalidStringOptionValue(String optionName) throws Exception {
+        SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}", optionName, "1"));
+        expectInvalidOptionType(node, optionName);
+    }
+
+    @ParameterizedTest
+    @MethodSource("numericOptions")
+    public void alterZoneWithInvalidNumericOptionValue(String optionName) throws Exception {
+        SqlDdl node = (SqlDdl) parse(format("alter zone test_zone set {}={}", optionName, "'bar'"));
+        expectInvalidOptionType(node, optionName);
+    }
+
+    @Test
+    public void alterZoneWithUnexpectedOption() throws SqlParseException {
+        SqlDdl node = (SqlDdl) parse("alter zone test_zone set ABC=1");
+        expectUnexpectedOption(node, "ABC");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = "DATA_NODES_FILTER")
+    public void alterZoneWithInvalidStringOptionValue(String optionName) throws Exception {
+        SqlDdl node = (SqlDdl) parse(format("alter zone test_zone set {}={}", optionName, "1"));
+        expectInvalidOptionType(node, optionName);
+    }
+
+    private static Stream<String> numericOptions() {
+        return NUMERIC_OPTIONS.stream();
+    }
+
+    private static Stream<String> stringOptions() {
+        return STRING_OPTIONS.stream();
+    }
+
     private void expectOptionValidationError(SqlDdl node, String invalidOption) {
         IgniteException ex = assertThrows(
                 IgniteException.class,
@@ -208,6 +271,26 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(ex.getMessage(), containsString("Zone option validation failed [option=" + invalidOption));
     }
 
+    private void expectInvalidOptionType(SqlDdl node, String invalidOption) {
+        IgniteException ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert(node, createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.getMessage(), containsString("Invalid zone option type [option=" + invalidOption));
+    }
+
+    private void expectUnexpectedOption(SqlDdl node, String invalidOption) {
+        IgniteException ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert(node, createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.getMessage(), containsString("Unexpected zone option [option=" + invalidOption));
+    }
+
     private void expectDuplicateOptionError(SqlDdl node, String option) {
         IgniteException ex = assertThrows(
                 IgniteException.class,
@@ -215,6 +298,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
 
         assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
-        assertThat(ex.getMessage(), containsString("Duplicate DDL command option has been specified [option=" + option));
+        assertThat(ex.getMessage(), containsString("Duplicate zone option has been specified [option=" + option));
     }
 }

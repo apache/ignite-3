@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 
 import java.nio.ByteBuffer;
-import java.util.UUID;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -93,12 +92,9 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
         this.descriptor = descriptor;
         this.indexCf = indexCf;
 
-        UUID indexId = descriptor.id();
-
         this.constantPrefix = ByteBuffer.allocate(INDEX_ID_SIZE + PARTITION_ID_SIZE)
                 .order(KEY_BYTE_ORDER)
-                .putLong(indexId.getMostSignificantBits())
-                .putLong(indexId.getLeastSignificantBits())
+                .putInt(descriptor.id())
                 .putShort((short) helper.partitionId())
                 .array();
     }

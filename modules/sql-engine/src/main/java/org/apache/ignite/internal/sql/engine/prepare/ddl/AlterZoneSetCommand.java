@@ -27,6 +27,9 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
     /** Quietly ignore this command if zone does not exists. */
     private boolean ifExists;
 
+    /** Number of partitions. */
+    private Integer partitions;
+
     /** Replicas number. */
     private Integer replicas;
 
@@ -48,6 +51,14 @@ public class AlterZoneSetCommand extends AbstractZoneDdlCommand {
 
     public void ifExists(boolean ifExists) {
         this.ifExists = ifExists;
+    }
+
+    @Nullable public Integer partitions() {
+        return partitions;
+    }
+
+    public void partitions(Integer partitions) {
+        this.partitions = partitions;
     }
 
     @Nullable public Integer replicas() {

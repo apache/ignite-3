@@ -378,13 +378,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         cluster.remove(leaderNode);
 
         // Wait for a new leader to be elected.
-        Awaitility.await().until(() -> findLeaderNode(cluster).isPresent());
-
-        // Find the new CMG leader.
-        MockNode newLeaderNode = findLeaderNode(cluster).orElseThrow();
+        MockNode newLeaderNode = Awaitility.await()
+                .until(() -> findLeaderNode(cluster), Optional::isPresent)
+                .get();
 
         // Check the new leader cancels the action.
-        assertThat(newLeaderNode.clusterManager().clusterConfigurationToUpdate(), willThrow(CancellationException.class));
+        assertThat(
+                newLeaderNode.clusterManager().clusterConfigurationToUpdate(),
+                willThrow(CancellationException.class, 5, TimeUnit.SECONDS)
+        );
     }
 
     @Test

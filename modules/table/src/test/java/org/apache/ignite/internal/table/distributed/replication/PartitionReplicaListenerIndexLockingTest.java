@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -104,10 +105,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ExtendWith(ConfigurationExtension.class)
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
-    private static final UUID TABLE_ID = new UUID(0L, 0L);
-    private static final UUID PK_INDEX_ID = new UUID(0L, 1L);
-    private static final UUID HASH_INDEX_ID = new UUID(0L, 2L);
-    private static final UUID SORTED_INDEX_ID = new UUID(0L, 3L);
+    private static final int TABLE_ID = 1;
+    private static final int PK_INDEX_ID = 1;
+    private static final int HASH_INDEX_ID = 2;
+    private static final int SORTED_INDEX_ID = 3;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final LockManager LOCK_MANAGER = new HeapLockManager();
@@ -262,17 +263,17 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 allOf(
                         hasItem(lockThat(
                                 arg.expectedLockOnUniqueHash + " on unique hash index",
-                                lock -> PK_INDEX_ID.equals(lock.lockKey().contextId())
+                                lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
                                         && lock.lockMode() == arg.expectedLockOnUniqueHash
                         )),
                         hasItem(lockThat(
                                 arg.expectedLockOnNonUniqueHash + " on non unique hash index",
-                                lock -> HASH_INDEX_ID.equals(lock.lockKey().contextId())
+                                lock -> Objects.equals(HASH_INDEX_ID, lock.lockKey().contextId())
                                         && lock.lockMode() == arg.expectedLockOnNonUniqueHash
                         )),
                         hasItem(lockThat(
                                 arg.expectedLockOnSort + " on sorted index",
-                                lock -> SORTED_INDEX_ID.equals(lock.lockKey().contextId())
+                                lock -> Objects.equals(SORTED_INDEX_ID, lock.lockKey().contextId())
                                         && lock.lockMode() == arg.expectedLockOnSort
                         ))
                 )
@@ -309,19 +310,19 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                     allOf(
                             hasItem(lockThat(
                                     arg.expectedLockOnUniqueHash + " on unique hash index",
-                                    lock -> PK_INDEX_ID.equals(lock.lockKey().contextId())
+                                    lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
                                             && row2HashKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnUniqueHash
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnNonUniqueHash + " on non unique hash index",
-                                    lock -> HASH_INDEX_ID.equals(lock.lockKey().contextId())
+                                    lock -> Objects.equals(HASH_INDEX_ID, lock.lockKey().contextId())
                                             && row2HashKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnNonUniqueHash
                             )),
                             hasItem(lockThat(
                                     arg.expectedLockOnSort + " on sorted index",
-                                    lock -> SORTED_INDEX_ID.equals(lock.lockKey().contextId())
+                                    lock -> Objects.equals(SORTED_INDEX_ID, lock.lockKey().contextId())
                                             && row2SortKeyConverter.apply(row).byteBuffer().equals(lock.lockKey().key())
                                             && lock.lockMode() == arg.expectedLockOnSort
                             ))

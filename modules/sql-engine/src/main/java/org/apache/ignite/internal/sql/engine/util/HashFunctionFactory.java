@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.UUID;
-
 /**
  * Factory for creating a function to calculate the hash of the specified fields of the row.
  */
@@ -54,5 +52,5 @@ public interface HashFunctionFactory<T> {
      * @param tableId Table ID.
      * @return Function to compute a composite hash of a row, given the types and values of the fields.
      */
-    RowHashFunction<T> create(int[] fields, UUID tableId);
+    RowHashFunction<T> create(int[] fields, int tableId);
 }
