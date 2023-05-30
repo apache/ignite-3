@@ -418,7 +418,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     );
 
                     eventFutures.add(fireEvent(
-                            CatalogEvent.COLUMN_ADD,
+                            CatalogEvent.TABLE_ALTER,
                             new AddColumnEventParameters(version, tableId, columnDescriptors)
                     ));
                 } else if (entry instanceof DropColumnsEntry) {
@@ -450,7 +450,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     );
 
                     eventFutures.add(fireEvent(
-                            CatalogEvent.COLUMN_DROP,
+                            CatalogEvent.TABLE_ALTER,
                             new DropColumnEventParameters(version, tableId, columns)
                     ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {

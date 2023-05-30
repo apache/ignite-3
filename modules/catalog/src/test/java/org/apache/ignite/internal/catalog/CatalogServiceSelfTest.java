@@ -672,8 +672,7 @@ public class CatalogServiceSelfTest {
         EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
-        service.listen(CatalogEvent.COLUMN_ADD, eventListener);
-        service.listen(CatalogEvent.COLUMN_DROP, eventListener);
+        service.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
         // Try to add column without table.
         assertThat(service.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
