@@ -26,9 +26,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventListener;
@@ -58,7 +59,7 @@ public class DeploymentUnitStoreImplTest {
 
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
-    private final Set<UnitNodeStatus> history = ConcurrentHashMap.newKeySet();
+    private final List<UnitNodeStatus> history = Collections.synchronizedList(new ArrayList<>());
 
     private final NodeEventListener listener = (status, holders) -> history.add(status);
 
