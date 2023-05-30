@@ -406,7 +406,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeTuples(null, items, s, w, false),
                 r -> null,
-                PartitionAwarenessProvider.of(ch.protocolContext().clusterNode().id()),
+                PartitionAwarenessProvider.of(ch),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         //noinspection resource

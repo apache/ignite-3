@@ -484,10 +484,6 @@ public class ClientTable implements Table {
             return null;
         }
 
-        if (provider.nodeId() != null) {
-            return provider.nodeId();
-        }
-
         if (partitions == null || partitions.isEmpty()) {
             return null;
         }

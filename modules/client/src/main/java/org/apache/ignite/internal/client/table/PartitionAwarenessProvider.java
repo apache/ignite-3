@@ -33,45 +33,28 @@ class PartitionAwarenessProvider {
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private final @Nullable String nodeId;
-
-    private PartitionAwarenessProvider(
-            @Nullable ClientChannel channel,
-            @Nullable Function<ClientSchema, Integer> hashFunc,
-            @Nullable String nodeId) {
-        assert (channel != null && hashFunc == null && nodeId == null) ||
-                (channel == null && hashFunc != null && nodeId == null) ||
-                (channel == null && hashFunc == null && nodeId != null)
-                : "One and only one must be not null: channel, hashFunc, nodeId";
+    private PartitionAwarenessProvider(@Nullable ClientChannel channel, @Nullable Function<ClientSchema, Integer> hashFunc) {
+        assert (channel == null) ^ (hashFunc == null) : "One must be null, another not null: channel, hashFunc";
 
         this.channel = channel;
         this.hashFunc = hashFunc;
-        this.nodeId = nodeId;
     }
 
     public static PartitionAwarenessProvider of(ClientChannel channel) {
-        return new PartitionAwarenessProvider(channel, null, null);
+        return new PartitionAwarenessProvider(channel, null);
     }
 
     public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(null, hashFunc, null);
-    }
-
-    public static PartitionAwarenessProvider of(String nodeId) {
-        return new PartitionAwarenessProvider(null, null, nodeId);
+        return new PartitionAwarenessProvider(null, hashFunc);
     }
 
     @Nullable ClientChannel channel() {
         return channel;
     }
 
-    @Nullable String nodeId() {
-        return nodeId;
-    }
-
     Integer getObjectHashCode(ClientSchema schema) {
         if (hashFunc == null) {
-            throw new IllegalStateException("Partition awareness is not enabled. Check channel() and nodeId() first.");
+            throw new IllegalStateException("Partition awareness is not enabled. Check channel() first.");
         }
 
         return hashFunc.apply(schema);
