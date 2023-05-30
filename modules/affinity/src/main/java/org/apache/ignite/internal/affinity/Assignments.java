@@ -85,8 +85,8 @@ public class Assignments {
         int idx = 0;
         for (Set<Assignment> assignmentSet : assignments) {
             for (Assignment a : assignmentSet) {
-                if (!consistentIds.containsKey(a.consistentId())) {
-                    consistentIds.put(a.consistentId(), idx++);
+                if (consistentIds.putIfAbsent(a.consistentId(), idx) == null) {
+                    idx++;
                 }
             }
         }
@@ -177,10 +177,13 @@ public class Assignments {
         ByteBuffer buf = ByteBuffer.wrap(bytes);
 
         short length = buf.getShort();
+        assert length >= 0 : "Negative collection size: " + length;
+
         List<T> result = new ArrayList<>(length);
 
         for (int i = 0; i < length; i++) {
             short size = buf.getShort();
+            assert size >= 0 : "Negative object size: " + size + ", index=" + i;
             byte[] arr = new byte[size];
             buf.get(arr);
             result.add(transform.apply(arr));
