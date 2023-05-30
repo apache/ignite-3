@@ -64,6 +64,7 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -113,7 +114,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -332,7 +332,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     assignment.add(new HashSet<>(Collections.singleton(Assignment.forPeer(node.name()))));
                 }
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
+                extConfCh.changeAssignments(new Assignments(assignment).bytes()).changeSchemaId(1);
             });
         }).join();
 
@@ -703,10 +703,10 @@ public class TableManagerTest extends IgniteAbstractTest {
                             SchemaConfigurationConverter.convert(scmTbl, tableChange);
 
                             // Trigger "onUpdateAssignments"
-                            var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
+                            var assignments = new Assignments(List.of(Set.of(Assignment.forPeer(NODE_NAME))));
 
                             ((ExtendedTableChange) tableChange)
-                                    .changeAssignments(ByteUtils.toBytes(assignments))
+                                    .changeAssignments(assignments.bytes())
                                     .changeSchemaId(1);
                         }));
 
