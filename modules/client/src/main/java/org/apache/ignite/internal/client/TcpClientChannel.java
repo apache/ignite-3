@@ -57,6 +57,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -635,6 +636,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         } else {
             throw new IllegalArgumentException("Unsupported authentication object type: " + obj.getClass().getName());
         }
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(TcpClientChannel.class.getSimpleName(), "remoteAddress", sock.remoteAddress(), false);
     }
 
     /**
