@@ -38,6 +38,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -46,6 +47,21 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Data streamer test.
  */
 public class DataStreamerTest extends AbstractClientTableTest {
+    private IgniteClient client2;
+
+    private TestServer testServer2;
+
+    @AfterEach
+    public void afterEach() throws Exception {
+        if (client2 != null) {
+            client2.close();
+        }
+
+        if (testServer2 != null) {
+            testServer2.close();
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
     public void testBasicStreaming(int batchSize) {
@@ -97,33 +113,32 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var server2 = new FakeIgnite("server-2");
 
         Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 500 : 0;
-        var testServer2 = new TestServer(10900, 10, 10_000, server2, idx -> false, responseDelay, null, UUID.randomUUID(), null);
+        testServer2 = new TestServer(10900, 10, 10_000, server2, idx -> false, responseDelay, null, UUID.randomUUID(), null);
 
         var port = testServer2.port();
 
-        try (var client2 = IgniteClient.builder().addresses("localhost:" + port).build()) {
-            RecordView<Tuple> view = defaultTableView(server2, client2);
+        client2 = IgniteClient.builder().addresses("localhost:" + port).build();
+        RecordView<Tuple> view = defaultTableView(server2, client2);
 
-            var bufferSize = 2;
-            var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
+        var bufferSize = 2;
+        var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
 
-            var options = DataStreamerOptions.builder()
-                    .batchSize(bufferSize)
-                    .perNodeParallelOperations(1)
-                    .build();
+        var options = DataStreamerOptions.builder()
+                .batchSize(bufferSize)
+                .perNodeParallelOperations(1)
+                .build();
 
-            var streamFut = view.streamData(publisher, options);
+        var streamFut = view.streamData(publisher, options);
 
-            var submitFut = CompletableFuture.runAsync(() -> {
-                for (long i = 0; i < 10; i++) {
-                    publisher.submit(tuple(i, "foo_" + i));
-                }
-            });
+        var submitFut = CompletableFuture.runAsync(() -> {
+            for (long i = 0; i < 10; i++) {
+                publisher.submit(tuple(i, "foo_" + i));
+            }
+        });
 
-            // Due to `responseDelay` above, `publisher.submit` is blocking when buffer is full => submitFut can't complete in 200 ms.
-            assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
-            assertFalse(streamFut.isDone());
-        }
+        // Due to `responseDelay` above, `publisher.submit` is blocking when buffer is full => submitFut can't complete in 200 ms.
+        assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
+        assertFalse(streamFut.isDone());
     }
 
     @Test
@@ -142,7 +157,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         Function<Integer, Integer> responseDelay = idx -> 0;
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
-        var testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+        testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         Builder builder = IgniteClient.builder()
@@ -151,32 +166,31 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 .reconnectThrottlingPeriod(0)
                 .loggerFactory(new ConsoleLoggerFactory("client-2"));
 
-        try (var client2 = builder.build()) {
-            RecordView<Tuple> view = defaultTableView(server2, client2);
-            CompletableFuture<Void> streamFut;
+        client2 = builder.build();
+        RecordView<Tuple> view = defaultTableView(server2, client2);
+        CompletableFuture<Void> streamFut;
 
-            try (var publisher = new SubmissionPublisher<Tuple>()) {
-                var options = DataStreamerOptions.builder()
-                        .batchSize(2)
-                        .perNodeParallelOperations(1)
-                        .retryLimit(10)
-                        .build();
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder()
+                    .batchSize(2)
+                    .perNodeParallelOperations(1)
+                    .retryLimit(10)
+                    .build();
 
-                streamFut = view.streamData(publisher, options);
-
-                for (long i = 0; i < 100; i++) {
-                    publisher.submit(tuple(i, "foo_" + i));
-                }
-            }
-
-            streamFut.get(1000, TimeUnit.SECONDS);
-
-            // TODO: streamFut.get is not enough - we do not await all batches properly, something is broken?
-            // Thread.sleep(1000);
+            streamFut = view.streamData(publisher, options);
 
             for (long i = 0; i < 100; i++) {
-                assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
+                publisher.submit(tuple(i, "foo_" + i));
             }
+        }
+
+        streamFut.get(1000, TimeUnit.SECONDS);
+
+        // TODO: streamFut.get is not enough - we do not await all batches properly, something is broken?
+        Thread.sleep(5000);
+
+        for (long i = 0; i < 100; i++) {
+            assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
         }
     }
 
