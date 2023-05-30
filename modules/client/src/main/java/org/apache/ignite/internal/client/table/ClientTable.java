@@ -284,7 +284,8 @@ public class ClientTable implements Table {
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
                             null,
-                            preferredNodeId);
+                            preferredNodeId,
+                            null);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
@@ -323,7 +324,8 @@ public class ClientTable implements Table {
                                 return reader.apply(r.in());
                             },
                             null,
-                            preferredNodeId);
+                            preferredNodeId,
+                            null);
                 });
     }
 
