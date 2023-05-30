@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -429,6 +428,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
+        int globalIndexId = 1;
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
@@ -446,7 +447,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int partId = p;
 
-                UUID indexId = UUID.randomUUID();
+                int indexId = globalIndexId++;
 
                 Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 

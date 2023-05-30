@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.sql.SqlLiteral;
@@ -39,17 +38,12 @@ import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.apache.ignite.sql.SqlException;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite to verify parsing of the DDL "ZONE" commands.
  */
 public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
-
-    private static final List<String> NUMERIC_OPTIONS = Arrays.asList("PARTITIONS", "REPLICAS", "DATA_NODES_AUTO_ADJUST",
-            "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN", "DATA_STORAGE_ENGINE");
-    private static final List<String> STRING_OPTIONS = Arrays.asList("AFFINITY_FUNCTION", "DATA_NODES_FILTER");
 
     /**
      * Parse simple CREATE ZONE statement.
@@ -120,26 +114,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
                 + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3");
-    }
-
-    /**
-     * Parse CREATE ZONE WITH unknown option.
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19261")
-    public void createZoneWithInvalidOptions() {
-        // Unknown option.
-        assertThrows(SqlException.class, () -> parseCreateZone("create zone test_zone with foo='bar'"));
-
-        // Invalid option type.
-        String query = "create zone test_zone with %s=%s";
-
-        for (String optName : NUMERIC_OPTIONS) {
-            assertSqlParseError(String.format(query, optName, "'bar'"), optName);
-        }
-
-        for (String optName : STRING_OPTIONS) {
-            assertSqlParseError(String.format(query, optName, "1"), optName);
-        }
     }
 
     /**
@@ -273,33 +247,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
-     * Parses ALTER ZONE WITH invalid options.
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19261")
-    public void alterZoneSetInvalidOptions() {
-        String query = "alter zone test_zone set %s=%s";
-
-        // invalid option
-
-        assertThrows(SqlException.class, () -> parse(String.format(query, "foo", "'bar'")));
-
-        // invalid option values
-
-        for (String optName : NUMERIC_OPTIONS) {
-            assertSqlParseError(String.format(query, optName, "'bar'"), optName);
-        }
-
-        for (String optName : STRING_OPTIONS) {
-            assertSqlParseError(String.format(query, optName, "1"), optName);
-        }
-
-        // non modifiable options can only be set in CREATE ZONE.
-
-        assertSqlParseError(String.format(query, "PARTITIONS", 2), "partitions");
-        assertSqlParseError(String.format(query, "AFFINITY_FUNCTION", "'function'"), "affinity_function");
-    }
-
-    /**
      * Parse CREATE ZONE statement.
      *
      * @param stmt Create zone query.
@@ -337,10 +284,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         node.unparse(w, 0, 0);
 
         assertThat(w.toString(), equalTo(expectedStmt));
-    }
-
-    private void assertSqlParseError(String stmt, String name) {
-        assertThrows(SqlException.class, () -> parse(stmt), name);
     }
 
     private void assertThatZoneOptionPresent(List<SqlNode> optionList, ZoneOptionEnum name, Object expVal) {

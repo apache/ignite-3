@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -77,7 +76,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final Map<Integer, CompletableFuture<?>> pkIdxReady = new ConcurrentHashMap<>();
 
-    private final IncrementalVersionedValue<Map<UUID, IgniteIndex>> indicesVv;
+    private final IncrementalVersionedValue<Map<Integer, IgniteIndex>> indicesVv;
 
     private final TableManager tableManager;
     private final SchemaManager schemaManager;
@@ -412,13 +411,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      * @return Schema registration future.
      */
-    public CompletableFuture<?> onIndexCreated(int tableId, UUID indexId, IndexDescriptor indexDescriptor, long causalityToken) {
+    public CompletableFuture<?> onIndexCreated(int tableId, int indexId, IndexDescriptor indexDescriptor, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
 
         try {
-            CompletableFuture<Map<UUID, IgniteIndex>> updatedIndices = indicesVv.update(causalityToken, (indices, e) ->
+            CompletableFuture<Map<Integer, IgniteIndex>> updatedIndices = indicesVv.update(causalityToken, (indices, e) ->
                     inBusyLock(busyLock, () -> {
                         if (e != null) {
                             return failedFuture(e);
@@ -427,7 +426,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> {
                             var igniteIndex = new IgniteIndex(newIndex(table, indexId, indexDescriptor));
 
-                            Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                            Map<Integer, IgniteIndex> resIdxs = new HashMap<>(indices);
 
                             resIdxs.put(indexId, igniteIndex);
 
@@ -491,7 +490,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
-    private static Index<?> newIndex(TableImpl table, UUID indexId, IndexDescriptor descriptor) {
+    private static Index<?> newIndex(TableImpl table, int indexId, IndexDescriptor descriptor) {
         if (descriptor instanceof SortedIndexDescriptor) {
             return new SortedIndexImpl(indexId, table, (SortedIndexDescriptor) descriptor);
         } else {
@@ -507,7 +506,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      * @return Schema registration future.
      */
-    public CompletableFuture<?> onIndexDropped(String schemaName, int tableId, UUID indexId, long causalityToken) {
+    public CompletableFuture<?> onIndexDropped(String schemaName, int tableId, int indexId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -522,7 +521,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     return failedFuture(e);
                 }
 
-                Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                Map<Integer, IgniteIndex> resIdxs = new HashMap<>(indices);
 
                 IgniteIndex rmvIdx = resIdxs.remove(indexId);
 

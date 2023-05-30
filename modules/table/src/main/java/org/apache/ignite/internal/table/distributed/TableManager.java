@@ -74,7 +74,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -1111,7 +1110,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(collectTableIndexes(tblId));
+        table.addIndexesToWait(collectTableIndexIds(tblId));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -2384,20 +2383,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private Collection<UUID> collectTableIndexes(int tableId) {
-        NamedListView<? extends TableIndexView> indexes = tablesCfg.value().indexes();
-
-        List<UUID> indexIds = new ArrayList<>();
-
-        for (int i = 0; i < indexes.size(); i++) {
-            TableIndexView indexConfig = indexes.get(i);
-
-            if (indexConfig.tableId() == tableId) {
-                indexIds.add(indexConfig.id());
-            }
-        }
-
-        return indexIds;
+    private int[] collectTableIndexIds(int tableId) {
+        return tablesCfg.value().indexes().stream()
+                .filter(tableIndexView -> tableIndexView.tableId() == tableId)
+                .mapToInt(TableIndexView::id)
+                .toArray();
     }
 
     private static void closePartitionTrackers(InternalTable internalTable, int partitionId) {

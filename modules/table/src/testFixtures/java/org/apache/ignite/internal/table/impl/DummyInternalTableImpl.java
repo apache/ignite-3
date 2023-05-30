@@ -261,7 +261,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ).when(svc).run(any());
 
         int tableId = tableId();
-        UUID indexId = UUID.randomUUID();
+        int indexId = 1;
 
         Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
@@ -429,15 +429,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<UUID, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
         return new TableIndexStoragesSupplier() {
             @Override
-            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+            public Map<Integer, TableSchemaAwareIndexStorage> get() {
                 return indexes;
             }
 
             @Override
-            public void addIndexToWaitIfAbsent(UUID indexId) {
+            public void addIndexToWaitIfAbsent(int indexId) {
                 fail("not supported");
             }
         };

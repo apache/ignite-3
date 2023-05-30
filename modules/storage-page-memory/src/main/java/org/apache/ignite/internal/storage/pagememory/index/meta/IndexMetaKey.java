@@ -17,27 +17,25 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
-import java.util.UUID;
-
 /**
  * Index meta key.
  */
 public class IndexMetaKey {
-    private final UUID indexId;
+    private final int indexId;
 
     /**
      * Constructor.
      *
      * @param indexId Index ID.
      */
-    public IndexMetaKey(UUID indexId) {
+    public IndexMetaKey(int indexId) {
         this.indexId = indexId;
     }
 
     /**
      * Returns the index ID.
      */
-    public UUID indexId() {
+    public int indexId() {
         return indexId;
     }
 }
