@@ -125,6 +125,9 @@ class JobClassLoaderFactoryTest {
 
             Class<?> job2UtilityClass = classLoader.loadClass("org.my.job.compute.unit.Job2Utility");
             assertNotNull(job2UtilityClass);
+
+            // classes from the different units are loaded from the same class loader
+            assertSame(job1UtilityClass.getClassLoader(), job2UtilityClass.getClassLoader());
         }
     }
 
