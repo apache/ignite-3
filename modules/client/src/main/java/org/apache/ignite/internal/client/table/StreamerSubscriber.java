@@ -94,7 +94,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         partitionAwarenessProvider.refreshAsync()
                 .whenComplete((res, err) -> {
                     if (err != null) {
-                        // TODO: Log
+                        log.error("Failed to refresh schemas and partition assignment: " + err.getMessage(), err);
                         close(err);
                     }
                     else {
@@ -155,7 +155,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             if (err != null) {
                 // Retry is handled by RetryPolicy as usual in ReliableChannel.
                 // If we get here, then retries are exhausted and we should fail the streamer.
-                // TODO: Log
+                log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
                 close(err);
             }
             else {
@@ -167,7 +167,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
                 // Refresh partition assignment asynchronously.
                 partitionAwarenessProvider.refreshAsync().exceptionally(refreshErr -> {
-                    // TODO: Log
+                    log.error("Failed to refresh schemas and partition assignment: " + refreshErr.getMessage(), refreshErr);
                     close(refreshErr);
                     return null;
                 });
