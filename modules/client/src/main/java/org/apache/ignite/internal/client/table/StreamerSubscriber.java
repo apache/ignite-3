@@ -27,6 +27,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,6 +53,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     // We should have some logic to check if a buffer is still needed.
     private final ConcurrentHashMap<TPartition, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
+    private final IgniteLogger log;
+
     private @Nullable Flow.Subscription subscription;
 
     private @Nullable Timer flushTimer;
@@ -65,14 +68,17 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     StreamerSubscriber(
             StreamerBatchSender<T, TPartition> batchSender,
             StreamerPartitionAwarenessProvider<T, TPartition> partitionAwarenessProvider,
-            DataStreamerOptions options) {
+            DataStreamerOptions options,
+            IgniteLogger log) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
         assert options != null;
+        assert log != null;
 
         this.batchSender = batchSender;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options;
+        this.log = log;
     }
 
     /** {@inheritDoc} */
