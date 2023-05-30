@@ -323,10 +323,12 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
             zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
             zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
+            zonesConfiguration.distributionZones().any().filter().listen(onUpdateFilter());
 
             zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
             zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
             zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
+            zonesConfiguration.defaultDistributionZone().filter().listen(onUpdateFilter());
 
             rebalanceEngine.start();
 
@@ -876,6 +878,26 @@ public class DistributionZoneManager implements IgniteComponent {
             if (newScaleDown > 0) {
                 zoneState.scaleDownRevisionTracker().update(lastScaleDownRevision, null);
             }
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * Creates configuration listener for updates of zone's filter value.
+     *
+     * @return Configuration listener for updates of zone's filter value.
+     */
+    private ConfigurationListener<String> onUpdateFilter() {
+        return ctx -> {
+            if (ctx.oldValue() == null) {
+                // zone creation, already handled in a separate listener.
+                return completedFuture(null);
+            }
+
+            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+
+            saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision());
 
             return completedFuture(null);
         };
@@ -2068,7 +2090,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @TestOnly
-    Map<Integer, ZoneState> zonesTimers() {
+    Map<Integer, ZoneState> zonesState() {
         return zonesState;
     }
 }
