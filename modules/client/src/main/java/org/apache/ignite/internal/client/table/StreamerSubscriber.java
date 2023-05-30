@@ -144,7 +144,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     private CompletableFuture<Void> sendBatch(TPartition partition, Collection<T> batch) {
         int batchSize = batch.size();
-        assert batchSize > 0;
+        assert batchSize > 0 : "Batch size must be positive.";
 
         CompletableFuture<Void> fut = new CompletableFuture<>();
         pendingFuts.add(fut);

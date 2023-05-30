@@ -171,12 +171,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder()
-                    .batchSize(2)
-                    .perNodeParallelOperations(1)
-                    .retryLimit(10)
-                    .build();
-
+            var options = DataStreamerOptions.builder().batchSize(2).build();
             streamFut = view.streamData(publisher, options);
 
             for (long i = 0; i < 100; i++) {

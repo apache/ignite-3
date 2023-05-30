@@ -61,7 +61,7 @@ class StreamerBuffer<T> {
     }
 
     synchronized void flush(long period) {
-        if (closed) {
+        if (closed || buf.isEmpty()) {
             return;
         }
 
