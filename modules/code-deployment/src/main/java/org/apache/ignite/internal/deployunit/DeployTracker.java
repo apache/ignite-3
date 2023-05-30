@@ -20,8 +20,8 @@ package org.apache.ignite.internal.deployunit;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.lang.ByteArray;
 
