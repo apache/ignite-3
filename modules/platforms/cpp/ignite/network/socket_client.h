@@ -31,7 +31,7 @@ public:
     /**
      * Non-negative timeout operation result.
      */
-    enum class wait_result
+    enum wait_result
     {
         /** Timeout. */
         TIMEOUT = 0,

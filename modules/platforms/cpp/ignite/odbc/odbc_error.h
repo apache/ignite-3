@@ -19,6 +19,7 @@
 
 #include <string>
 #include <utility>
+#include <exception>
 
 #include "common_types.h"
 
@@ -27,9 +28,8 @@ namespace ignite
 
 /**
  * ODBC error.
- * TODO: Derive from std::exception
  */
-class odbc_error
+class odbc_error : public std::exception
 {
 public:
     // Default
@@ -41,7 +41,7 @@ public:
      * @param state SQL state.
      * @param message Error message.
      */
-    odbc_error(sql_state state, std::string message)
+    odbc_error(sql_state state, std::string message) noexcept
         : m_state(state)
         , m_message(std::move(message)) { }
 
@@ -64,6 +64,11 @@ public:
     {
         return m_message;
     }
+
+    /**
+     * Get error message.
+     */
+    [[nodiscard]] char const *what() const noexcept override { return m_message.c_str(); }
 
 private:
     /** Status. */

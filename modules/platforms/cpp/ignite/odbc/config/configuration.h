@@ -63,8 +63,7 @@ public:
      * Default constructor.
      */
     configuration()
-        : m_protocol_version(default_value::protocol_version)
-        , m_driver(default_value::driver)
+        : m_driver(default_value::driver)
         , m_page_size(default_value::page_size)
         , m_end_points({}) { }
 
@@ -74,36 +73,6 @@ public:
      * @return Connect string.
      */
     [[nodiscard]] std::string to_connection_string() const;
-
-    /**
-     * Get protocol version.
-     *
-     * @return Protocol version.
-     */
-    [[nodiscard]] protocol_version get_protocol_version() const
-    {
-        return m_protocol_version.get_value();
-    }
-
-    /**
-     * Set protocol version.
-     *
-     * @param version Version to set.
-     */
-    void set_protocol_version(const protocol_version& version)
-    {
-        this->m_protocol_version.set_value(version);
-    }
-
-    /**
-     * Check if the value set.
-     *
-     * @return @true if the value set.
-     */
-    [[nodiscard]] bool is_protocol_version_set() const
-    {
-        return m_protocol_version.is_set();
-    }
 
     /**
      * Get Driver.
@@ -178,9 +147,6 @@ private:
      */
     template<typename T>
     static void add_to_map(argument_map& map, const std::string& key, const settable_value<T>& value);
-
-    /** Protocol version. */
-    settable_value<protocol_version> m_protocol_version;
 
     /** Driver name. */
     settable_value<std::string> m_driver;

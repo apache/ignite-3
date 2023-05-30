@@ -19,7 +19,6 @@
 
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/log.h"
-#include "ignite/odbc/message.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/sql_statement.h"
