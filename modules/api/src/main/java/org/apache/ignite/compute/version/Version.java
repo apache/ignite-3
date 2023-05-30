@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.version;
+package org.apache.ignite.compute.version;
 
 
 /**
@@ -61,7 +61,7 @@ public interface Version extends Comparable<Version> {
      * @return Version instance of
      */
     static Version parseVersion(String s) {
-        if ("latest".equals(s)) {
+        if ("latest".equalsIgnoreCase(s)) {
             return LATEST;
         }
 
