@@ -63,7 +63,7 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
     /**
      * Gets column data type specification.
      *
-     * @return Column data type specification.
+     * @return Column data type specification, {@code null} if the type does not need to be changed.
      */
     public @Nullable SqlDataTypeSpec dataType() {
         return type;
@@ -72,7 +72,7 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
     /**
      * Gets the new column DEFAULT expression.
      *
-     * @return DEFAULT expression or {@code null} if the DEFAULT needs to be dropped.
+     * @return DEFAULT expression or {@code null} if the DEFAULT value does not need to be changed.
      */
     public @Nullable SqlNode expression() {
         return dflt;
@@ -81,10 +81,16 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
     /**
      * Gets the {@code NOT NULL} constraint change flag.
      *
-     * @return {@code True} if the constraint should be added, @code false} if the constraint should be removed.
+     * @return {@code True} if the constraint should be added, @code false} if the constraint should be removed,{@code null} if this flag
+     *         does not need to be changed.
      */
     public @Nullable Boolean notNull() {
         return notNull;
+    }
+
+    /** {@inheritDoc} */
+    @Override public List<SqlNode> getOperandList() {
+        return ImmutableNullableList.of(name, columnName, type, dflt);
     }
 
     /** {@inheritDoc} */
@@ -130,14 +136,5 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
                 dflt.unparse(writer, leftPrec, rightPrec);
             }
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columnName, type, dflt);
-    }
-
-    public SqlNode[] actions() {
-        return null;
     }
 }
