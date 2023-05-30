@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignments;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -575,7 +577,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     private TablePartitionId createTableAssignment() throws Exception {
         int tableId = nextTableId.incrementAndGet();
 
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
+        Assignments assignments = new Assignments(calculateAssignments(nodeNames, 1, nodeNames.size()));
 
         int zoneId = createZone();
 
@@ -585,7 +587,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                 extConfCh.changeId(tableId);
                 extConfCh.changeZoneId(zoneId);
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
+                extConfCh.changeAssignments(assignments.bytes());
             });
         }).get();
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignments;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
@@ -45,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -474,7 +476,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     private TablePartitionId createTableAssignment() throws Exception {
         int tableId = nextTableId.incrementAndGet();
 
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(List.of(nodeName, anotherNodeName), 1, 2);
+        Assignments assignments = new Assignments(calculateAssignments(List.of(nodeName, anotherNodeName), 1, 2));
 
         int zoneId = createZone();
 
@@ -484,7 +486,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
                 extConfCh.changeId(tableId);
                 extConfCh.changeZoneId(zoneId);
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
+                extConfCh.changeAssignments(assignments.bytes());
             });
         }).get();
 
