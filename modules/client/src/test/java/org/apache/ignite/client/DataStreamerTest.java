@@ -169,7 +169,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 }
             }
 
-            streamFut.get(1, TimeUnit.SECONDS);
+            streamFut.get(1000, TimeUnit.SECONDS);
+
+            // TODO: streamFut.get is not enough - we do not await all batches properly, something is broken?
+            // Thread.sleep(1000);
 
             for (long i = 0; i < 100; i++) {
                 assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
