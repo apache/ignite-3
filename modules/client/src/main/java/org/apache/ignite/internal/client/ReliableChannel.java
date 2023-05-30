@@ -599,7 +599,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         if (err == null) {
             // Closed channel situation - no error, but connection should be retried.
-            return opType == ClientOperationType.CHANNEL_CONNECT;
+            return opType == ClientOperationType.CHANNEL_CONNECT && ctx.attempt < RetryLimitPolicy.DFLT_RETRY_LIMIT;
         }
 
         IgniteClientConnectionException exception = unwrapConnectionException(err);
