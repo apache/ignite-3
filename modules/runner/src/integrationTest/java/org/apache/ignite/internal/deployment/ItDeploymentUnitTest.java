@@ -46,10 +46,8 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
