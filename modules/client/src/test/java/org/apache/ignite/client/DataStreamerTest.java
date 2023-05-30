@@ -148,11 +148,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testRetry() throws Exception {
-        // TODO: StackOverflow - why?
-        // OpenJDK 64-Bit Server VM warning: Potentially dangerous stack overflow in ReservedStackAccess annotated method java.util.concurrent.locks.ReentrantReadWriteLock$Sync.tryAcquireShared(I)I [1]
-        //[DEBUG] Not retrying operation [opCode=13, opType=TUPLE_UPSERT_ALL, attempt=1, lastError=java.util.concurrent.CompletionException: java.lang.StackOverflowError: Delayed StackOverflowError due to ReservedStackAccess annotated method]
-        // Because we keep trying on the closed channel. This should not happen. Some check is missing somewhere.
+    public void testManyItemsWithDisconnectAndRetry() throws Exception {
         var server2 = new FakeIgnite("server-2");
 
         Function<Integer, Integer> responseDelay = idx -> 0;
@@ -174,7 +170,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             var options = DataStreamerOptions.builder().batchSize(2).build();
             streamFut = view.streamData(publisher, options);
 
-            for (long i = 0; i < 100; i++) {
+            for (long i = 0; i < 1000; i++) {
                 publisher.submit(tuple(i, "foo_" + i));
             }
         }
