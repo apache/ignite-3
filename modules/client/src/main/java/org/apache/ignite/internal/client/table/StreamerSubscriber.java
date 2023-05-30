@@ -149,8 +149,6 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             if (err != null) {
                 // Retry is handled by RetryPolicy as usual in ReliableChannel.
                 // If we get here, then retries are exhausted and we should fail the streamer.
-                // TODO: By default, RetryRead policy is configured. Which means no retries for streamer batches.
-                // This is counter-intuitive and should be fixed.
                 // TODO: Log
                 close(err);
             }
