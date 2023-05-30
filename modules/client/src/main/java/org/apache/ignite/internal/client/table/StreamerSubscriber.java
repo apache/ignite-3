@@ -192,19 +192,19 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
             for (StreamerBuffer<T> buf : buffers.values()) {
                 buf.flushAndClose();
             }
+
+            var futs = pendingFuts.toArray(new CompletableFuture[0]);
+
+            CompletableFuture.allOf(futs).whenComplete((res, err) -> {
+                if (err != null) {
+                    completionFut.completeExceptionally(err);
+                } else {
+                    completionFut.complete(null);
+                }
+            });
+        } else {
+            completionFut.completeExceptionally(throwable);
         }
-
-        var futs = pendingFuts.toArray(new CompletableFuture[0]);
-
-        CompletableFuture.allOf(futs).whenComplete((res, err) -> {
-            if (throwable != null) {
-                completionFut.completeExceptionally(throwable);
-            } else if (err != null) {
-                completionFut.completeExceptionally(err);
-            } else {
-                completionFut.complete(null);
-            }
-        });
     }
 
     private void requestMore() {
