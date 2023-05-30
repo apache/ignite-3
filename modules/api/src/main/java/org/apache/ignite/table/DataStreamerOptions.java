@@ -30,17 +30,21 @@ public class DataStreamerOptions {
 
     private final int autoFlushFrequency;
 
+    private final int retryLimit;
+
     /**
      * Constructor.
      *
      * @param batchSize Batch size.
      * @param perNodeParallelOperations Per node parallel operations.
      * @param autoFlushFrequency Auto flush frequency.
+     * @param retryLimit Retry limit.
      */
-    private DataStreamerOptions(int batchSize, int perNodeParallelOperations, int autoFlushFrequency) {
+    private DataStreamerOptions(int batchSize, int perNodeParallelOperations, int autoFlushFrequency, int retryLimit) {
         this.batchSize = batchSize;
         this.perNodeParallelOperations = perNodeParallelOperations;
         this.autoFlushFrequency = autoFlushFrequency;
+        this.retryLimit = retryLimit;
     }
 
     /**
@@ -81,6 +85,16 @@ public class DataStreamerOptions {
     }
 
     /**
+     * Gets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
+     * If all retries fail, the streamer will be aborted.
+     *
+     * @return Retry limit.
+     */
+    public int retryLimit() {
+        return retryLimit;
+    }
+
+    /**
      * Builder.
      */
     public static class Builder {
@@ -89,6 +103,8 @@ public class DataStreamerOptions {
         private int perNodeParallelOperations = 4;
 
         private int autoFlushFrequency = 5000;
+
+        private int retryLimit = 16;
 
         /**
          * Sets the batch size (the number of entries that will be sent to the cluster in one network call).
@@ -136,12 +152,25 @@ public class DataStreamerOptions {
         }
 
         /**
+         * Sets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
+         * If all retries fail, the streamer will be aborted.
+         *
+         * @param retryLimit Retry limit.
+         * @return This builder instance.
+         */
+        public Builder retryLimit(int retryLimit) {
+            this.retryLimit = retryLimit;
+
+            return this;
+        }
+
+        /**
          * Builds the options.
          *
          * @return Data streamer options.
          */
         public DataStreamerOptions build() {
-            return new DataStreamerOptions(batchSize, perNodeParallelOperations, autoFlushFrequency);
+            return new DataStreamerOptions(batchSize, perNodeParallelOperations, autoFlushFrequency, retryLimit);
         }
     }
 }

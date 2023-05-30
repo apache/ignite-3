@@ -65,17 +65,14 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     StreamerSubscriber(
             StreamerBatchSender<T, TPartition> batchSender,
             StreamerPartitionAwarenessProvider<T, TPartition> partitionAwarenessProvider,
-            @Nullable DataStreamerOptions options) {
+            DataStreamerOptions options) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
-
-        if (options != null && options.batchSize() <= 0) {
-            throw new IllegalArgumentException("Batch size must be positive: " + options.batchSize());
-        }
+        assert options != null;
 
         this.batchSender = batchSender;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
-        this.options = options != null ? options : DataStreamerOptions.DEFAULT;
+        this.options = options;
     }
 
     /** {@inheritDoc} */

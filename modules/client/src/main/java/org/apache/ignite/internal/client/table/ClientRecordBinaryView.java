@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -395,15 +396,18 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
             }
         };
 
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
         StreamerBatchSender<Tuple, ClientChannel> batchSender = (ch, items) -> tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeTuples(null, items, s, w, false),
                 r -> null,
-                PartitionAwarenessProvider.of(ch));
+                PartitionAwarenessProvider.of(ch),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        StreamerSubscriber<Tuple, ClientChannel> subscriber = new StreamerSubscriber<>(batchSender, provider, options);
-
+        StreamerSubscriber<Tuple, ClientChannel> subscriber = new StreamerSubscriber<>(batchSender, provider, opts);
         publisher.subscribe(subscriber);
+
         return subscriber.completionFuture();
     }
 }
