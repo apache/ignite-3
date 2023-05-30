@@ -149,6 +149,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testManyItemsWithDisconnectAndRetry() throws Exception {
+        // TODO: why StackOverflow?
+        // OpenJDK 64-Bit Server VM warning: Potentially dangerous stack overflow in ReservedStackAccess annotated method java.util.concurrent.locks.ReentrantReadWriteLock$Sync.tryAcquireShared(I)I [1]
+        //[DEBUG] Not retrying operation [opCode=13, opType=TUPLE_UPSERT_ALL, attempt=2, lastError=java.util.concurrent.CompletionException: java.lang.StackOverflowError: Delayed StackOverflowError due to ReservedStackAccess annotated method]
         var server2 = new FakeIgnite("server-2");
 
         Function<Integer, Integer> responseDelay = idx -> 0;
