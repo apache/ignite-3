@@ -552,6 +552,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     getZoneById(distributionZonesConfiguration, (ctx.newValue()).zoneId()).value();
 
             List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
                     baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                     zone.partitions(),
                     zone.replicas());
@@ -1296,7 +1297,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Set<Assignment> calculateAssignments(TableConfiguration tableCfg, int partNum) {
         return AffinityUtils.calculateAssignmentForPartition(
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 we must use distribution zone keys here
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                 partNum,
                 getZoneById(distributionZonesConfiguration, tableCfg.zoneId().value()).replicas().value()
@@ -1379,23 +1380,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                         }
 
                                                         try {
-                                                            distributionZoneManager.topologyVersionedDataNodes(zoneId,
-                                                                            cmgTopology.version())
-                                                                    .handle((dataNodes, e0) -> {
-                                                                        if (e0 == null) {
-                                                                            changeTablesConfiguration(
-                                                                                    name,
-                                                                                    zoneId,
-                                                                                    dataNodes,
-                                                                                    tableInitChange,
-                                                                                    tblFut
-                                                                            );
-                                                                        } else {
-                                                                            tblFut.completeExceptionally(e0);
-                                                                        }
-
-                                                                        return null;
-                                                                    });
+                                                            changeTablesConfiguration(
+                                                                    name,
+                                                                    zoneId,
+                                                                    tableInitChange,
+                                                                    tblFut
+                                                            );
                                                         } finally {
                                                             busyLock.leaveBusy();
                                                         }
@@ -1428,14 +1418,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param name Table name.
      * @param zoneId Distribution zone id.
-     * @param dataNodes Data nodes.
      * @param tableInitChange Table changer.
      * @param tblFut Future representing pending completion of the table creation.
      */
     private void changeTablesConfiguration(
             String name,
             int zoneId,
-            Collection<String> dataNodes,
             Consumer<TableChange> tableInitChange,
             CompletableFuture<Table> tblFut
     ) {
