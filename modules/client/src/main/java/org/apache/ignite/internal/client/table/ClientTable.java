@@ -458,6 +458,7 @@ public class ClientTable implements Table {
         ClientChannel ch = provider.channel();
 
         if (ch != null) {
+            // TODO: This is not correct - when channel is provided, we cant use a different channel with the same node id.
             return ch.protocolContext().clusterNode().id();
         }
 
