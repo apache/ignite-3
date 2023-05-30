@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -77,8 +78,7 @@ public class JobClassLoaderFactory {
 
         URL[] classPath = units.stream()
                 .map(this::constructPath)
-                .map(JobClassLoaderFactory::collectClasspath)
-                .flatMap(Arrays::stream)
+                .flatMap(JobClassLoaderFactory::collectClasspath)
                 .toArray(URL[]::new);
 
         if (LOG.isDebugEnabled()) {
@@ -93,7 +93,7 @@ public class JobClassLoaderFactory {
         return unitsDir.resolve(unit.name()).resolve(version.toString());
     }
 
-    private static URL[] collectClasspath(Path unitDir) {
+    private static Stream<URL> collectClasspath(Path unitDir) {
         if (Files.notExists(unitDir)) {
             throw new IllegalArgumentException("Unit does not exist: " + unitDir);
         }
@@ -106,7 +106,7 @@ public class JobClassLoaderFactory {
         try {
             ClasspathCollector classpathCollector = new ClasspathCollector(unitDir);
             Files.walkFileTree(unitDir, classpathCollector);
-            return classpathCollector.classpath();
+            return classpathCollector.classpathAsStream();
         } catch (IOException e) {
             throw new IgniteException(
                     Compute.CLASS_PATH_ERR,
@@ -131,8 +131,8 @@ public class JobClassLoaderFactory {
             return FileVisitResult.CONTINUE;
         }
 
-        URL[] classpath() {
-            return classpath.toArray(new URL[0]);
+        Stream<URL> classpathAsStream() {
+            return classpath.stream();
         }
     }
 }
