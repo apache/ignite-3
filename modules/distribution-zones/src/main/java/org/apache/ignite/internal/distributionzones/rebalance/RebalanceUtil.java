@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -414,6 +415,10 @@ public class RebalanceUtil {
 
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
+                    if (entries.isEmpty()) {
+                        return Collections.emptyList();
+                    }
+
                     Set<Assignment>[] result = new Set[numberOfPartitions];
 
                     for (var entry : entries.entrySet()) {
