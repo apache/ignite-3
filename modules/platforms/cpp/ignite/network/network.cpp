@@ -29,6 +29,13 @@
 
 namespace ignite::network {
 
+std::unique_ptr<socket_client> make_tcp_socket_client()
+{
+    return {};
+    // TODO: Implement me
+//    return new TcpSocketClient;
+}
+
 std::shared_ptr<async_client_pool> make_async_client_pool(data_filters filters) {
     auto pool =
         std::make_shared<IGNITE_SWITCH_WIN_OTHER(detail::win_async_client_pool, detail::linux_async_client_pool)>();
