@@ -35,6 +35,12 @@ public class ClusterStatusKey {
     @Nullable
     private final Version version;
 
+    /**
+     * Constructor.
+     *
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     */
     private ClusterStatusKey(@Nullable String id, @Nullable Version version) {
         this.id = id;
         this.version = version;
@@ -53,7 +59,7 @@ public class ClusterStatusKey {
      *
      * @return {@link ByteArray} instance with serialized content.
      */
-    public ByteArray toKey() {
+    public ByteArray toByteArray() {
         return UnitKey.toKey(UNITS_PREFIX, id, version == null ? null : version.render());
     }
 
@@ -63,13 +69,13 @@ public class ClusterStatusKey {
      * @param key Serialized key in byte array.
      * @return Deserialized deployment unit cluster key.
      */
-    public static ClusterStatusKey fromKey(byte[] key) {
+    public static ClusterStatusKey fromBytes(byte[] key) {
         String[] parse = UnitKey.fromKey(UNITS_PREFIX, key);
         int length = parse.length;
         String id = length > 0 ? parse[0] : null;
         Version version = length > 1 ? Version.parseVersion(parse[1]) : null;
 
-        return builder().withId(id).withVersion(version).build();
+        return builder().id(id).version(version).build();
     }
 
     public static ClusterStatusKeyBuilder builder() {
@@ -84,12 +90,12 @@ public class ClusterStatusKey {
 
         private Version version;
 
-        public ClusterStatusKeyBuilder withId(String id) {
+        public ClusterStatusKeyBuilder id(String id) {
             this.id = id;
             return this;
         }
 
-        public ClusterStatusKeyBuilder withVersion(Version version) {
+        public ClusterStatusKeyBuilder version(Version version) {
             this.version = version;
             return this;
         }

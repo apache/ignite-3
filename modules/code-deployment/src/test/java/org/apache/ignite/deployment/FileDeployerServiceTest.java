@@ -17,8 +17,10 @@
 
 package org.apache.ignite.deployment;
 
+import static org.apache.ignite.internal.deployunit.version.Version.parseVersion;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,11 +29,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.UnitContent;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,11 +64,11 @@ public class FileDeployerServiceTest {
 
     @Test
     public void test() throws IOException {
-        CompletableFuture<Boolean> deployed = service.deploy("id", Version.parseVersion("1.0.0"), content());
+        CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), content());
         assertThat(deployed, willBe(true));
 
-        CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", Version.parseVersion("1.0.0"));
-        assertThat(unitContent, willBe(Matchers.equalTo(content())));
+        CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", parseVersion("1.0.0"));
+        assertThat(unitContent, willBe(equalTo(content())));
     }
 
     private UnitContent content() throws IOException {

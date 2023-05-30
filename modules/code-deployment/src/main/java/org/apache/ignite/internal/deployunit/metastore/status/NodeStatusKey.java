@@ -41,14 +41,13 @@ public class NodeStatusKey {
      * @param version Deployment unit version.
      * @param nodeId Cluster node consistent identifier.
      */
-    public NodeStatusKey(String id, Version version, String nodeId) {
+    private NodeStatusKey(String id, Version version, String nodeId) {
         this.id = id;
         this.version = version;
         this.nodeId = nodeId;
     }
 
-
-    public ByteArray toKey() {
+    public ByteArray toByteArray() {
         return UnitKey.toKey(NODES_PREFIX, id, version == null ? null : version.render(), nodeId);
     }
 
@@ -58,14 +57,14 @@ public class NodeStatusKey {
      * @param key Serialized node status key.
      * @return Deserialized node status key.
      */
-    public static NodeStatusKey fromKey(byte[] key) {
+    public static NodeStatusKey fromBytes(byte[] key) {
         String[] parse = UnitKey.fromKey(NODES_PREFIX, key);
         int length = parse.length;
         String id = length > 0 ? parse[0] : null;
         Version version = length > 1 ? Version.parseVersion(parse[1]) : null;
         String nodeId = length > 2 ? parse[2] : null;
 
-        return builder().withId(id).withVersion(version).withNodeId(nodeId).build();
+        return builder().id(id).version(version).nodeId(nodeId).build();
     }
 
     /**
@@ -99,17 +98,17 @@ public class NodeStatusKey {
 
         private String nodeId;
 
-        public NodeStatusKeyBuilder withId(String id) {
+        public NodeStatusKeyBuilder id(String id) {
             this.id = id;
             return this;
         }
 
-        public NodeStatusKeyBuilder withVersion(Version version) {
+        public NodeStatusKeyBuilder version(Version version) {
             this.version = version;
             return this;
         }
 
-        public NodeStatusKeyBuilder withNodeId(String nodeId) {
+        public NodeStatusKeyBuilder nodeId(String nodeId) {
             this.nodeId = nodeId;
             return this;
         }

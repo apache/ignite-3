@@ -31,5 +31,5 @@ public interface NodeEventListener {
      * @param status Deployment unit status.
      * @param holders Nodes consistent id.
      */
-    void call(UnitNodeStatus status, Set<String> holders);
+    void onUpdate(UnitNodeStatus status, Set<String> holders);
 }
