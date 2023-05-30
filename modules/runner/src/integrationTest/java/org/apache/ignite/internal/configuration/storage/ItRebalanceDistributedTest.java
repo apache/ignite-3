@@ -247,7 +247,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testOneRebalance() throws Exception {
+    void testOneRebalance() {
         createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(

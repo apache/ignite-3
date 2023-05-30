@@ -2005,7 +2005,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Set<Assignment> stableAssignments = stableAssignmentsBytes == null
                 // This is for the case when the first rebalance occurs.
-                ? ((List<Set<Assignment>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
+                ? Assignments.fromBytes(tblCfg.assignments().value()).get(partId)
                 : ByteUtils.fromBytes(stableAssignmentsBytes);
 
         PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);

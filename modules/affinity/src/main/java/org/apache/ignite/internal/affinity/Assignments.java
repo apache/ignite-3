@@ -55,13 +55,23 @@ public class Assignments {
     }
 
     /**
-     * Get an assignments for the given partition.
+     * Gets an assignments for the given partition.
      *
      * @param part Partition.
      * @return Assignments for the given partition.
      */
     public Set<Assignment> get(int part) {
         return assignments.get(part);
+    }
+
+    /**
+     * Sets an assignment for the given partition.
+     *
+     * @param part Partition.
+     * @param assignment Assignments for the given partition.
+     */
+    public void set(int part, Set<Assignment> assignment) {
+        assignments.set(part, assignment);
     }
 
     /**

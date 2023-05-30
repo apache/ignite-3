@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.union;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -46,6 +45,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -375,9 +375,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             tblConfiguration.change(ch -> {
-                List<Set<Assignment>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
+                Assignments assignments = Assignments.fromBytes(((ExtendedTableChange) ch).assignments());
                 assignments.set(partNum, stable);
-                ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
+                ((ExtendedTableChange) ch).changeAssignments(assignments.bytes());
             }).get(10, TimeUnit.SECONDS);
 
             Update successCase;
