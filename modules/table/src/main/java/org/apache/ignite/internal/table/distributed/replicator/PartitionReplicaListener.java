@@ -2467,6 +2467,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean casResult = indexesConfigurationListener.compareAndSet(null, listener);
 
+        // TODO IGNITE-19053 Fix this workaround.
         if (casResult) {
             mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
         }
