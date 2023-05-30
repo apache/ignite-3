@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -438,7 +437,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
             @Override
             public void addIndexToWaitIfAbsent(int indexId) {
-                fail("not supported");
             }
         };
     }
