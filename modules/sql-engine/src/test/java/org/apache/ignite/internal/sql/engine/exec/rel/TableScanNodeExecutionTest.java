@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
@@ -169,7 +168,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 int partId,
                 HybridTimestamp readTime,
                 ClusterNode recipient,
-                @Nullable UUID indexId,
+                @Nullable Integer indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,

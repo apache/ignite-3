@@ -163,6 +163,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
 
+    @Language("HOCON")
+    private static final String RAFT_CFG = "{\n"
+            + "  fsync: false,\n"
+            + "  retryDelay: 20\n"
+            + "}";
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
@@ -175,10 +181,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             + "      failurePingRequestMembers: 1,\n"
             + "      gossipInterval: 10\n"
             + "    },\n"
-            + "  }\n"
+            + "  },\n"
+            + "  raft: " + RAFT_CFG + "\n"
             + "}";
 
-    @InjectConfiguration
+    @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration

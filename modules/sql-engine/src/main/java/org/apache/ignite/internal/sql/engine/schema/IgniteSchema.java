@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -35,7 +34,7 @@ public class IgniteSchema extends AbstractSchema {
 
     private final Map<String, Table> tblMap;
 
-    private final Map<UUID, IgniteIndex> idxMap;
+    private final Map<Integer, IgniteIndex> idxMap;
 
     private final long schemaVersion;
 
@@ -49,7 +48,7 @@ public class IgniteSchema extends AbstractSchema {
     public IgniteSchema(
             String schemaName,
             @Nullable Map<String, Table> tableMap,
-            @Nullable Map<UUID, IgniteIndex> indexMap,
+            @Nullable Map<Integer, IgniteIndex> indexMap,
             long schemaVersion
     ) {
         this.schemaName = schemaName;
@@ -119,7 +118,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param indexId Index id.
      * @param index Index.
      */
-    public void addIndex(UUID indexId, IgniteIndex index) {
+    public void addIndex(int indexId, IgniteIndex index) {
         idxMap.put(indexId, index);
     }
 
@@ -129,7 +128,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param indexId Index id.
      * @return Removed index.
      */
-    public IgniteIndex removeIndex(UUID indexId) {
+    public IgniteIndex removeIndex(int indexId) {
         return idxMap.remove(indexId);
     }
 
@@ -139,7 +138,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param indexId Index id.
      * @return Index.
      */
-    public IgniteIndex index(UUID indexId) {
+    public IgniteIndex index(int indexId) {
         return idxMap.get(indexId);
     }
 

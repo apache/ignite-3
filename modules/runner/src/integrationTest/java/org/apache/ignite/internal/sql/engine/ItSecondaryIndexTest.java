@@ -1065,7 +1065,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         }
 
         @Override
-        public UUID id() {
+        public int id() {
             return delegate.id();
         }
 

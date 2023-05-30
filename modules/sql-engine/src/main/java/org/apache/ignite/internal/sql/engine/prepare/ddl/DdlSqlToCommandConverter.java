@@ -178,6 +178,7 @@ public class DdlSqlToCommandConverter {
         // ALTER ZONE options.
         alterZoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
+                PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::partitions),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
 
                 DATA_NODES_AUTO_ADJUST,
@@ -541,15 +542,13 @@ public class DdlSqlToCommandConverter {
             if (remainingKnownOptions.remove(optionName)) {
                 zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
             } else if (knownZoneOptionNames.contains(optionName)) {
-                throw new IgniteException(QUERY_VALIDATION_ERR,
-                        String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
+                throw duplicateZoneOption(ctx, optionName);
             } else {
-                zoneOptionInfo = dsOptInfos.get(optionName);
+                zoneOptionInfo = dsOptInfos != null ? dsOptInfos.get(optionName) : null;
             }
 
             if (zoneOptionInfo == null) {
-                throw new IgniteException(
-                        QUERY_VALIDATION_ERR, String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
+                throw unexpectedZoneOption(ctx, optionName);
             }
 
             updateCommandOption("Zone", optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), createZoneCmd);
@@ -579,11 +578,9 @@ public class DdlSqlToCommandConverter {
             String optionName = option.key().getSimple().toUpperCase();
 
             if (!knownZoneOptionNames.contains(optionName)) {
-                throw new IgniteException(QUERY_VALIDATION_ERR,
-                        String.format("Unexpected DDL command option [option=%s, query=%s]", optionName, ctx.query()));
+                throw unexpectedZoneOption(ctx, optionName);
             } else if (!remainingKnownOptions.remove(optionName)) {
-                throw new IgniteException(QUERY_VALIDATION_ERR,
-                        String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
+                throw duplicateZoneOption(ctx, optionName);
             }
 
             DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
@@ -735,9 +732,9 @@ public class DdlSqlToCommandConverter {
 
         try {
             value0 = value.getValueAs(optInfo.type);
-        } catch (AssertionError | ClassCastException e) {
+        } catch (Throwable e) {
             throw new IgniteException(QUERY_VALIDATION_ERR, String.format(
-                    "Unsuspected %s option type [option=%s, expectedType=%s, query=%s]",
+                    "Invalid %s option type [option=%s, expectedType=%s, query=%s]",
                     sqlObjName.toLowerCase(),
                     optId,
                     optInfo.type.getSimpleName(),
@@ -845,5 +842,15 @@ public class DdlSqlToCommandConverter {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
             throw new SqlException(SQL_TO_REL_CONVERSION_ERR, "Unable co convert literal", th);
         }
+    }
+
+    private static IgniteException unexpectedZoneOption(PlanningContext ctx, String optionName) {
+        return new IgniteException(QUERY_VALIDATION_ERR,
+                String.format("Unexpected zone option [option=%s, query=%s]", optionName, ctx.query()));
+    }
+
+    private static IgniteException duplicateZoneOption(PlanningContext ctx, String optionName) {
+        return new IgniteException(QUERY_VALIDATION_ERR,
+                String.format("Duplicate zone option has been specified [option=%s, query=%s]", optionName, ctx.query()));
     }
 }
