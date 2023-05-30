@@ -60,7 +60,7 @@ class StreamerBuffer<T> {
         }
     }
 
-    void flush(long period) {
+    synchronized void flush(long period) {
         if (System.currentTimeMillis() - lastFlushTime > period) {
             flush(buf);
             buf = new ArrayList<>(capacity);
