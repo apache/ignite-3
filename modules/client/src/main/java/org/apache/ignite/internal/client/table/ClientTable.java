@@ -454,11 +454,10 @@ public class ClientTable implements Table {
             return null;
         }
 
-        @SuppressWarnings("resource")
-        ClientChannel ch = provider.channel();
+        String nodeId = provider.nodeId();
 
-        if (ch != null) {
-            return ch.protocolContext().clusterNode().id();
+        if (nodeId != null) {
+            return nodeId;
         }
 
         if (partitions == null || partitions.isEmpty()) {

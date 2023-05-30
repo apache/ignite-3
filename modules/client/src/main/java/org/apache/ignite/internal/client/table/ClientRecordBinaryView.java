@@ -367,12 +367,12 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
         // TODO: Move this to Table for reuse.
-        StreamerPartitionAwarenessProvider<Tuple, ClientChannel> provider = new StreamerPartitionAwarenessProvider<>() {
+        StreamerPartitionAwarenessProvider<Tuple, String> provider = new StreamerPartitionAwarenessProvider<>() {
             private List<String> assignment;
             private ClientSchema schema;
 
             @Override
-            public ClientChannel partition(Tuple item) {
+            public String partition(Tuple item) {
                 if (schema == null || assignment == null) {
                     throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
                 }
@@ -386,7 +386,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
                 // TODO: Blocking wait.
                 //noinspection resource
-                return tbl.channel().getChannelAsync(null, preferredNodeId).join();
+                return tbl.channel().getChannelAsync(null, preferredNodeId).join().protocolContext().clusterNode().id();
             }
 
             @Override
@@ -402,16 +402,16 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Tuple, ClientChannel> batchSender = (ch, items) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeTuples(null, items, s, w, false),
                 r -> null,
-                PartitionAwarenessProvider.of(ch),
+                PartitionAwarenessProvider.of(nodeId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         //noinspection resource
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
-        StreamerSubscriber<Tuple, ClientChannel> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
+        StreamerSubscriber<Tuple, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
         publisher.subscribe(subscriber);
 
         return subscriber.completionFuture();

@@ -51,6 +51,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
     // TODO: This can accumulate huge number of buffers for dropped connections over time.
     // We should have some logic to check if a buffer is still needed.
+    // Maybe this is fine if we use NodeId as partition? Then we will have only one buffer per node.
     private final ConcurrentHashMap<TPartition, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;

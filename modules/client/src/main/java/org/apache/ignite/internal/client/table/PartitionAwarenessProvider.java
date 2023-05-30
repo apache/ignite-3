@@ -29,27 +29,27 @@ import org.jetbrains.annotations.Nullable;
  * 3. Null instance = No partition awareness and no transaction. Use any channel.
  */
 class PartitionAwarenessProvider {
-    private final @Nullable ClientChannel channel;
+    private final @Nullable String nodeId;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private PartitionAwarenessProvider(@Nullable ClientChannel channel, @Nullable Function<ClientSchema, Integer> hashFunc) {
-        assert (channel == null) ^ (hashFunc == null) : "One must be null, another not null: channel, hashFunc";
+    private PartitionAwarenessProvider(@Nullable String nodeId, @Nullable Function<ClientSchema, Integer> hashFunc) {
+        assert (nodeId == null) ^ (hashFunc == null) : "One must be null, another not null: nodeId, hashFunc";
 
-        this.channel = channel;
+        this.nodeId = nodeId;
         this.hashFunc = hashFunc;
     }
 
-    public static PartitionAwarenessProvider of(ClientChannel channel) {
-        return new PartitionAwarenessProvider(channel, null);
+    public static PartitionAwarenessProvider of(String nodeId) {
+        return new PartitionAwarenessProvider(nodeId, null);
     }
 
     public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
         return new PartitionAwarenessProvider(null, hashFunc);
     }
 
-    @Nullable ClientChannel channel() {
-        return channel;
+    @Nullable String nodeId() {
+        return nodeId;
     }
 
     Integer getObjectHashCode(ClientSchema schema) {
