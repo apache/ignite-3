@@ -2467,9 +2467,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean casResult = indexesConfigurationListener.compareAndSet(null, listener);
 
-        assert casResult : replicationGroupId;
-
-        mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
+        // TODO IGNITE-19053 Fix this workaround.
+        if (casResult) {
+            mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
+        }
     }
 
     private void startBuildIndex(IndexDescriptor indexDescriptor) {
