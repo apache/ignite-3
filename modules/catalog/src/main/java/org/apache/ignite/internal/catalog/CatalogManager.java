@@ -20,7 +20,9 @@ package org.apache.ignite.internal.catalog;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
@@ -59,4 +61,20 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Operation future.
      */
     CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params);
+
+    /**
+     * Creates new index.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> createIndex(CreateIndexParams params);
+
+    /**
+     * Drops index.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> dropIndex(DropIndexParams params);
 }

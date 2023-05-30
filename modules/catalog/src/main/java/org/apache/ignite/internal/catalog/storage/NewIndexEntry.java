@@ -15,39 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.catalog.storage;
 
-import java.util.List;
-import java.util.Objects;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Hash index descriptor.
+ * Describes addition of a new index.
  */
-public class HashIndexDescriptor extends IndexDescriptor {
-    private static final long serialVersionUID = -6784028115063219759L;
+public class NewIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = 6717363577013237711L;
 
-    private final List<String> columns;
+    private final IndexDescriptor descriptor;
 
     /**
-     * Constructs a hash index descriptor.
+     * Constructs the object.
      *
-     * @param id Id of the index.
-     * @param name Name of the index.
-     * @param tableId Id of the table index belongs to.
-     * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
-     * @throws IllegalArgumentException If columns list contains duplicates.
+     * @param descriptor A descriptor of an index to add.
      */
-    public HashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        super(id, name, tableId, unique);
-
-        this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
+    public NewIndexEntry(IndexDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
-    /** Returns indexed columns. */
-    public List<String> columns() {
-        return columns;
+    /** Gets descriptor of an index to add. */
+    public IndexDescriptor descriptor() {
+        return descriptor;
     }
 
     /** {@inheritDoc} */
@@ -56,5 +48,3 @@ public class HashIndexDescriptor extends IndexDescriptor {
         return S.toString(this);
     }
 }
-
-

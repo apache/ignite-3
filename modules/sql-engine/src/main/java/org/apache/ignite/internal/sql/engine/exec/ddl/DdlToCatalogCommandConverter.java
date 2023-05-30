@@ -20,13 +20,20 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
@@ -56,6 +63,29 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
+    static CreateIndexParams convert(CreateIndexCommand cmd) {
+        List<ColumnCollation> collations = cmd.collations() == null ? null
+                : cmd.collations().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
+
+        return CreateIndexParams.builder()
+                .schemaName(cmd.schemaName())
+                .indexName(cmd.indexName())
+
+                .tableName(cmd.tableName())
+                .type(convert(cmd.type()))
+                .columns(cmd.columns())
+                .collations(collations)
+
+                .build();
+    }
+
+    static DropIndexParams convert(DropIndexCommand cmd) {
+        return DropIndexParams.builder()
+                .schemaName(cmd.schemaName())
+                .indexName(cmd.indexName())
+                .build();
+    }
+
     private static ColumnParams convert(ColumnDefinition def) {
         return new ColumnParams(def.name(), TypeUtils.columnType(def.type()), convert(def.defaultValueDefinition()), def.nullable());
     }
@@ -71,5 +101,20 @@ class DdlToCatalogCommandConverter {
             default:
                 throw new IllegalArgumentException("Default value definition: " + def.type());
         }
+    }
+
+    private static CreateIndexParams.Type convert(Type type) {
+        switch (type) {
+            case SORTED:
+                return CreateIndexParams.Type.SORTED;
+            case HASH:
+                return CreateIndexParams.Type.HASH;
+            default:
+                throw new IllegalArgumentException("Unsupported index type: " + type);
+        }
+    }
+
+    private static ColumnCollation convert(IgniteIndex.Collation collation) {
+        return ColumnCollation.get(collation.asc, collation.nullsFirst);
     }
 }

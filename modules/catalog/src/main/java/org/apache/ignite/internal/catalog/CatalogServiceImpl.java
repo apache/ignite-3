@@ -32,7 +32,9 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
@@ -41,7 +43,9 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
+import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -55,6 +59,8 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
@@ -114,6 +120,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public TableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IndexDescriptor index(String indexName, long timestamp) {
+        return catalogAt(timestamp).schema(PUBLIC).index(indexName);
     }
 
     /** {@inheritDoc} */
@@ -213,6 +225,53 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return failedFuture(new UnsupportedOperationException("Not implemented yet."));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> createIndex(CreateIndexParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            if (schema.index(params.indexName()) != null) {
+                throw new IndexAlreadyExistsException(schemaName, params.indexName());
+            }
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+
+            return List.of(
+                    new NewIndexEntry(index),
+                    new ObjectIdGenUpdateEntry(1)
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> dropIndex(DropIndexParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            IndexDescriptor index = schema.index(params.indexName());
+
+            if (index == null) {
+                throw new IndexNotFoundException(schemaName, params.indexName());
+            }
+
+            return List.of(
+                    new DropIndexEntry(index.id())
+            );
+        });
+    }
+
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
@@ -307,6 +366,34 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             new DropTableEventParameters(version, tableId)
                     ));
 
+                } else if (entry instanceof NewIndexEntry) {
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    schema.tables(),
+                                    ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
+                            )
+                    );
+                } else if (entry instanceof DropIndexEntry) {
+                    int indexId = ((DropIndexEntry) entry).indexId();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    schema.tables(),
+                                    Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(IndexDescriptor[]::new)
+                            )
+                    );
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,

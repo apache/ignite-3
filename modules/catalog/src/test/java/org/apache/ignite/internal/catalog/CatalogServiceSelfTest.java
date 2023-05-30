@@ -23,11 +23,13 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
@@ -38,10 +40,15 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateIndexParams.Type;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -59,6 +66,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -76,6 +84,7 @@ import org.mockito.Mockito;
 public class CatalogServiceSelfTest {
     private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
+    private static final String INDEX_NAME = "myIndex";
 
     private MetaStorageManager metastore;
 
@@ -303,6 +312,170 @@ public class CatalogServiceSelfTest {
                 .build();
 
         assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+    }
+
+    @Test
+    public void testDropTableWithIndex() throws InterruptedException {
+        CreateIndexParams params = CreateIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .type(Type.HASH)
+                .columns(List.of("VAL"))
+                .build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createIndex(params), willBe((Object) null));
+
+        long beforeDropTimestamp = System.currentTimeMillis();
+
+        Thread.sleep(5);
+
+        DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
+
+        assertThat(service.dropTable(dropTableParams), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        SchemaDescriptor schema = service.schema(2);
+
+        assertNotNull(schema);
+        assertEquals(0, schema.id());
+        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(2, schema.version());
+        assertSame(schema, service.activeSchema(beforeDropTimestamp));
+
+        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME), service.table(1, beforeDropTimestamp));
+
+        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, beforeDropTimestamp));
+        assertSame(schema.index(INDEX_NAME), service.index(2, beforeDropTimestamp));
+
+        // Validate actual catalog
+        schema = service.schema(3);
+
+        assertNotNull(schema);
+        assertEquals(0, schema.id());
+        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(3, schema.version());
+        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+
+        assertNull(schema.table(TABLE_NAME));
+        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
+        assertNull(service.table(1, System.currentTimeMillis()));
+
+        assertNull(schema.index(INDEX_NAME));
+        assertNull(service.index(INDEX_NAME, System.currentTimeMillis()));
+        assertNull(service.index(2, System.currentTimeMillis()));
+    }
+
+    @Test
+    public void testCreateHashIndex() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        CreateIndexParams params = CreateIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .type(Type.HASH)
+                .columns(List.of("VAL", "ID"))
+                .build();
+
+        assertThat(service.createIndex(params), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        SchemaDescriptor schema = service.schema(1);
+
+        assertNotNull(schema);
+        assertNull(schema.index(INDEX_NAME));
+        assertNull(service.index(INDEX_NAME, 123L));
+        assertNull(service.index(2, 123L));
+
+        // Validate actual catalog
+        schema = service.schema(2);
+
+        assertNotNull(schema);
+        assertNull(service.index(1, System.currentTimeMillis()));
+        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, System.currentTimeMillis()));
+        assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
+
+        // Validate newly created hash index
+        HashIndexDescriptor index = (HashIndexDescriptor) schema.index(INDEX_NAME);
+
+        assertEquals(2L, index.id());
+        assertEquals(INDEX_NAME, index.name());
+        assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
+        assertEquals(List.of("VAL", "ID"), index.columns());
+        assertFalse(index.unique());
+        assertFalse(index.writeOnly());
+    }
+
+    @Test
+    public void testCreateSortedIndex() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        CreateIndexParams params = CreateIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .type(Type.SORTED)
+                .unique()
+                .columns(List.of("VAL", "ID"))
+                .collations(List.of(ColumnCollation.DESC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST))
+                .build();
+
+        assertThat(service.createIndex(params), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        SchemaDescriptor schema = service.schema(1);
+
+        assertNotNull(schema);
+        assertNull(schema.index(INDEX_NAME));
+        assertNull(service.index(INDEX_NAME, 123L));
+        assertNull(service.index(2, 123L));
+
+        // Validate actual catalog
+        schema = service.schema(2);
+
+        assertNotNull(schema);
+        assertNull(service.index(1, System.currentTimeMillis()));
+        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, System.currentTimeMillis()));
+        assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
+
+        // Validate newly created sorted index
+        SortedIndexDescriptor index = (SortedIndexDescriptor) schema.index(INDEX_NAME);
+
+        assertEquals(2L, index.id());
+        assertEquals(INDEX_NAME, index.name());
+        assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
+        assertEquals("VAL", index.columns().get(0).name());
+        assertEquals("ID", index.columns().get(1).name());
+        assertEquals(ColumnCollation.DESC_NULLS_FIRST, index.columns().get(0).collation());
+        assertEquals(ColumnCollation.ASC_NULLS_LAST, index.columns().get(1).collation());
+        assertTrue(index.unique());
+        assertFalse(index.writeOnly());
+    }
+
+    @Test
+    public void testCreateIndexIfExistsFlag() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        CreateIndexParams params = CreateIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .type(Type.HASH)
+                .columns(List.of("VAL"))
+                .ifIndexExists(true)
+                .build();
+
+        assertThat(service.createIndex(params), willBe((Object) null));
+        assertThat(service.createIndex(params), willThrow(IndexAlreadyExistsException.class));
+
+        params = CreateIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .type(Type.HASH)
+                .columns(List.of("VAL"))
+                .ifIndexExists(false)
+                .build();
+
+        assertThat(service.createIndex(params), willThrow(IndexAlreadyExistsException.class));
     }
 
     @Test
