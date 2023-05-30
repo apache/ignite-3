@@ -445,7 +445,7 @@ public class DdlSqlToCommandConverter {
             Function<ColumnType, DefaultValue> resolveDfltFunc;
 
             if (expr instanceof SqlLiteral) {
-                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral((SqlLiteral) expr, type));
+                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr));
             } else if (expr == null) {
                 resolveDfltFunc = type -> DefaultValue.constant(null);
             } else {
@@ -887,7 +887,7 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private static @Nullable Object fromLiteral(SqlLiteral literal, ColumnType columnType) {
+    private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal) {
         try {
             switch (columnType) {
                 case NULL:
