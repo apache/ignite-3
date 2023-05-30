@@ -190,11 +190,9 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
 
         if (throwable == null) {
             for (StreamerBuffer<T> buf : buffers.values()) {
-                buf.flushAndClose();
+                pendingFuts.add(buf.flushAndClose());
             }
 
-            // TODO: pendingFuts can be modified during retries.
-            // We should use some kind of a flag to indicate that we are closing, then react to batch future completion
             var futs = pendingFuts.toArray(new CompletableFuture[0]);
 
             CompletableFuture.allOf(futs).whenComplete((res, err) -> {

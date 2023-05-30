@@ -61,15 +61,25 @@ class StreamerBuffer<T> {
     }
 
     synchronized void flush(long period) {
+        if (closed) {
+            return;
+        }
+
         if (System.currentTimeMillis() - lastFlushTime > period) {
             flush(buf);
             buf = new ArrayList<>(capacity);
         }
     }
 
-    synchronized void flushAndClose() {
+    synchronized CompletableFuture<Void> flushAndClose() {
+        if (closed) {
+            throw new IllegalStateException("Streamer is already closed.");
+        }
+
         closed = true;
         flush(buf);
+
+        return flushFut;
     }
 
     private void flush(List<T> b) {
