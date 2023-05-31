@@ -85,6 +85,21 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
+    public void testBasicStreamingPojo() {
+        assert false;
+    }
+
+    @Test
+    public void testBasicStreamingKv() {
+        assert false;
+    }
+
+    @Test
+    public void testBasicStreamingKvPojo() {
+        assert false;
+    }
+
+    @Test
     public void testAutoFlushByTimer() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
@@ -130,6 +145,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         var streamFut = view.streamData(publisher, options);
 
+        // Stream 10 items while buffer capacity is 2 to trigger back pressure.
         var submitFut = CompletableFuture.runAsync(() -> {
             for (long i = 0; i < 10; i++) {
                 publisher.submit(tuple(i, "foo_" + i));
