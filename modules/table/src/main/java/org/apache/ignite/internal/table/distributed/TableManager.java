@@ -252,7 +252,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
     /** Same as {@link #tablesByIdVv}, but completed before starting RAFT nodes for partitions. */
-    private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdStoresOnlyVv;
+    private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdNoRaftVv;
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
@@ -399,7 +399,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        tablesByIdStoresOnlyVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        tablesByIdNoRaftVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -859,7 +859,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return allOf(futures);
         };
 
-        CompletableFuture<Void> updateAssignmentsFuture = tablesByIdStoresOnlyVv.get(causalityToken).thenComposeAsync(
+        CompletableFuture<Void> updateAssignmentsFuture = tablesByIdNoRaftVv.get(causalityToken).thenComposeAsync(
                 tablesById -> inBusyLock(busyLock, () -> updateAssignmentsClosure.apply(tablesById.get(tblId))),
                 ioExecutor
         );
@@ -1137,7 +1137,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         };
 
-        CompletableFuture<Map<Integer, TableImpl>> createTableVvFuture = tablesByIdStoresOnlyVv.update(causalityToken, (previous, e) ->
+        CompletableFuture<Map<Integer, TableImpl>> createTableVvFuture = tablesByIdNoRaftVv.update(causalityToken, (previous, e) ->
                 inBusyLock(busyLock, () -> {
                     if (e != null) {
                         return failedFuture(e);
@@ -1280,13 +1280,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenApply(v -> map);
             };
 
-            CompletableFuture<Map<Integer, TableImpl>> dropTableVvFuture = tablesByIdStoresOnlyVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
+            CompletableFuture<Map<Integer, TableImpl>> dropTableVvFuture = tablesByIdNoRaftVv.update(causalityToken, (previousVal, e) ->
+                    inBusyLock(busyLock, () -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
 
-                return dropTableClosure.apply(previousVal);
-            }));
+                        return dropTableClosure.apply(previousVal);
+                    }));
 
             // Mandatory chaining.
             tablesByIdVv.update(causalityToken, (tablesById, e) -> dropTableVvFuture);
