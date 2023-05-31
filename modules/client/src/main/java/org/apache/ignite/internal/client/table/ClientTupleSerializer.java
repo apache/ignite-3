@@ -450,7 +450,7 @@ public class ClientTupleSerializer {
         return hashCalc.hash();
     }
 
-    private static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
+    static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
         // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
         var hashCalc = new HashCalculator();
         var marsh = schema.getMarshaller(mapper, TuplePart.KEY);
