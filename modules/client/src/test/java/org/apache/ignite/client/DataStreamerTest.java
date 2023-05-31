@@ -39,7 +39,6 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
@@ -68,7 +67,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
-    public void testBasicStreaming(int batchSize) {
+    public void testBasicStreamingRecordBinaryView(int batchSize) {
         RecordView<Tuple> view = defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
@@ -89,7 +88,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBasicStreamingPojo() {
+    public void testBasicStreamingRecordPojoView() {
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
         CompletableFuture<Void> streamerFut;
 
@@ -105,7 +104,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBasicStreamingKv() {
+    public void testBasicStreamingKvBinaryView() {
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
         CompletableFuture<Void> streamerFut;
 
@@ -121,7 +120,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBasicStreamingKvPojo() {
+    public void testBasicStreamingKvPojoView() {
         KeyValueView<Long, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
         CompletableFuture<Void> streamerFut;
 
