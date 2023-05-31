@@ -17,34 +17,27 @@
 
 package org.apache.ignite.internal.deployunit.message;
 
-import java.util.Map;
+import static org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes.DOWNLOAD_UNIT_REQUEST;
+
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Deploy unit request.
+ * Download unit content request.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_REQUEST)
-public interface DeployUnitRequest extends NetworkMessage {
+@Transferable(DOWNLOAD_UNIT_REQUEST)
+public interface DownloadUnitRequest extends NetworkMessage {
     /**
-     * Returns id of deployment unit.
+     * Returns deployment unit identifier.
      *
-     * @return id of deployment unit
+     * @return Deployment unit identifier.
      */
     String id();
 
     /**
-     * Returns version of deployment unit.
+     * Returns deployment unit version.
      *
-     * @return version of deployment unit.
+     * @return Deployment unit version.
      */
     String version();
-
-    /**
-     * Returns map from file names of deployment unit to their content.
-     *
-     * @return map from file names of deployment unit to their content.
-     */
-
-    Map<String, byte[]> unitContent();
 }

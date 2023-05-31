@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -37,8 +38,10 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,10 +114,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
         return super.accept(shuttle);
     }
 
-    /**
-     * Get index name.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** Return index name. */
     public String indexName() {
         return idxName;
     }
@@ -124,20 +124,35 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rows = table.getRowCount();
 
-        double cost;
+        double cost = 0;
+
+        if (type == Type.HASH) {
+            boolean notExact = (searchBounds() == null)
+                    || searchBounds().stream().anyMatch(bound -> bound.type() == SearchBounds.Type.RANGE);
+
+            if (!notExact) {
+                notExact = searchBounds().stream().flatMap(bound -> bound instanceof MultiBounds
+                                ? ((MultiBounds) bound).bounds().stream() : Stream.of(bound))
+                        .anyMatch(bound -> bound.type() != SearchBounds.Type.EXACT);
+            }
+
+            if (notExact) {
+                // now bounds index scan is only available for sorted index, check:
+                // PartitionReplicaListener#processReadOnlyScanRetrieveBatchAction
+                return planner.getCostFactory().makeInfiniteCost();
+            }
+        }
 
         if (condition == null) {
             cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
         } else {
-            RexBuilder builder = getCluster().getRexBuilder();
-
             double selectivity = 1;
 
-            cost = 0;
+            RexBuilder builder = getCluster().getRexBuilder();
 
-            if (searchBounds != null) {
+            if (searchBounds() != null) {
                 selectivity = mq.getSelectivity(this, RexUtil.composeConjunction(builder,
-                        Commons.transform(searchBounds, b -> b == null ? null : b.condition())));
+                        Commons.transform(searchBounds(), b -> b == null ? null : b.condition())));
 
                 cost = Math.log(rows) * IgniteCost.ROW_COMPARISON_COST;
             }

@@ -25,11 +25,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.version.UnitVersion;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
@@ -50,12 +49,12 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, UnitVersion.parse(unitVersion), deploymentUnit));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit));
     }
 
     @Override
     public CompletableFuture<Boolean> undeploy(String unitId, String unitVersion) {
-        return deployment.undeployAsync(unitId, UnitVersion.parse(unitVersion));
+        return deployment.undeployAsync(unitId, Version.parseVersion(unitVersion));
     }
 
     @Override
@@ -73,13 +72,6 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     @Override
     public CompletableFuture<UnitStatus> status(String unitId) {
         return deployment.statusAsync(unitId).thenApply(DeploymentManagementController::fromUnitStatus);
-    }
-
-    @Override
-    public CompletableFuture<Collection<UnitStatus>> findByConsistentId(String consistentId) {
-        return deployment.findUnitByConsistentIdAsync(consistentId)
-                .thenApply(units -> units.stream().map(DeploymentManagementController::fromUnitStatus)
-                        .collect(Collectors.toList()));
     }
 
     /**
