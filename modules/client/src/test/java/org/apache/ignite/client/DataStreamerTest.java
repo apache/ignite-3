@@ -65,7 +65,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
     public void testBasicStreaming(int batchSize) {
-        RecordView<Tuple> view = this.defaultTable().recordView();
+        RecordView<Tuple> view = defaultTable().recordView();
 
         var publisher = new SubmissionPublisher<Tuple>();
         var options = DataStreamerOptions.builder().batchSize(batchSize).build();
@@ -86,7 +86,18 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testBasicStreamingPojo() {
-        assert false;
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+        CompletableFuture<Void> fut;
+
+        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+            fut = view.streamData(publisher, null);
+
+            publisher.submit(new PersonPojo(1L, "foo"));
+            publisher.submit(new PersonPojo(2L, "bar"));
+        }
+
+        fut.orTimeout(1, TimeUnit.SECONDS).join();
+        assertEquals("bar", view.get(null, new PersonPojo(2L)).name);
     }
 
     @Test
