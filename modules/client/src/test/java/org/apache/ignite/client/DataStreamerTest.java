@@ -229,7 +229,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             }
         }
 
-        streamFut.get(5000, TimeUnit.SECONDS);
+        streamFut.get(5, TimeUnit.SECONDS);
 
         for (long i = 0; i < 100; i++) {
             assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
@@ -252,6 +252,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
+                .loggerFactory(new ConsoleLoggerFactory("client-2"))
                 .retryPolicy(new RetryLimitPolicy().retryLimit(0));
 
         client2 = builder.build();
@@ -264,11 +265,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             publisher.submit(tuple(1L, "foo"));
         }
 
-        streamFut.get(1000, TimeUnit.SECONDS);
-
-        for (long i = 0; i < 100; i++) {
-            assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
-        }
+        streamFut.get(1, TimeUnit.SECONDS);
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
