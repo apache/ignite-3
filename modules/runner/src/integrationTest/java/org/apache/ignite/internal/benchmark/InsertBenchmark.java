@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.benchmark;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -52,6 +53,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class InsertBenchmark extends AbstractOneNodeBenchmark {
+    private static final String INSERT_QUERY_PATTERN = "insert into {}({}, {}) values(?, {})";
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
@@ -134,7 +137,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
             String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
             String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
-            String queryStr = String.format("insert into %s(%s, %s) values(?, %s);", TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+            String queryStr = format(INSERT_QUERY_PATTERN, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
 
             IgniteSql sql = clusterNode.sql();
 
@@ -177,7 +180,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
             String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
             String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
-            String queryStr = String.format("insert into %s(%s, %s) values(?, %s);", TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+            String queryStr = format(INSERT_QUERY_PATTERN, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
 
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
@@ -224,7 +227,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
             String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
             String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
-            String queryStr = String.format("insert into %s(%s, %s) values(?, %s);", TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+            String queryStr = format(INSERT_QUERY_PATTERN, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
 
             //noinspection CallToDriverManagerGetConnection
             conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
