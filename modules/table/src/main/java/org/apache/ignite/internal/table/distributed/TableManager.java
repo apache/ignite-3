@@ -645,19 +645,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         String localMemberName = localNode().name();
 
         // Create new raft nodes according to new assignments.
-        return tablesByIdVv.update(causalityToken, (tablesById, e) -> inBusyLock(busyLock, () -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
-
+        Function<TableImpl, CompletableFuture<Void>> updateAssignmentsClosure = table -> {
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
                 Set<Assignment> oldPartAssignment = oldAssignments == null ? Set.of() : oldAssignments.get(partId);
 
                 Set<Assignment> newPartAssignment = newAssignments.get(partId);
-
-                TableImpl table = tablesById.get(tblId);
 
                 InternalTable internalTbl = table.internalTable();
 
@@ -674,7 +668,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
                         new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-                PendingComparableValuesTracker<Long, Void>  storageIndexTracker =
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker =
                         new PendingComparableValuesTracker<>(0L);
 
                 ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -794,6 +788,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 startGroupFut
                         .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                             try {
+                                //TODO This procedure takes 10 seconds if there's no majority online.
                                 return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
@@ -857,8 +852,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         });
             }
 
-            return allOf(futures).thenApply(unused -> tablesById);
-        }));
+            return allOf(futures);
+        };
+
+        return tablesByIdVv.get(causalityToken).thenComposeAsync(
+                tablesById -> inBusyLock(busyLock, () -> updateAssignmentsClosure.apply(tablesById.get(tblId))),
+                ioExecutor
+        );
     }
 
     private boolean isLocalPeer(Peer peer) {
