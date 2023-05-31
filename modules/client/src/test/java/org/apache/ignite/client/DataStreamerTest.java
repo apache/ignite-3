@@ -246,14 +246,16 @@ public class DataStreamerTest extends AbstractClientTableTest {
         var server2 = new FakeIgnite("server-2");
 
         // Drop connection before we can retrieve partition assignment.
-        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 4;
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 5;
         Function<Integer, Integer> responseDelay = idx -> 0;
         testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
 
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
                 .loggerFactory(new ConsoleLoggerFactory("client-2"))
-                .retryPolicy(new RetryLimitPolicy().retryLimit(0));
+                .connectTimeout(200)
+                .reconnectThrottlingRetries(0)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(1));
 
         client2 = builder.build();
         RecordView<Tuple> view = defaultTableView(server2, client2);
@@ -265,7 +267,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             publisher.submit(tuple(1L, "foo"));
         }
 
-        streamFut.get(1, TimeUnit.SECONDS);
+        streamFut.get(1000, TimeUnit.SECONDS);
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
