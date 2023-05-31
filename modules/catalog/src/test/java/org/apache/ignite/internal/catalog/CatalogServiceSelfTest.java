@@ -73,6 +73,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -450,7 +451,7 @@ public class CatalogServiceSelfTest {
                 .columns(Set.of("ID"))
                 .build();
 
-        assertThat(service.dropColumn(params), willThrow(IllegalArgumentException.class));
+        assertThat(service.dropColumn(params), willThrow(SqlException.class));
 
         // Validate actual catalog
         SchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
