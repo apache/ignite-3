@@ -2391,7 +2391,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
     public void onBecomePrimary(ClusterNode clusterNode) {
         inBusyLock(() -> {
             if (clusterNode.equals(localNode)) {
@@ -2424,7 +2423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         busyLock.block();
 
-        startBuildIndexes();
+        stopBuildIndexes();
     }
 
     private void registerIndexesListener() {
