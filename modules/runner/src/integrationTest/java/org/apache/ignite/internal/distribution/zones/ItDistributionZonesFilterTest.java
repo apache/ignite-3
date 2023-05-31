@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -210,7 +211,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingsAreNull(metaStorageManager, partId);
+        assertPendingWasNeverExsists(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
@@ -218,7 +219,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
 
         //Check that pending are null, so there wasn't any rebalance.
-        assertPendingsAreNull(metaStorageManager, partId);
+        assertPendingWasNeverExsists(metaStorageManager, partId);
     }
 
     @Test
@@ -262,7 +263,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingsAreNull(metaStorageManager, partId);
+        assertPendingWasNeverExsists(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
@@ -270,7 +271,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingsAreNull(metaStorageManager, partId);
+        assertPendingWasNeverExsists(metaStorageManager, partId);
 
         session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
                 + "\"REPLICAS\" = 2");
@@ -303,7 +304,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         latch.await(10_000, MILLISECONDS);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingsAreNull(metaStorageManager, partId);
+        assertPendingWasNeverExsists(metaStorageManager, partId);
     }
 
     private static void waitDataNodeAndListenersAreHandled(
@@ -328,16 +329,10 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= fakeEntry.revision(), 5_000));
     }
 
-    private static void assertPendingsAreNull(
+    private static void assertPendingWasNeverExsists(
             MetaStorageManager metaStorageManager,
             TablePartitionId partId
-    ) throws InterruptedException {
-        assertValueInStorage(
-                metaStorageManager,
-                pendingPartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
-                TIMEOUT_MILLIS
-        );
+    ) throws InterruptedException, ExecutionException {
+        assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
     }
 }
