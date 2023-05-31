@@ -65,9 +65,11 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -269,7 +271,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     throw new ColumnNotFoundException(columnName);
                 }
                 if (table.isPrimaryKeyColumn(columnName)) {
-                    throw new IllegalArgumentException("Can't drop primary key column: column=" + columnName);
+                    throw new SqlException(
+                            Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
+                            "Can't drop primary key column: column=" + columnName
+                    );
                 }
             }
 
@@ -279,17 +284,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             .filter(index::hasColumn)
                             .findAny()
                             .ifPresent(columnName -> {
-                                throw new IllegalArgumentException("Can't drop indexed column: columnName=" + columnName + ", indexName="
-                                        + index.name());
+                                throw new SqlException(
+                                        Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
+                                        "Can't drop indexed column: columnName=" + columnName + ", indexName="
+                                        + index.name()
+                                );
                             }));
 
-            Set<String> columnsToDrop = table.columns().stream()
-                    .map(TableColumnDescriptor::name)
-                    .filter(col -> params.columns().contains(col))
-                    .collect(Collectors.toSet());
-
             return List.of(
-                    new DropColumnsEntry(table.id(), columnsToDrop)
+                    new DropColumnsEntry(table.id(), params.columns())
             );
         });
     }

@@ -29,7 +29,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -80,7 +79,6 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.addColumn(DdlToCatalogCommandConverter.convert(addCommand))
                             .handle(handleModificationResult(addCommand.ifTableExists(), TableNotFoundException.class))
-                            .handle(handleModificationResult(addCommand.ifColumnNotExists(), ColumnAlreadyExistsException.class))
                     );
         } else if (cmd instanceof AlterTableDropCommand) {
             AlterTableDropCommand dropCommand = (AlterTableDropCommand) cmd;
