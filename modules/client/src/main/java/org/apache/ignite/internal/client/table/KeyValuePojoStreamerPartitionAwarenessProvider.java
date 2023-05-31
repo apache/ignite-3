@@ -35,7 +35,7 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractStrea
 
 
     @Override
-    int getColocationHash(ClientSchema schema, Entry<K, V> item) {
+    int colocationHash(ClientSchema schema, Entry<K, V> item) {
         return ClientTupleSerializer.getColocationHash(schema, mapper, item.getKey());
     }
 }

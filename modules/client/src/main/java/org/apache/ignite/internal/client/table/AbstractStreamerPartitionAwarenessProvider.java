@@ -44,11 +44,11 @@ abstract class AbstractStreamerPartitionAwarenessProvider<T> implements Streamer
             return ""; // Default channel.
         }
 
-        int hash = getColocationHash(schema, item);
+        int hash = colocationHash(schema, item);
         return assignment.get(hash % assignment.size());
     }
 
-    abstract int getColocationHash(ClientSchema schema, T item);
+    abstract int colocationHash(ClientSchema schema, T item);
 
     @Override
     public CompletableFuture<Void> refreshAsync() {

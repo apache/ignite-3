@@ -34,7 +34,7 @@ public class PojoStreamerPartitionAwarenessProvider<T> extends AbstractStreamerP
     }
 
     @Override
-    int getColocationHash(ClientSchema schema, T item) {
+    int colocationHash(ClientSchema schema, T item) {
         return ClientTupleSerializer.getColocationHash(schema, mapper, item);
     }
 }

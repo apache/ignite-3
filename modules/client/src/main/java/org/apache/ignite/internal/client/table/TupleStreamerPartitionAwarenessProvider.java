@@ -28,7 +28,7 @@ class TupleStreamerPartitionAwarenessProvider extends AbstractStreamerPartitionA
     }
 
     @Override
-    int getColocationHash(ClientSchema schema, Tuple item) {
+    int colocationHash(ClientSchema schema, Tuple item) {
         return ClientTupleSerializer.getColocationHash(schema, item);
     }
 }
