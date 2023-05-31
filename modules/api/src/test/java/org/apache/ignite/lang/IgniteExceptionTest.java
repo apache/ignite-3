@@ -35,8 +35,8 @@ public class IgniteExceptionTest {
     public void testWrapPublicUncheckedException() {
         var originalMessage = "Error foo bar";
         var originalTraceId = UUID.randomUUID();
-        var expectedFullMessage = CustomTestException.class.getName() + ": " +
-                errorMessage(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage);
+        var expectedFullMessage = CustomTestException.class.getName() + ": "
+                + errorMessage(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage);
 
         var originalEx = new CustomTestException(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage, null);
         var wrappedEx = new CompletionException(originalEx);
@@ -54,8 +54,8 @@ public class IgniteExceptionTest {
     public void testWrapPublicCheckedException() {
         var originalMessage = "Msg";
         var originalTraceId = UUID.randomUUID();
-        var expectedFullMessage = IgniteException.class.getName() + ": " +
-                errorMessage(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
+        var expectedFullMessage = IgniteException.class.getName() + ": "
+                + errorMessage(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
 
         var originalEx = new IgniteCheckedException(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
