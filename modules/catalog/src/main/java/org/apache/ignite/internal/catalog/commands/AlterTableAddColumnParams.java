@@ -28,9 +28,6 @@ public class AlterTableAddColumnParams extends AbstractTableCommandParams {
         return new Builder();
     }
 
-    /** Quietly ignore this command if column already exists. */
-    private boolean ifColumnNotExists;
-
     /** Columns. */
     private List<ColumnParams> cols;
 
@@ -39,15 +36,6 @@ public class AlterTableAddColumnParams extends AbstractTableCommandParams {
      */
     public List<ColumnParams> columns() {
         return cols;
-    }
-
-    /**
-     * Not exists flag.
-     *
-     * @return Quietly ignore this command if column exists.
-     */
-    public boolean ifColumnNotExists() {
-        return ifColumnNotExists;
     }
 
     /**
@@ -66,17 +54,6 @@ public class AlterTableAddColumnParams extends AbstractTableCommandParams {
          */
         public Builder columns(List<ColumnParams> cols) {
             params.cols = cols;
-            return this;
-        }
-
-        /**
-         * Set exists flag.
-         *
-         * @param ifColumnNotExists Quietly ignore this command if column exists.
-         * @return {@code this}.
-         */
-        public Builder ifColumnNotExists(boolean ifColumnNotExists) {
-            params.ifColumnNotExists = ifColumnNotExists;
             return this;
         }
     }

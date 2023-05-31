@@ -406,6 +406,29 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
+    public void testDropColumnIfTableExistsFlag() {
+        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
+
+        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
+                .ifTableExists(false)
+                .build();
+
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+
+        params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
+                .ifTableExists(true)
+                .build();
+
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+    }
+
+    @Test
     public void testDropIndexedColumn() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
@@ -440,34 +463,33 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testAddColumnIfExists() {
-        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+    public void testAddColumnIfTableExistsFlag() {
+        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
 
         AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .ifColumnNotExists(false)
+                .ifTableExists(false)
                 .build();
 
-        assertThat(service.addColumn(params), willBe((Object) null));
-        assertThat(service.addColumn(params), willThrow(ColumnAlreadyExistsException.class));
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
 
         params = AlterTableAddColumnParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .ifColumnNotExists(true)
+                .ifTableExists(true)
                 .build();
 
-        assertThat(service.addColumn(params), willThrow(ColumnAlreadyExistsException.class));
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
     }
 
     @Test
     public void testAddDropMultipleColumns() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
-        // Try to add duplicate column with 'IF NOT EXISTS' clause
+        // Add duplicate column.
         AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
@@ -475,7 +497,6 @@ public class CatalogServiceSelfTest {
                         ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build(),
                         ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).build()
                 ))
-                .ifColumnNotExists(true)
                 .build();
 
         assertThat(service.addColumn(addColumnParams), willThrow(ColumnAlreadyExistsException.class));
@@ -493,7 +514,6 @@ public class CatalogServiceSelfTest {
                         ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build(),
                         ColumnParams.builder().name(NEW_COLUMN_NAME_2).type(ColumnType.INT32).nullable(true).build()
                 ))
-                .ifColumnNotExists(false)
                 .build();
 
         assertThat(service.addColumn(addColumnParams), willBe((Object) null));
@@ -504,28 +524,11 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
 
-        // Try to drop multiple columns with 'IF NOT EXISTS' clause
+        // Drop multiple columns.
         AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .columns(Set.of(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2))
-                .ifColumnExists(true)
-                .build();
-
-        assertThat(service.dropColumn(dropColumnParams), willThrow(UnsupportedOperationException.class));
-
-        // Validate no column dropped.
-        schema = service.activeSchema(System.currentTimeMillis());
-
-        assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
-        assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
-
-        // Drop multiple columns.
-        dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2))
-                .ifColumnExists(false)
                 .build();
 
         assertThat(service.dropColumn(dropColumnParams), willBe((Object) null));
@@ -658,7 +661,6 @@ public class CatalogServiceSelfTest {
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .columns(Set.of(NEW_COLUMN_NAME))
-                .ifColumnExists(true)
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);

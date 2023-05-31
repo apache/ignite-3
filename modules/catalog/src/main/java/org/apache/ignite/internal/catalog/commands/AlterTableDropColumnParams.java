@@ -30,9 +30,6 @@ public class AlterTableDropColumnParams extends AbstractTableCommandParams {
         return new Builder();
     }
 
-    /** Quietly ignore this command if column is not exist. */
-    private boolean ifColumnExists;
-
     /** Columns. */
     private Set<String> cols;
 
@@ -41,15 +38,6 @@ public class AlterTableDropColumnParams extends AbstractTableCommandParams {
      */
     public Set<String> columns() {
         return Collections.unmodifiableSet(cols);
-    }
-
-    /**
-     * Exists flag.
-     *
-     * @return Quietly ignore this command if column is not exist.
-     */
-    public boolean ifColumnExists() {
-        return ifColumnExists;
     }
 
     /**
@@ -68,17 +56,6 @@ public class AlterTableDropColumnParams extends AbstractTableCommandParams {
          */
         public Builder columns(Set<String> cols) {
             params.cols = cols;
-            return this;
-        }
-
-        /**
-         * Set exists flag.
-         *
-         * @param ifColumnExists Quietly ignore this command if column is not exist.
-         * @return {@code this}.
-         */
-        public Builder ifColumnExists(boolean ifColumnExists) {
-            params.ifColumnExists = ifColumnExists;
             return this;
         }
     }

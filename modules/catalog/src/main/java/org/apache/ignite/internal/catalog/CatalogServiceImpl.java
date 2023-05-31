@@ -251,8 +251,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     public CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params) {
         if (params.columns().isEmpty()) {
             return completedFuture(null);
-        } else if (params.columns().size() > 1 && params.ifColumnExists()) {
-            return failedFuture(new UnsupportedOperationException("Clause 'IF NOT EXISTS' is not supported when adding multiple columns."));
         }
 
         return saveUpdate(catalog -> {
