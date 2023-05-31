@@ -33,7 +33,7 @@ public class UnitListOptionsMixin {
     private UnitVersion unitVersion;
 
     private static class UnitVersion {
-        @Parameters(description = "Deployment unit id", arity = "1")
+        @Parameters(description = "Deployment unit id", arity = "1", defaultValue = Option.NULL_VALUE)
         private String unitId;
 
         @Option(names = "--version", description = "Filters out deployment unit by version (exact match assumed)")

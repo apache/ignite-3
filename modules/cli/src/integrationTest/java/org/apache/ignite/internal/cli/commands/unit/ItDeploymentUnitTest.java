@@ -33,13 +33,15 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
 
     private String testFile;
 
+    private String testFile2;
+
     private Path testDirectory;
 
     @BeforeAll
     void beforeAll() throws IOException {
         testDirectory = Files.createDirectory(WORK_DIR.resolve("test"));
         testFile = Files.createFile(testDirectory.resolve("test.txt")).toString();
-        Files.createFile(testDirectory.resolve("test2.txt"));
+        testFile2 = Files.createFile(testDirectory.resolve("test2.txt")).toString();
     }
 
     @Test
@@ -87,7 +89,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @Test
     @DisplayName("Should undeploy a unit with version")
     void undeploy() {
-        // When deploy
+        // When deploy with version
         execute("cluster", "unit", "deploy", "test.unit.id.3", "--version", "1.0.0", "--path", testFile);
 
         // And undeploy
@@ -117,7 +119,7 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     @Test
     @DisplayName("Should display correct status after deploy")
     void deployAndStatusCheck() {
-        // When undeploy non-existing unit
+        // When deploy with version
         execute("cluster", "unit", "deploy", "test.unit.id.5", "--version", "1.0.0", "--path", testFile);
 
         // Then
@@ -151,6 +153,53 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Done")
+        );
+    }
+
+    @Test
+    @DisplayName("Should display correct status with filters after deploy")
+    void deployUnitsAndStatusCheck() {
+        // When deploy with version
+        execute("cluster", "unit", "deploy", "test-unit", "--version", "1.0.0", "--path", testFile);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        // When deploy second unit with version
+        resetOutput();
+        execute("cluster", "unit", "deploy", "test-unit2", "--version", "2.1", "--path", testFile2);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "--plain", "test-unit");
+
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertErrOutputIsEmpty,
+                    () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator()
+                            + "test-unit\t1.0.0\tDEPLOYED" + System.lineSeparator())
+            );
+        });
+
+        resetOutput();
+        execute("node", "unit", "list", "--plain", "test-unit");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("id\tversion\tstatus" + System.lineSeparator()
+                        + "test-unit\t1.0.0\tDEPLOYED" + System.lineSeparator())
         );
     }
 }

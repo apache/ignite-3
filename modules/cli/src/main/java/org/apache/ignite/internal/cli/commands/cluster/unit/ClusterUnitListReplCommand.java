@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -29,6 +32,7 @@ import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command to list deployed units in REPL mode. */
 @Command(name = "list", description = "Shows a list of deployed units")
@@ -39,6 +43,9 @@ public class ClusterUnitListReplCommand extends BaseCommand implements Runnable 
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
+
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
     private ClusterListUnitCall call;
@@ -53,7 +60,7 @@ public class ClusterUnitListReplCommand extends BaseCommand implements Runnable 
                 .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
                 .verbose(verbose)
-                .print(new UnitListDecorator())
+                .print(new UnitListDecorator(plain))
                 .start();
     }
 }

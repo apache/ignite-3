@@ -187,8 +187,12 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         return tracker.track(id, version, deployToLocalNode(id, version, unitContent)
                 .thenApply(completed -> {
                     if (completed) {
-                        cmgManager.cmgNodes().thenAccept(nodes ->
-                                nodes.forEach(node -> deploymentUnitStore.createNodeStatus(node, id, version)));
+                        String localNodeId = getLocalNodeId();
+                        cmgManager.cmgNodes().thenAccept(nodes -> nodes.forEach(node -> {
+                            if (!node.equals(localNodeId)) {
+                                deploymentUnitStore.createNodeStatus(node, id, version);
+                            }
+                        }));
                     }
                     return completed;
                 })
@@ -308,7 +312,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerListener(new NodeStatusWatchListener(
                 deploymentUnitStore,
-                () -> this.clusterService.topologyService().localMember().name(),
+                this::getLocalNodeId,
                 this::onUnitRegister));
         messaging.subscribe();
     }

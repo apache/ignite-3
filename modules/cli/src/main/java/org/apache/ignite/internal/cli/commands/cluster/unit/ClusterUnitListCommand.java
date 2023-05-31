@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
@@ -29,6 +32,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializ
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command to list deployed units. */
 @Command(name = "list", description = "Shows a list of deployed units")
@@ -40,6 +44,9 @@ public class ClusterUnitListCommand extends BaseCommand implements Callable<Inte
     @Mixin
     private ClusterUrlProfileMixin clusterUrl;
 
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
+
     @Inject
     private ClusterListUnitCall listUnitCall;
 
@@ -50,7 +57,7 @@ public class ClusterUnitListCommand extends BaseCommand implements Callable<Inte
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .decorator(new UnitListDecorator())
+                .decorator(new UnitListDecorator(plain))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
                 .build().runPipeline();
     }
