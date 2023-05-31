@@ -161,16 +161,14 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testBackPressure() throws Exception {
-        var server2 = new FakeIgnite("server-2");
-
+    public void testBackPressure() {
         Function<Integer, Integer> responseDelay = idx -> idx > 5 ? 500 : 0;
-        testServer2 = new TestServer(10900, 10, 10_000, server2, idx -> false, responseDelay, null, UUID.randomUUID(), null);
+        var ignite2 = startTestServer2(idx -> false, responseDelay);
 
         var port = testServer2.port();
 
         client2 = IgniteClient.builder().addresses("localhost:" + port).build();
-        RecordView<Tuple> view = defaultTableView(server2, client2);
+        RecordView<Tuple> view = defaultTableView(ignite2, client2);
 
         var bufferSize = 2;
         var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize);
@@ -202,12 +200,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testManyItemsWithDisconnectAndRetry() throws Exception {
-        var server2 = new FakeIgnite("server-2");
-
         // Drop connection on every 5th request.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
-        Function<Integer, Integer> responseDelay = idx -> 0;
-        testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+        var ignite2 = startTestServer2(shouldDropConnection, (Function<Integer, Integer>) idx -> 0);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         Builder builder = IgniteClient.builder()
@@ -217,7 +212,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 .loggerFactory(new ConsoleLoggerFactory("client-2"));
 
         client2 = builder.build();
-        RecordView<Tuple> view = defaultTableView(server2, client2);
+        RecordView<Tuple> view = defaultTableView(ignite2, client2);
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
@@ -238,12 +233,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testRetryLimitExhausted() {
-        var server2 = new FakeIgnite("server-2");
-
-        // TODO: extract common logic
         Function<Integer, Boolean> shouldDropConnection = idx -> idx > 10;
-        Function<Integer, Integer> responseDelay = idx -> 0;
-        testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+        var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
 
         var logger = new TestLoggerFactory("client-2");
 
@@ -253,7 +244,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 .retryPolicy(new RetryLimitPolicy().retryLimit(3));
 
         client2 = builder.build();
-        RecordView<Tuple> view = defaultTableView(server2, client2);
+        RecordView<Tuple> view = defaultTableView(ignite2, client2);
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
@@ -272,12 +263,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testAssignmentRefreshErrorClosesStreamer() {
-        var server2 = new FakeIgnite("server-2");
-
         // Drop connection before we can retrieve partition assignment.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx > 3;
-        Function<Integer, Integer> responseDelay = idx -> 0;
-        testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+        var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
 
         var logger = new TestLoggerFactory("client-2");
 
@@ -287,7 +275,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 .retryPolicy(new RetryLimitPolicy().retryLimit(1));
 
         client2 = builder.build();
-        RecordView<Tuple> view = defaultTableView(server2, client2);
+        RecordView<Tuple> view = defaultTableView(ignite2, client2);
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
@@ -304,5 +292,12 @@ public class DataStreamerTest extends AbstractClientTableTest {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
         return client.tables().table(DEFAULT_TABLE).recordView();
+    }
+
+    private FakeIgnite startTestServer2(Function<Integer, Boolean> shouldDropConnection, Function<Integer, Integer> responseDelay) {
+        var ignite2 = new FakeIgnite("server-2");
+        testServer2 = new TestServer(10900, 10, 10_000, ignite2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+
+        return ignite2;
     }
 }
