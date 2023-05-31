@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
@@ -36,8 +37,11 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,13 +73,13 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         var publisher = new SubmissionPublisher<Tuple>();
         var options = DataStreamerOptions.builder().batchSize(batchSize).build();
-        CompletableFuture<Void> fut = view.streamData(publisher, options);
+        CompletableFuture<Void> streamerFut = view.streamData(publisher, options);
 
         publisher.submit(tuple(1L, "foo"));
         publisher.submit(tuple(2L, "bar"));
 
         publisher.close();
-        fut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1L)));
         assertNotNull(view.get(null, tupleKey(2L)));
@@ -87,22 +91,33 @@ public class DataStreamerTest extends AbstractClientTableTest {
     @Test
     public void testBasicStreamingPojo() {
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
-        CompletableFuture<Void> fut;
+        CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<PersonPojo>()) {
-            fut = view.streamData(publisher, null);
+            streamerFut = view.streamData(publisher, null);
 
             publisher.submit(new PersonPojo(1L, "foo"));
             publisher.submit(new PersonPojo(2L, "bar"));
         }
 
-        fut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
         assertEquals("bar", view.get(null, new PersonPojo(2L)).name);
     }
 
     @Test
     public void testBasicStreamingKv() {
-        assert false;
+        KeyValueView<Long, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Map.Entry<Long, PersonPojo>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(Map.entry(1L, new PersonPojo(1L, "foo")));
+            publisher.submit(Map.entry(2L, new PersonPojo(2L, "bar")));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        assertEquals("bar", view.get(null, 2L).name);
     }
 
     @Test
@@ -154,7 +169,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
                 .perNodeParallelOperations(1)
                 .build();
 
-        var streamFut = view.streamData(publisher, options);
+        var streamerFut = view.streamData(publisher, options);
 
         // Stream 10 items while buffer capacity is 2 to trigger back pressure.
         var submitFut = CompletableFuture.runAsync(() -> {
@@ -165,7 +180,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         // Due to `responseDelay` above, `publisher.submit` is blocking when buffer is full => submitFut can't complete in 200 ms.
         assertThrows(TimeoutException.class, () -> submitFut.get(200, TimeUnit.MILLISECONDS));
-        assertFalse(streamFut.isDone());
+        assertFalse(streamerFut.isDone());
     }
 
     @Test
