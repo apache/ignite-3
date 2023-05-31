@@ -411,7 +411,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     );
 
                     eventFutures.add(fireEvent(
-                            CatalogEvent.ALTER_COLUMN,
+                            CatalogEvent.TABLE_ALTER,
                             new AlterColumnEventParameters(version, tableId, target)
                     ));
                 } else {
