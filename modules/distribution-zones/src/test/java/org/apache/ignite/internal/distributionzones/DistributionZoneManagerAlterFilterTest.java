@@ -119,7 +119,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
     }
 
     /**
-     * Tests that node that empty data nodes are propagated after altering of a filter and corresponding immediate scale up.
+     * Tests that empty data nodes are propagated after altering of a filter and corresponding immediate scale up.
      *
      * @throws Exception If failed.
      */
