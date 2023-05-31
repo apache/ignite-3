@@ -229,6 +229,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Flag indicates whether the current replica is the primary. */
+    private volatile boolean primary;
+
     /**
      * The constructor.
      *
@@ -2388,22 +2391,26 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    // TODO: IGNITE-19053 Must handle the change of leader
-    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
     public void onBecomePrimary(ClusterNode clusterNode) {
         inBusyLock(() -> {
-            if (!clusterNode.equals(localNode)) {
-                // We are not the primary replica.
-                return;
-            }
+            if (clusterNode.equals(localNode)) {
+                if (primary) {
+                    // Current replica has already become the primary, we do not need to do anything.
+                    return;
+                }
 
-            registerIndexesListener();
+                primary = true;
 
-            // Let's try to build an index for the previously created indexes for the table.
-            TablesView tablesView = mvTableStorage.tablesConfiguration().value();
+                startBuildIndexes();
+            } else {
+                if (!primary) {
+                    // Current replica was not the primary replica, we do not need to do anything.
+                    return;
+                }
 
-            for (int indexId : collectIndexIds(tablesView)) {
-                startBuildIndex(createIndexDescriptor(tablesView, indexId));
+                primary = false;
+
+                stopBuildIndexes();
             }
         });
     }
@@ -2416,13 +2423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         busyLock.block();
 
-        ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
-
-        if (listener != null) {
-            mvTableStorage.tablesConfiguration().indexes().stopListenElements(listener);
-        }
-
-        indexBuilder.stopBuildIndexes(tableId(), partId());
+        stopBuildIndexes();
     }
 
     private void registerIndexesListener() {
@@ -2467,10 +2468,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean casResult = indexesConfigurationListener.compareAndSet(null, listener);
 
-        // TODO IGNITE-19053 Fix this workaround.
-        if (casResult) {
-            mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
-        }
+        assert casResult : replicationGroupId;
+
+        mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
     }
 
     private void startBuildIndex(IndexDescriptor indexDescriptor) {
@@ -2509,5 +2509,26 @@ public class PartitionReplicaListener implements ReplicaListener {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private void startBuildIndexes() {
+        registerIndexesListener();
+
+        // Let's try to build an index for the previously created indexes for the table.
+        TablesView tablesView = mvTableStorage.tablesConfiguration().value();
+
+        for (int indexId : collectIndexIds(tablesView)) {
+            startBuildIndex(createIndexDescriptor(tablesView, indexId));
+        }
+    }
+
+    private void stopBuildIndexes() {
+        ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
+
+        if (listener != null) {
+            mvTableStorage.tablesConfiguration().indexes().stopListenElements(listener);
+        }
+
+        indexBuilder.stopBuildIndexes(tableId(), partId());
     }
 }
