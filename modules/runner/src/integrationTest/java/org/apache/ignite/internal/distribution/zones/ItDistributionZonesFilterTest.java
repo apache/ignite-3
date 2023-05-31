@@ -126,6 +126,17 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have only 1 node,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name(), node(1).name()),
+                TIMEOUT_MILLIS * 2
+        );
+
         // This node pass the filter
         startNode(2, createStartConfig(secondNodeAttributes));
 
