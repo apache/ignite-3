@@ -41,8 +41,8 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateIndexParams.Type;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
@@ -323,10 +323,9 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testDropTableWithIndex() throws InterruptedException {
-        CreateIndexParams params = CreateIndexParams.builder()
+        CreateHashIndexParams params = CreateHashIndexParams.builder()
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
-                .type(Type.HASH)
                 .columns(List.of("VAL"))
                 .build();
 
@@ -378,10 +377,9 @@ public class CatalogServiceSelfTest {
     public void testCreateHashIndex() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
-        CreateIndexParams params = CreateIndexParams.builder()
+        CreateHashIndexParams params = CreateHashIndexParams.builder()
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
-                .type(Type.HASH)
                 .columns(List.of("VAL", "ID"))
                 .build();
 
@@ -410,7 +408,7 @@ public class CatalogServiceSelfTest {
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
-        assertFalse(index.unique());
+        assertTrue(index.unique());
         assertFalse(index.writeOnly());
     }
 
@@ -418,10 +416,9 @@ public class CatalogServiceSelfTest {
     public void testCreateSortedIndex() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
-        CreateIndexParams params = CreateIndexParams.builder()
+        CreateSortedIndexParams params = CreateSortedIndexParams.builder()
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
-                .type(Type.SORTED)
                 .unique()
                 .columns(List.of("VAL", "ID"))
                 .collations(List.of(ColumnCollation.DESC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST))
@@ -460,28 +457,16 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testCreateIndexIfExistsFlag() {
+    public void testCreateIndexWithSameName() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
-        CreateIndexParams params = CreateIndexParams.builder()
+        CreateHashIndexParams params = CreateHashIndexParams.builder()
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
-                .type(Type.HASH)
                 .columns(List.of("VAL"))
-                .ifIndexExists(true)
                 .build();
 
         assertThat(service.createIndex(params), willBe((Object) null));
-        assertThat(service.createIndex(params), willThrow(IndexAlreadyExistsException.class));
-
-        params = CreateIndexParams.builder()
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .type(Type.HASH)
-                .columns(List.of("VAL"))
-                .ifIndexExists(false)
-                .build();
-
         assertThat(service.createIndex(params), willThrow(IndexAlreadyExistsException.class));
     }
 
@@ -586,13 +571,10 @@ public class CatalogServiceSelfTest {
 
         DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
 
-        CreateIndexParams createIndexParams = CreateIndexParams.builder()
+        CreateHashIndexParams createIndexParams = CreateHashIndexParams.builder()
                 .schemaName(CatalogService.PUBLIC)
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
-                .ifIndexExists(true)
-                .type(Type.HASH)
-                .unique()
                 .columns(List.of("key2"))
                 .build();
 

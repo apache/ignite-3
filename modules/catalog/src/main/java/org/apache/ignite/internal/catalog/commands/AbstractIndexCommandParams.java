@@ -20,18 +20,12 @@ package org.apache.ignite.internal.catalog.commands;
 /**
  * Abstract index ddl command.
  */
-public class AbstractIndexCommandParams implements DdlCommandParams {
+public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /** Index name. */
     protected String indexName;
 
     /** Schema name where this new index will be created. */
     protected String schema;
-
-    /** Unique index flag. */
-    protected boolean unique;
-
-    /** Quietly ignore this command if index existence check failed. */
-    protected boolean ifIndexExists;
 
     /**
      * Returns index simple name.
@@ -45,13 +39,6 @@ public class AbstractIndexCommandParams implements DdlCommandParams {
      */
     public String schemaName() {
         return schema;
-    }
-
-    /**
-     * Returns {@code true} if index is unique, {@code false} otherwise.
-     */
-    public boolean isUnique() {
-        return unique;
     }
 
     /**
@@ -83,26 +70,6 @@ public class AbstractIndexCommandParams implements DdlCommandParams {
          */
         public BuilderT indexName(String indexName) {
             params.indexName = indexName;
-            return (BuilderT) this;
-        }
-
-        /**
-         * Set quietly ignore flag.
-         *
-         * @param ifIndexExists Flag.
-         */
-        public BuilderT ifIndexExists(boolean ifIndexExists) {
-            params.ifIndexExists = ifIndexExists;
-
-            return (BuilderT) this;
-        }
-
-        /**
-         * Sets unique flag.
-         */
-        public BuilderT unique() {
-            params.unique = true;
-
             return (BuilderT) this;
         }
 

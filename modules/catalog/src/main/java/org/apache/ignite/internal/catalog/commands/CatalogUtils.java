@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
@@ -51,47 +49,40 @@ public class CatalogUtils {
     }
 
     /**
-     * Converts CreateIndex command params to descriptor.
+     * Converts CreateIndex command params to hash index descriptor.
      *
      * @param id Index id.
      * @param tableId Table id.
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static IndexDescriptor fromParams(int id, int tableId, CreateIndexParams params) {
-        params.columns().stream()
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(colName -> {
-                    throw new IllegalArgumentException("Can't create index on duplicate columns: columnName=" + colName);
-                });
+    public static IndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new HashIndexDescriptor(id,
+                params.indexName(),
+                tableId,
+                true,
+                params.columns()
+        );
+    }
 
-        switch (params.type()) {
-            case HASH:
-                return new HashIndexDescriptor(id,
-                        params.indexName(),
-                        tableId,
-                        params.isUnique(),
-                        params.columns()
-                );
-            case SORTED:
-                List<ColumnCollation> collations = params.collations();
+    /**
+     * Converts CreateIndex command params to sorted index descriptor.
+     *
+     * @param id Index id.
+     * @param tableId Table id.
+     * @param params Parameters.
+     * @return Index descriptor.
+     */
+    public static IndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
+        List<ColumnCollation> collations = params.collations();
 
-                if (collations == null) {
-                    throw new IllegalArgumentException("Columns collations are missed for sorted index.");
-                }
+        assert collations.size() == params.columns().size();
 
-                assert collations.size() == params.columns().size();
+        List<IndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
+                .mapToObj(i -> new IndexColumnDescriptor(params.columns().get(i), collations.get(i)))
+                .collect(Collectors.toList());
 
-                List<IndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
-                        .mapToObj(i -> new IndexColumnDescriptor(params.columns().get(i), collations.get(i)))
-                        .collect(Collectors.toList());
-
-                return new SortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
-            default:
-                throw new IllegalArgumentException("Unsupported index type: " + params.type());
-        }
-
+        return new SortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
     }
 
     private static TableColumnDescriptor fromParams(ColumnParams params) {

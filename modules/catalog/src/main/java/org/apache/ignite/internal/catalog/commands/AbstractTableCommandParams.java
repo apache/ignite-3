@@ -87,6 +87,7 @@ public class AbstractTableCommandParams implements DdlCommandParams {
          * Set quietly ignore flag.
          *
          * @param ifTableNotExists Flag.
+         * @return {@code this}.
          */
         public BuilderT ifTableExists(boolean ifTableNotExists) {
             params.ifTableExists = ifTableNotExists;

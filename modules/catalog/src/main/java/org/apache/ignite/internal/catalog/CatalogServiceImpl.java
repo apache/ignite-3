@@ -23,21 +23,25 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -59,6 +63,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -235,7 +241,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> createIndex(CreateIndexParams params) {
+    public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
@@ -249,6 +255,82 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            if (params.columns().isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "No index columns was specified."
+                );
+            }
+
+            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
+
+            for (String columnName : params.columns()) {
+                TableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+
+                if (columnDescriptor == null) {
+                    throw new ColumnNotFoundException(columnName);
+                } else if (duplicateValidator.test(columnName)) {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Can't create index on duplicate columns: columnName=" + columnName
+                    );
+                }
+            }
+
+            IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+
+            return List.of(
+                    new NewIndexEntry(index),
+                    new ObjectIdGenUpdateEntry(1)
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            if (schema.index(params.indexName()) != null) {
+                throw new IndexAlreadyExistsException(schemaName, params.indexName());
+            }
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            if (params.columns().isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "No index columns was specified."
+                );
+            } else if (params.collations().size() != params.columns().size()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Columns collations doesn't match number of columns."
+                );
+            }
+
+            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
+
+            for (String columnName : params.columns()) {
+                TableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+
+                if (columnDescriptor == null) {
+                    throw new ColumnNotFoundException(columnName);
+                } else if (duplicateValidator.test(columnName)) {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Can't create index on duplicate columns: columnName=" + columnName
+                    );
+                }
             }
 
             IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);

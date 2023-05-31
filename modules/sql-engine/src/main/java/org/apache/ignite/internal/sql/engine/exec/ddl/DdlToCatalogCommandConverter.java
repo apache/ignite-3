@@ -19,8 +19,10 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
@@ -28,7 +30,6 @@ import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
@@ -63,20 +64,34 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static CreateIndexParams convert(CreateIndexCommand cmd) {
-        List<ColumnCollation> collations = cmd.collations() == null ? null
-                : cmd.collations().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
+    static AbstractIndexCommandParams convert(CreateIndexCommand cmd) {
+        switch (cmd.type()) {
+            case HASH:
+                return CreateHashIndexParams.builder()
+                        .schemaName(cmd.schemaName())
+                        .indexName(cmd.indexName())
 
-        return CreateIndexParams.builder()
-                .schemaName(cmd.schemaName())
-                .indexName(cmd.indexName())
+                        .tableName(cmd.tableName())
+                        .columns(cmd.columns())
 
-                .tableName(cmd.tableName())
-                .type(convert(cmd.type()))
-                .columns(cmd.columns())
-                .collations(collations)
+                        .build();
+            case SORTED:
+                List<ColumnCollation> collations = cmd.collations().stream()
+                        .map(DdlToCatalogCommandConverter::convert)
+                        .collect(Collectors.toList());
 
-                .build();
+                return CreateSortedIndexParams.builder()
+                        .schemaName(cmd.schemaName())
+                        .indexName(cmd.indexName())
+
+                        .tableName(cmd.tableName())
+                        .columns(cmd.columns())
+                        .collations(collations)
+
+                        .build();
+            default:
+                throw new IllegalArgumentException("Unsupported index type: " + cmd.type());
+        }
     }
 
     static DropIndexParams convert(DropIndexCommand cmd) {
@@ -100,17 +115,6 @@ class DdlToCatalogCommandConverter {
 
             default:
                 throw new IllegalArgumentException("Default value definition: " + def.type());
-        }
-    }
-
-    private static CreateIndexParams.Type convert(Type type) {
-        switch (type) {
-            case SORTED:
-                return CreateIndexParams.Type.SORTED;
-            case HASH:
-                return CreateIndexParams.Type.HASH;
-            default:
-                throw new IllegalArgumentException("Unsupported index type: " + type);
         }
     }
 
