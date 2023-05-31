@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -365,34 +364,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
-        // TODO: Move this to Table for reuse.
-        StreamerPartitionAwarenessProvider<Tuple, String> provider = new StreamerPartitionAwarenessProvider<>() {
-            private List<String> assignment;
-            private ClientSchema schema;
-
-            @Override
-            public String partition(Tuple item) {
-                if (schema == null || assignment == null) {
-                    throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
-                }
-
-                if (assignment.isEmpty()) {
-                    return ""; // Default channel.
-                }
-
-                int hash = ClientTupleSerializer.getColocationHash(schema, item);
-                return assignment.get(hash % assignment.size());
-            }
-
-            @Override
-            public CompletableFuture<Void> refreshAsync() {
-                var schemaFut = tbl.getLatestSchema().thenAccept(schema -> this.schema = schema);
-                var assignmentFut = tbl.getPartitionAssignment().thenAccept(assignment -> this.assignment = assignment);
-
-                return CompletableFuture.allOf(schemaFut, assignmentFut);
-            }
-        };
-
+        var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
         // Partition-aware (best effort) sender with retries.
