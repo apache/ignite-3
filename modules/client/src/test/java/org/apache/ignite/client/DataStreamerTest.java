@@ -242,17 +242,19 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testAssignmentRefreshErrorClosesStreamer() throws Exception {
+    public void testAssignmentRefreshErrorClosesStreamer() {
         var server2 = new FakeIgnite("server-2");
 
         // Drop connection before we can retrieve partition assignment.
-        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 5;
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 3;
         Function<Integer, Integer> responseDelay = idx -> 0;
         testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
 
+        var logger = new TestLoggerFactory("client-2");
+
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
-                .loggerFactory(new ConsoleLoggerFactory("client-2"))
+                .loggerFactory(logger)
                 .connectTimeout(200)
                 .reconnectThrottlingRetries(0)
                 .retryPolicy(new RetryLimitPolicy().retryLimit(1));
@@ -267,7 +269,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
             publisher.submit(tuple(1L, "foo"));
         }
 
-        streamFut.get(1000, TimeUnit.SECONDS);
+        assertThrows(ExecutionException.class, () -> streamFut.get(5, TimeUnit.SECONDS));
+        logger.assertLogContains("Failed to refresh schemas and partition assignment");
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
