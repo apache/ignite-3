@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -31,28 +29,19 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
     private final int tableId;
 
     /** Unique constraint flag. */
-    private final boolean unique;
-
-    /** Index columns. */
-    private final List<String> columns;
+    private boolean unique;
 
     /** Write only flag. {@code True} when index is building. */
     private boolean writeOnly;
 
-    IndexDescriptor(int id, String name, int tableId, List<String> columns, boolean unique) {
+    IndexDescriptor(int id, String name, int tableId, boolean unique) {
         super(id, Type.INDEX, name);
         this.tableId = tableId;
         this.unique = unique;
-        this.columns = Objects.requireNonNull(columns, "columns");
     }
 
     public int tableId() {
         return tableId;
-    }
-
-    /** Returns indexed columns. */
-    public List<String> columns() {
-        return columns;
     }
 
     public boolean unique() {
@@ -62,6 +51,14 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
     public boolean writeOnly() {
         return writeOnly;
     }
+
+    /**
+     * Checks if a column with given name is indexed.
+     *
+     * @param columnName Column name to check.
+     * @return {@code true} if index contains the column, {@code false} otherwise.
+     */
+    public abstract boolean hasColumn(String columnName);
 
     /** {@inheritDoc} */
     @Override

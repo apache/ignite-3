@@ -47,7 +47,7 @@ class FullTableSchemaTest {
 
     @NotNull
     private static HashIndexDescriptor someIndex(int id, String name) {
-        return new HashIndexDescriptor(id, name, 1, List.of("a"), true);
+        return new HashIndexDescriptor(id, name, 1, List.of("a"));
     }
 
     @NotNull

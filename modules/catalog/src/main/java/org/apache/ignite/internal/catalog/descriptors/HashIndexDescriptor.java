@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -26,6 +27,8 @@ import org.apache.ignite.internal.tostring.S;
 public class HashIndexDescriptor extends IndexDescriptor {
     private static final long serialVersionUID = -6784028115063219759L;
 
+    private final List<String> columns;
+
     /**
      * Constructs a hash index descriptor.
      *
@@ -33,13 +36,24 @@ public class HashIndexDescriptor extends IndexDescriptor {
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
      * @param columns A list of indexed columns. Must not contains duplicates.
-     * @param unique Unique flag.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public HashIndexDescriptor(int id, String name, int tableId, List<String> columns, boolean unique) {
-        super(id, name, tableId, columns, unique);
+    public HashIndexDescriptor(int id, String name, int tableId, List<String> columns) {
+        super(id, name, tableId, true);
+
+        this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }
 
+    /** Returns indexed columns. */
+    public List<String> columns() {
+        return columns;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasColumn(String columnName) {
+        return columns.contains(columnName);
+    }
 
     /** {@inheritDoc} */
     @Override

@@ -275,8 +275,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             Arrays.stream(schema.indexes())
                     .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> index.columns().stream()
-                            .filter(col -> params.columns().contains(col))
+                    .forEach(index -> params.columns().stream()
+                            .filter(index::hasColumn)
                             .findAny()
                             .ifPresent(columnName -> {
                                 throw new IllegalArgumentException("Can't drop indexed column: columnName=" + columnName + ", indexName=" +
