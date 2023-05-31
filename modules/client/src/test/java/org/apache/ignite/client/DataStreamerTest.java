@@ -106,6 +106,22 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testBasicStreamingKv() {
+        KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Map.Entry<Tuple, Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            publisher.submit(Map.entry(tupleKey(1L), tuple(1L, "foo")));
+            publisher.submit(Map.entry(tupleKey(2L), tuple(2L, "bar")));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        assertEquals("bar", view.get(null, tupleKey(2L)).stringValue("name"));
+    }
+
+    @Test
+    public void testBasicStreamingKvPojo() {
         KeyValueView<Long, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
         CompletableFuture<Void> streamerFut;
 
@@ -118,11 +134,6 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
         assertEquals("bar", view.get(null, 2L).name);
-    }
-
-    @Test
-    public void testBasicStreamingKvPojo() {
-        assert false;
     }
 
     @Test
