@@ -53,8 +53,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class InsertBenchmark extends AbstractOneNodeBenchmark {
-    private static final String INSERT_QUERY_PATTERN = "insert into {}({}, {}) values(?, {})";
-
     /**
      * Benchmark for SQL insert via embedded client.
      */
@@ -134,10 +132,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-            String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
-
-            String queryStr = format(INSERT_QUERY_PATTERN, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+            String queryStr = createInsertStatement();
 
             IgniteSql sql = clusterNode.sql();
 
@@ -177,10 +172,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-            String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
-
-            String queryStr = format(INSERT_QUERY_PATTERN, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+            String queryStr = createInsertStatement();
 
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
@@ -224,10 +216,7 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
          */
         @Setup
         public void setUp() throws SQLException {
-            String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-            String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
-
-            String queryStr = format(INSERT_QUERY_PATTERN, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+            String queryStr = createInsertStatement();
 
             //noinspection CallToDriverManagerGetConnection
             conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
@@ -312,5 +301,14 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         void executeQuery() {
             kvView.put(null, Tuple.create().set("ycsb_key", id++), tuple);
         }
+    }
+
+    private static String createInsertStatement() {
+        String insertQueryTemplate = "insert into {}({}, {}) values(?, {})";
+
+        String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+        String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
+
+        return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
     }
 }
