@@ -27,7 +27,6 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Replaces {@code type} of the column descriptor according to the {@code ALTER COLUMN SET DATA TYPE} command.
@@ -66,7 +65,7 @@ public class AlterColumnType implements AlterColumnAction {
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
+    public TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
         boolean varLenType = varLenTypes.contains(type);
 
         if (origin.type() == type
@@ -77,7 +76,7 @@ public class AlterColumnType implements AlterColumnAction {
                 )
         ) {
             // No-op.
-            return null;
+            return origin;
         }
 
         if (isPkColumn) {

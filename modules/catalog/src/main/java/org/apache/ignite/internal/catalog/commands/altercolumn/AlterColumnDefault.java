@@ -21,7 +21,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Replaces default value of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) DEFAULT} action.
@@ -34,11 +33,11 @@ public class AlterColumnDefault implements AlterColumnAction {
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
+    public TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
         DefaultValue dflt = resolveDfltFunc.apply(origin.type());
 
         if (dflt.equals(origin.defaultValue())) {
-            return null;
+            return origin;
         }
 
         return new TableColumnDescriptor(

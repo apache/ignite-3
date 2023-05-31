@@ -262,9 +262,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             for (AlterColumnAction change : params.changeActions()) {
                 TableColumnDescriptor newDesc = change.apply(target, isPkColumn);
 
-                if (newDesc != null) {
-                    assert target != newDesc;
-
+                if (newDesc != target) {
                     target = newDesc;
                 }
             }

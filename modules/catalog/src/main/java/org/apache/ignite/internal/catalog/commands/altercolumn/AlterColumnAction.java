@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands.altercolumn;
 
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Common interface for {@code ALTER COLUMN} column descriptor change actions.
@@ -30,7 +29,7 @@ public interface AlterColumnAction {
      *
      * @param origin Column descriptor.
      * @param isPkColumn {@code True} if this column is part of the primary key, {@code false} otherwise.
-     * @return Modified copy of the specified column descriptor, or {@code null} if no changes were made.
+     * @return Modified copy of the {@code origin} column descriptor, or {@code origin} descriptor if no changes were made.
      */
-    @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn);
+    TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn);
 }

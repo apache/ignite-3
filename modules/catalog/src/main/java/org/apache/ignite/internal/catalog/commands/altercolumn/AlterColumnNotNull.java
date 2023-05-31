@@ -22,7 +22,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_E
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Changes {@code nullable} flag of the column descriptor according to the {@code ALTER COLUMN (SET | DROP) NOT NULL} action.
@@ -35,9 +34,9 @@ public class AlterColumnNotNull implements AlterColumnAction {
     }
 
     @Override
-    public @Nullable TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
+    public TableColumnDescriptor apply(TableColumnDescriptor origin, boolean isPkColumn) {
         if (notNull == !origin.nullable()) {
-            return null;
+            return origin;
         }
 
         // Set NOT NULL constraint is not supported.
