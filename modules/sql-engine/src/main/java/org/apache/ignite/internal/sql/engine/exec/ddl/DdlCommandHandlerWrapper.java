@@ -86,7 +86,6 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(dropCommand))
                             .handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class))
-                            .handle(handleModificationResult(dropCommand.ifColumnExists(), ColumnNotFoundException.class))
                     );
         }
 
