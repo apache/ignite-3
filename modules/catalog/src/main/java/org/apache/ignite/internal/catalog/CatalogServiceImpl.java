@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
@@ -233,31 +234,19 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             TableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
-                if (params.ifTableExists()) {
-                    return Collections.emptyList();
-                }
-
                 throw new TableNotFoundException(schemaName, params.tableName());
             }
 
             String columnName = params.columnName();
 
-            TableColumnDescriptor source = null;
+            Optional<TableColumnDescriptor> source = table.columns().stream().filter(desc -> desc.name().equals(columnName)).findFirst();
 
-            for (TableColumnDescriptor descriptor : table.columns()) {
-                if (descriptor.name().equals(columnName)) {
-                    source = descriptor;
-
-                    break;
-                }
-            }
-
-            if (source == null) {
+            if (source.isEmpty()) {
                 throw new ColumnNotFoundException(columnName);
             }
 
-            TableColumnDescriptor target = source;
-            boolean isPkColumn = table.isPrimaryKeyColumn(source.name());
+            TableColumnDescriptor target = source.get();
+            boolean isPkColumn = table.isPrimaryKeyColumn(target.name());
 
             for (AlterColumnAction change : params.changeActions()) {
                 TableColumnDescriptor newDesc = change.apply(target, isPkColumn);
@@ -267,7 +256,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            return target == source ? Collections.emptyList() : List.of(new AlterColumnEntry(table.id(), target));
+            return target == source.get() ? Collections.emptyList() : List.of(new AlterColumnEntry(table.id(), target));
         });
     }
 

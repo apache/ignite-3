@@ -626,6 +626,17 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
+    public void testAlterColumnForNonExistingTableRejected() {
+        assertNotNull(service.schema(0));
+        assertNull(service.schema(1));
+
+        assertThat(changeColumn(TABLE_NAME, "ID"), willThrowFast(TableNotFoundException.class));
+
+        assertNotNull(service.schema(0));
+        assertNull(service.schema(1));
+    }
+
+    @Test
     public void operationWillBeRetriedFiniteAmountOfTimes() {
         UpdateLog updateLogMock = Mockito.mock(UpdateLog.class);
 
