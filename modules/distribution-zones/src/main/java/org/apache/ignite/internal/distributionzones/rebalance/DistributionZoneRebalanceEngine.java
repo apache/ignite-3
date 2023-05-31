@@ -193,7 +193,7 @@ public class DistributionZoneRebalanceEngine {
                                     metaStorageManager,
                                     tableId, distributionZoneConfiguration.partitions().value());
 
-                            tableAssignmentsFut.thenAccept(tbls -> {
+                            tableAssignmentsFut.thenAccept(tableAssignments -> {
 
                                 for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
 
@@ -211,7 +211,7 @@ public class DistributionZoneRebalanceEngine {
                                             evt.entryEvent().newEntry().revision(),
                                             metaStorageManager,
                                             partId,
-                                            tbls.isEmpty() ? Collections.emptySet() : tbls.get(partId)
+                                            tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(partId)
                                     ).exceptionally(e -> {
                                         LOG.error(
                                                 "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),

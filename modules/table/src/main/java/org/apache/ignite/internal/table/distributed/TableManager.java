@@ -639,9 +639,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Updates or creates partition raft groups.
+     * Updates or creates partition raft groups and storages.
      *
-     * @param evt Change assignment event.
+     * @param causalityToken Causality token.
+     * @param assignments Table assignments.
+     * @param tblCfg Table configuration.
+     * @param table Initialized table entity.
+     * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
