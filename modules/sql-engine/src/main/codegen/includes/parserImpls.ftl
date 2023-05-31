@@ -149,7 +149,7 @@ Boolean NullableOptDefaultNull() :
 {
 }
 {
-    <NULL> { return true; }
+    <NULLABLE> { return true; }
     |
     <NOT> <NULL> { return false; }
     |

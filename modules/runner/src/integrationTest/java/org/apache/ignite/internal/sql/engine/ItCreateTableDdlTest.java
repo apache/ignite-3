@@ -51,16 +51,12 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void pkWithNullableColumns() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))"),
-                "Primary key cannot contain nullable column [col=ID0]"
-        );
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)"),
-                "Primary key cannot contain nullable column [col=ID]"
-        );
+        SqlException ex = assertThrows(SqlException.class,
+                () -> sql("CREATE TABLE T0(ID0 INT NULLABLE, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))"));
+        assertThat(ex.getMessage(), containsString("Primary key cannot contain nullable column [col=ID0]"));
+
+        ex = assertThrows(SqlException.class, () -> sql("CREATE TABLE T0(ID INT NULLABLE PRIMARY KEY, VAL INT)"));
+        assertThat(ex.getMessage(), containsString("Primary key cannot contain nullable column [col=ID]"));
     }
 
     @Test

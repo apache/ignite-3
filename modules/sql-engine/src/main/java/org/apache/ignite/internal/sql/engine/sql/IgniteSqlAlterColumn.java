@@ -107,10 +107,10 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
 
             if (notNull != null) {
                 if (notNull) {
-                    writer.keyword("NOT");
+                    writer.keyword("NOT NULL");
+                } else {
+                    writer.keyword("NULLABLE");
                 }
-
-                writer.keyword("NULL");
             }
 
             if (dflt != null) {
