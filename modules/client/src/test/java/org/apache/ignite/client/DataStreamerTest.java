@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
@@ -236,9 +237,38 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testAssignmentRefreshErrorClosesStreamer() {
-        // TODO:
-        assert false;
+    public void testRetryLimitExhausted() throws Exception {
+        assert false; // TODO
+    }
+
+    @Test
+    public void testAssignmentRefreshErrorClosesStreamer() throws Exception {
+        var server2 = new FakeIgnite("server-2");
+
+        // Drop connection before we can retrieve partition assignment.
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 4;
+        Function<Integer, Integer> responseDelay = idx -> 0;
+        testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+
+        Builder builder = IgniteClient.builder()
+                .addresses("localhost:" + testServer2.port())
+                .retryPolicy(new RetryLimitPolicy().retryLimit(0));
+
+        client2 = builder.build();
+        RecordView<Tuple> view = defaultTableView(server2, client2);
+        CompletableFuture<Void> streamFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().retryLimit(0).build();
+            streamFut = view.streamData(publisher, options);
+            publisher.submit(tuple(1L, "foo"));
+        }
+
+        streamFut.get(1000, TimeUnit.SECONDS);
+
+        for (long i = 0; i < 100; i++) {
+            assertNotNull(view.get(null, tupleKey(i)), "Failed to get tuple: " + i);
+        }
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
