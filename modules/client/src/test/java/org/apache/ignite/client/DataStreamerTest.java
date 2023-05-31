@@ -202,7 +202,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testManyItemsWithDisconnectAndRetry() throws Exception {
         // Drop connection on every 5th request.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
-        var ignite2 = startTestServer2(shouldDropConnection, (Function<Integer, Integer>) idx -> 0);
+        var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         Builder builder = IgniteClient.builder()
