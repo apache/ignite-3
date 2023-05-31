@@ -24,6 +24,7 @@ import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
@@ -444,8 +445,34 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @Test
-    public void testDataStreamer() {
-        // TODO
+    public void testDataStreamerRecordBinaryView() {
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        Tuple t1 = Tuple.create().set("ID", 0L);
+        Tuple t2 = Tuple.create().set("ID", 1L);
+
+        assertOpOnNode("server-1", "upsertAll", x -> {
+            SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
+            var fut = recordView.streamData(publisher, null);
+            publisher.submit(t1);
+            publisher.close();
+            fut.join();
+        });
+
+        // TODO: Deduplicate code
+        assertOpOnNode("server-2", "upsertAll", x -> {
+            SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
+            var fut = recordView.streamData(publisher, null);
+            publisher.submit(t2);
+            publisher.close();
+            fut.join();
+        });
+    }
+
+    @Test
+    public void testDataStreamerRecordView() {
+        // TODO: reuse logic from above
+        // TODO: Tests for all views.
         assert false;
     }
 
