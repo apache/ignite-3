@@ -115,7 +115,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(UUID traceId, int code, @Nullable Throwable cause) {
-        super((cause != null)? cause.getLocalizedMessage() : null, cause);
+        super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
