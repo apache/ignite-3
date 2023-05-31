@@ -59,9 +59,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
     /**
-     * Folder for units.
+     * Node working directory.
      */
-    private Path unitsFolder;
+    private final Path workDir;
 
     /**
      * Deployment configuration.
@@ -103,19 +103,19 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      *
      * @param clusterService Cluster service.
      * @param metaStorage Meta storage.
-     * @param unitsFolder Deployment units folder.
+     * @param workDir Node working directory.
      * @param configuration Deployment configuration.
      * @param cmgManager Cluster management group manager.
      */
     public DeploymentManagerImpl(ClusterService clusterService,
             MetaStorageManager metaStorage,
-            Path unitsFolder,
+            Path workDir,
             DeploymentConfiguration configuration,
             ClusterManagementGroupManager cmgManager) {
         this.clusterService = clusterService;
         this.configuration = configuration;
         this.cmgManager = cmgManager;
-        this.unitsFolder = unitsFolder;
+        this.workDir = workDir;
         tracker = new DeployTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
@@ -278,7 +278,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public void start() {
-        deployer.initUnitsFolder(unitsFolder);
+        deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerListener(new NodeStatusWatchListener(
                 deploymentUnitStore,
                 () -> this.clusterService.topologyService().localMember().name(),
