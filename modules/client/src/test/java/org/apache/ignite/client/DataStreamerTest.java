@@ -237,8 +237,37 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testRetryLimitExhausted() throws Exception {
-        assert false; // TODO
+    public void testRetryLimitExhausted() {
+        var server2 = new FakeIgnite("server-2");
+
+        // TODO: extract common logic
+        Function<Integer, Boolean> shouldDropConnection = idx -> idx > 10;
+        Function<Integer, Integer> responseDelay = idx -> 0;
+        testServer2 = new TestServer(10900, 10, 10_000, server2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null);
+
+        var logger = new TestLoggerFactory("client-2");
+
+        Builder builder = IgniteClient.builder()
+                .addresses("localhost:" + testServer2.port())
+                .loggerFactory(logger)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(3));
+
+        client2 = builder.build();
+        RecordView<Tuple> view = defaultTableView(server2, client2);
+        CompletableFuture<Void> streamFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().batchSize(2).retryLimit(3).build();
+            streamFut = view.streamData(publisher, options);
+
+            for (long i = 0; i < 100; i++) {
+                publisher.submit(tuple(i, "foo_" + i));
+            }
+        }
+
+        assertThrows(ExecutionException.class, () -> streamFut.get(5, TimeUnit.SECONDS));
+        logger.assertLogContains("Not retrying operation [opCode=13, opType=TUPLE_UPSERT_ALL, attempt=3");
+        logger.assertLogContains("Failed to send batch to partition");
     }
 
     @Test
@@ -255,8 +284,6 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
                 .loggerFactory(logger)
-                .connectTimeout(200)
-                .reconnectThrottlingRetries(0)
                 .retryPolicy(new RetryLimitPolicy().retryLimit(1));
 
         client2 = builder.build();
