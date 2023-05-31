@@ -264,15 +264,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableNotFoundException(schemaName, params.tableName());
             }
 
-            Arrays.stream(schema.indexes())
-                    .filter(index -> index.tableId() == table.id())
-                    .flatMap(index -> index.columns().stream())
-                    .filter(col -> params.columns().contains(col))
-                    .findAny()
-                    .ifPresent(columnName -> {
-                        throw new IllegalArgumentException("Can't drop indexed column: column=" + columnName);
-                    });
-
             for (String columnName : params.columns()) {
                 if (table.column(columnName) == null) {
                     throw new ColumnNotFoundException(columnName);
@@ -281,6 +272,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     throw new IllegalArgumentException("Can't drop primary key column: column=" + columnName);
                 }
             }
+
+            Arrays.stream(schema.indexes())
+                    .filter(index -> index.tableId() == table.id())
+                    .forEach(index -> index.columns().stream()
+                            .filter(col -> params.columns().contains(col))
+                            .findAny()
+                            .ifPresent(columnName -> {
+                                throw new IllegalArgumentException("Can't drop indexed column: columnName=" + columnName + ", indexName=" +
+                                        index.name());
+                            }));
 
             Set<String> columnsToDrop = table.columns().stream()
                     .map(TableColumnDescriptor::name)
