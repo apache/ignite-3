@@ -279,8 +279,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             .filter(index::hasColumn)
                             .findAny()
                             .ifPresent(columnName -> {
-                                throw new IllegalArgumentException("Can't drop indexed column: columnName=" + columnName + ", indexName=" +
-                                        index.name());
+                                throw new IllegalArgumentException("Can't drop indexed column: columnName=" + columnName + ", indexName="
+                                        + index.name());
                             }));
 
             Set<String> columnsToDrop = table.columns().stream()
