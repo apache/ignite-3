@@ -22,8 +22,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
