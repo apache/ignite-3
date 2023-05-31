@@ -69,7 +69,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -259,10 +258,9 @@ public class CatalogServiceSelfTest {
 
         long beforeDropTimestamp = System.currentTimeMillis();
 
-        DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
+        Thread.sleep(5);
 
-        // Timer must change.
-        IgniteTestUtils.waitForCondition(() -> System.currentTimeMillis() != beforeDropTimestamp, 1, 1);
+        DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
 
         assertThat(service.dropTable(dropTableParams), willBe((Object) null));
 
