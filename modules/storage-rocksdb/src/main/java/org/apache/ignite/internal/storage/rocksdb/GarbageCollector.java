@@ -152,7 +152,7 @@ class GarbageCollector {
     }
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
+     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#peek(HybridTimestamp)}.
      *
      * @param lowWatermark Low watermark.
      * @return Garbage collected element descriptor.
@@ -189,10 +189,10 @@ class GarbageCollector {
 
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
+     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#vacuum(GcEntry)} (HybridTimestamp)}.
      *
      * @param batch Write batch.
-     * @param lowWatermark Low watermark.
+     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
      * @return Garbage collected element.
      * @throws RocksDBException If failed to collect the garbage.
      */

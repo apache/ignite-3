@@ -30,8 +30,8 @@ import static org.mockito.Mockito.when;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -55,20 +55,24 @@ public class GcUpdateHandlerTest {
 
         HybridTimestamp lowWatermark = new HybridTimestamp(100, 100);
 
-        assertFalse(gcUpdateHandler.vacuum(lowWatermark));
-        verify(partitionStorage).pollForVacuum(lowWatermark);
+        assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
+        verify(partitionStorage).peek(lowWatermark);
 
         // Let's check that StorageUpdateHandler#vacuumBatch returns true.
         clearInvocations(partitionStorage);
 
-        BinaryRowAndRowId binaryRowAndRowId = new BinaryRowAndRowId(mock(BinaryRow.class), new RowId(PARTITION_ID));
+        RowId rowId = new RowId(PARTITION_ID);
+
+        GcEntry gcEntry = new GcEntryImpl(rowId, lowWatermark);
+        BinaryRow binaryRow = mock(BinaryRow.class);
 
         when(partitionStorage.scanVersions(any(RowId.class))).thenReturn(emptyCursor());
-        when(partitionStorage.pollForVacuum(lowWatermark)).thenReturn(binaryRowAndRowId);
+        when(partitionStorage.peek(lowWatermark)).thenReturn(gcEntry);
+        when(partitionStorage.vacuum(gcEntry)).thenReturn(binaryRow);
 
-        assertTrue(gcUpdateHandler.vacuum(lowWatermark));
-        verify(partitionStorage).pollForVacuum(lowWatermark);
-        verify(indexUpdateHandler).tryRemoveFromIndexes(binaryRowAndRowId.binaryRow(), binaryRowAndRowId.rowId(), emptyCursor());
+        assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
+        verify(partitionStorage).peek(lowWatermark);
+        verify(indexUpdateHandler).tryRemoveFromIndexes(binaryRow, rowId, emptyCursor());
     }
 
     private GcUpdateHandler createGcUpdateHandler(PartitionDataStorage partitionStorage, IndexUpdateHandler indexUpdateHandler) {
@@ -83,5 +87,26 @@ public class GcUpdateHandlerTest {
         PartitionDataStorage partitionStorage = spy(new TestPartitionDataStorage(new TestMvPartitionStorage(PARTITION_ID)));
 
         return partitionStorage;
+    }
+
+    private static class GcEntryImpl implements GcEntry {
+        private final RowId rowId;
+
+        private final HybridTimestamp timestamp;
+
+        private GcEntryImpl(RowId rowId, HybridTimestamp timestamp) {
+            this.rowId = rowId;
+            this.timestamp = timestamp;
+        }
+
+        @Override
+        public RowId getRowId() {
+            return rowId;
+        }
+
+        @Override
+        public HybridTimestamp getTimestamp() {
+            return timestamp;
+        }
     }
 }

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -192,8 +193,29 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         });
     }
 
-    protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        //TODO IGNITE-19367 Remove or replace with some other method.
-        return storage.pollForVacuum(lowWatermark);
+    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        while (true) {
+            BinaryRowAndRowId binaryRowAndRowId = storage.runConsistently(locker -> {
+                GcEntry gcEntry = storage.peek(lowWatermark);
+
+                if (gcEntry == null) {
+                    return null;
+                }
+
+                locker.lock(gcEntry.getRowId());
+
+                return new BinaryRowAndRowId(storage.vacuum(gcEntry), gcEntry.getRowId());
+            });
+
+            if (binaryRowAndRowId == null) {
+                return null;
+            }
+
+            if (binaryRowAndRowId.binaryRow() == null) {
+                continue;
+            }
+
+            return binaryRowAndRowId;
+        }
     }
 }
