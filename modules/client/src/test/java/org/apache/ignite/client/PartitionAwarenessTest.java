@@ -443,6 +443,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertEquals("server-2", compute().executeColocated(table.name(), 1L, mapper, "job").join());
     }
 
+    @Test
+    public void testDataStreamer() {
+        // TODO
+        assert false;
+    }
+
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
         lastOpServerName = null;
         lastOp = null;

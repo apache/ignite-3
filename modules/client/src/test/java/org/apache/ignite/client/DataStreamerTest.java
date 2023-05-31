@@ -193,12 +193,6 @@ public class DataStreamerTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testPartitionAwareness() {
-        // TODO: See how PartitionAwarenessTest is implemented using setDataAccessListener
-        assert false;
-    }
-
-    @Test
     public void testManyItemsWithDisconnectAndRetry() throws Exception {
         // Drop connection on every 5th request.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
