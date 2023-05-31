@@ -158,22 +158,4 @@ public interface DeploymentCodeApi {
     CompletableFuture<UnitStatus> status(
             @PathVariable("unitId") @Schema(name = "unitId",
                     description = "The ID of the deployment unit.", requiredMode = RequiredMode.REQUIRED) String unitId);
-
-    /**
-     * Find unit by node consistent id.
-     */
-    @Operation(operationId = "byConsistentId", description = "Returns the status of units that are deployed on the node.")
-    @ApiResponse(responseCode = "200",
-            description = "All statuses returned successfully.",
-            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatus.class)))
-    )
-    @ApiResponse(responseCode = "500",
-            description = "Internal error.",
-            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
-    )
-    @Consumes(APPLICATION_JSON)
-    @Get("units/consistentId/{consistentId}")
-    CompletableFuture<Collection<UnitStatus>> findByConsistentId(
-            @PathVariable("consistentId") @Schema(name = "consistentId",
-                    description = "The consistent deployment unit identifier.", requiredMode = RequiredMode.REQUIRED) String consistentId);
 }

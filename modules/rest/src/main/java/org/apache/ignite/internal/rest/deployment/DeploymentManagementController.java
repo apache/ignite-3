@@ -74,13 +74,6 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         return deployment.statusAsync(unitId).thenApply(DeploymentManagementController::fromUnitStatus);
     }
 
-    @Override
-    public CompletableFuture<Collection<UnitStatus>> findByConsistentId(String consistentId) {
-        return deployment.findUnitByConsistentIdAsync(consistentId)
-                .thenApply(units -> units.stream().map(DeploymentManagementController::fromUnitStatus)
-                        .collect(Collectors.toList()));
-    }
-
     /**
      * Mapper method.
      *

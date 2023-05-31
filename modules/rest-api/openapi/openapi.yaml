@@ -391,35 +391,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units/consistentId/{consistentId}:
-    get:
-      tags:
-      - deployment
-      summary: Find unit by node consistent id.
-      description: Returns the status of units that are deployed on the node.
-      operationId: byConsistentId
-      parameters:
-      - name: consistentId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: The consistent deployment unit identifier.
-      responses:
-        "200":
-          description: All statuses returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UnitStatus'
-        "500":
-          description: Internal error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
   /management/v1/deployment/units/{unitId}/status:
     get:
       tags:

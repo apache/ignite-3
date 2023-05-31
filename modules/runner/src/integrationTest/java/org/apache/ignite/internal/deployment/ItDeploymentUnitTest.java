@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.deployment;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.awaitility.Awaitility.await;
@@ -32,8 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -51,7 +46,8 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -198,37 +194,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         waitUnitClean(cmg, unit);
 
         assertThat(node(2).deployment().statusAsync(id)
-                .thenApply(status1 -> status1.status(version)), willThrowFast(DeploymentUnitNotFoundException.class));
-    }
-
-    @Test
-    public void testFindByConsistentId() {
-        String id = "test";
-        String version = "1.1.0";
-        Unit unit = deployAndVerifyMedium(id, Version.parseVersion(version), 1);
-
-        IgniteImpl cmg = cluster.node(0);
-        waitUnitReplica(cmg, unit);
-
-        IgniteImpl node = unit.deployedNode;
-
-        CompletableFuture<List<UnitStatuses>> nodes = node.deployment().findUnitByConsistentIdAsync(node.name());
-        assertThat(nodes, willBe(Collections.singletonList(
-                        UnitStatuses.builder(id)
-                                .append(unit.version, DEPLOYED).build()
-                        )
-                )
-        );
-
-        nodes = node.deployment().findUnitByConsistentIdAsync(cmg.name());
-        assertThat(nodes, willBe(Collections.singletonList(
-                        UnitStatuses.builder(id)
-                                .append(unit.version, DEPLOYED).build()
-                )
-        ));
-
-        nodes = node.deployment().findUnitByConsistentIdAsync("not-existed-node");
-        assertThat(nodes, willBe(Collections.emptyList()));
+                .thenApply(status1 -> status1.status(version)), willBe((DeploymentStatus) null));
     }
 
     @Test
@@ -245,6 +211,50 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         waitUnitClean(smallUnit.deployedNode, smallUnit);
         waitUnitClean(cmg, smallUnit);
+    }
+
+    @Test
+    public void testOnDemandDeploy() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = deployAndVerify(id, version, smallFile, 1);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, smallUnit);
+
+        IgniteImpl onDemandDeployNode = cluster.node(2);
+        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+
+        assertThat(onDemandDeploy, willBe(true));
+        waitUnitReplica(onDemandDeployNode, smallUnit);
+    }
+
+    @Test
+    public void testOnDemandDeployToDeployedNode() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = deployAndVerify(id, version, smallFile, 1);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, smallUnit);
+
+        IgniteImpl onDemandDeployNode = cluster.node(1);
+        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+
+        assertThat(onDemandDeploy, willBe(true));
+        waitUnitReplica(onDemandDeployNode, smallUnit);
+    }
+
+    @Test
+    public void testDeployToCmg() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = deployAndVerify(id, version, smallFile, 0);
+
+        await().untilAsserted(() -> {
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().unitsAsync();
+            assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
+        });
     }
 
     private UnitStatuses buildStatus(String id, Unit... units) {
@@ -393,13 +403,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         private static void ensureFile(Path path, long size) throws IOException {
             if (!Files.exists(path)) {
-                try (SeekableByteChannel channel = Files.newByteChannel(path, WRITE, CREATE)) {
-                    channel.position(size - 4);
-
-                    ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
-                    buf.rewind();
-                    channel.write(buf);
-                }
+                IgniteUtils.fillDummyFile(path, size);
             }
         }
     }
