@@ -32,6 +32,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -196,13 +197,13 @@ public class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
+    void writeKvTuples(@Nullable Transaction tx, Collection<Entry<Tuple, Tuple>> pairs, ClientSchema schema, PayloadOutputChannel out) {
         out.out().packInt(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
         out.out().packInt(pairs.size());
 
-        for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
+        for (Map.Entry<Tuple, Tuple> pair : pairs) {
             writeKvTuple(tx, pair.getKey(), pair.getValue(), schema, out, true);
         }
     }
