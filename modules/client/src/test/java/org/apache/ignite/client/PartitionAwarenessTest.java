@@ -517,12 +517,25 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     @Test
-    public void testDataStreamerReceivesPartitionAssignmentUpdates() {
-        RecordView<Tuple> recordView = defaultTable().recordView();
+    public void testDataStreamerReceivesPartitionAssignmentUpdates() throws InterruptedException {
+        DataStreamerOptions options = DataStreamerOptions.builder()
+                .batchSize(1)
+                .perNodeParallelOperations(1)
+                .autoFlushFrequency(50)
+                .build();
 
+        RecordView<Tuple> recordView = defaultTable().recordView();
         SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
-        var fut = recordView.streamData(publisher, DataStreamerOptions.builder().batchSize(1).perNodeParallelOperations(1).build());
-        Consumer<Long> submit = id -> publisher.submit(Tuple.create().set("ID", id));
+        var fut = recordView.streamData(publisher, options);
+
+        Consumer<Long> submit = id -> {
+            try {
+                publisher.submit(Tuple.create().set("ID", id));
+                assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        };
 
         assertOpOnNode("server-1", "upsertAll", x -> submit.accept(0L));
         assertOpOnNode("server-2", "upsertAll", x -> submit.accept(1L));
@@ -536,6 +549,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         initPartitionAssignment(assignments);
 
         // Send some batches so that the client receives updated assignment.
+        lastOpServerName = null;
+        submit.accept(0L);
+        submit.accept(1L);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
 
         // Check updated assignment.
         assertOpOnNode("server-2", "upsertAll", x -> submit.accept(0L));
