@@ -41,6 +41,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,11 +59,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static IgniteClient client2;
 
-    private static int serverPort2;
+    private @Nullable String lastOp;
 
-    private String lastOp;
-
-    private String lastOpServerName;
+    private @Nullable String lastOpServerName;
 
     private final AtomicInteger nextTableId = new AtomicInteger(101);
 
@@ -77,10 +76,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         server2 = new FakeIgnite("server-2");
         testServer2 = startServer(10800, 10, 0, server2, "server-2");
-        serverPort2 = testServer2.port();
 
         var clientBuilder = IgniteClient.builder()
-                .addresses("127.0.0.1:" + serverPort, "127.0.0.1:" + serverPort2)
+                .addresses("127.0.0.1:" + serverPort, "127.0.0.1:" + testServer2.port())
                 .heartbeatInterval(200);
 
         client2 = clientBuilder.build();
@@ -121,13 +119,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testGetRecordRoutesRequestToPrimaryNode() {
-        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(
-                Mapper.of(AbstractClientTableTest.PersonPojo.class));
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(0L)));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(1L)));
-        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(2L)));
-        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new AbstractClientTableTest.PersonPojo(3L)));
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new PersonPojo(0L)));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new PersonPojo(1L)));
+        assertOpOnNode("server-1", "get", x -> pojoView.get(null, new PersonPojo(2L)));
+        assertOpOnNode("server-2", "get", x -> pojoView.get(null, new PersonPojo(3L)));
     }
 
     @Test
@@ -220,11 +217,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testAllRecordViewOperations() {
-        RecordView<AbstractClientTableTest.PersonPojo> pojoView = defaultTable().recordView(
-                Mapper.of(AbstractClientTableTest.PersonPojo.class));
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(
+                Mapper.of(PersonPojo.class));
 
-        var t1 = new AbstractClientTableTest.PersonPojo(0L);
-        var t2 = new AbstractClientTableTest.PersonPojo(1L);
+        var t1 = new PersonPojo(0L);
+        var t2 = new PersonPojo(1L);
 
         assertOpOnNode("server-1", "insert", x -> pojoView.insert(null, t1));
         assertOpOnNode("server-2", "insert", x -> pojoView.insert(null, t2));
@@ -502,7 +499,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testDataStreamerKeyValueView() {
-        assert false;
+        KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
+
+        Consumer<Long> stream = t -> {
+            SubmissionPublisher<Entry<Long, String>> publisher = new SubmissionPublisher<>();
+            var fut = kvView.streamData(publisher, null);
+            publisher.submit(Map.entry(t, t.toString()));
+            publisher.close();
+            fut.join();
+        };
+
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(0L));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(1L));
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(2L));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(3L));
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
@@ -529,7 +539,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return client2.tables().table(name);
     }
 
-    private IgniteCompute compute() {
+    private static IgniteCompute compute() {
         return client2.compute();
     }
 
@@ -543,12 +553,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         });
     }
 
-    private void initPartitionAssignment(ArrayList<String> assignments) {
+    private static void initPartitionAssignment(@Nullable ArrayList<String> assignments) {
         initPartitionAssignment(server, assignments);
         initPartitionAssignment(server2, assignments);
     }
 
-    private void initPartitionAssignment(Ignite ignite, ArrayList<String> assignments) {
+    private static void initPartitionAssignment(Ignite ignite, @Nullable ArrayList<String> assignments) {
         if (assignments == null) {
             assignments = new ArrayList<>();
 
