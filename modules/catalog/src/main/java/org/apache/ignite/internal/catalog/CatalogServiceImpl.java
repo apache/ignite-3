@@ -121,7 +121,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         // TODO: IGNITE-19082 Fix default descriptors.
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
         DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(objectIdGen++, CatalogService.DEFAULT_ZONE_NAME, 25, 1,
-               INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, CreateZoneParams.DEFAULT_FILTER);
+                INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, CreateZoneParams.DEFAULT_FILTER);
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
