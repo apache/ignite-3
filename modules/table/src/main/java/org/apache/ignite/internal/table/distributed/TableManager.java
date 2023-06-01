@@ -260,7 +260,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Versioned store for tracking RAFT groups initialization and starting completion. Uses a causality token as a value, for convenience.
      * Only updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}. {@code null} by default.
      */
-    private final IncrementalVersionedValue<Long> assignmentsUpdatedVv;
+    private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
@@ -877,7 +877,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            return updateAssignmentsFuture.thenApply(v -> causalityToken);
+            return updateAssignmentsFuture;
         });
     }
 
@@ -1743,16 +1743,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenCompose(tablesByIdVv::get);
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdVv.get(causalityToken));
     }
 
     /**
      * Returns the latest tables by ID map, for which all assignment updates have been completed.
      */
     private Map<Integer, TableImpl> latestTablesById() {
-        Long latestCausalityToken = assignmentsUpdatedVv.latest();
+        long latestCausalityToken = assignmentsUpdatedVv.latestCausalityToken();
 
-        if (latestCausalityToken == null) {
+        if (latestCausalityToken < 0) {
             // No tables at all in case of empty causality token.
             return emptyMap();
         } else {
