@@ -103,6 +103,7 @@ import org.apache.ignite.internal.security.authentication.UsernamePasswordReques
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
@@ -391,6 +392,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         if (err instanceof IgniteException) {
             IgniteException iex = (IgniteException) err;
+            packer.packUuid(iex.traceId());
+            packer.packInt(iex.code());
+        } else if (err instanceof IgniteCheckedException) {
+            IgniteCheckedException iex = (IgniteCheckedException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
         } else {
