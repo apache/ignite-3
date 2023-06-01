@@ -93,8 +93,6 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
-    private static final String DEFAULT_ZONE_NAME = "Default";
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
@@ -122,7 +120,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
         // TODO: IGNITE-19082 Fix default descriptors.
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
-        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, DEFAULT_ZONE_NAME, 25, 1,
+        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(objectIdGen++, CatalogService.DEFAULT_ZONE_NAME, 25, 1,
                INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, CreateZoneParams.DEFAULT_FILTER);
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
@@ -365,7 +363,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(zoneName);
             }
-            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
+            if (zone.name().equals(CatalogService.DEFAULT_ZONE_NAME)) {
                 //TODO IGNITE-19082 Can default zone be dropped?
                 throw new IgniteInternalException(
                         DistributionZones.ZONE_DROP_ERR,
@@ -401,7 +399,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             if (catalog.zone(params.newZoneName()) != null) {
                 throw new DistributionZoneAlreadyExistsException(params.newZoneName());
             }
-            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
+            if (zone.name().equals(CatalogService.DEFAULT_ZONE_NAME)) {
                 //TODO IGNITE-19082 Can default zone be renamed?
                 throw new IgniteInternalException(
                         DistributionZones.ZONE_RENAME_ERR,

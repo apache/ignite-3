@@ -37,6 +37,8 @@ import org.apache.ignite.internal.manager.EventListener;
 public interface CatalogService {
     String PUBLIC = "PUBLIC";
 
+    String DEFAULT_ZONE_NAME = "Default";
+
     TableDescriptor table(String tableName, long timestamp);
 
     TableDescriptor table(int tableId, long timestamp);

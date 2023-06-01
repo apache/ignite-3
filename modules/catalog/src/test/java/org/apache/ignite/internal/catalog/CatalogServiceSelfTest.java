@@ -149,6 +149,17 @@ public class CatalogServiceSelfTest {
         assertEquals(0, schema.version());
         assertEquals(0, schema.tables().length);
         assertEquals(0, schema.indexes().length);
+
+        DistributionZoneDescriptor zone = service.zone(1, System.currentTimeMillis());
+        assertEquals(CatalogService.DEFAULT_ZONE_NAME, zone.name());
+
+        assertEquals(1, zone.id());
+        assertEquals(CreateZoneParams.DEFAULT_PARTITION_COUNT, zone.partitions());
+        assertEquals(CreateZoneParams.DEFAULT_REPLICA_COUNT, zone.replicas());
+        assertEquals(CreateZoneParams.DEFAULT_FILTER, zone.filter());
+        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
+        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
@@ -195,12 +206,12 @@ public class CatalogServiceSelfTest {
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), service.table(2, System.currentTimeMillis()));
 
         // Validate newly created table
         TableDescriptor table = schema.table(TABLE_NAME);
 
-        assertEquals(1L, table.id());
+        assertEquals(2L, table.id());
         assertEquals(TABLE_NAME, table.name());
         assertEquals(0L, table.engineId());
         assertEquals(0L, table.zoneId());
@@ -220,10 +231,10 @@ public class CatalogServiceSelfTest {
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), service.table(2, System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(3, System.currentTimeMillis()));
 
         assertNotSame(schema.table(TABLE_NAME), schema.table(TABLE_NAME_2));
     }
@@ -280,10 +291,10 @@ public class CatalogServiceSelfTest {
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME), service.table(1, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME), service.table(2, beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME_2), service.table(2, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME_2), service.table(3, beforeDropTimestamp));
 
         // Validate actual catalog
         schema = service.schema(3);
@@ -296,10 +307,10 @@ public class CatalogServiceSelfTest {
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertNull(service.table(1, System.currentTimeMillis()));
+        assertNull(service.table(2, System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(3, System.currentTimeMillis()));
     }
 
     @Test
@@ -668,18 +679,18 @@ public class CatalogServiceSelfTest {
 
         // Validate catalog version from the past.
         assertNull(service.zone(ZONE_NAME, 0));
-        assertNull(service.zone(1, 0));
+        assertNull(service.zone(2, 0));
         assertNull(service.zone(ZONE_NAME, 123L));
-        assertNull(service.zone(1, 123L));
+        assertNull(service.zone(2, 123L));
 
         // Validate actual catalog
         DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
 
         assertNotNull(zone);
-        assertSame(zone, service.zone(1, System.currentTimeMillis()));
+        assertSame(zone, service.zone(2, System.currentTimeMillis()));
 
         // Validate newly created zone
-        assertEquals(1L, zone.id());
+        assertEquals(2L, zone.id());
         assertEquals(ZONE_NAME, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
@@ -714,13 +725,13 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(zone);
         assertEquals(ZONE_NAME, zone.name());
-        assertEquals(1, zone.id());
+        assertEquals(2, zone.id());
 
-        assertSame(zone, service.zone(1, beforeDropTimestamp));
+        assertSame(zone, service.zone(2, beforeDropTimestamp));
 
         // Validate actual catalog
         assertNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
-        assertNull(service.zone(1, System.currentTimeMillis()));
+        assertNull(service.zone(2, System.currentTimeMillis()));
     }
 
     @Test
@@ -749,9 +760,9 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(zone);
         assertEquals(ZONE_NAME, zone.name());
-        assertEquals(1, zone.id());
+        assertEquals(2, zone.id());
 
-        assertSame(zone, service.zone(1, beforeDropTimestamp));
+        assertSame(zone, service.zone(2, beforeDropTimestamp));
 
         // Validate actual catalog
         zone = service.zone("RenamedZone", System.currentTimeMillis());
@@ -759,14 +770,14 @@ public class CatalogServiceSelfTest {
         assertNotNull(zone);
         assertNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
         assertEquals("RenamedZone", zone.name());
-        assertEquals(1, zone.id());
+        assertEquals(2, zone.id());
 
-        assertSame(zone, service.zone(1, System.currentTimeMillis()));
+        assertSame(zone, service.zone(2, System.currentTimeMillis()));
     }
 
 
     @Test
-    public void testAlterZone() throws InterruptedException {
+    public void testAlterZone() {
         CreateZoneParams createParams = CreateZoneParams.builder()
                 .zoneName(ZONE_NAME)
                 .partitions(42)
@@ -790,10 +801,10 @@ public class CatalogServiceSelfTest {
         // Validate actual catalog
         DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
         assertNotNull(zone);
-        assertSame(zone, service.zone(1, System.currentTimeMillis()));
+        assertSame(zone, service.zone(2, System.currentTimeMillis()));
 
         assertEquals(ZONE_NAME, zone.name());
-        assertEquals(1, zone.id());
+        assertEquals(2, zone.id());
         assertEquals(10, zone.partitions());
         assertEquals(2, zone.replicas());
         assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust());
@@ -825,10 +836,10 @@ public class CatalogServiceSelfTest {
         DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
 
         assertNotNull(zone);
-        assertSame(zone, service.zone(1, System.currentTimeMillis()));
-        assertNull(service.zone(2, System.currentTimeMillis()));
+        assertSame(zone, service.zone(2, System.currentTimeMillis()));
+        assertNull(service.zone(3, System.currentTimeMillis()));
 
-        assertEquals(1L, zone.id());
+        assertEquals(2L, zone.id());
         assertEquals(ZONE_NAME, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
@@ -856,7 +867,7 @@ public class CatalogServiceSelfTest {
 
         // Validate actual catalog
         assertNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
-        assertNull(service.zone(1, System.currentTimeMillis()));
+        assertNull(service.zone(2, System.currentTimeMillis()));
     }
 
     @Test
