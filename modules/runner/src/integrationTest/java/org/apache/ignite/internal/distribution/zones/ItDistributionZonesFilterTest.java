@@ -200,11 +200,14 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
                 TIMEOUT_MILLIS
         );
 
@@ -265,11 +268,14 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
                 TIMEOUT_MILLIS
         );
 
@@ -289,7 +295,16 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
 
-        assertPendingStableAreNull(metaStorageManager, partId);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
+                TIMEOUT_MILLIS
+        );
     }
 
     /**
