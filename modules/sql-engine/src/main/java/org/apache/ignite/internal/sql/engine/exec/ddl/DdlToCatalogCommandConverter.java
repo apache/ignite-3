@@ -90,18 +90,24 @@ class DdlToCatalogCommandConverter {
     static RenameZoneParams convert(AlterZoneRenameCommand cmd) {
         return RenameZoneParams.builder()
                 .zoneName(cmd.zoneName())
+
+                .newZoneName(cmd.newZoneName())
+
                 .build();
     }
 
     static AlterZoneParams convert(AlterZoneSetCommand cmd) {
         return AlterZoneParams.builder()
                 .zoneName(cmd.zoneName())
+
                 .partitions(cmd.partitions())
                 .replicas(cmd.replicas())
+                .filter(cmd.nodeFilter())
+
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
-                .filter(cmd.nodeFilter())
+
                 .build();
     }
 
