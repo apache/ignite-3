@@ -52,9 +52,8 @@ class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
 
-    // TODO: This can accumulate huge number of buffers for dropped connections over time.
-    // We should have some logic to check if a buffer is still needed.
-    // Maybe this is fine if we use NodeId as partition? Then we will have only one buffer per node.
+    // NOTE: This can accumulate empty buffers for stopped/failed nodes. Cleaning up is not trivial in concurrent scenario.
+    // We don't expect thousands of node failures, so it should be fine.
     private final ConcurrentHashMap<P, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
