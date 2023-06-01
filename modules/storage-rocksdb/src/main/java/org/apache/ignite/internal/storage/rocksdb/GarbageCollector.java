@@ -205,7 +205,10 @@ class GarbageCollector {
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (RocksIterator gcIt = db.newIterator(gcQueueCf, helper.upperBoundReadOpts)) {
+        try (
+                RocksIterator newGcIt = db.newIterator(gcQueueCf, helper.upperBoundReadOpts);
+                RocksIterator gcIt = helper.wrapIterator(newGcIt, gcQueueCf)
+        ) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
