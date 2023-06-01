@@ -31,12 +31,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -45,8 +45,8 @@ import org.jetbrains.annotations.NotNull;
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
 
-    /** Enlisted partitions: partition id -> (primary replica node, raft term). */
-    private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
+    /** Enlisted partitions: partition id -> replica meta. */
+    private final Map<TablePartitionId, ReplicaMeta> enlisted = new ConcurrentHashMap<>();
 
     /** Enlisted operation futures in this transaction. */
     private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
@@ -81,14 +81,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId partGroupId) {
+    public ReplicaMeta enlistedReplica(TablePartitionId partGroupId) {
         return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
+    public ReplicaMeta enlist(TablePartitionId tablePartitionId, ReplicaMeta replica) {
+        return enlisted.computeIfAbsent(tablePartitionId, k -> replica);
     }
 
     /** {@inheritDoc} */
@@ -104,36 +104,36 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 .thenCompose(
                         ignored -> {
                             if (!enlisted.isEmpty()) {
-                                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
+                                Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
 
                                 enlisted.forEach((groupId, groupMeta) -> {
-                                    ClusterNode recipientNode = groupMeta.get1();
+                                    String recipientNode = groupMeta.getLeaseholder();
 
                                     if (groups.containsKey(recipientNode)) {
-                                        groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+                                        groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.getStartTime().longValue()));
                                     } else {
                                         List<IgniteBiTuple<TablePartitionId, Long>> items = new ArrayList<>();
 
-                                        items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+                                        items.add(new IgniteBiTuple<>(groupId, groupMeta.getStartTime().longValue()));
 
                                         groups.put(recipientNode, items);
                                     }
                                 });
 
                                 TablePartitionId commitPart = commitPartitionRef.get();
-                                ClusterNode recipientNode = enlisted.get(commitPart).get1();
-                                Long term = enlisted.get(commitPart).get2();
+                                String recipientNode = enlisted.get(commitPart).getLeaseholder();
+                                Long enlistmentConsistencyToken = enlisted.get(commitPart).getStartTime().longValue();
 
-                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id(), groups);
+                                LOG.debug("Finish [recipientNode={}, enlistmentConsistencyToken={} commit={}, txId={}, groups={}",
+                                        recipientNode, enlistmentConsistencyToken, commit, id(), groups);
 
                                 assert recipientNode != null;
-                                assert term != null;
+                                assert enlistmentConsistencyToken != null;
 
                                 return txManager.finish(
                                         commitPart,
                                         recipientNode,
-                                        term,
+                                        enlistmentConsistencyToken,
                                         commit,
                                         groups,
                                         id()

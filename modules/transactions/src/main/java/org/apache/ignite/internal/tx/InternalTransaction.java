@@ -20,9 +20,8 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -39,14 +38,12 @@ public interface InternalTransaction extends Transaction {
     @NotNull UUID id();
 
     /**
-     * Returns enlisted primary replica node associated with given replication group.
+     * Returns enlisted replica node associated with given replication group.
      *
      * @param tablePartitionId Table partition id.
-     * @return Enlisted primary replica node and raft term associated with given replication group.
+     * @return Enlisted primary replica node along with corresponding meta such as lease interval.
      */
-    // TODO: IGNITE-17256 IgniteBiTuple along with second parameter term will be removed after introducing leased based primary replica
-    // TODO: selection and failover engine.
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId);
+    ReplicaMeta enlistedReplica(TablePartitionId tablePartitionId);
 
     /**
      * Returns a transaction state.
@@ -74,10 +71,10 @@ public interface InternalTransaction extends Transaction {
      * Enlists a partition group into a transaction.
      *
      * @param tablePartitionId Table partition id to enlist.
-     * @param nodeAndTerm Primary replica cluster node and raft term to enlist for given replication group.
-     * @return {@code True} if a partition is enlisted into the transaction.
+     * @param replica Replica to enlist as an entry point for given table partition id.
+     * @return The previous value associated with table partition id, or null if there was no mapping for key.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
+    ReplicaMeta enlist(TablePartitionId tablePartitionId, ReplicaMeta replica);
 
     /**
      * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
