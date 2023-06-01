@@ -28,6 +28,7 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
@@ -448,9 +449,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testDataStreamerRecordBinaryView() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        Tuple t1 = Tuple.create().set("ID", 0L);
-        Tuple t2 = Tuple.create().set("ID", 1L);
-
         Consumer<Tuple> stream = t -> {
             SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
             var fut = recordView.streamData(publisher, null);
@@ -459,12 +457,39 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(t1));
-        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(t2));
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
     public void testDataStreamerRecordView() {
+        RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
+
+        Consumer<PersonPojo> stream = t -> {
+            SubmissionPublisher<PersonPojo> publisher = new SubmissionPublisher<>();
+            var fut = pojoView.streamData(publisher, null);
+            publisher.submit(t);
+            publisher.close();
+            fut.join();
+        };
+
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(new PersonPojo(3L)));
+    }
+
+    @Test
+    public void testDataStreamerKeyValueBinaryView() {
+        // TODO: reuse logic from above
+        // TODO: Tests for all views.
+        assert false;
+    }
+
+    @Test
+    public void testDataStreamerKeyValueView() {
         // TODO: reuse logic from above
         // TODO: Tests for all views.
         assert false;
