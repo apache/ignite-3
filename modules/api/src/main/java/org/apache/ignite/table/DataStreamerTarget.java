@@ -32,6 +32,7 @@ public interface DataStreamerTarget<T> {
      * Streams data into the underlying table.
      *
      * @param publisher Producer.
+     * @param options Options (can be null).
      * @return Future that will be completed when the stream is finished.
      */
     CompletableFuture<Void> streamData(

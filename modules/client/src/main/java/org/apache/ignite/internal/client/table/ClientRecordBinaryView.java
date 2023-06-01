@@ -364,6 +364,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
         var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 

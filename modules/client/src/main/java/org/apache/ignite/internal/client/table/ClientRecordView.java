@@ -360,6 +360,8 @@ public class ClientRecordView<R> implements RecordView<R> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
         var provider = new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper());
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
