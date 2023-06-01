@@ -451,22 +451,16 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 0L);
         Tuple t2 = Tuple.create().set("ID", 1L);
 
-        assertOpOnNode("server-1", "upsertAll", x -> {
+        Consumer<Tuple> stream = t -> {
             SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
             var fut = recordView.streamData(publisher, null);
-            publisher.submit(t1);
+            publisher.submit(t);
             publisher.close();
             fut.join();
-        });
+        };
 
-        // TODO: Deduplicate code
-        assertOpOnNode("server-2", "upsertAll", x -> {
-            SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
-            var fut = recordView.streamData(publisher, null);
-            publisher.submit(t2);
-            publisher.close();
-            fut.join();
-        });
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(t1));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(t2));
     }
 
     @Test
