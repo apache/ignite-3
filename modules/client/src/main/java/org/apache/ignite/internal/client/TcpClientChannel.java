@@ -502,7 +502,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                             metrics.handshakesFailedIncrement();
                         }
 
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error: " + err.getMessage(), err);
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", err);
                     }
 
                     return res;
