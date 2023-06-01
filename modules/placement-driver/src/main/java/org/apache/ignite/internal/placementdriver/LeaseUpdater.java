@@ -64,7 +64,7 @@ public class LeaseUpdater {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
     /** Update attempts interval in milliseconds. */
-    private static final long UPDATE_LEASE_MS = 500L;
+    private static final long UPDATE_LEASE_MS = 100L;
 
     /** Lease holding interval. */
     private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
