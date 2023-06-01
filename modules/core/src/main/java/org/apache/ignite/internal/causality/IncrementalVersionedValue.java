@@ -61,6 +61,14 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     private CompletableFuture<T> updaterFuture;
 
     /**
+     * This registry chains two versioned values. The value, that uses this registry in the constructor, will be completed strictly after
+     * the value, passed into this method.
+     */
+    public static Consumer<Function<Long, CompletableFuture<?>>> dependingOn(IncrementalVersionedValue<?> vv) {
+        return callback -> vv.whenComplete((causalityToken, value, ex) -> callback.apply(causalityToken));
+    }
+
+    /**
      * Constructor.
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
@@ -128,6 +136,11 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     @Override
     public @Nullable T latest() {
         return versionedValue.latest();
+    }
+
+    @Override
+    public long latestCausalityToken() {
+        return versionedValue.latestCausalityToken();
     }
 
     @Override

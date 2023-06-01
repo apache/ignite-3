@@ -25,6 +25,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -260,7 +261,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Versioned store for tracking RAFT groups initialization and starting completion. Uses a causality token as a value, for convenience.
      * Only updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}. {@code null} by default.
      */
-    private final IncrementalVersionedValue<Long> assignmentsUpdatedVv;
+    private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
@@ -407,7 +408,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(assignmentsUpdateVvRegistry());
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv));
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -451,20 +452,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
         indexBuilder = new IndexBuilder(nodeName, cpus);
-    }
-
-    /**
-     * This registry chains {@link #tablesByIdVv} and {@link #assignmentsUpdatedVv}, guaranteeing that {@link #assignmentsUpdatedVv} is
-     * always completed strictly after the {@link #tablesByIdVv}. In other words, it provides HB for versioned values completion.
-     * This is crucial for methods like {@link #latestTablesById()}.
-     */
-    private Consumer<Function<Long, CompletableFuture<?>>> assignmentsUpdateVvRegistry() {
-        return callback -> tablesByIdVv.whenComplete((causalityToken, tablesById, ex) -> {
-            // Set the latest token.
-            assignmentsUpdatedVv.update(causalityToken, (unused, throwable) -> completedFuture(causalityToken));
-
-            callback.apply(causalityToken);
-        });
     }
 
     @Override
@@ -891,7 +878,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            return updateAssignmentsFuture.thenApply(v -> token);
+            return updateAssignmentsFuture;
         });
     }
 
@@ -1757,22 +1744,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenCompose(tablesByIdVv::get);
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdVv.get(causalityToken));
     }
 
     /**
      * Returns the latest tables by ID map, for which all assignment updates have been completed.
      */
     private Map<Integer, TableImpl> latestTablesById() {
-        Long latestCausalityToken = assignmentsUpdatedVv.latest();
+        long latestCausalityToken = assignmentsUpdatedVv.latestCausalityToken();
 
-        if (latestCausalityToken == null) {
+        if (latestCausalityToken < 0L) {
             // No tables at all in case of empty causality token.
             return emptyMap();
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
 
-            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv". See "assignmentsUpdateVvRegistry".
+            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
             assert tablesByIdFuture.isDone();
 
             return tablesByIdFuture.join();
