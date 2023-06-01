@@ -150,4 +150,13 @@ public class IndexUpdateHandler {
     public void waitIndexes() {
         indexes.get();
     }
+
+    /**
+     * Waits for the specific index to be created.
+     */
+    public void waitForIndex(int indexId) {
+        indexes.addIndexToWaitIfAbsent(indexId);
+
+        waitIndexes();
+    }
 }

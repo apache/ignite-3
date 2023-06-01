@@ -119,7 +119,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // ADD COLUMN
-        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 VARCHAR");
+        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
                 "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
@@ -133,7 +133,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
-        checkDdl(false, ses, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
 
         // CREATE INDEX
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -198,7 +197,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
-        checkDdl(false, ses, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");

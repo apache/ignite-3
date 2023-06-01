@@ -52,6 +52,12 @@ public class SortedIndexDescriptor extends IndexDescriptor {
 
     /** {@inheritDoc} */
     @Override
+    public boolean hasColumn(String columnName) {
+        return columns.stream().map(IndexColumnDescriptor::name).anyMatch(columnName::equals);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String toString() {
         return S.toString(this);
     }

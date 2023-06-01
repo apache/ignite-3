@@ -52,6 +52,12 @@ public class HashIndexDescriptor extends IndexDescriptor {
 
     /** {@inheritDoc} */
     @Override
+    public boolean hasColumn(String columnName) {
+        return columns.contains(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String toString() {
         return S.toString(this);
     }

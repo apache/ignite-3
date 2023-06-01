@@ -25,6 +25,8 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
@@ -76,6 +78,20 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
                             .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterTableAddCommand) {
+            AlterTableAddCommand addCommand = (AlterTableAddCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.addColumn(DdlToCatalogCommandConverter.convert(addCommand))
+                            .handle(handleModificationResult(addCommand.ifTableExists(), TableNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterTableDropCommand) {
+            AlterTableDropCommand dropCommand = (AlterTableDropCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(dropCommand))
+                            .handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class))
                     );
         } else if (cmd instanceof CreateIndexCommand) {
             return ddlCommandFuture

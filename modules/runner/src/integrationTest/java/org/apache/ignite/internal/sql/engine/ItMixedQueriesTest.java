@@ -224,20 +224,12 @@ public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
 
         assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
 
-        sql("alter table test_tbl add column if not exists new_col int");
-
-        assertQuery(selectAllQry).columnNames("ID", "VAL", "NEW_COL").check();
-
         sql("alter table test_tbl drop column new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
 
         // column with such name is not exists
         assertThrows(Exception.class, () -> sql("alter table test_tbl drop column new_col"));
-
-        assertQuery(selectAllQry).columnNames("ID", "VAL").check();
-
-        sql("alter table test_tbl drop column if exists new_col");
 
         assertQuery(selectAllQry).columnNames("ID", "VAL").check();
     }

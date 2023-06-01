@@ -17,25 +17,19 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.util.subscription.AccumulateException;
-import org.apache.ignite.internal.util.subscription.Accumulator;
+import java.util.Set;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /**
- * All keys accumulator.
+ * Listener of deployment unit node status changes.
  */
-public class KeyAccumulator implements Accumulator<Entry, List<byte[]>> {
-    private final List<byte[]> result = new ArrayList<>();
-
-    @Override
-    public void accumulate(Entry item) {
-        result.add(item.key());
-    }
-
-    @Override
-    public List<byte[]> get() throws AccumulateException {
-        return result;
-    }
+@FunctionalInterface
+public interface NodeEventCallback {
+    /**
+     * Change event.
+     *
+     * @param status Deployment unit status.
+     * @param holders Nodes consistent id.
+     */
+    void onUpdate(UnitNodeStatus status, Set<String> holders);
 }

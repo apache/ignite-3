@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.version;
+package org.apache.ignite.compute.version;
 
 import java.util.Objects;
 
 /**
- * Implementation of {@link Version} interface based on the three numbers format,
- * like x.x.x. where x is short number.
+ * Implementation of {@link Version} interface based on the three numbers format, like x.x.x. where x is short number.
  */
-public class UnitVersion implements Version {
+class UnitVersion implements Version {
     private final short major;
+
     private final short minor;
+
     private final short patch;
 
     /**
@@ -35,7 +36,7 @@ public class UnitVersion implements Version {
      * @param minor Minor part of version.
      * @param patch Patch part of version.
      */
-    public UnitVersion(short major, short minor, short patch) {
+    UnitVersion(short major, short minor, short patch) {
         this.major = major;
         this.minor = minor;
         this.patch = patch;
