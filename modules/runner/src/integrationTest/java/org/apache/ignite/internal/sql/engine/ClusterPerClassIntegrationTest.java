@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -491,11 +491,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
         // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
-            CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
+            TableImpl tableImpl = getTableImpl(clusterNode, tableName);
 
-            assertThat(tableFuture, willCompleteSuccessfully());
-
-            TableImpl tableImpl = (TableImpl) tableFuture.join();
+            assertNotNull(tableImpl, clusterNode.name() + " : " + tableName);
 
             InternalTable internalTable = tableImpl.internalTable();
 
@@ -516,7 +514,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
                 TablesView tablesView = getTablesConfiguration(clusterNode).value();
 
-                UUID indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
+                int indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, createIndexDescriptor(tablesView, indexId));
 
@@ -536,5 +534,44 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     public static TablesConfiguration getTablesConfiguration(Ignite node) {
         return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
+    }
+
+    /**
+     * Looks up a node by a consistent ID, {@code null} if absent.
+     *
+     * @param consistentId Node consistent ID.
+     */
+    static @Nullable IgniteImpl findByConsistentId(String consistentId) {
+        return CLUSTER_NODES.stream()
+                .map(IgniteImpl.class::cast)
+                .filter(ignite -> consistentId.equals(ignite.node().name()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Returns the table by name, {@code null} if absent.
+     *
+     * @param node Node.
+     * @param tableName Table name.
+     */
+    static @Nullable TableImpl getTableImpl(Ignite node, String tableName) {
+        CompletableFuture<Table> tableFuture = node.tables().tableAsync(tableName);
+
+        assertThat(tableFuture, willSucceedFast());
+
+        return (TableImpl) tableFuture.join();
+    }
+
+    /**
+     * Returns the index ID from the configuration, {@code null} if there is no index configuration.
+     *
+     * @param node Node.
+     * @param indexName Index name.
+     */
+    static @Nullable Integer indexId(Ignite node, String indexName) {
+        TableIndexConfiguration indexConfig = getIndexConfiguration(node, indexName);
+
+        return indexConfig == null ? null : indexConfig.id().value();
     }
 }

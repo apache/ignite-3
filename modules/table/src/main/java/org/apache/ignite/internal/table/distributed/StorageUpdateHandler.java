@@ -111,6 +111,8 @@ public class StorageUpdateHandler {
             @Nullable ByteBuffer rowBuffer,
             @Nullable Consumer<RowId> onReplication
     ) {
+        indexUpdateHandler.waitIndexes();
+
         storage.runConsistently(locker -> {
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
@@ -152,6 +154,8 @@ public class StorageUpdateHandler {
             TablePartitionId commitPartitionId,
             @Nullable Consumer<Collection<RowId>> onReplication
     ) {
+        indexUpdateHandler.waitIndexes();
+
         storage.runConsistently(locker -> {
             int commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();

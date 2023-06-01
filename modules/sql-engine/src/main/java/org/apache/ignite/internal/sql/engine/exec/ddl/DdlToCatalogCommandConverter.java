@@ -19,10 +19,14 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
@@ -39,6 +43,7 @@ class DdlToCatalogCommandConverter {
         return CreateTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
+                .ifTableExists(cmd.ifTableExists())
 
                 .columns(columns)
                 .colocationColumns(cmd.colocationColumns())
@@ -53,11 +58,42 @@ class DdlToCatalogCommandConverter {
         return DropTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
+                .ifTableExists(cmd.ifTableExists())
                 .build();
     }
 
+    static AlterTableAddColumnParams convert(AlterTableAddCommand cmd) {
+        List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
+
+        return AlterTableAddColumnParams.builder()
+                .schemaName(cmd.schemaName())
+                .tableName(cmd.tableName())
+                .ifTableExists(cmd.ifTableExists())
+
+                .columns(columns)
+
+                .build();
+    }
+
+    static AlterTableDropColumnParams convert(AlterTableDropCommand cmd) {
+        return AlterTableDropColumnParams.builder()
+                .schemaName(cmd.schemaName())
+                .tableName(cmd.tableName())
+                .ifTableExists(cmd.ifTableExists())
+
+                .columns(cmd.columns())
+
+                .build();
+    }
+
+
     private static ColumnParams convert(ColumnDefinition def) {
-        return new ColumnParams(def.name(), TypeUtils.columnType(def.type()), convert(def.defaultValueDefinition()), def.nullable());
+        return ColumnParams.builder()
+                .name(def.name())
+                .type(TypeUtils.columnType(def.type()))
+                .nullable(def.nullable())
+                .defaultValue(convert(def.defaultValueDefinition()))
+                .build();
     }
 
     private static DefaultValue convert(DefaultValueDefinition def) {

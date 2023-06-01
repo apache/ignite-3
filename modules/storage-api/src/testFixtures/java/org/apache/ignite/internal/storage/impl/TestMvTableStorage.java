@@ -51,9 +51,9 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvTableStorage implements MvTableStorage {
     private final MvPartitionStorages<TestMvPartitionStorage> mvPartitionStorages;
 
-    private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
+    private final Map<Integer, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
-    private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+    private final Map<Integer, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -175,7 +175,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int indexId) {
         sortedIndicesById.remove(indexId);
 
         HashIndices hashIndex = hashIndicesById.remove(indexId);

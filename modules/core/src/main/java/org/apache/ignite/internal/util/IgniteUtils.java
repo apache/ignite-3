@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -547,6 +550,23 @@ public class IgniteUtils {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    /**
+     * Generate file with dummy content with provided size.
+     *
+     * @param file File path.
+     * @param fileSize File size in bytes.
+     * @throws IOException if an I/O error is thrown.
+     */
+    public static void fillDummyFile(Path file, long fileSize) throws IOException {
+        try (SeekableByteChannel channel = Files.newByteChannel(file, WRITE, CREATE)) {
+            channel.position(fileSize - 4);
+
+            ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
+            buf.rewind();
+            channel.write(buf);
+        }
     }
 
     /**

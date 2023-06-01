@@ -139,7 +139,7 @@ public class PartitionCommandListenerTest {
 
     /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
-            UUID.randomUUID(),
+            1,
             new TestHashIndexStorage(PARTITION_ID, null),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
@@ -482,7 +482,7 @@ public class PartitionCommandListenerTest {
 
     @Test
     void testBuildIndexCommand() {
-        UUID indexId = UUID.randomUUID();
+        int indexId = 1;
 
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 
@@ -509,7 +509,7 @@ public class PartitionCommandListenerTest {
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
     }
 
-    private BuildIndexCommand createBuildIndexCommand(UUID indexId, List<UUID> rowUuids, boolean finish) {
+    private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return msgFactory.buildIndexCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()

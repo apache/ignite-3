@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -30,7 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -46,6 +47,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -524,35 +526,56 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     private class StatisticsImpl implements Statistic {
-        private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
+        private final int updateThreshold = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 
-        AtomicInteger statReqCnt = new AtomicInteger();
+        private final AtomicLong lastUpd = new AtomicLong();
 
-        private volatile long localRowCnt;
+        private volatile long localRowCnt = 0L;
 
         /** {@inheritDoc} */
         @Override
+        // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
         public Double getRowCount() {
-            if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
-                int parts = table.storage().distributionZoneConfiguration().partitions().value();
+            int parts = table.storage().distributionZoneConfiguration().partitions().value();
 
-                long size = 0L;
+            long partitionsRevisionCounter = 0L;
 
-                for (int p = 0; p < parts; ++p) {
-                    @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
+            for (int p = 0; p < parts; ++p) {
+                @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
-                    if (part == null) {
-                        continue;
-                    }
-
-                    try {
-                        size += part.rowsCount();
-                    } catch (StorageRebalanceException ignore) {
-                        // No-op.
-                    }
+                if (part == null) {
+                    continue;
                 }
 
-                localRowCnt = size;
+                long upd = part.lastAppliedIndex();
+
+                partitionsRevisionCounter += upd;
+            }
+
+            long prev = lastUpd.get();
+
+            if (partitionsRevisionCounter - prev > updateThreshold) {
+                synchronized (this) {
+                    if (lastUpd.compareAndSet(prev, partitionsRevisionCounter)) {
+                        long size = 0L;
+
+                        for (int p = 0; p < parts; ++p) {
+                            @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
+
+                            if (part == null) {
+                                continue;
+                            }
+
+                            try {
+                                size += part.rowsCount();
+                            } catch (StorageRebalanceException ignore) {
+                                // No-op.
+                            }
+                        }
+
+                        localRowCnt = size;
+                    }
+                }
             }
 
             // Forbid zero result, to prevent zero cost for table and index scans.
@@ -612,19 +635,25 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     ) {
         return CompletableFuture.allOf(futs)
                 .thenApply(response -> {
-                    List<String> conflictRows = new ArrayList<>();
+                    List<String> conflictRows = null;
 
                     for (CompletableFuture<List<RowT>> future : futs) {
                         List<RowT> values = future.join();
 
-                        if (values != null) {
-                            for (RowT row : values) {
-                                conflictRows.add(handler.toString(row));
-                            }
+                        if (nullOrEmpty(values)) {
+                            continue;
+                        }
+
+                        if (conflictRows == null) {
+                            conflictRows = new ArrayList<>(values.size());
+                        }
+
+                        for (RowT row : values) {
+                            conflictRows.add(handler.toString(row));
                         }
                     }
 
-                    if (!conflictRows.isEmpty()) {
+                    if (conflictRows != null) {
                         throw conflictKeysException(conflictRows);
                     }
 

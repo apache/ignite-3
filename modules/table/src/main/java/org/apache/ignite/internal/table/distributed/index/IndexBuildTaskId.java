@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -28,9 +27,9 @@ class IndexBuildTaskId {
 
     private final int partitionId;
 
-    private final UUID indexId;
+    private final int indexId;
 
-    IndexBuildTaskId(int tableId, int partitionId, UUID indexId) {
+    IndexBuildTaskId(int tableId, int partitionId, int indexId) {
         this.tableId = tableId;
         this.partitionId = partitionId;
         this.indexId = indexId;
@@ -44,7 +43,7 @@ class IndexBuildTaskId {
         return partitionId;
     }
 
-    public UUID getIndexId() {
+    public int getIndexId() {
         return indexId;
     }
 
@@ -59,14 +58,14 @@ class IndexBuildTaskId {
 
         IndexBuildTaskId that = (IndexBuildTaskId) o;
 
-        return partitionId == that.partitionId && tableId == that.tableId && indexId.equals(that.indexId);
+        return partitionId == that.partitionId && tableId == that.tableId && indexId == that.indexId;
     }
 
     @Override
     public int hashCode() {
         int result = tableId;
         result = 31 * result + partitionId;
-        result = 31 * result + indexId.hashCode();
+        result = 31 * result + indexId;
         return result;
     }
 

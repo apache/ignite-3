@@ -34,7 +34,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -74,7 +73,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SqlSchemaManagerTest {
     private final int tableId = 1;
 
-    private final UUID indexId = UUID.randomUUID();
+    private final int indexId = 2;
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             1,

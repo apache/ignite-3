@@ -122,7 +122,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
                     int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
 
-                    addIndex(indexDefinition, tableId, idx);
+                    addIndex(indexDefinition, tableId, indexDefinition.name().hashCode(), idx);
                 }));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());

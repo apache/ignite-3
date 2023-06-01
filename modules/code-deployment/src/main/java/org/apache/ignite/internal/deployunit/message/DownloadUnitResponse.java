@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.version;
+package org.apache.ignite.internal.deployunit.message;
+
+import org.apache.ignite.internal.deployunit.UnitContent;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Throws when {@link Version} of deployment unit not parsable.
+ * Deploy unit response.
  */
-public class VersionParseException extends RuntimeException {
-    private final String rawVersion;
+@Transferable(DeployUnitMessageTypes.DOWNLOAD_UNIT_RESPONSE)
+public interface DownloadUnitResponse extends NetworkMessage {
 
     /**
-     * Constructor.
+     * Returns map from file names of deployment unit to their content.
      *
-     * @param cause Cause error.
+     * @return map from file names of deployment unit to their content.
      */
-    public VersionParseException(String rawVersion, Throwable cause) {
-        super(cause);
-        this.rawVersion = rawVersion;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public VersionParseException(String rawVersion, String message) {
-        super(message);
-        this.rawVersion = rawVersion;
-    }
-
-    public String getRawVersion() {
-        return rawVersion;
-    }
+    @Marshallable
+    UnitContent unitContent();
 }

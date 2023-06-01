@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 import org.rocksdb.RocksDB;
 
 /**
@@ -71,11 +70,10 @@ class ColumnFamilyUtils {
      * Creates a column family name by index ID.
      *
      * @param indexId Index ID.
-     * @return Column family name.
      *
      * @see #sortedIndexId
      */
-    static String sortedIndexCfName(UUID indexId) {
+    static String sortedIndexCfName(int indexId) {
         return SORTED_INDEX_CF_PREFIX + indexId;
     }
 
@@ -83,11 +81,10 @@ class ColumnFamilyUtils {
      * Extracts a Sorted Index ID from the given Column Family name.
      *
      * @param cfName Column Family name.
-     * @return Sorted Index ID.
      *
      * @see #sortedIndexCfName
      */
-    static UUID sortedIndexId(String cfName) {
-        return UUID.fromString(cfName.substring(SORTED_INDEX_CF_PREFIX.length()));
+    static int sortedIndexId(String cfName) {
+        return Integer.parseInt(cfName.substring(SORTED_INDEX_CF_PREFIX.length()));
     }
 }

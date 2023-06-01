@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.deployment.version;
+package org.apache.ignite.compute.version;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.internal.deployunit.version.UnitVersion;
-import org.apache.ignite.internal.deployunit.version.Version;
-import org.apache.ignite.internal.deployunit.version.VersionParseException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link Version}.
  */
-public class VersionUnitTest {
+public class VersionTest {
     @Test
     public void testParseCorrect() {
         assertThat(Version.parseVersion("1.1.0"), is(new UnitVersion((short) 1, (short) 1, (short) 0)));

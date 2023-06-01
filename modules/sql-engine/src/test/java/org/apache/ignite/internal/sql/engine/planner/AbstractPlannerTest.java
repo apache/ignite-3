@@ -1207,7 +1207,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     static class TestSortedIndex implements SortedIndex {
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
         private final int tableId = 1;
 
@@ -1235,9 +1235,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.descriptor = descriptor;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1288,7 +1287,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     /** Test Hash index implementation. */
     public static class TestHashIndex implements Index<IndexDescriptor> {
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
         private int tableId = 1;
 
@@ -1316,9 +1315,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.descriptor = descriptor;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
