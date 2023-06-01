@@ -34,9 +34,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.interpreter.AggregateNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -65,13 +67,9 @@ public class Accumulators {
             return accumulatorFunctionFactory(call);
         }
 
-        if (call.getArgList().isEmpty()) {
-            return StrictDistinctAccumulator::new;
-        } else {
-            Supplier<Accumulator> fac = accumulatorFunctionFactory(call);
+        Supplier<Accumulator> fac = accumulatorFunctionFactory(call);
 
-            return () -> new DistinctAccumulator(fac);
-        }
+        return () -> new DistinctAccumulator(fac);
     }
 
     private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
@@ -96,6 +94,8 @@ public class Accumulators {
                 return SingleVal.FACTORY;
             case "ANY_VALUE":
                 return AnyVal.FACTORY;
+            case "GROUPING":
+                return groupingFactory(call);
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -139,6 +139,17 @@ public class Accumulators {
                     throw unsupportedAggregateFunction(call);
                 }
                 return () -> new Sum(new LongSumEmptyIsZero());
+        }
+    }
+
+    private Supplier<Accumulator> groupingFactory(AggregateCall call) {
+        switch (call.type.getSqlTypeName()) {
+            case BIGINT:
+            case DECIMAL:
+                return () -> new Group();
+
+            default:
+                throw unsupportedAggregateFunction(call);
         }
     }
 
@@ -407,6 +418,49 @@ public class Accumulators {
         }
 
         /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createSqlType(BIGINT);
+        }
+    }
+
+    /**
+     * Check org.apache.calcite.sql.fun.SqlGroupingFunction description
+     * Calcite implementation (for quidem it works) GroupingImplementor#implementResult
+     */
+    public static class Group implements Accumulator {
+        public ImmutableBitSet grpFields;
+        boolean touched = false;
+
+        public void set(ImmutableBitSet grpFields) {
+            this.grpFields = grpFields;
+        }
+
+        @Override
+        public void add(Object... args) {
+            for (int i=0;i<args.length;i++) {
+                if (grpFields != null && grpFields.get(i))
+                    touched = true;
+                System.err.println("Group: " + args[i] + " " + grpFields + " t: " + touched + " " + hashCode());
+            }
+        }
+
+        @Override
+        public void apply(Accumulator other) {
+
+        }
+
+        @Override
+        public Object end() {
+            return touched ? 1 : 0;
+            //return 0L;//touched ? 0 : 1;
+        }
+
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), false));
+        }
+
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createSqlType(BIGINT);
@@ -871,36 +925,6 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
-        }
-    }
-
-    /** count(distinct) accumulator. */
-    private static class StrictDistinctAccumulator implements Accumulator {
-        long counter = 0;
-
-        /** {@inheritDoc} */
-        @Override public void add(Object... args) {
-            ++counter;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void apply(Accumulator other) {
-            throw new UnsupportedOperationException("Nested accumulator not supported.");
-        }
-
-        /** {@inheritDoc} */
-        @Override public Object end() {
-            return counter;
-        }
-
-        /** {@inheritDoc} */
-        @Override public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
-            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), false));
-        }
-
-        /** {@inheritDoc} */
-        @Override public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createSqlType(BIGINT);
         }
     }
 

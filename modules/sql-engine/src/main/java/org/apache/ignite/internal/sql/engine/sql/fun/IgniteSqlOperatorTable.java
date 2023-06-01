@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
@@ -83,6 +84,14 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     null,
                     OperandTypes.SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
+
+    /** {@code GROUPING(c1 [, c2, ...])} function.
+     *
+     * <p>Occurs in similar places to an aggregate
+     * function ({@code SELECT}, {@code HAVING} clause, etc. of an aggregate
+     * query), but not technically an aggregate function. */
+    public static final SqlAggFunction GROUPING =
+            new SqlGroupingFunction("GROUPING");
 
     /**
      * Greatest of two arguments. Unlike GREATEST, which is converted to CASE WHEN THEN END clause, this function
@@ -174,6 +183,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.AND);
         register(SqlStdOperatorTable.OR);
         register(SqlStdOperatorTable.NOT);
+
+        register(GROUPING);
 
         // Comparisons.
         register(SqlStdOperatorTable.LESS_THAN);
