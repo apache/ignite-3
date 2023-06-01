@@ -359,6 +359,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        // TODO IGNITE-19617 Server-side Basic Data Streamer.
         throw new UnsupportedOperationException("Not supported.");
     }
 }

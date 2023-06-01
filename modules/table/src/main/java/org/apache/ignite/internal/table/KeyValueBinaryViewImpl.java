@@ -486,6 +486,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+        // TODO IGNITE-19617 Server-side Basic Data Streamer.
         throw new UnsupportedOperationException("Not supported.");
     }
 }
