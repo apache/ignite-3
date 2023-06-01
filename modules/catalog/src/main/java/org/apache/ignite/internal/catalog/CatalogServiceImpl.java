@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.commands.AbstractZoneCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
@@ -123,7 +123,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         // TODO: IGNITE-19082 Fix default descriptors.
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
         DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, DEFAULT_ZONE_NAME, 25, 1,
-                Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, AbstractZoneCommandParams.DEFAULT_FILTER);
+               INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, CreateZoneParams.DEFAULT_FILTER);
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
@@ -326,9 +326,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
-        if (params.dataNodesAutoAdjust() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE
-                && (params.dataNodesAutoAdjustScaleUp() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE
-                || params.dataNodesAutoAdjustScaleDown() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE)
+        if (params.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
+                && (params.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE
+                || params.dataNodesAutoAdjustScaleDown() != INFINITE_TIMER_VALUE)
         ) {
             return failedFuture(new IgniteInternalException(
                     DistributionZones.ZONE_DEFINITION_ERR,
@@ -433,16 +433,27 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new DistributionZoneNotFoundException(params.zoneName());
             }
 
-            if (params.dataNodesAutoAdjust() != null
-                    && (params.dataNodesAutoAdjustScaleUp() != null
-                    || params.dataNodesAutoAdjustScaleDown() != null)
-            ) {
-                throw new IgniteInternalException(
-                        DistributionZones.ZONE_DEFINITION_ERR,
-                        "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
-                                + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
-                                + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
-                );
+            Integer dataNodesAutoAdjust = params.dataNodesAutoAdjust();
+            Integer dataNodesAutoAdjustScaleUp = params.dataNodesAutoAdjustScaleUp();
+            Integer dataNodesAutoAdjustScaleDown = params.dataNodesAutoAdjustScaleDown();
+
+            if (dataNodesAutoAdjust == null && dataNodesAutoAdjustScaleUp == null && dataNodesAutoAdjustScaleDown == null) {
+                dataNodesAutoAdjust = zone.dataNodesAutoAdjust();
+                dataNodesAutoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
+                dataNodesAutoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
+            } else {
+                if (dataNodesAutoAdjust != null && (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null)) {
+                    throw new IgniteInternalException(
+                            DistributionZones.ZONE_DEFINITION_ERR,
+                            "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
+                                    + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
+                                    + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
+                    );
+                }
+
+                dataNodesAutoAdjust = Objects.requireNonNullElse(params.dataNodesAutoAdjust(), INFINITE_TIMER_VALUE);
+                dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleUp(), INFINITE_TIMER_VALUE);
+                dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE);
             }
 
             DistributionZoneDescriptor descriptor = new DistributionZoneDescriptor(
@@ -450,9 +461,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     zone.name(),
                     Objects.requireNonNullElse(params.partitions(), zone.partitions()),
                     Objects.requireNonNullElse(params.replicas(), zone.replicas()),
-                    Objects.requireNonNullElse(params.dataNodesAutoAdjust(), zone.dataNodesAutoAdjust()),
-                    Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleUp(), zone.dataNodesAutoAdjustScaleUp()),
-                    Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), zone.dataNodesAutoAdjustScaleDown()),
+                    dataNodesAutoAdjust,
+                    dataNodesAutoAdjustScaleUp,
+                    dataNodesAutoAdjustScaleDown,
                     Objects.requireNonNullElse(params.filter(), zone.filter())
             );
 

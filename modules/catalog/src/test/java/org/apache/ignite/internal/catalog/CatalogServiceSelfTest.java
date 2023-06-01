@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -657,6 +658,8 @@ public class CatalogServiceSelfTest {
                 .zoneName(ZONE_NAME)
                 .partitions(42)
                 .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
                 .build();
 
         CompletableFuture<Void> fut = service.createDistributionZone(params);
@@ -680,6 +683,10 @@ public class CatalogServiceSelfTest {
         assertEquals(ZONE_NAME, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
+        assertEquals(73, zone.dataNodesAutoAdjust());
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals("expression", zone.filter());
     }
 
     @Test
@@ -755,6 +762,44 @@ public class CatalogServiceSelfTest {
         assertEquals(1, zone.id());
 
         assertSame(zone, service.zone(1, System.currentTimeMillis()));
+    }
+
+
+    @Test
+    public void testAlterZone() throws InterruptedException {
+        CreateZoneParams createParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
+                .build();
+
+        AlterZoneParams alterZoneParams = AlterZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(10)
+                .replicas(2)
+                .dataNodesAutoAdjustScaleUp(3)
+                .dataNodesAutoAdjustScaleDown(4)
+                .filter("newExpression")
+                .build();
+
+        assertThat(service.createDistributionZone(createParams), willBe((Object) null));
+        assertThat(service.alterDistributionZone(alterZoneParams), willBe((Object) null));
+
+        // Validate actual catalog
+        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
+        assertNotNull(zone);
+        assertSame(zone, service.zone(1, System.currentTimeMillis()));
+
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(1, zone.id());
+        assertEquals(10, zone.partitions());
+        assertEquals(2, zone.replicas());
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust());
+        assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals("newExpression", zone.filter());
     }
 
     @Test
