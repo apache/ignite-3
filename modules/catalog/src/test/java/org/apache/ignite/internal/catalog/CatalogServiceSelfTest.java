@@ -444,6 +444,7 @@ public class CatalogServiceSelfTest {
     @Test
     public void testDropIndexedColumn() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+        assertThat(service.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe((Object) null));
 
         // Try to drop indexed column
         AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
@@ -452,9 +453,7 @@ public class CatalogServiceSelfTest {
                 .columns(Set.of("VAL"))
                 .build();
 
-        //TODO: uncomment "https://issues.apache.org/jira/browse/IGNITE-19460"
-        // assertThat(service.createIndex("CREATE INDEX myIndex ON myTable (VAL)"), willBe((Object) null));
-        // assertThat(service.dropColumn(params), willThrow(IllegalArgumentException.class));
+        assertThat(service.dropColumn(params), willThrow(SqlException.class));
 
         // Try to drop PK column
         params = AlterTableDropColumnParams.builder()
@@ -469,7 +468,7 @@ public class CatalogServiceSelfTest {
         SchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
-        assertEquals(1, schema.version());
+        assertEquals(2, schema.version());
 
         assertNotNull(schema.table(TABLE_NAME).column("ID"));
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
@@ -913,6 +912,15 @@ public class CatalogServiceSelfTest {
                         ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of("ID"))
+                .build();
+    }
+    private static CreateSortedIndexParams simpleIndex(String indexName, String tableName) {
+        return CreateSortedIndexParams.builder()
+                .indexName(indexName)
+                .tableName(tableName)
+                .unique()
+                .columns(List.of("VAL"))
+                .collations(List.of(ColumnCollation.ASC_NULLS_LAST))
                 .build();
     }
 }
