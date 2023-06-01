@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -713,7 +713,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator()
             );
 
-            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->
+            Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);

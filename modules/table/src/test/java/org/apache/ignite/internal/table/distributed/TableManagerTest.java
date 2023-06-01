@@ -61,6 +61,7 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -211,7 +212,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
 
     /** Revision updater. */
-    private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
+    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
     @InjectConfiguration
@@ -254,7 +255,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
 
-        revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
+        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {

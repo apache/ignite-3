@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
@@ -388,6 +388,62 @@ public class IncrementalVersionedValueTest {
         verify(listener, never()).whenComplete(anyLong(), any(), any());
     }
 
+    @Test
+    public void testLatest() {
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
+
+        assertEquals(-1, vv.latestCausalityToken());
+
+        vv.update(1, (val, e) -> completedFuture(10));
+
+        assertNull(vv.latest());
+        assertEquals(-1, vv.latestCausalityToken());
+
+        register.moveRevision(1);
+
+        assertEquals(10, vv.latest());
+        assertEquals(1, vv.latestCausalityToken());
+
+        CompletableFuture<Integer> fut = new CompletableFuture<>();
+        vv.update(5, (val, e) -> fut);
+
+        register.moveRevision(5);
+
+        assertEquals(10, vv.latest());
+        assertEquals(1, vv.latestCausalityToken());
+
+        // All handlers must be invoked by te same thread, VV must be completed right after.
+        fut.complete(50);
+
+        assertEquals(50, vv.latest());
+        assertEquals(5, vv.latestCausalityToken());
+    }
+
+    @Test
+    public void testLatestSeveralVersions() {
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
+
+        CompletableFuture<Integer> fut = new CompletableFuture<>();
+
+        vv.update(1, (val, e) -> fut);
+        register.moveRevision(1);
+
+        assertNull(vv.latest());
+        assertEquals(-1, vv.latestCausalityToken());
+
+        vv.update(5, (val, e) -> completedFuture(50));
+        register.moveRevision(5);
+
+        assertNull(vv.latest());
+        assertEquals(-1, vv.latestCausalityToken());
+
+        // All handlers must be invoked by te same thread, VV must be completed right after.
+        fut.complete(10);
+
+        assertEquals(50, vv.latest());
+        assertEquals(5, vv.latestCausalityToken());
+    }
+
     /**
      * Tests a case when there is no default value supplier.
      */
@@ -419,12 +475,12 @@ public class IncrementalVersionedValueTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
+    private static class TestRevisionRegister implements Consumer<LongFunction<CompletableFuture<?>>> {
         /** Revision consumer. */
-        private final List<Function<Long, CompletableFuture<?>>> moveRevisionList = new ArrayList<>();
+        private final List<LongFunction<CompletableFuture<?>>> moveRevisionList = new ArrayList<>();
 
         @Override
-        public void accept(Function<Long, CompletableFuture<?>> function) {
+        public void accept(LongFunction<CompletableFuture<?>> function) {
             moveRevisionList.add(function);
         }
 

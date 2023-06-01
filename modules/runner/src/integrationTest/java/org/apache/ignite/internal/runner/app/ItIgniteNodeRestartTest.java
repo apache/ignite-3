@@ -48,8 +48,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -354,7 +354,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
+        Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
                 .listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));

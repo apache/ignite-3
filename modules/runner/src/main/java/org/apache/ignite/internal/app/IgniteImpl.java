@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -449,7 +449,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry =
+        Consumer<LongFunction<CompletableFuture<?>>> registry =
                 c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(

@@ -45,7 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -172,7 +172,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
 
     /** Revision updater. */
-    private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
+    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
     @InjectConfiguration
@@ -242,7 +242,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         mockVault();
         mockMetastore();
 
-        revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
+        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
             await(function.apply(0L));
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
