@@ -258,8 +258,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
     /**
-     * Versioned store for tracking RAFT groups initialization and starting completion. Uses a causality token as a value, for convenience.
-     * Only updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}. {@code null} by default.
+     * Versioned store for tracking RAFT groups initialization and starting completion.
+     * Only explicitly updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
