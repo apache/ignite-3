@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.catalog.commands;
 
 /**
- * ALTER ZONE RENAME statement.
+ * ALTER ZONE ... statement.
  */
-public class AlterZoneRenameParams extends AbstractZoneCommandParams {
+public class AlterZoneParams extends AbstractZoneCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
@@ -39,9 +39,9 @@ public class AlterZoneRenameParams extends AbstractZoneCommandParams {
     /**
      * Parameters builder.
      */
-    public static class Builder extends AbstractBuilder<AlterZoneRenameParams, Builder> {
+    public static class Builder extends AbstractBuilder<AlterZoneParams, Builder> {
         Builder() {
-            super(new AlterZoneRenameParams());
+            super(new AlterZoneParams());
         }
 
         /**

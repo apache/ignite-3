@@ -65,6 +65,9 @@ class DdlToCatalogCommandConverter {
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
                 .replicas(cmd.replicas())
+                .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
+                .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
+                .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
                 .build();
     }
 

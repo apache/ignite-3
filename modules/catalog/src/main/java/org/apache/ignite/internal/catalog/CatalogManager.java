@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterZoneRenameParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
@@ -85,5 +85,5 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<Void> renameDistributionZone(AlterZoneRenameParams params);
+    CompletableFuture<Void> alterDistributionZone(AlterZoneParams params);
 }

@@ -21,24 +21,21 @@ package org.apache.ignite.internal.catalog.commands;
  * Abstract distribution zone ddl command.
  */
 public class AbstractZoneCommandParams implements DdlCommandParams {
+    /** Default number of zone replicas. */
+    public static final int DEFAULT_REPLICA_COUNT = 1;
+    /** Default number of zone partitions. */
+    public static final int DEFAULT_PARTITION_COUNT = 25;
+    /** Default infinite value for the distribution zones' timers. */
+    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
+
     /** Distribution zone name. */
     protected String zoneName;
-
-    /** Quietly ignore this command if distribution zone is not exists. */
-    protected boolean ifZoneExists;
 
     /**
      * Returns distribution zone name.
      */
     public String zoneName() {
         return zoneName;
-    }
-
-    /**
-     * Quietly ignore if distribution zone is not exist.
-     */
-    public boolean ifZoneExists() {
-        return ifZoneExists;
     }
 
     /**
@@ -59,17 +56,6 @@ public class AbstractZoneCommandParams implements DdlCommandParams {
          */
         public BuilderT zoneName(String zoneName) {
             params.zoneName = zoneName;
-
-            return (BuilderT) this;
-        }
-
-        /**
-         * Set quietly ignore flag.
-         *
-         * @param ifZoneExists Flag.
-         */
-        public BuilderT ifZoneExists(boolean ifZoneExists) {
-            params.ifZoneExists = ifZoneExists;
 
             return (BuilderT) this;
         }

@@ -37,7 +37,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.commands.AlterZoneRenameParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -428,7 +428,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(zone);
         assertSame(zone, service.zone(1, System.currentTimeMillis()));
 
-        // Validate newly created table
+        // Validate newly created zone
         assertEquals(1L, zone.id());
         assertEquals(ZONE_NAME, zone.name());
         assertEquals(42, zone.partitions());
@@ -477,7 +477,7 @@ public class CatalogServiceSelfTest {
                 .replicas(15)
                 .build();
 
-        AlterZoneRenameParams renameParams = AlterZoneRenameParams.builder()
+        AlterZoneParams alterZoneParams = AlterZoneParams.builder()
                 .zoneName(ZONE_NAME)
                 .newZoneName("RenamedZone")
                 .build();
@@ -488,7 +488,7 @@ public class CatalogServiceSelfTest {
 
         Thread.sleep(5);
 
-        assertThat(service.renameDistributionZone(renameParams), willBe((Object) null));
+        assertThat(service.alterDistributionZone(alterZoneParams), willBe((Object) null));
 
         // Validate catalog version from the past.
         DistributionZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
@@ -511,22 +511,35 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testCreateZoneIfExistsFlag() {
+    public void testCreateZoneWithSameName() {
         CreateZoneParams params = CreateZoneParams.builder()
                 .zoneName(ZONE_NAME)
-                .ifZoneExists(true)
+                .partitions(42)
+                .replicas(15)
                 .build();
 
         assertThat(service.createDistributionZone(params), willBe((Object) null));
+
+        // Try to create zone with same name.
+        params = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(8)
+                .replicas(1)
+                .build();
+
         assertThat(service.createDistributionZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
 
-        CompletableFuture<?> fut = service.createDistributionZone(
-                CreateZoneParams.builder()
-                        .zoneName(ZONE_NAME)
-                        .ifZoneExists(false)
-                        .build());
+        // Validate zone was NOT changed
+        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
 
-        assertThat(fut, willThrowFast(DistributionZoneAlreadyExistsException.class));
+        assertNotNull(zone);
+        assertSame(zone, service.zone(1, System.currentTimeMillis()));
+        assertNull(service.zone(2, System.currentTimeMillis()));
+
+        assertEquals(1L, zone.id());
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(42, zone.partitions());
+        assertEquals(15, zone.replicas());
     }
 
     @Test
@@ -537,20 +550,21 @@ public class CatalogServiceSelfTest {
 
         assertThat(service.createDistributionZone(createZoneParams), willBe((Object) null));
 
+        assertNotNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
+        assertNotNull(service.zone(1, System.currentTimeMillis()));
+
         DropZoneParams params = DropZoneParams.builder()
                 .zoneName(ZONE_NAME)
-                .ifZoneExists(true)
                 .build();
 
         assertThat(service.dropDistributionZone(params), willBe((Object) null));
+
+        // Drop non-existing zone.
         assertThat(service.dropDistributionZone(params), willThrowFast(DistributionZoneNotFoundException.class));
 
-        params = DropZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .ifZoneExists(false)
-                .build();
-
-        assertThat(service.dropDistributionZone(params), willThrowFast(DistributionZoneNotFoundException.class));
+        // Validate actual catalog
+        assertNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
+        assertNull(service.zone(1, System.currentTimeMillis()));
     }
 
     @Test
@@ -561,7 +575,6 @@ public class CatalogServiceSelfTest {
 
         DropZoneParams dropZoneParams = DropZoneParams.builder()
                 .zoneName(ZONE_NAME)
-                .ifZoneExists(true)
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);

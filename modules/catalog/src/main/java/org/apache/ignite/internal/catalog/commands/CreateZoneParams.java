@@ -24,19 +24,28 @@ import org.jetbrains.annotations.Nullable;
  * DROP ZONE statement.
  */
 public class CreateZoneParams extends AbstractZoneCommandParams {
-    private static final int DEFAULT_PARTITIONS = 25;
-    private static final int DEFAULT_REPLICAS = 1;
-
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
     /** Amount of zone partitions. */
-    private int partitions;
+    protected int partitions = DEFAULT_PARTITION_COUNT;
 
     /** Amount of zone partition replicas. */
-    private int replicas;
+    protected int replicas = DEFAULT_REPLICA_COUNT;
+
+    /** Data nodes auto adjust timeout. */
+    protected int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
+
+    /** Data nodes auto adjust scale up timeout. */
+    protected int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
+
+    /** Data nodes auto adjust scale down timeout. */
+    protected int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
+
+    /** Nodes' filter. */
+    protected String filter;
 
     /**
      * Returns amount of zone partitions.
@@ -53,6 +62,42 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     }
 
     /**
+     * Gets timeout in seconds between node added or node left topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust timeout.
+     */
+    public int dataNodesAutoAdjust() {
+        return dataNodesAutoAdjust;
+    }
+
+    /**
+     * Gets timeout in seconds between node added topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust scale up timeout.
+     */
+    public int dataNodesAutoAdjustScaleUp() {
+        return dataNodesAutoAdjustScaleUp;
+    }
+
+    /**
+     * Gets timeout in seconds between node left topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust scale down timeout.
+     */
+    public int dataNodesAutoAdjustScaleDown() {
+        return dataNodesAutoAdjustScaleDown;
+    }
+
+    /**
+     * Gets nodes' filter.
+     *
+     * @return Nodes' filter.
+     */
+    public String filter() {
+        return filter;
+    }
+
+    /**
      * Parameters builder.
      */
     public static class Builder extends AbstractBuilder<CreateZoneParams, Builder> {
@@ -60,13 +105,14 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
             super(new CreateZoneParams());
         }
 
+
         /**
          * Sets amount of zone partitions.
          *
          * @param partitions Amount of partitions.
          */
         public Builder partitions(@Nullable Integer partitions) {
-            params.partitions = Objects.requireNonNullElse(partitions, DEFAULT_PARTITIONS);
+            params.partitions = Objects.requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT);
 
             return this;
         }
@@ -77,7 +123,55 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
          * @param replicas Amount of replicas.
          */
         public Builder replicas(@Nullable Integer replicas) {
-            params.replicas = Objects.requireNonNullElse(replicas, DEFAULT_REPLICAS);
+            params.replicas = Objects.requireNonNullElse(replicas, DEFAULT_REPLICA_COUNT);
+
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
+         *
+         * @param dataNodesAutoAdjust Timeout.
+         * @return This instance.
+         */
+        public Builder dataNodesAutoAdjust(@Nullable Integer dataNodesAutoAdjust) {
+            params.dataNodesAutoAdjust = Objects.requireNonNullElse(dataNodesAutoAdjust, INFINITE_TIMER_VALUE);
+
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node added topology event itself and data nodes switch.
+         *
+         * @param dataNodesAutoAdjustScaleUp Timeout.
+         * @return This instance.
+         */
+        public Builder dataNodesAutoAdjustScaleUp(@Nullable Integer dataNodesAutoAdjustScaleUp) {
+            params.dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(dataNodesAutoAdjustScaleUp, INFINITE_TIMER_VALUE);
+
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node left topology event itself and data nodes switch.
+         *
+         * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
+         * @return This instance.
+         */
+        public Builder dataNodesAutoAdjustScaleDown(@Nullable Integer dataNodesAutoAdjustScaleDown) {
+            params.dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE);
+
+            return this;
+        }
+
+        /**
+         * Sets nodes' filter.
+         *
+         * @param filter Nodes' filter.
+         * @return This instance.
+         */
+        public Builder filter(String filter) {
+            params.filter = filter;
 
             return this;
         }

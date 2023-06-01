@@ -29,9 +29,10 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.AbstractZoneCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterZoneRenameParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -238,6 +240,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
+        if (params.dataNodesAutoAdjust() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE
+                && (params.dataNodesAutoAdjustScaleUp() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE
+                || params.dataNodesAutoAdjustScaleDown() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE)
+        ) {
+            throw new IgniteInternalException(
+                    DistributionZones.ZONE_DEFINITION_ERR,
+                    "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
+                            + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
+                            + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
+            );
+        }
+
         return saveUpdate(catalog -> {
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
@@ -273,7 +287,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CompletableFuture<Void> renameDistributionZone(AlterZoneRenameParams params) {
+    public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
         if (DEFAULT_ZONE_NAME.equals(params.newZoneName())) {
             return failedFuture(new IllegalArgumentException("Default zone can't be renamed."));
         }
