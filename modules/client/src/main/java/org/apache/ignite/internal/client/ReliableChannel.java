@@ -245,7 +245,7 @@ public final class ReliableChannel implements AutoCloseable {
         });
     }
 
-    public CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
+    private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
         ClientChannelHolder holder = null;
 
         // 1. Preferred node connection.
