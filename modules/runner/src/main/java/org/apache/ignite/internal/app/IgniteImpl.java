@@ -530,7 +530,8 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory,
                 vaultMgr,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                placementDriverMgr.placementDriver()
         );
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
