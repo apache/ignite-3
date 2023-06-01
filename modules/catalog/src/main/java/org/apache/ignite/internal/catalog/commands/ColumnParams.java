@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import java.util.Objects;
 import org.apache.ignite.sql.ColumnType;
 
 /** Defines a particular column within table. */
