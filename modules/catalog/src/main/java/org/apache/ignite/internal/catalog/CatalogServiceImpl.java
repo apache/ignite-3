@@ -119,7 +119,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
         // TODO: IGNITE-19082 Fix default descriptors.
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
-        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, DEFAULT_ZONE_NAME, 25, 1);
+        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, DEFAULT_ZONE_NAME, 25, 1,
+                Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
@@ -319,6 +320,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
         if (params.dataNodesAutoAdjust() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE
@@ -349,6 +351,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropDistributionZone(DropZoneParams params) {
         //TODO IGNITE-19082 Can default zone be dropped?
@@ -367,6 +370,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
         if (DEFAULT_ZONE_NAME.equals(params.newZoneName())) {
@@ -572,6 +576,34 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.ZONE_DROP,
+                            new DropZoneEventParameters(version, zoneId)
+                    ));
+                } else if (entry instanceof RenameZoneEntry) {
+                    int zoneId = ((RenameZoneEntry) entry).zoneId();
+                    String newZoneName = ((RenameZoneEntry) entry).newZoneName();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            catalog.zones().stream()
+                                    .map(z -> z.id() == zoneId
+                                            ? new DistributionZoneDescriptor(
+                                            zoneId,
+                                            newZoneName,
+                                            z.partitions(),
+                                            z.replicas(),
+                                            z.dataNodesAutoAdjust(),
+                                            z.dataNodesAutoAdjustScaleUp(),
+                                            z.dataNodesAutoAdjustScaleDown())
+                                            : z
+                                    )
+                                    .collect(Collectors.toList()),
+                            schema.copy(version)
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ZONE_ALTER,
                             new DropZoneEventParameters(version, zoneId)
                     ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {

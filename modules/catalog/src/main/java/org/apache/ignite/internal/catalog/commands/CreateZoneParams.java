@@ -21,7 +21,7 @@ import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * DROP ZONE statement.
+ * CREATE ZONE statement.
  */
 public class CreateZoneParams extends AbstractZoneCommandParams {
     /** Creates parameters builder. */

@@ -30,7 +30,7 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
     private String newZoneName;
 
     /**
-     * Returns new name for the zone.
+     * Returns new name for a zone.
      */
     public String newZoneName() {
         return newZoneName;
@@ -45,7 +45,7 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
         }
 
         /**
-         * Sets new zone name.
+         * Sets new name for a zone.
          *
          * @param zoneName New zone name.
          */

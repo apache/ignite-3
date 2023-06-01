@@ -76,12 +76,12 @@ public class Catalog {
 
         this.schemas = Arrays.stream(schemas).collect(Collectors.toUnmodifiableMap(SchemaDescriptor::name, t -> t));
         this.zones = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::name, t -> t));
-        zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::id, t -> t));
 
-        tablesMap = this.schemas.values().stream().flatMap(s -> Arrays.stream(s.tables()))
+        tablesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.tables()))
                 .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
-        indexesMap = this.schemas.values().stream().flatMap(s -> Arrays.stream(s.indexes()))
+        indexesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.indexes()))
                 .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
+        zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::id, t -> t));
     }
 
     public int version() {

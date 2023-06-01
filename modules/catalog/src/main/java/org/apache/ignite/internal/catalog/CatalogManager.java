@@ -80,7 +80,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
     CompletableFuture<Void> dropDistributionZone(DropZoneParams params);
 
     /**
-     * Renames distribution zone.
+     * Alter distribution zone.
      *
      * @param params Parameters.
      * @return Operation future.

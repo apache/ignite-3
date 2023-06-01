@@ -36,5 +36,8 @@ public enum CatalogEvent implements Event {
     ZONE_CREATE,
 
     /** This event is fired, when a distribution zone was dropped in Catalog. */
-    ZONE_DROP
+    ZONE_DROP,
+
+    /** This event is fired, when a distribution zone was changed in Catalog. */
+    ZONE_ALTER
 }

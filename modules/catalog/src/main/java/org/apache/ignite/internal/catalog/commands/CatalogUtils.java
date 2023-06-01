@@ -43,7 +43,7 @@ public class CatalogUtils {
     }
 
     /**
-     * Converts DropZone command params to descriptor.
+     * Converts CreateZone command params to descriptor.
      *
      * @param id Distribution zone id.
      * @param params Parameters.
@@ -54,7 +54,10 @@ public class CatalogUtils {
                 id,
                 params.zoneName(),
                 params.partitions(),
-                params.replicas()
+                params.replicas(),
+                params.dataNodesAutoAdjust(),
+                params.dataNodesAutoAdjustScaleUp(),
+                params.dataNodesAutoAdjustScaleDown()
         );
     }
 

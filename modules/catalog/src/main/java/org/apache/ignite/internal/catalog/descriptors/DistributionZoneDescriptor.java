@@ -31,6 +31,16 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
     /** Amount of zone replicas. */
     private final int replicas;
 
+    /** Data nodes auto adjust timeout. */
+    private final int dataNodesAutoAdjust;
+
+    /** Data nodes auto adjust scale up timeout. */
+    private final int dataNodesAutoAdjustScaleUp;
+
+    /** Data nodes auto adjust scale down timeout. */
+    private final int dataNodesAutoAdjustScaleDown;
+
+
     /**
      * Constructs a distribution zone descriptor.
      *
@@ -38,12 +48,26 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
      * @param name Name of the zone.
      * @param partitions Amount of partitions in distributions zone.
      * @param replicas Amount of partition replicas.
+     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      */
-    public DistributionZoneDescriptor(int id, String name, int partitions, int replicas) {
+    public DistributionZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int dataNodesAutoAdjust,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown
+    ) {
         super(id, Type.ZONE, name);
 
         this.partitions = partitions;
         this.replicas = replicas;
+        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
+        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
     }
 
     /**
@@ -58,6 +82,33 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
      */
     public int replicas() {
         return replicas;
+    }
+
+    /**
+     * Gets timeout in seconds between node added or node left topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust timeout.
+     */
+    public int dataNodesAutoAdjust() {
+        return dataNodesAutoAdjust;
+    }
+
+    /**
+     * Gets timeout in seconds between node added topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust scale up timeout.
+     */
+    public int dataNodesAutoAdjustScaleUp() {
+        return dataNodesAutoAdjustScaleUp;
+    }
+
+    /**
+     * Gets timeout in seconds between node left topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust scale down timeout.
+     */
+    public int dataNodesAutoAdjustScaleDown() {
+        return dataNodesAutoAdjustScaleDown;
     }
 
     /** {@inheritDoc} */
