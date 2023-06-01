@@ -27,7 +27,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  *      <li>Send cleanup requests to all enlisted primary replicas.</li>
  *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
+@Transferable(TxMessageGroup.TX_FINISH_REQUEST)
 public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
@@ -75,15 +74,13 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * @return Enlisted partition groups aggregated by expected primary replica nodes.
      */
     @Marshallable
-    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups();
+    Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups();
 
     /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     * Gets an enlistment consistency token, the one that allows to detect whether primary replica changed within transaction.
      *
-     * @return Raft term.
+     * @return Enlistment consistency token.
      */
-    @Deprecated
     @Marshallable
-    Long term();
+    Long enlistmentConsistencyToken();
 }

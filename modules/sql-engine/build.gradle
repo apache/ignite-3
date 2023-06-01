@@ -35,6 +35,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine

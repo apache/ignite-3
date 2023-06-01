@@ -32,6 +32,7 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 

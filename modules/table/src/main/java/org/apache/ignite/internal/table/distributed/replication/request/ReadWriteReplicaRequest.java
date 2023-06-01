@@ -31,14 +31,12 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     UUID transactionId();
 
     /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     * Gets an enlistment consistency token, the one that allows to detect whether primary replica changed within transaction.
      *
-     * @return Raft term.
+     * @return Enlistment consistency token.
      */
     // TODO: IGNITE-19457 Maybe not nullable.
-    @Deprecated
     @Nullable
     @Marshallable
-    Long term();
+    Long enlistmentConsistencyToken();
 }

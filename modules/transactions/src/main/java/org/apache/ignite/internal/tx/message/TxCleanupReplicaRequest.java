@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  *      <li>Release all locks that were held on local replica by given transaction.</li>
  *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_CLEANUP_REQUEST)
+@Transferable(TxMessageGroup.TX_CLEANUP_REQUEST)
 public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
@@ -68,12 +68,10 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
     }
 
     /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     * Gets an enlistment consistency token, the one that allows to detect whether primary replica changed within transaction.
      *
-     * @return Raft term.
+     * @return Enlistment consistency token.
      */
-    @Deprecated
     @Marshallable
-    Long term();
+    Long enlistmentConsistencyToken();
 }
