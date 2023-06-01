@@ -36,6 +36,7 @@ import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -513,6 +514,34 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode("server-2", "upsertAll", x -> stream.accept(1L));
         assertOpOnNode("server-1", "upsertAll", x -> stream.accept(2L));
         assertOpOnNode("server-2", "upsertAll", x -> stream.accept(3L));
+    }
+
+    @Test
+    public void testDataStreamerReceivesPartitionAssignmentUpdates() {
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
+        var fut = recordView.streamData(publisher, DataStreamerOptions.builder().batchSize(1).perNodeParallelOperations(1).build());
+
+        assertOpOnNode("server-1", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 1L)));
+
+        // Update partition assignment.
+        var assignments = new ArrayList<String>();
+
+        assignments.add(testServer2.nodeId());
+        assignments.add(testServer.nodeId());
+
+        initPartitionAssignment(assignments);
+
+        // Send some batches so that the client receives updated assignment.
+
+        // Check updated assignment.
+        assertOpOnNode("server-2", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-1", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 1L)));
+
+        publisher.close();
+        fut.join();
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
