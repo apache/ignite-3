@@ -1757,7 +1757,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdVv.get(causalityToken));
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(tablesByIdVv::get);
     }
 
     /**
