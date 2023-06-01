@@ -27,6 +27,11 @@ public class AbstractZoneCommandParams implements DdlCommandParams {
     public static final int DEFAULT_PARTITION_COUNT = 25;
     /** Default infinite value for the distribution zones' timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
+    /**
+     * Default filter value for a distribution zone,
+     * which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
+     */
+    public static final String DEFAULT_FILTER = "$..*";
 
     /** Distribution zone name. */
     protected String zoneName;

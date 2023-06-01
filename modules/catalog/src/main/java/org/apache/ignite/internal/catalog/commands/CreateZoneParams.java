@@ -45,7 +45,7 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     protected int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 
     /** Nodes' filter. */
-    protected String filter;
+    protected String filter = DEFAULT_FILTER;
 
     /**
      * Returns amount of zone partitions.

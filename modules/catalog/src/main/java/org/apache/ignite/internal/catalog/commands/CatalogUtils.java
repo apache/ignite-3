@@ -57,7 +57,8 @@ public class CatalogUtils {
                 params.replicas(),
                 params.dataNodesAutoAdjust(),
                 params.dataNodesAutoAdjustScaleUp(),
-                params.dataNodesAutoAdjustScaleDown()
+                params.dataNodesAutoAdjustScaleDown(),
+                params.filter()
         );
     }
 

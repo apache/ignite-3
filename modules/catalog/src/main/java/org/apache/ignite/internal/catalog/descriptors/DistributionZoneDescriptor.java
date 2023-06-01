@@ -40,6 +40,8 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
     /** Data nodes auto adjust scale down timeout. */
     private final int dataNodesAutoAdjustScaleDown;
 
+    /** Nodes filer. */
+    private final String filter;
 
     /**
      * Constructs a distribution zone descriptor.
@@ -51,6 +53,7 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
      */
     public DistributionZoneDescriptor(
             int id,
@@ -59,7 +62,8 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
             int replicas,
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
-            int dataNodesAutoAdjustScaleDown
+            int dataNodesAutoAdjustScaleDown,
+            String filter
     ) {
         super(id, Type.ZONE, name);
 
@@ -68,6 +72,7 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
     }
 
     /**
@@ -109,6 +114,15 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
      */
     public int dataNodesAutoAdjustScaleDown() {
         return dataNodesAutoAdjustScaleDown;
+    }
+
+    /**
+     * Gets nodes' filter.
+     *
+     * @return Nodes' filter.
+     */
+    public String filter() {
+        return filter;
     }
 
     /** {@inheritDoc} */

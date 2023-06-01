@@ -47,6 +47,7 @@ import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
+import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
-import org.apache.ignite.internal.catalog.storage.RenameZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -122,7 +123,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         // TODO: IGNITE-19082 Fix default descriptors.
         SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
         DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(0, DEFAULT_ZONE_NAME, 25, 1,
-                Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+                Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, AbstractZoneCommandParams.DEFAULT_FILTER);
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
@@ -397,6 +398,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(zoneName);
             }
+            if (catalog.zone(params.newZoneName()) != null) {
+                throw new DistributionZoneAlreadyExistsException(params.newZoneName());
+            }
             if (zone.name().equals(DEFAULT_ZONE_NAME)) {
                 //TODO IGNITE-19082 Can default zone be renamed?
                 throw new IgniteInternalException(
@@ -405,7 +409,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 );
             }
 
-            return List.of(new RenameZoneEntry(zone.id(), params.newZoneName()));
+            DistributionZoneDescriptor descriptor = new DistributionZoneDescriptor(
+                    zone.id(),
+                    params.newZoneName(),
+                    zone.partitions(),
+                    zone.replicas(),
+                    zone.dataNodesAutoAdjust(),
+                    zone.dataNodesAutoAdjustScaleUp(),
+                    zone.dataNodesAutoAdjustScaleDown(),
+                    zone.filter()
+            );
+
+            return List.of(new AlterZoneEntry(descriptor));
         });
     }
 
@@ -430,8 +445,18 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 );
             }
 
-            //TODO:
-            return List.of();
+            DistributionZoneDescriptor descriptor = new DistributionZoneDescriptor(
+                    zone.id(),
+                    zone.name(),
+                    Objects.requireNonNullElse(params.partitions(), zone.partitions()),
+                    Objects.requireNonNullElse(params.replicas(), zone.replicas()),
+                    Objects.requireNonNullElse(params.dataNodesAutoAdjust(), zone.dataNodesAutoAdjust()),
+                    Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleUp(), zone.dataNodesAutoAdjustScaleUp()),
+                    Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), zone.dataNodesAutoAdjustScaleDown()),
+                    Objects.requireNonNullElse(params.filter(), zone.filter())
+            );
+
+            return List.of(new AlterZoneEntry(descriptor));
         });
     }
 
@@ -623,33 +648,22 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             CatalogEvent.ZONE_DROP,
                             new DropZoneEventParameters(version, zoneId)
                     ));
-                } else if (entry instanceof RenameZoneEntry) {
-                    int zoneId = ((RenameZoneEntry) entry).zoneId();
-                    String newZoneName = ((RenameZoneEntry) entry).newZoneName();
+                } else if (entry instanceof AlterZoneEntry) {
+                    DistributionZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
 
                     catalog = new Catalog(
                             version,
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones().stream()
-                                    .map(z -> z.id() == zoneId
-                                            ? new DistributionZoneDescriptor(
-                                            zoneId,
-                                            newZoneName,
-                                            z.partitions(),
-                                            z.replicas(),
-                                            z.dataNodesAutoAdjust(),
-                                            z.dataNodesAutoAdjustScaleUp(),
-                                            z.dataNodesAutoAdjustScaleDown())
-                                            : z
-                                    )
+                                    .map(z -> z.id() == descriptor.id() ? descriptor : z)
                                     .collect(Collectors.toList()),
                             schema.copy(version)
                     );
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.ZONE_ALTER,
-                            new DropZoneEventParameters(version, zoneId)
+                            new AlterZoneEventParameters(version, descriptor)
                     ));
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(

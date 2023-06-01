@@ -17,38 +17,29 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Describes renaming of a zone.
+ * Describes altering zone.
  */
-public class RenameZoneEntry implements UpdateEntry {
+public class AlterZoneEntry implements UpdateEntry {
     private static final long serialVersionUID = 7727583734058987315L;
 
-    private final int zoneId;
-    private final String newZoneName;
+    private final DistributionZoneDescriptor descriptor;
 
     /**
      * Constructs the object.
      *
-     * @param zoneId An id of a zone to rename.
-     * @param newZoneName New zone name.
+     * @param descriptor A descriptor of a zone to alter.
      */
-    public RenameZoneEntry(int zoneId, String newZoneName) {
-        this.zoneId = zoneId;
-        this.newZoneName = newZoneName;
+    public AlterZoneEntry(DistributionZoneDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
-    /** Returns an id of a zone to rename. */
-    public int zoneId() {
-        return zoneId;
-    }
-
-    /**
-     * Returns new name for the zone.
-     */
-    public String newZoneName() {
-        return newZoneName;
+    /** Returns descriptor of a zone to alter. */
+    public DistributionZoneDescriptor descriptor() {
+        return descriptor;
     }
 
     /** {@inheritDoc} */
