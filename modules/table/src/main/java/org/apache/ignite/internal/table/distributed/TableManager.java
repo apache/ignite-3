@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -248,11 +249,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
 
-    /** Versioned store for tables by id. */
+    /**
+     * Versioned store for tables by id. Only table instances are created here, RAFT groups may not be initialized yet.
+     *
+     * @see #assignmentsUpdatedVv
+     */
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
-    /** Same as {@link #tablesByIdVv}, but completed before starting RAFT nodes for partitions. */
-    private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdNoRaftVv;
+    /**
+     * Versioned store for tracking RAFT groups initialization and starting completion. Uses a causality token as a value, for convenience.
+     * Only updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}. {@code null} by default.
+     */
+    private final IncrementalVersionedValue<Long> assignmentsUpdatedVv;
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
@@ -399,7 +407,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        tablesByIdNoRaftVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(registry, () -> null);
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -507,7 +515,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 boolean contains = false;
 
-                TableImpl table = tablesByIdVv.latest().get(tableId);
+                TableImpl table = latestTablesById().get(tableId);
 
                 if (table != null) {
                     MvTableStorage storage = table.internalTable().storage();
@@ -792,7 +800,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 startGroupFut
                         .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
                             try {
-                                //TODO This procedure takes 10 seconds if there's no majority online.
+                                //TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
                                 return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
@@ -859,17 +867,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return allOf(futures);
         };
 
-        CompletableFuture<Void> updateAssignmentsFuture = tablesByIdNoRaftVv.get(causalityToken).thenComposeAsync(
+        CompletableFuture<Void> updateAssignmentsFuture = tablesByIdVv.get(causalityToken).thenComposeAsync(
                 tablesById -> inBusyLock(busyLock, () -> updateAssignmentsClosure.apply(tablesById.get(tblId))),
                 ioExecutor
         );
 
-        return tablesByIdVv.update(causalityToken, (tablesById, e) -> {
+        return assignmentsUpdatedVv.update(causalityToken, (unused, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            return updateAssignmentsFuture.thenApply(unused -> tablesById);
+            return updateAssignmentsFuture.thenApply(v -> causalityToken);
         });
     }
 
@@ -1124,7 +1132,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // TODO: IGNITE-19082 Need another way to wait for indexes
         table.addIndexesToWait(collectTableIndexIds(tblId));
 
-        Function<Map<Integer, TableImpl>, CompletableFuture<Map<Integer, TableImpl>>> createTableClosure = previous -> {
+        tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
             return schemaManager.schemaRegistry(causalityToken, tblId)
                     .thenApply(schema -> {
                         table.schemaView(schema);
@@ -1135,28 +1147,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         return val;
                     });
-        };
-
-        CompletableFuture<Map<Integer, TableImpl>> createTableVvFuture = tablesByIdNoRaftVv.update(causalityToken, (previous, e) ->
-                inBusyLock(busyLock, () -> {
-                    if (e != null) {
-                        return failedFuture(e);
-                    }
-
-                    return createTableClosure.apply(previous);
-                })
-        );
-
-        // Mandatory chaining.
-        tablesByIdVv.update(causalityToken, (tablesById, e) -> createTableVvFuture);
+        }));
 
         pendingTables.put(tblId, table);
 
-        tablesByIdVv.get(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
+        tablesById(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
             pendingTables.remove(tblId);
         }));
 
-        tablesByIdVv.get(causalityToken)
+        tablesById(causalityToken)
                 .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
@@ -1252,7 +1251,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
             }
 
-            Function<Map<Integer, TableImpl>, CompletableFuture<Map<Integer, TableImpl>>> dropTableClosure = previousVal -> {
+            tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
                 var map = new HashMap<>(previousVal);
 
                 TableImpl table = map.remove(tblId);
@@ -1278,19 +1281,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
                         .thenApply(v -> map);
-            };
-
-            CompletableFuture<Map<Integer, TableImpl>> dropTableVvFuture = tablesByIdNoRaftVv.update(causalityToken, (previousVal, e) ->
-                    inBusyLock(busyLock, () -> {
-                        if (e != null) {
-                            return failedFuture(e);
-                        }
-
-                        return dropTableClosure.apply(previousVal);
-                    }));
-
-            // Mandatory chaining.
-            tablesByIdVv.update(causalityToken, (tablesById, e) -> dropTableVvFuture);
+            }));
 
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId))
                     .whenComplete((v, e) -> {
@@ -1744,13 +1735,44 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
+     * Returns the tables by ID future for the given causality token.
+     * The future will only be completed when corresponding assignments update completes.
+     *
+     * @param causalityToken Causality token.
+     * @return The future with tables map.
+     * @see #assignmentsUpdatedVv
+     */
+    private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(tablesByIdVv::get);
+    }
+
+    /**
+     * Returns the latest tables by ID map, for which all assignment updates have been completed.
+     */
+    private Map<Integer, TableImpl> latestTablesById() {
+        Long latestCausalityToken = assignmentsUpdatedVv.latest();
+
+        if (latestCausalityToken == null) {
+            // No tables at all in case of empty causality token.
+            return emptyMap();
+        } else {
+            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
+
+            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
+            assert tablesByIdFuture.isDone();
+
+            return tablesByIdFuture.join();
+        }
+    }
+
+    /**
      * Actual tables map.
      *
      * @return Actual tables map.
      */
     @TestOnly
     public Map<Integer, TableImpl> latestTables() {
-        return unmodifiableMap(tablesByIdVv.latest());
+        return unmodifiableMap(latestTablesById());
     }
 
     /** {@inheritDoc} */
@@ -1784,7 +1806,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return tablesByIdVv.get(causalityToken).thenApply(tablesById -> tablesById.get(id));
+            return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1860,7 +1882,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(null);
             }
 
-            TableImpl tbl = tablesByIdVv.latest().get(id);
+            TableImpl tbl = latestTablesById().get(id);
 
             if (tbl != null) {
                 return completedFuture(tbl);
@@ -1884,7 +1906,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // This check is needed for the case when we have registered tablesListener,
             // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
-            tbl = tablesByIdVv.latest().get(id);
+            tbl = latestTablesById().get(id);
 
             if (tbl != null) {
                 tablesByIdVv.removeWhenComplete(tablesListener);
@@ -1992,7 +2014,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), evt.revision());
 
-        return tablesByIdVv.get(evt.revision())
+        return tablesById(evt.revision())
                 .thenCombineAsync(stableAssignmentsFuture, (tables, stableAssignmentsEntry) -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
@@ -2234,7 +2256,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tblId, partitionNumber);
 
-                    return tablesByIdVv.get(evt.revision())
+                    return tablesById(evt.revision())
                             .thenCompose(tables -> {
                                 if (!busyLock.enterBusy()) {
                                     return failedFuture(new NodeStoppingException());
@@ -2376,7 +2398,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // No-op.
                     }
 
-                    return tablesByIdVv.get(evt.revision())
+                    return tablesById(evt.revision())
                             // TODO: IGNITE-18703 Destroy raft log and meta
                             .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
                                 InternalTable internalTable = tables.get(tableId).internalTable();
