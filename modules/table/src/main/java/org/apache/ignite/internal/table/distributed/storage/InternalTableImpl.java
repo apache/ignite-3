@@ -54,6 +54,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -81,7 +83,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteFiveFunction;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -145,6 +146,9 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
+    /** Placement driver service to await and retrieve primary replicas. */
+    private final PlacementDriver placementDriver;
+
     /**
      * Constructor.
      *
@@ -168,7 +172,8 @@ public class InternalTableImpl implements InternalTable {
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
-            HybridClock clock
+            HybridClock clock,
+            PlacementDriver placementDriver
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -181,6 +186,7 @@ public class InternalTableImpl implements InternalTable {
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
+        this.placementDriver = placementDriver;
     }
 
     /** {@inheritDoc} */
@@ -240,17 +246,17 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+        ReplicaMeta primaryReplica = tx0.enlistedPrimaryReplica(partGroupId);
 
         CompletableFuture<R> fut;
 
-        if (primaryReplicaAndTerm != null) {
+        if (primaryReplica != null) {
             TablePartitionId commitPart = tx.commitPartition();
 
-            ReplicaRequest request = op.apply(commitPart, tx0, partGroupId, primaryReplicaAndTerm.get2());
+            ReplicaRequest request = op.apply(commitPart, tx0, partGroupId, primaryReplica.getStartTime().longValue());
 
             try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                fut = replicaSvc.invoke(primaryReplica.getLeaseholder(), request);
             } catch (PrimaryReplicaMissException e) {
                 throw new TransactionException(e);
             } catch (Throwable e) {
@@ -260,7 +266,7 @@ public class InternalTableImpl implements InternalTable {
             fut = enlistWithRetry(
                     tx0,
                     partId,
-                    (commitPart, term) -> op.apply(commitPart, tx0, partGroupId, term),
+                    (commitPart, leaseStartTime) -> op.apply(commitPart, tx0, partGroupId, leaseStartTime.longValue()),
                     ATTEMPTS_TO_ENLIST_PARTITION
             );
         }
@@ -280,7 +286,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
-            IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> op,
+            IgniteFiveFunction<TablePartitionId, Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, HybridTimestamp, ReplicaRequest> op,
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
@@ -313,17 +319,17 @@ public class InternalTableImpl implements InternalTable {
         for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
 
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+            ReplicaMeta primaryReplica = tx0.enlistedPrimaryReplica(partGroupId);
 
             CompletableFuture<Object> fut;
 
-            if (primaryReplicaAndTerm != null) {
+            if (primaryReplica != null) {
                 TablePartitionId commitPart = tx.commitPartition();
 
-                ReplicaRequest request = op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
+                ReplicaRequest request = op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, primaryReplica.getStartTime());
 
                 try {
-                    fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                    fut = replicaSvc.invoke(primaryReplica.getLeaseholder(), request);
                 } catch (PrimaryReplicaMissException e) {
                     throw new TransactionException(e);
                 } catch (Throwable e) {
@@ -374,7 +380,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
+        ReplicaMeta primaryReplica = tx.enlistedPrimaryReplica(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
@@ -391,18 +397,18 @@ public class InternalTableImpl implements InternalTable {
                 .columnsToInclude(columnsToInclude)
                 .batchSize(batchSize);
 
-        if (primaryReplicaAndTerm != null) {
-            ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
+        if (primaryReplica != null) {
+            ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.enlistmentConsistencyToken(primaryReplica.getStartTime().longValue()).build();
 
             try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                fut = replicaSvc.invoke(primaryReplica.getLeaseholder(), request);
             } catch (PrimaryReplicaMissException e) {
                 throw new TransactionException(e);
             } catch (Throwable e) {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx, partId, (commitPart, term) -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx, partId, (commitPart, leaseStartTime) -> requestBuilder.enlistmentConsistencyToken(leaseStartTime.longValue()).build(), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, false, tx);
@@ -420,17 +426,17 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
-            BiFunction<TablePartitionId, Long, ReplicaRequest> requestFunction,
+            BiFunction<TablePartitionId, HybridTimestamp, ReplicaRequest> requestFunction,
             int attempts
     ) {
         CompletableFuture<R> result = new CompletableFuture<>();
 
         enlist(partId, tx).<R>thenCompose(
-                        primaryReplicaAndTerm -> {
+                        primaryReplica -> {
                             try {
                                 return replicaSvc.invoke(
-                                        primaryReplicaAndTerm.get1(),
-                                        requestFunction.apply(tx.commitPartition(), primaryReplicaAndTerm.get2())
+                                        primaryReplica.getLeaseholder(),
+                                        requestFunction.apply(tx.commitPartition(), primaryReplica.getStartTime())
                                 );
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
@@ -512,11 +518,11 @@ public class InternalTableImpl implements InternalTable {
             return enlistInTx(
                     keyRow,
                     tx,
-                    (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                    (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                             .groupId(groupId)
                             .binaryRow(keyRow)
                             .transactionId(txo.id())
-                            .term(term)
+                            .enlistmentConsistencyToken(leaseStartTime.longValue())
                             .requestType(RequestType.RW_GET)
                             .timestampLong(clock.nowLong())
                             .build()
@@ -559,11 +565,11 @@ public class InternalTableImpl implements InternalTable {
             return enlistInTx(
                     keyRows,
                     tx,
-                    (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                    (commitPart, keyRows0, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                             .groupId(groupId)
                             .binaryRows(keyRows0)
                             .transactionId(txo.id())
-                            .term(term)
+                            .enlistmentConsistencyToken(leaseStartTime.longValue())
                             .requestType(RequestType.RW_GET_ALL)
                             .timestampLong(clock.nowLong())
                             .build(),
@@ -607,12 +613,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
                         .build());
@@ -624,12 +630,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (commitPart, keyRows0, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_UPSERT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
@@ -642,12 +648,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -660,12 +666,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -678,12 +684,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (commitPart, keyRows0, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_INSERT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
@@ -696,12 +702,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -714,13 +720,13 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 newRow,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .oldBinaryRow(oldRow)
                         .binaryRow(newRow)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -733,12 +739,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -751,12 +757,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(keyRow)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -769,12 +775,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 oldRow,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(oldRow)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -787,12 +793,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                (commitPart, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRow(row)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
                         .build()
@@ -805,12 +811,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (commitPart, keyRows0, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_DELETE_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
@@ -826,12 +832,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                (commitPart, keyRows0, txo, groupId, leaseStartTime) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
                         .binaryRows(keyRows0)
                         .transactionId(txo.id())
-                        .term(term)
+                        .enlistmentConsistencyToken(leaseStartTime.longValue())
                         .requestType(RequestType.RW_DELETE_EXACT_ALL)
                         .timestampLong(clock.nowLong())
                         .build(),
@@ -1021,10 +1027,10 @@ public class InternalTableImpl implements InternalTable {
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
-                            .term(recipient.term())
+                            .enlistmentConsistencyToken(recipient.term()) // sanpwc:  getStartTime().longValue()
                             .build();
 
-                    return replicaSvc.invoke(recipient.node(), request);
+                    return replicaSvc.invoke(recipient.node(), request); // sanpwc: leaseholder
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 Function.identity());
@@ -1066,7 +1072,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
     @Override
     public List<String> assignments() {
         awaitLeaderInitialization();
@@ -1080,6 +1086,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
     public List<PrimaryReplica> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
         List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
@@ -1232,27 +1239,20 @@ public class InternalTableImpl implements InternalTable {
      * @param tx     The transaction.
      * @return The enlist future (then will a leader become known).
      */
-    protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
-        tx.assignCommitPartition(new TablePartitionId(tableId, partId));
+    protected CompletableFuture<ReplicaMeta> enlist(int partId, InternalTransaction tx) {
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        tx.assignCommitPartition(tablePartitionId);
 
-        // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
-        CompletableFuture<LeaderWithTerm> fut0 = svc.refreshAndGetLeaderWithTerm();
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now());
 
-        // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
-        // TODO asch a leader race is possible when enlisting different keys from the same partition.
-        return fut0.handle((primaryPeerAndTerm, e) -> {
+        return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.", e);
             }
-            if (primaryPeerAndTerm.leader() == null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
-            }
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+            TablePartitionId partGroupId = tablePartitionId;
 
-            return tx.enlist(partGroupId,
-                    new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.leader().consistentId()), primaryPeerAndTerm.term()));
+            return tx.enlist(partGroupId, primaryReplica);
         });
     }
 
