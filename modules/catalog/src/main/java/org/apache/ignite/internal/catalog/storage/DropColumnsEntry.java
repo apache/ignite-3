@@ -15,50 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.catalog.storage;
 
+import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Index descriptor base class.
+ * Describes dropping of columns.
  */
-public abstract class IndexDescriptor extends ObjectDescriptor {
-    private static final long serialVersionUID = -8045949593661301287L;
+public class DropColumnsEntry implements UpdateEntry {
+    private static final long serialVersionUID = 2970125889493580121L;
 
-    /** Table id. */
     private final int tableId;
+    private final Set<String> columns;
 
-    /** Unique constraint flag. */
-    private boolean unique;
-
-    /** Write only flag. {@code True} when index is building. */
-    private boolean writeOnly;
-
-    IndexDescriptor(int id, String name, int tableId, boolean unique) {
-        super(id, Type.INDEX, name);
+    /**
+     * Constructs the object.
+     *
+     * @param tableId Table id.
+     * @param columns Names of columns to drop.
+     */
+    public DropColumnsEntry(int tableId, Set<String> columns) {
         this.tableId = tableId;
-        this.unique = unique;
+        this.columns = columns;
     }
 
+    /** Returns table id. */
     public int tableId() {
         return tableId;
     }
 
-    public boolean unique() {
-        return unique;
+    /** Returns name of columns to drop. */
+    public Set<String> columns() {
+        return columns;
     }
-
-    public boolean writeOnly() {
-        return writeOnly;
-    }
-
-    /**
-     * Checks if a column with given name is indexed.
-     *
-     * @param columnName Column name to check.
-     * @return {@code true} if index contains the column, {@code false} otherwise.
-     */
-    public abstract boolean hasColumn(String columnName);
 
     /** {@inheritDoc} */
     @Override
