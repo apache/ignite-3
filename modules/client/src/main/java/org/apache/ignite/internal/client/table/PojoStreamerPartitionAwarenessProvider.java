@@ -24,7 +24,7 @@ import org.apache.ignite.table.mapper.Mapper;
  *
  * @param <T> Data type.
  */
-public class PojoStreamerPartitionAwarenessProvider<T> extends AbstractStreamerPartitionAwarenessProvider<T> {
+class PojoStreamerPartitionAwarenessProvider<T> extends AbstractStreamerPartitionAwarenessProvider<T> {
     private final Mapper<T> mapper;
 
     PojoStreamerPartitionAwarenessProvider(ClientTable tbl, Mapper<T> mapper) {

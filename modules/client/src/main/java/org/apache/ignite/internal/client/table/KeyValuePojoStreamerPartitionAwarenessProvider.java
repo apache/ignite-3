@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.Map.Entry;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**

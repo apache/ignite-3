@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.function.Function;
-import org.apache.ignite.internal.client.ClientChannel;
 import org.jetbrains.annotations.Nullable;
 
 /**
