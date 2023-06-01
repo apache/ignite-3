@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -40,10 +41,13 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -56,9 +60,11 @@ import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnType;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
@@ -71,6 +77,8 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ColumnAlreadyExistsException;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -78,6 +86,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.hamcrest.TypeSafeMatcher;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,8 +101,12 @@ import org.mockito.Mockito;
  * Catalog service self test.
  */
 public class CatalogServiceSelfTest {
+    private static final String SCHEMA_NAME = CatalogService.PUBLIC;
+    private static final String ZONE_NAME = "ZONE";
     private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
+    private static final String NEW_COLUMN_NAME = "NEWCOL";
+    private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
 
     private MetaStorageManager metastore;
 
@@ -137,7 +150,7 @@ public class CatalogServiceSelfTest {
         assertNull(service.index(0, System.currentTimeMillis()));
 
         SchemaDescriptor schema = service.schema(0);
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(SCHEMA_NAME, schema.name());
 
         assertEquals(0, schema.id());
         assertEquals(0, schema.version());
@@ -148,14 +161,14 @@ public class CatalogServiceSelfTest {
     @Test
     public void testCreateTable() {
         CreateTableParams params = CreateTableParams.builder()
-                .schemaName("PUBLIC")
+                .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .ifTableExists(true)
-                .zone("ZONE")
+                .zone(ZONE_NAME)
                 .columns(List.of(
-                        new ColumnParams("key1", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("key2", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), true)
+                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of("key1", "key2"))
                 .colocationColumns(List.of("key2"))
@@ -170,7 +183,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(SCHEMA_NAME, schema.name());
         assertEquals(0, schema.version());
         assertSame(schema, service.activeSchema(0L));
         assertSame(schema, service.activeSchema(123L));
@@ -184,7 +197,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(SCHEMA_NAME, schema.name());
         assertEquals(1, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
@@ -209,7 +222,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(SCHEMA_NAME, schema.name());
         assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
@@ -227,8 +240,8 @@ public class CatalogServiceSelfTest {
         CreateTableParams params = CreateTableParams.builder()
                 .tableName(TABLE_NAME)
                 .columns(List.of(
-                        new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
+                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
                 ))
                 .primaryKeyColumns(List.of("key"))
                 .ifTableExists(true)
@@ -241,8 +254,8 @@ public class CatalogServiceSelfTest {
                 CreateTableParams.builder()
                         .tableName(TABLE_NAME)
                         .columns(List.of(
-                                new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
-                                new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
+                                ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                                ColumnParams.builder().name("val").type(ColumnType.INT32).build()
                         ))
                         .primaryKeyColumns(List.of("key"))
                         .ifTableExists(false)
@@ -260,7 +273,7 @@ public class CatalogServiceSelfTest {
 
         Thread.sleep(5);
 
-        DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
+        DropTableParams dropTableParams = DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build();
 
         assertThat(service.dropTable(dropTableParams), willBe((Object) null));
 
@@ -269,7 +282,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(SCHEMA_NAME, schema.name());
         assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
@@ -284,7 +297,7 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
-        assertEquals(CatalogService.PUBLIC, schema.name());
+        assertEquals(SCHEMA_NAME, schema.name());
         assertEquals(3, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
@@ -299,10 +312,11 @@ public class CatalogServiceSelfTest {
     @Test
     public void testDropTableIfExistsFlag() {
         CreateTableParams createTableParams = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of(
-                        new ColumnParams("key", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), false)
+                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
                 ))
                 .primaryKeyColumns(List.of("key"))
                 .build();
@@ -310,6 +324,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.createTable(createTableParams), willBe((Object) null));
 
         DropTableParams params = DropTableParams.builder()
+                .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .ifTableExists(true)
                 .build();
@@ -318,11 +333,242 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
 
         params = DropTableParams.builder()
+                .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .ifTableExists(false)
                 .build();
 
         assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+    }
+
+    @Test
+    public void testAddColumn() throws InterruptedException {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder()
+                        .name(NEW_COLUMN_NAME)
+                        .type(ColumnType.STRING)
+                        .nullable(true)
+                        .defaultValue(DefaultValue.constant("Ignite!"))
+                        .build()
+                ))
+                .build();
+
+        long beforeAddedTimestamp = System.currentTimeMillis();
+
+        Thread.sleep(5);
+
+        assertThat(service.addColumn(params), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        SchemaDescriptor schema = service.activeSchema(beforeAddedTimestamp);
+        assertNotNull(schema);
+        assertNotNull(schema.table(TABLE_NAME));
+
+        assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
+
+        // Validate actual catalog
+        schema = service.activeSchema(System.currentTimeMillis());
+        assertNotNull(schema);
+        assertNotNull(schema.table(TABLE_NAME));
+
+        // Validate column descriptor.
+        TableColumnDescriptor column = schema.table(TABLE_NAME).column(NEW_COLUMN_NAME);
+
+        assertEquals(NEW_COLUMN_NAME, column.name());
+        assertEquals(ColumnType.STRING, column.type());
+        assertTrue(column.nullable());
+
+        assertEquals(DefaultValue.Type.CONSTANT, column.defaultValue().type());
+        assertEquals("Ignite!", ((DefaultValue.ConstantValue) column.defaultValue()).value());
+
+        assertEquals(0, column.length());
+        assertEquals(0, column.precision());
+        assertEquals(0, column.scale());
+    }
+
+    @Test
+    public void testDropColumn() throws InterruptedException {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        // Validate dropping column
+        AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"))
+                .build();
+
+        long beforeAddedTimestamp = System.currentTimeMillis();
+
+        Thread.sleep(5);
+
+        assertThat(service.dropColumn(params), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        SchemaDescriptor schema = service.activeSchema(beforeAddedTimestamp);
+        assertNotNull(schema);
+        assertNotNull(schema.table(TABLE_NAME));
+
+        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
+
+        // Validate actual catalog
+        schema = service.activeSchema(System.currentTimeMillis());
+        assertNotNull(schema);
+        assertNotNull(schema.table(TABLE_NAME));
+
+        assertNull(schema.table(TABLE_NAME).column("VAL"));
+    }
+
+    @Test
+    public void testDropColumnIfTableExistsFlag() {
+        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
+
+        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
+                .ifTableExists(false)
+                .build();
+
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+
+        params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
+                .ifTableExists(true)
+                .build();
+
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+    }
+
+    @Test
+    public void testDropIndexedColumn() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        // Try to drop indexed column
+        AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"))
+                .build();
+
+        //TODO: uncomment "https://issues.apache.org/jira/browse/IGNITE-19460"
+        // assertThat(service.createIndex("CREATE INDEX myIndex ON myTable (VAL)"), willBe((Object) null));
+        // assertThat(service.dropColumn(params), willThrow(IllegalArgumentException.class));
+
+        // Try to drop PK column
+        params = AlterTableDropColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("ID"))
+                .build();
+
+        assertThat(service.dropColumn(params), willThrow(SqlException.class));
+
+        // Validate actual catalog
+        SchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
+        assertNotNull(schema);
+        assertNotNull(schema.table(TABLE_NAME));
+        assertEquals(1, schema.version());
+
+        assertNotNull(schema.table(TABLE_NAME).column("ID"));
+        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
+    }
+
+    @Test
+    public void testAddColumnIfTableExistsFlag() {
+        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
+
+        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
+                .ifTableExists(false)
+                .build();
+
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+
+        params = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
+                .ifTableExists(true)
+                .build();
+
+        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+    }
+
+    @Test
+    public void testAddDropMultipleColumns() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        // Add duplicate column.
+        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build(),
+                        ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).build()
+                ))
+                .build();
+
+        assertThat(service.addColumn(addColumnParams), willThrow(ColumnAlreadyExistsException.class));
+
+        // Validate no column added.
+        SchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
+
+        assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
+
+        // Add multiple columns.
+        addColumnParams = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build(),
+                        ColumnParams.builder().name(NEW_COLUMN_NAME_2).type(ColumnType.INT32).nullable(true).build()
+                ))
+                .build();
+
+        assertThat(service.addColumn(addColumnParams), willBe((Object) null));
+
+        // Validate both columns added.
+        schema = service.activeSchema(System.currentTimeMillis());
+
+        assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
+        assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
+
+        // Drop multiple columns.
+        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2))
+                .build();
+
+        assertThat(service.dropColumn(dropColumnParams), willBe((Object) null));
+
+        // Validate both columns dropped.
+        schema = service.activeSchema(System.currentTimeMillis());
+
+        assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
+        assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
+
+        // Check dropping of non-existing column
+        dropColumnParams = AlterTableDropColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of(NEW_COLUMN_NAME, "VAL"))
+                .build();
+
+        assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
+
+        // Validate no column dropped.
+        schema = service.activeSchema(System.currentTimeMillis());
+
+        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
     }
 
     /**
@@ -687,16 +933,16 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testCreateTableEvents() {
+    public void testTableEvents() {
         CreateTableParams params = CreateTableParams.builder()
-                .schemaName("PUBLIC")
+                .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .ifTableExists(true)
-                .zone("ZONE")
+                .zone(ZONE_NAME)
                 .columns(List.of(
-                        new ColumnParams("key1", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("key2", ColumnType.INT32, DefaultValue.constant(null), false),
-                        new ColumnParams("val", ColumnType.INT32, DefaultValue.constant(null), true)
+                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of("key1", "key2"))
                 .colocationColumns(List.of("key2"))
@@ -724,6 +970,53 @@ public class CatalogServiceSelfTest {
         verifyNoMoreInteractions(eventListener);
     }
 
+    @Test
+    public void testColumnEvents() {
+        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder()
+                        .name(NEW_COLUMN_NAME)
+                        .type(ColumnType.INT32)
+                        .defaultValue(DefaultValue.constant(42))
+                        .nullable(true)
+                        .build()
+                ))
+                .ifTableExists(true)
+                .build();
+
+        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of(NEW_COLUMN_NAME))
+                .build();
+
+        EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
+        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+
+        service.listen(CatalogEvent.TABLE_ALTER, eventListener);
+
+        // Try to add column without table.
+        assertThat(service.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
+        verifyNoInteractions(eventListener);
+
+        // Create table.
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        // Add column.
+        assertThat(service.addColumn(addColumnParams), willBe((Object) null));
+        verify(eventListener).notify(any(AddColumnEventParameters.class), ArgumentMatchers.isNull());
+
+        // Drop column.
+        assertThat(service.dropColumn(dropColumnParams), willBe((Object) null));
+        verify(eventListener).notify(any(DropColumnEventParameters.class), ArgumentMatchers.isNull());
+
+        // Try drop column once again.
+        assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
+
+        verifyNoMoreInteractions(eventListener);
+    }
+
     private CompletableFuture<Void> changeColumn(String tab, String col, AlterColumnAction... changes) {
         return service.alterColumn(AlterColumnParams.builder()
                 .tableName(tab)
@@ -747,7 +1040,7 @@ public class CatalogServiceSelfTest {
 
     private static CreateTableParams simpleTable(String name, List<ColumnParams> cols) {
         return CreateTableParams.builder()
-                .schemaName("PUBLIC")
+                .schemaName(SCHEMA_NAME)
                 .tableName(name)
                 .zone("ZONE")
                 .columns(cols)

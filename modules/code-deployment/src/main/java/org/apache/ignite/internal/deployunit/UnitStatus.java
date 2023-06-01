@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Unit meta data class.
  */
-public class UnitStatus {
+public abstract class UnitStatus {
     /**
      * Unit id.
      */

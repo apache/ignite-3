@@ -383,7 +383,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 .get();
 
         // Check the new leader cancels the action.
-        assertThat(newLeaderNode.clusterManager().clusterConfigurationToUpdate(), willThrow(CancellationException.class));
+        assertThat(
+                newLeaderNode.clusterManager().clusterConfigurationToUpdate(),
+                willThrow(CancellationException.class, 5, TimeUnit.SECONDS)
+        );
     }
 
     @Test

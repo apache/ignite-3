@@ -52,6 +52,14 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
         return writeOnly;
     }
 
+    /**
+     * Checks if a column with given name is indexed.
+     *
+     * @param columnName Column name to check.
+     * @return {@code true} if index contains the column, {@code false} otherwise.
+     */
+    public abstract boolean hasColumn(String columnName);
+
     /** {@inheritDoc} */
     @Override
     public String toString() {

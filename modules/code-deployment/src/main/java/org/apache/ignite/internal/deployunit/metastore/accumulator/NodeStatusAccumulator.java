@@ -15,48 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.deployunit.metastore.accumulator;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.UnitStatuses;
-import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
-import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Units accumulator with filtering mechanism.
+ * Node status accumulator with filter mechanism.
  */
-public class UnitsAccumulator implements Accumulator<Entry, List<UnitStatuses>> {
-    private final Map<String, UnitStatusesBuilder> map = new HashMap<>();
+public class NodeStatusAccumulator implements Accumulator<Entry, List<UnitNodeStatus>> {
+    private final List<UnitNodeStatus> nodes = new ArrayList<>();
 
-    private final Predicate<UnitStatus> filter;
+    private final Predicate<UnitNodeStatus> filter;
 
-    public UnitsAccumulator() {
-        this(t -> true);
+    public NodeStatusAccumulator() {
+        this(status -> true);
     }
 
-    public UnitsAccumulator(Predicate<UnitStatus> filter) {
+    public NodeStatusAccumulator(Predicate<UnitNodeStatus> filter) {
         this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
-        UnitStatus meta = UnitMetaSerializer.deserialize(item.value());
-        if (filter.test(meta)) {
-            map.computeIfAbsent(meta.id(), UnitStatuses::builder)
-                    .append(meta.version(), meta.status()).build();
+        byte[] value = item.value();
+        if (value != null) {
+            UnitNodeStatus status = UnitNodeStatus.deserialize(value);
+            if (filter.test(status)) {
+                nodes.add(status);
+            }
         }
     }
 
     @Override
-    public List<UnitStatuses> get() throws AccumulateException {
-        return map.values().stream().map(UnitStatusesBuilder::build).collect(Collectors.toList());
+    public List<UnitNodeStatus> get() throws AccumulateException {
+        return nodes;
     }
 }

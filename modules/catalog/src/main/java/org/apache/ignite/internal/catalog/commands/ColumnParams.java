@@ -36,9 +36,6 @@ public class ColumnParams {
     /** Nullability flag. */
     private boolean nullable;
 
-    /** Column default value. */
-    private DefaultValue defaultValueDefinition;
-
     /** Column length. */
     private Integer length;
 
@@ -48,15 +45,8 @@ public class ColumnParams {
     /** Column scale. */
     private Integer scale;
 
-    private ColumnParams() {}
-
-    /** Creates a column definition. */
-    public ColumnParams(String name, ColumnType type, DefaultValue defaultValueDefinition, boolean nullable) {
-        this.name = Objects.requireNonNull(name, "name");
-        this.type = Objects.requireNonNull(type, "type");
-        this.defaultValueDefinition = Objects.requireNonNull(defaultValueDefinition, "defaultValueDefinition");
-        this.nullable = nullable;
-    }
+    /** Column default value. */
+    private DefaultValue defaultValueDefinition = DefaultValue.constant(null);
 
     /**
      * Get column's name.
@@ -78,7 +68,6 @@ public class ColumnParams {
      * @param <T> Desired subtype of the definition.
      * @return Default value definition.
      */
-    @SuppressWarnings("unchecked")
     public <T extends DefaultValue> T defaultValueDefinition() {
         return (T) defaultValueDefinition;
     }
@@ -149,7 +138,7 @@ public class ColumnParams {
          * @return {@code this}.
          */
         public Builder nullable(boolean nullable) {
-            params.nullable = true;
+            params.nullable = nullable;
 
             return this;
         }
