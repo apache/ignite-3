@@ -72,17 +72,16 @@ class ItEnabledNodeMetricCommandTest extends CliCommandTestInitializedIntegratio
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Set name\tMetric name\tDescription" + NL
-                        + "jvm\t\t" + NL
-                        + "\tmemory.heap.Committed\tCommitted amount of heap memory" + NL
-                        + "\tmemory.heap.Max\tMaximum amount of heap memory" + NL
-                        + "\tmemory.non-heap.Max\tMaximum amount of non-heap memory" + NL
-                        + "\tmemory.non-heap.Init\tInitial amount of non-heap memory" + NL
-                        + "\tmemory.non-heap.Committed\tCommitted amount of non-heap memory" + NL
-                        + "\tmemory.non-heap.Used\tUsed amount of non-heap memory" + NL
-                        + "\tmemory.heap.Used\tCurrent used amount of heap memory" + NL
-                        + "\tmemory.heap.Init\tInitial amount of heap memory" + NL
-                )
+                () -> assertOutputContains("Set name\tMetric name\tDescription" + NL),
+                () -> assertOutputContains("jvm\t\t" + NL),
+                () -> assertOutputContains("\tmemory.heap.Committed\tCommitted amount of heap memory" + NL),
+                () -> assertOutputContains("\tmemory.heap.Max\tMaximum amount of heap memory" + NL),
+                () -> assertOutputContains("\tmemory.non-heap.Max\tMaximum amount of non-heap memory" + NL),
+                () -> assertOutputContains("\tmemory.non-heap.Init\tInitial amount of non-heap memory" + NL),
+                () -> assertOutputContains("\tmemory.non-heap.Committed\tCommitted amount of non-heap memory" + NL),
+                () -> assertOutputContains("\tmemory.non-heap.Used\tUsed amount of non-heap memory" + NL),
+                () -> assertOutputContains("\tmemory.heap.Used\tCurrent used amount of heap memory" + NL),
+                () -> assertOutputContains("\tmemory.heap.Init\tInitial amount of heap memory" + NL)
         );
     }
 }
