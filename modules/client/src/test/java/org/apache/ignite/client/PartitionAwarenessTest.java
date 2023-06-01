@@ -24,6 +24,7 @@ import io.netty.util.ResourceLeakDetector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -483,15 +484,24 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     @Test
     public void testDataStreamerKeyValueBinaryView() {
-        // TODO: reuse logic from above
-        // TODO: Tests for all views.
-        assert false;
+        KeyValueView<Tuple, Tuple> recordView = defaultTable().keyValueView();
+
+        Consumer<Tuple> stream = t -> {
+            SubmissionPublisher<Entry<Tuple, Tuple>> publisher = new SubmissionPublisher<>();
+            var fut = recordView.streamData(publisher, null);
+            publisher.submit(Map.entry(t, t));
+            publisher.close();
+            fut.join();
+        };
+
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode("server-2", "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
     public void testDataStreamerKeyValueView() {
-        // TODO: reuse logic from above
-        // TODO: Tests for all views.
         assert false;
     }
 
