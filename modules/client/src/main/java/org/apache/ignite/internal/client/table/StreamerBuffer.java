@@ -79,7 +79,7 @@ class StreamerBuffer<T> {
             return;
         }
 
-        if (System.currentTimeMillis() - lastFlushTime > period) {
+        if (System.nanoTime() - lastFlushTime > period) {
             flush(buf);
             buf = new ArrayList<>(capacity);
         }
@@ -93,6 +93,6 @@ class StreamerBuffer<T> {
             flushFut = flushFut.thenCompose(ignored -> flusher.apply(b));
         }
 
-        lastFlushTime = System.currentTimeMillis();
+        lastFlushTime = System.nanoTime();
     }
 }
