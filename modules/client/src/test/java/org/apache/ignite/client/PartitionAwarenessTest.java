@@ -522,9 +522,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
         var fut = recordView.streamData(publisher, DataStreamerOptions.builder().batchSize(1).perNodeParallelOperations(1).build());
+        Consumer<Long> submit = id -> publisher.submit(Tuple.create().set("ID", id));
 
-        assertOpOnNode("server-1", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-2", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-1", "upsertAll", x -> submit.accept(0L));
+        assertOpOnNode("server-2", "upsertAll", x -> submit.accept(1L));
 
         // Update partition assignment.
         var assignments = new ArrayList<String>();
@@ -537,8 +538,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Send some batches so that the client receives updated assignment.
 
         // Check updated assignment.
-        assertOpOnNode("server-2", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-1", "upsertAll", x -> publisher.submit(Tuple.create().set("ID", 1L)));
+        assertOpOnNode("server-2", "upsertAll", x -> submit.accept(0L));
+        assertOpOnNode("server-1", "upsertAll", x -> submit.accept(1L));
 
         publisher.close();
         fut.join();
