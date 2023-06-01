@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
@@ -41,15 +43,20 @@ import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
+import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
+import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -64,18 +71,21 @@ import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.lang.ColumnAlreadyExistsException;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service implementation.
- * TODO: IGNITE-19081 Introduce catalog events and make CatalogServiceImpl extends Producer.
  */
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
@@ -229,13 +239,84 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> addColumn(AlterTableAddColumnParams params) {
-        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        if (params.columns().isEmpty()) {
+            return completedFuture(null);
+        }
+
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            List<TableColumnDescriptor> columnDescriptors = new ArrayList<>();
+
+            for (ColumnParams col : params.columns()) {
+                if (table.column(col.name()) != null) {
+                    throw new ColumnAlreadyExistsException(col.name());
+                }
+
+                columnDescriptors.add(CatalogUtils.fromParams(col));
+            }
+
+            return List.of(
+                    new NewColumnsEntry(table.id(), columnDescriptors)
+            );
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params) {
-        return failedFuture(new UnsupportedOperationException("Not implemented yet."));
+        if (params.columns().isEmpty()) {
+            return completedFuture(null);
+        }
+
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            for (String columnName : params.columns()) {
+                if (table.column(columnName) == null) {
+                    throw new ColumnNotFoundException(columnName);
+                }
+                if (table.isPrimaryKeyColumn(columnName)) {
+                    throw new SqlException(
+                            Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
+                            "Can't drop primary key column: column=" + columnName
+                    );
+                }
+            }
+
+            Arrays.stream(schema.indexes())
+                    .filter(index -> index.tableId() == table.id())
+                    .forEach(index -> params.columns().stream()
+                            .filter(index::hasColumn)
+                            .findAny()
+                            .ifPresent(columnName -> {
+                                throw new SqlException(
+                                        Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
+                                        "Can't drop indexed column: columnName=" + columnName + ", indexName="
+                                                + index.name()
+                                );
+                            }));
+
+            return List.of(
+                    new DropColumnsEntry(table.id(), params.columns())
+            );
+        });
     }
 
     @Override
@@ -400,6 +481,71 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             CatalogEvent.TABLE_DROP,
                             new DropTableEventParameters(version, tableId)
                     ));
+                } else if (entry instanceof NewColumnsEntry) {
+                    int tableId = ((NewColumnsEntry) entry).tableId();
+                    List<TableColumnDescriptor> columnDescriptors = ((NewColumnsEntry) entry).descriptors();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            catalog.zones(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    Arrays.stream(schema.tables())
+                                            .map(table -> table.id() != tableId
+                                                    ? table
+                                                    : new TableDescriptor(
+                                                            table.id(),
+                                                            table.name(),
+                                                            CollectionUtils.concat(table.columns(), columnDescriptors),
+                                                            table.primaryKeyColumns(),
+                                                            table.colocationColumns())
+                                            )
+                                            .toArray(TableDescriptor[]::new),
+                                    schema.indexes()
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.TABLE_ALTER,
+                            new AddColumnEventParameters(version, tableId, columnDescriptors)
+                    ));
+                } else if (entry instanceof DropColumnsEntry) {
+                    int tableId = ((DropColumnsEntry) entry).tableId();
+                    Set<String> columns = ((DropColumnsEntry) entry).columns();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            catalog.zones(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    Arrays.stream(schema.tables())
+                                            .map(table -> table.id() != tableId
+                                                    ? table
+                                                    : new TableDescriptor(
+                                                            table.id(),
+                                                            table.name(),
+                                                            table.columns().stream().filter(col -> !columns.contains(col.name()))
+                                                                    .collect(Collectors.toList()),
+                                                            table.primaryKeyColumns(),
+                                                            table.colocationColumns())
+                                            )
+                                            .toArray(TableDescriptor[]::new),
+                                    schema.indexes()
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.TABLE_ALTER,
+                            new DropColumnEventParameters(version, tableId, columns)
+                    ));
                 } else if (entry instanceof NewZoneEntry) {
                     catalog = new Catalog(
                             version,
@@ -428,21 +574,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             CatalogEvent.ZONE_DROP,
                             new DropZoneEventParameters(version, zoneId)
                     ));
-                } else if (entry instanceof RenameZoneEntry) {
-                    int zoneId = ((RenameZoneEntry) entry).zoneId();
-                    String newZoneName = ((RenameZoneEntry) entry).newZoneName();
-
-                    catalog = new Catalog(
-                            version,
-                            System.currentTimeMillis(),
-                            catalog.objectIdGenState(),
-                            catalog.zones().stream()
-                                    .map(z -> z.id() == zoneId
-                                            ? new DistributionZoneDescriptor(z.id(), newZoneName, z.partitions(), z.replicas()) : z)
-                                    .collect(Collectors.toList()),
-                            schema.copy(version)
-                    );
-
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,

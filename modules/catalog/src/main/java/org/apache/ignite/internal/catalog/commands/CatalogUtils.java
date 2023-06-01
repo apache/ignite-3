@@ -58,7 +58,13 @@ public class CatalogUtils {
         );
     }
 
-    private static TableColumnDescriptor fromParams(ColumnParams params) {
+    /**
+     * Converts AlterTableAdd command columns parameters to column descriptor.
+     *
+     * @param params Parameters.
+     * @return Column descriptor.
+     */
+    public static TableColumnDescriptor fromParams(ColumnParams params) {
         return new TableColumnDescriptor(params.name(), params.type(), params.nullable(), params.defaultValueDefinition());
     }
 }

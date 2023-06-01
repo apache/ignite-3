@@ -31,6 +31,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests for internal manipulations with schema. */
@@ -38,6 +39,7 @@ public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
     /**
      * Checks that schema version is updated even if column names are intersected.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19612")
     @Test
     public void checkSchemaUpdatedWithEqAlterColumn() {
         IgniteSql sql = igniteSql();

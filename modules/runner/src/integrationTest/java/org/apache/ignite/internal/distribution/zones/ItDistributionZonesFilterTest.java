@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distribution.zones;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -171,6 +172,133 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertEquals(2, stable.size());
 
         assertTrue(stable.contains(node(0).name()) && stable.contains(node(2).name()));
+    }
+
+    /**
+     * Tests the scenario when altering filter triggers immediate scale up so data nodes
+     * and stable key for rebalance is changed to the new value even if scale up timer is big enough.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
+        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+
+        IgniteImpl node0 = node(0);
+
+        Session session = node0.sql().createSession();
+
+        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
+                + "\"REPLICAS\" = 3, "
+                + "\"PARTITIONS\" = 2, "
+                + "\"DATA_NODES_FILTER\" = " + filter + ", "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 10000, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 10000");
+
+        String tableName = "table1";
+
+        session.execute(null, "CREATE TABLE " + tableName + "("
+                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+
+        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
+                .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
+
+        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+
+        TableImpl table = (TableImpl) tableManager.table(tableName);
+
+        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
+                null,
+                TIMEOUT_MILLIS
+        );
+
+        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+
+        // This node pass the filter
+        startNode(1, createStartConfig(firstNodeAttributes));
+
+        // Expected size is 1 because we have timers equals to 10000, so no scale up will be propagated.
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+
+        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
+                + "\"DATA_NODES_FILTER\" = '" + DEFAULT_FILTER + "'");
+
+        // We check that all nodes that pass the filter are presented in the stable key because altering filter triggers immediate scale up.
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name(), node(1).name()),
+                TIMEOUT_MILLIS * 2
+        );
+    }
+
+    /**
+     * Tests the scenario when empty data nodes are not propagated to stable after filter is altered, because there are no node that
+     * matches the new filter.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
+        String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
+
+        IgniteImpl node0 = node(0);
+
+        Session session = node0.sql().createSession();
+
+        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
+                + "\"REPLICAS\" = 3, "
+                + "\"PARTITIONS\" = 2, "
+                + "\"DATA_NODES_FILTER\" = " + filter + ", "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 10000, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 10000");
+
+        String tableName = "table1";
+
+        session.execute(null, "CREATE TABLE " + tableName + "("
+                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+
+        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
+                .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
+
+        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+
+        TableImpl table = (TableImpl) tableManager.table(tableName);
+
+        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
+                null,
+                TIMEOUT_MILLIS
+        );
+
+        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+
+        // This node pass the filter
+        startNode(1, createStartConfig(firstNodeAttributes));
+
+        // Expected size is 2 because we have timers equals to 10000, so no scale up will be propagated.
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+
+        // There is no node that match the filter
+        String newFilter = "'$[?(@.region == \"FOO\" && @.storage == \"BAR\")]'";
+
+        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
+                + "\"DATA_NODES_FILTER\" = " + newFilter);
+
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
+
+        assertPendingStableAreNull(metaStorageManager, partId);
     }
 
     /**
@@ -336,6 +464,14 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         // We wait for all data nodes listeners are triggered and all their meta storage activity is done.
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= fakeEntry.revision(), 5_000));
+
+        assertValueInStorage(
+                metaStorageManager,
+                zoneDataNodesKey(1),
+                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                expectedDataNodesSize,
+                TIMEOUT_MILLIS
+        );
     }
 
     private static void assertPendingStableAreNull(
