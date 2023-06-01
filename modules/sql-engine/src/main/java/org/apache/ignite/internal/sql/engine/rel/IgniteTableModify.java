@@ -116,7 +116,7 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
     public RelWriter explainTerms(RelWriter pw) {
         // for correct rel obtaining from ExecutionServiceImpl#physNodesCache.
         return super.explainTerms(pw)
-                .itemIf("tableId", getTable().unwrap(IgniteTable.class).id().toString(),
+                .itemIf("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()),
                 pw.getDetailLevel() == ALL_ATTRIBUTES);
     }
 }

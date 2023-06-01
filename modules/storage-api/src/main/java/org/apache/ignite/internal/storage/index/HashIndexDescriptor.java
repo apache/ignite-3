@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Descriptor for creating a Hash Index Storage.
@@ -132,7 +134,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
             ));
         }
 
-        TableView tableConfig = tablesConfig.tables().get(indexConfig.tableId());
+        TableView tableConfig = findTableById(indexConfig.tableId(), tablesConfig.tables());
 
         if (tableConfig == null) {
             throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
@@ -149,6 +151,16 @@ public class HashIndexDescriptor implements IndexDescriptor {
                     return new HashIndexColumnDescriptor(columnView);
                 })
                 .collect(toUnmodifiableList());
+    }
+
+    private @Nullable static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
+        for (TableView table : tablesView) {
+            if (table.id() == tableId) {
+                return table;
+            }
+        }
+
+        return null;
     }
 
     @Override

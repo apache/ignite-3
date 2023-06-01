@@ -79,7 +79,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     public void testUpdateCommand() throws Exception {
         UpdateCommand cmd = msgFactory.updateCommand()
                 .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                        .tableId(UUID.randomUUID())
+                        .tableId(1)
                         .partitionId(1)
                         .build()
                 )
@@ -99,7 +99,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     public void testRemoveCommand() throws Exception {
         UpdateCommand cmd = msgFactory.updateCommand()
                 .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                        .tableId(UUID.randomUUID())
+                        .tableId(1)
                         .partitionId(1)
                         .build()
                 )
@@ -124,7 +124,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
         var cmd = msgFactory.updateAllCommand()
                 .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                        .tableId(UUID.randomUUID())
+                        .tableId(1)
                         .partitionId(1)
                         .build()
                 )
@@ -156,7 +156,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
         var cmd = msgFactory.updateAllCommand()
                 .tablePartitionId(msgFactory.tablePartitionIdMessage()
-                        .tableId(UUID.randomUUID())
+                        .tableId(1)
                         .partitionId(1)
                         .build()
                 )
@@ -198,7 +198,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
         for (int i = 0; i < 10; i++) {
             grps.add(msgFactory.tablePartitionIdMessage()
-                    .tableId(UUID.randomUUID())
+                    .tableId(1)
                     .partitionId(i)
                     .build());
         }

@@ -58,7 +58,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Table id as UUID.
      */
-    UUID tableId();
+    int tableId();
 
     /**
      * Gets a name of the table.

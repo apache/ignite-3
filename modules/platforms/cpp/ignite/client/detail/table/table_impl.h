@@ -51,7 +51,7 @@ public:
      * @param id ID.
      * @param connection Connection.
      */
-    table_impl(std::string name, const uuid &id, std::shared_ptr<cluster_connection> connection)
+    table_impl(std::string name, const std::int32_t id, std::shared_ptr<cluster_connection> connection)
         : m_name(std::move(name))
         , m_id(id)
         , m_connection(std::move(connection)) {}
@@ -301,7 +301,7 @@ public:
      *
      * @return ID.
      */
-    [[nodiscard]] uuid get_id() const { return m_id; }
+    [[nodiscard]] std::int32_t get_id() const { return m_id; }
 
 private:
     /**
@@ -361,7 +361,7 @@ private:
     const std::string m_name;
 
     /** Table ID. */
-    const uuid m_id;
+    const std::int32_t m_id;
 
     /** Cluster connection. */
     std::shared_ptr<cluster_connection> m_connection;

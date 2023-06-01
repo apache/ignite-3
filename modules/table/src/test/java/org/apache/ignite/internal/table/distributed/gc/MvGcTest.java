@@ -34,16 +34,15 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -62,6 +61,8 @@ public class MvGcTest {
     private static final int PARTITION_ID = 0;
 
     private MvGc gc;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1001);
 
     @BeforeEach
     void setUp(
@@ -84,7 +85,7 @@ public class MvGcTest {
 
         gc.addStorage(createTablePartitionId(), createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, null));
 
-        // We expect that StorageUpdateHandler#vacuum will not be called.
+        // We expect that GcUpdateHandler#vacuum will not be called.
         assertThat(invokeVacuumMethodFuture, willTimeoutFast());
     }
 
@@ -98,7 +99,7 @@ public class MvGcTest {
 
         gc.addStorage(createTablePartitionId(), createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lowWatermark));
 
-        // We expect StorageUpdateHandler#vacuum to be called with the set low watermark.
+        // We expect GcUpdateHandler#vacuum to be called with the set low watermark.
         assertThat(invokeVacuumMethodFuture, willCompleteSuccessfully());
     }
 
@@ -109,15 +110,15 @@ public class MvGcTest {
 
         HybridTimestamp lowWatermark0 = new HybridTimestamp(1, 1);
 
-        StorageUpdateHandler storageUpdateHandler0 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture0, lowWatermark0);
-        StorageUpdateHandler storageUpdateHandler1 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture1, lowWatermark0);
+        GcUpdateHandler gcUpdateHandler0 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture0, lowWatermark0);
+        GcUpdateHandler gcUpdateHandler1 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture1, lowWatermark0);
 
-        gc.addStorage(createTablePartitionId(), storageUpdateHandler0);
-        gc.addStorage(createTablePartitionId(), storageUpdateHandler1);
+        gc.addStorage(createTablePartitionId(), gcUpdateHandler0);
+        gc.addStorage(createTablePartitionId(), gcUpdateHandler1);
 
         gc.updateLowWatermark(lowWatermark0);
 
-        // We expect StorageUpdateHandler#vacuum to be called with the set lowWatermark0.
+        // We expect GcUpdateHandler#vacuum to be called with the set lowWatermark0.
         assertThat(invokeVacuumMethodFuture0, willCompleteSuccessfully());
         assertThat(invokeVacuumMethodFuture1, willCompleteSuccessfully());
 
@@ -127,12 +128,12 @@ public class MvGcTest {
 
         HybridTimestamp lowWatermark1 = new HybridTimestamp(2, 2);
 
-        completeFutureOnVacuum(storageUpdateHandler0, invokeVacuumMethodFuture2, lowWatermark1);
-        completeFutureOnVacuum(storageUpdateHandler1, invokeVacuumMethodFuture3, lowWatermark1);
+        completeFutureOnVacuum(gcUpdateHandler0, invokeVacuumMethodFuture2, lowWatermark1);
+        completeFutureOnVacuum(gcUpdateHandler1, invokeVacuumMethodFuture3, lowWatermark1);
 
         gc.updateLowWatermark(lowWatermark1);
 
-        // We expect StorageUpdateHandler#vacuum to be called with the set lowWatermark0.
+        // We expect GcUpdateHandler#vacuum to be called with the set lowWatermark0.
         assertThat(invokeVacuumMethodFuture2, willCompleteSuccessfully());
         assertThat(invokeVacuumMethodFuture3, willCompleteSuccessfully());
     }
@@ -144,15 +145,15 @@ public class MvGcTest {
         CompletableFuture<Void> invokeVacuumMethodFuture0 = new CompletableFuture<>();
         CompletableFuture<Void> invokeVacuumMethodFuture1 = new CompletableFuture<>();
 
-        StorageUpdateHandler storageUpdateHandler0 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture0, firstLowWatermark);
-        StorageUpdateHandler storageUpdateHandler1 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture1, firstLowWatermark);
+        GcUpdateHandler gcUpdateHandler0 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture0, firstLowWatermark);
+        GcUpdateHandler gcUpdateHandler1 = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture1, firstLowWatermark);
 
-        gc.addStorage(createTablePartitionId(), storageUpdateHandler0);
-        gc.addStorage(createTablePartitionId(), storageUpdateHandler1);
+        gc.addStorage(createTablePartitionId(), gcUpdateHandler0);
+        gc.addStorage(createTablePartitionId(), gcUpdateHandler1);
 
         gc.updateLowWatermark(firstLowWatermark);
 
-        // We expect StorageUpdateHandler#vacuum to be called with the set lowWatermark0.
+        // We expect GcUpdateHandler#vacuum to be called with the set lowWatermark0.
         assertThat(invokeVacuumMethodFuture0, willCompleteSuccessfully());
         assertThat(invokeVacuumMethodFuture1, willCompleteSuccessfully());
 
@@ -162,12 +163,12 @@ public class MvGcTest {
         CompletableFuture<Void> invokeVacuumMethodFutureForSame0 = new CompletableFuture<>();
         CompletableFuture<Void> invokeVacuumMethodFutureForSame1 = new CompletableFuture<>();
 
-        completeFutureOnVacuum(storageUpdateHandler0, invokeVacuumMethodFutureForSame0, sameLowWatermark);
-        completeFutureOnVacuum(storageUpdateHandler1, invokeVacuumMethodFutureForSame1, sameLowWatermark);
+        completeFutureOnVacuum(gcUpdateHandler0, invokeVacuumMethodFutureForSame0, sameLowWatermark);
+        completeFutureOnVacuum(gcUpdateHandler1, invokeVacuumMethodFutureForSame1, sameLowWatermark);
 
         gc.updateLowWatermark(sameLowWatermark);
 
-        // We expect that StorageUpdateHandler#vacuum will not be called.
+        // We expect that GcUpdateHandler#vacuum will not be called.
         assertThat(invokeVacuumMethodFutureForSame0, willTimeoutFast());
         assertThat(invokeVacuumMethodFutureForSame1, willTimeoutFast());
 
@@ -177,12 +178,12 @@ public class MvGcTest {
         CompletableFuture<Void> invokeVacuumMethodFutureForLower0 = new CompletableFuture<>();
         CompletableFuture<Void> invokeVacuumMethodFutureForLower1 = new CompletableFuture<>();
 
-        completeFutureOnVacuum(storageUpdateHandler0, invokeVacuumMethodFutureForLower0, lowerLowWatermark);
-        completeFutureOnVacuum(storageUpdateHandler1, invokeVacuumMethodFutureForLower1, lowerLowWatermark);
+        completeFutureOnVacuum(gcUpdateHandler0, invokeVacuumMethodFutureForLower0, lowerLowWatermark);
+        completeFutureOnVacuum(gcUpdateHandler1, invokeVacuumMethodFutureForLower1, lowerLowWatermark);
 
         gc.updateLowWatermark(lowerLowWatermark);
 
-        // We expect that StorageUpdateHandler#vacuum will not be called.
+        // We expect that GcUpdateHandler#vacuum will not be called.
         assertThat(invokeVacuumMethodFutureForSame0, willTimeoutFast());
         assertThat(invokeVacuumMethodFutureForSame1, willTimeoutFast());
         assertThat(invokeVacuumMethodFutureForLower0, willTimeoutFast());
@@ -193,9 +194,9 @@ public class MvGcTest {
     void testCountInvokeVacuum() throws Exception {
         CountDownLatch latch = new CountDownLatch(MvGc.GC_BATCH_SIZE + 2);
 
-        StorageUpdateHandler storageUpdateHandler = createWithCountDownOnVacuum(latch);
+        GcUpdateHandler gcUpdateHandler = createWithCountDownOnVacuum(latch);
 
-        gc.addStorage(createTablePartitionId(), storageUpdateHandler);
+        gc.addStorage(createTablePartitionId(), gcUpdateHandler);
 
         gc.updateLowWatermark(new HybridTimestamp(2, 2));
 
@@ -274,9 +275,9 @@ public class MvGcTest {
 
         TablePartitionId tablePartitionId = createTablePartitionId();
 
-        StorageUpdateHandler storageUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture0, null);
+        GcUpdateHandler gcUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture0, null);
 
-        gc.addStorage(tablePartitionId, storageUpdateHandler);
+        gc.addStorage(tablePartitionId, gcUpdateHandler);
 
         gc.updateLowWatermark(new HybridTimestamp(1, 1));
 
@@ -286,7 +287,7 @@ public class MvGcTest {
         // What happens if we update the low watermark?
         CompletableFuture<Void> invokeVacuumMethodFuture1 = new CompletableFuture<>();
 
-        completeFutureOnVacuum(storageUpdateHandler, invokeVacuumMethodFuture1, null);
+        completeFutureOnVacuum(gcUpdateHandler, invokeVacuumMethodFuture1, null);
 
         assertThat(invokeVacuumMethodFuture1, willTimeoutFast());
     }
@@ -295,7 +296,7 @@ public class MvGcTest {
     void testClose() throws Exception {
         gc.close();
 
-        assertThrowsClosed(() -> gc.addStorage(createTablePartitionId(), createStorageUpdateHandler()));
+        assertThrowsClosed(() -> gc.addStorage(createTablePartitionId(), createGcUpdateHandler()));
         assertThrowsClosed(() -> gc.removeStorage(createTablePartitionId()));
         assertThrowsClosed(() -> gc.updateLowWatermark(new HybridTimestamp(1, 1)));
 
@@ -345,15 +346,15 @@ public class MvGcTest {
 
         HybridTimestamp lvm = new HybridTimestamp(10, 10);
 
-        StorageUpdateHandler storageUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lvm);
+        GcUpdateHandler gcUpdateHandler = createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, lvm);
 
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker = spy(new PendingComparableValuesTracker<>(
                 HybridTimestamp.MIN_VALUE
         ));
 
-        when(storageUpdateHandler.getSafeTimeTracker()).thenReturn(safeTimeTracker);
+        when(gcUpdateHandler.getSafeTimeTracker()).thenReturn(safeTimeTracker);
 
-        gc.addStorage(createTablePartitionId(), storageUpdateHandler);
+        gc.addStorage(createTablePartitionId(), gcUpdateHandler);
 
         // Let's update the low watermark and see that we didn't start the garbage collection because we didn't reach the safe time.
         gc.updateLowWatermark(lvm);
@@ -368,23 +369,23 @@ public class MvGcTest {
     }
 
     private TablePartitionId createTablePartitionId() {
-        return new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
+        return new TablePartitionId(nextTableId.getAndIncrement(), PARTITION_ID);
     }
 
-    private StorageUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
+    private GcUpdateHandler createWithCompleteFutureOnVacuum(CompletableFuture<Void> future, @Nullable HybridTimestamp exp) {
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        completeFutureOnVacuum(storageUpdateHandler, future, exp);
+        completeFutureOnVacuum(gcUpdateHandler, future, exp);
 
-        return storageUpdateHandler;
+        return gcUpdateHandler;
     }
 
     private void completeFutureOnVacuum(
-            StorageUpdateHandler storageUpdateHandler,
+            GcUpdateHandler gcUpdateHandler,
             CompletableFuture<Void> future,
             @Nullable HybridTimestamp exp
     ) {
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             if (exp != null) {
                 try {
                     assertEquals(exp, invocation.getArgument(0));
@@ -401,22 +402,22 @@ public class MvGcTest {
         });
     }
 
-    private StorageUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
+    private GcUpdateHandler createWithCountDownOnVacuum(CountDownLatch latch) {
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             latch.countDown();
 
             return latch.getCount() > 0;
         });
 
-        return storageUpdateHandler;
+        return gcUpdateHandler;
     }
 
-    private StorageUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
+    private GcUpdateHandler createWithWaitFinishVacuum(CompletableFuture<Void> startFuture, CompletableFuture<Void> finishFuture) {
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             startFuture.complete(null);
 
             finishFuture.get(1, TimeUnit.SECONDS);
@@ -424,7 +425,7 @@ public class MvGcTest {
             return false;
         });
 
-        return storageUpdateHandler;
+        return gcUpdateHandler;
     }
 
     private static void assertThrowsClosed(Executable executable) {
@@ -433,24 +434,24 @@ public class MvGcTest {
         assertEquals(GarbageCollector.CLOSED_ERR, exception.code());
     }
 
-    private StorageUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
-        StorageUpdateHandler storageUpdateHandler = createStorageUpdateHandler();
+    private GcUpdateHandler createWithCountDownOnVacuumWithoutNextBatch(CountDownLatch latch) {
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler();
 
-        when(storageUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
+        when(gcUpdateHandler.vacuum(any(HybridTimestamp.class))).then(invocation -> {
             latch.countDown();
 
             // So that there is no processing of the next batch.
             return false;
         });
 
-        return storageUpdateHandler;
+        return gcUpdateHandler;
     }
 
-    private static StorageUpdateHandler createStorageUpdateHandler() {
-        StorageUpdateHandler storageUpdateHandler = mock(StorageUpdateHandler.class);
+    private static GcUpdateHandler createGcUpdateHandler() {
+        GcUpdateHandler gcUpdateHandler = mock(GcUpdateHandler.class);
 
-        when(storageUpdateHandler.getSafeTimeTracker()).thenReturn(new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE));
+        when(gcUpdateHandler.getSafeTimeTracker()).thenReturn(new PendingComparableValuesTracker<>(HybridTimestamp.MAX_VALUE));
 
-        return storageUpdateHandler;
+        return gcUpdateHandler;
     }
 }

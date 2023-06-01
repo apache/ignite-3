@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -150,7 +151,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
         try {
-            RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
+            var ownFsmCallerExecutorDisruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
             // We need to configure the replication protocol differently whether this node is a synchronous or asynchronous replica.
             if (metaStorageNodes.contains(thisNodeName)) {
@@ -283,7 +284,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
-            storage.startWatches(this::saveUpdatedEntriesToVault);
+            storage.startWatches(this::onRevisionApplied);
         } finally {
             busyLock.leaveBusy();
         }
@@ -599,12 +600,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Saves processed Meta Storage revision and corresponding entries to the Vault.
      */
-    private CompletableFuture<Void> saveUpdatedEntriesToVault(WatchEvent watchEvent) {
+    private CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp time) {
+        assert time != null;
+
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
             return completedFuture(null);
         }
+
+        clusterTime.updateSafeTime(time);
 
         try {
             CompletableFuture<Void> saveToVaultFuture;

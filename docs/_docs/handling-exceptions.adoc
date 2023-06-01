@@ -26,9 +26,9 @@ When the exception happens, Apache Ignite 3 provides a UUID of the specific exce
 [cols="20%,80%", width="100%"]
 |===
 |Exception	|Description
-|`IGN-CMN-1`|Unexpected error occurred.
-|`IGN-CMN-2`|Operation was stopped because node is stopping.
-|`IGN-CMN-3`|Required component was not started.
+|`IGN-CMN-1`|Operation was stopped because node is stopping.
+|`IGN-CMN-2`|Required component was not started.
+|`IGN-CMN-65535`|Internal error.
 |===
 
 == Table Exceptions

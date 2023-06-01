@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.cli.commands.node;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.URL_OPTION_SHORT;
+
 import jakarta.inject.Inject;
+import java.net.URL;
 import org.apache.ignite.internal.cli.commands.ProfileMixin;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
+import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /**
  * Mixin class to combine node URL and profile options.
  */
 public class NodeUrlProfileMixin {
     /** Node URL option. */
-    @Mixin
-    private NodeUrlMixin nodeUrl;
+    @Option(names = {URL_OPTION_SHORT, NODE_URL_OPTION}, description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+    private URL nodeUrl;
 
     /** Profile to get default values from. */
     @Mixin
@@ -45,8 +52,8 @@ public class NodeUrlProfileMixin {
      * @return node URL
      */
     public String getNodeUrl() {
-        if (nodeUrl.getNodeUrl() != null) {
-            return nodeUrl.getNodeUrl();
+        if (nodeUrl != null) {
+            return nodeUrl.toString();
         } else {
             ConfigManager configManager = configManagerProvider.get();
             return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName.getProfileName());

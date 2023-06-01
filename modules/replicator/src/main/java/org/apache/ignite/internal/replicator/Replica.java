@@ -145,6 +145,8 @@ public class Replica {
         if (!leaderFuture.isDone()) {
             leaderFuture.complete(leaderRef);
         }
+
+        listener.onBecomePrimary(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {
@@ -266,5 +268,12 @@ public class Replica {
         Peer leased = raftClient.leader();
 
         return leased != null ? leased.consistentId() : localNode.name();
+    }
+
+    /**
+     * Shutdowns the replica.
+     */
+    public void shutdown() {
+        listener.onShutdown();
     }
 }
