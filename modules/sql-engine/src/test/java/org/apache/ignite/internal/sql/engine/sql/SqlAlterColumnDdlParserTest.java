@@ -84,23 +84,22 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE} statement.
      *
-     * <p>Parser must support the following syntax
-     * {@code SET DATA TYPE &lt;new_type&gt; [NOT NULL | NULLABLE] [DEFAULT &lt;default value&gt;]}.
+     * <p>Parser must support the following syntax {@code SET DATA TYPE &lt;new_type&gt; [NOT NULL | NULL] [DEFAULT &lt;default value&gt;]}.
      *
      * <p>Parser is expected to produce a node of {@link IgniteSqlAlterColumn} class with the specified {@link
      * IgniteSqlAlterColumn#name() table name}, {@link IgniteSqlAlterColumn#columnName() column name}, column {@link
-     * IgniteSqlAlterColumn#dataType() data type}, an optional {@link IgniteSqlAlterColumn#expression() default expression},
-     * and an optional {@link IgniteSqlAlterColumn#notNull() notNull flag}.
+     * IgniteSqlAlterColumn#dataType() data type}, an optional {@link IgniteSqlAlterColumn#expression() default expression}, and an optional
+     * {@link IgniteSqlAlterColumn#notNull() notNull flag}.
      */
     @Test
     public void testSetDataType() {
         validateDataType("SET DATA TYPE INTEGER", "INTEGER", null, null);
         validateDataType("SET DATA TYPE INTEGER NOT NULL", "INTEGER", true, null);
-        validateDataType("SET DATA TYPE INTEGER NULLABLE", "INTEGER", false, null);
+        validateDataType("SET DATA TYPE INTEGER NULL", "INTEGER", false, null);
         validateDataType("SET DATA TYPE INTEGER DEFAULT -1", "INTEGER", null, -1L);
         validateDataType("SET DATA TYPE INTEGER DEFAULT NULL", "INTEGER", null, null);
         validateDataType("SET DATA TYPE INTEGER NOT NULL DEFAULT -1", "INTEGER", true, -1);
-        validateDataType("SET DATA TYPE INTEGER NULLABLE DEFAULT NULL", "INTEGER", false, null);
+        validateDataType("SET DATA TYPE INTEGER NULL DEFAULT NULL", "INTEGER", false, null);
 
         assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DATA TYPE INTEGER DEFAULT FUNC"));
     }
