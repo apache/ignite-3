@@ -62,6 +62,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -161,6 +162,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     @Mock
     private VaultManager vaultManager;
+
+    @Mock
+    private PlacementDriver placementDriver;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -622,7 +626,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                placementDriver
         );
 
         tableManager.start();

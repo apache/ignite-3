@@ -98,7 +98,7 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public ReplicaMeta enlistedPrimaryReplica(TablePartitionId tablePartitionId) {
+                    public ReplicaMeta enlistedReplica(TablePartitionId tablePartitionId) {
                         return null;
                     }
 

@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.engine.PrimaryMetaTestImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 
@@ -39,7 +37,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
 
-    private final IgniteBiTuple<ClusterNode, Long> tuple;
+    private final ReplicaMeta replica;
 
     private final TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
 
@@ -49,8 +47,7 @@ public final class NoOpTransaction implements InternalTransaction {
      * @param name Name of the node.
      */
     public NoOpTransaction(String name) {
-        var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
+        replica = new PrimaryMetaTestImpl(name, new HybridTimestamp(1L, 0), HybridTimestamp.MAX_VALUE);
     }
 
     @Override
@@ -94,8 +91,8 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
-        return tuple;
+    public ReplicaMeta enlistedReplica(TablePartitionId tablePartitionId) {
+        return replica;
     }
 
     @Override
@@ -114,9 +111,8 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        return nodeAndTerm;
+    public ReplicaMeta enlist(TablePartitionId tablePartitionId, ReplicaMeta replica) {
+        return replica;
     }
 
     @Override
