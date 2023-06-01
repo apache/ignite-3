@@ -90,7 +90,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     }
 
     @Test
-    @Disabled("Transfer of job classes is not supported in standalone mode")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
     @Override
     void executesFailingJobOnRemoteNodes() {
         super.executesFailingJobOnRemoteNodes();
@@ -98,7 +98,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
 
     @Test
-    @Disabled("Transfer of job classes is not supported in standalone mode")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
     @Override
     void broadcastsFailingJob() throws Exception {
         super.broadcastsFailingJob();
