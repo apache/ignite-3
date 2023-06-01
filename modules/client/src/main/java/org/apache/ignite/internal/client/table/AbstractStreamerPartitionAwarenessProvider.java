@@ -45,7 +45,7 @@ abstract class AbstractStreamerPartitionAwarenessProvider<T> implements Streamer
         }
 
         int hash = colocationHash(schema, item);
-        return assignment.get(hash % assignment.size());
+        return assignment.get(Math.abs(hash % assignment.size()));
     }
 
     abstract int colocationHash(ClientSchema schema, T item);
