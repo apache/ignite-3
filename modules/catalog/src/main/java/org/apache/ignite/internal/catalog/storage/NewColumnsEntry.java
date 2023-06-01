@@ -15,50 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.catalog.storage;
 
+import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Index descriptor base class.
+ * Describes addition of new columns.
  */
-public abstract class IndexDescriptor extends ObjectDescriptor {
-    private static final long serialVersionUID = -8045949593661301287L;
+public class NewColumnsEntry implements UpdateEntry {
+    private static final long serialVersionUID = 2970125889493580121L;
 
-    /** Table id. */
     private final int tableId;
+    private final List<TableColumnDescriptor> descriptors;
 
-    /** Unique constraint flag. */
-    private boolean unique;
-
-    /** Write only flag. {@code True} when index is building. */
-    private boolean writeOnly;
-
-    IndexDescriptor(int id, String name, int tableId, boolean unique) {
-        super(id, Type.INDEX, name);
+    /**
+     * Constructs the object.
+     *
+     * @param tableId Table id.
+     * @param descriptors Descriptors of columns to add.
+     */
+    public NewColumnsEntry(int tableId, List<TableColumnDescriptor> descriptors) {
         this.tableId = tableId;
-        this.unique = unique;
+        this.descriptors = descriptors;
     }
 
+    /** Returns table id. */
     public int tableId() {
         return tableId;
     }
 
-    public boolean unique() {
-        return unique;
+    /** Returns descriptors of columns to add. */
+    public List<TableColumnDescriptor> descriptors() {
+        return descriptors;
     }
-
-    public boolean writeOnly() {
-        return writeOnly;
-    }
-
-    /**
-     * Checks if a column with given name is indexed.
-     *
-     * @param columnName Column name to check.
-     * @return {@code true} if index contains the column, {@code false} otherwise.
-     */
-    public abstract boolean hasColumn(String columnName);
 
     /** {@inheritDoc} */
     @Override
