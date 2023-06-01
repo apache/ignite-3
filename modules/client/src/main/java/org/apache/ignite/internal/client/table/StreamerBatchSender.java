@@ -21,10 +21,13 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Data streamer batch sender.
+ * Streamer batch sender.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
 @FunctionalInterface
-interface StreamerBatchSender<T, TPartition> {
+interface StreamerBatchSender<T, P> {
     /**
      * Sends batch of items asynchronously.
      *
@@ -32,5 +35,5 @@ interface StreamerBatchSender<T, TPartition> {
      * @param batch Batch.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> sendAsync(TPartition partition, Collection<T> batch);
+    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
 }
