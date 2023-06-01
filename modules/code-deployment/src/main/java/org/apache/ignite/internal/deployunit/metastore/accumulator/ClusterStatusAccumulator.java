@@ -15,48 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.deployunit.metastore.accumulator;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.deployunit.metastore.key.UnitKey;
-import org.apache.ignite.internal.deployunit.metastore.key.UnitMetaSerializer;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.subscription.AccumulateException;
 import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Units id accumulator by node deployment identifier,
- *    only {@link DeploymentStatus#DEPLOYED} nodes accumulating.
+ * Units accumulator with filtering mechanism.
  */
-public class UnitsByNodeAccumulator implements Accumulator<Entry, List<String>> {
-    private final String consistentId;
+public class ClusterStatusAccumulator implements Accumulator<Entry, List<UnitClusterStatus>> {
 
-    private final List<String> result = new ArrayList<>();
+    private final List<UnitClusterStatus> result = new ArrayList<>();
 
-    public UnitsByNodeAccumulator(String consistentId) {
-        this.consistentId = consistentId;
+    private final Predicate<UnitClusterStatus> filter;
+
+    public ClusterStatusAccumulator() {
+        this(t -> true);
+    }
+
+    public ClusterStatusAccumulator(Predicate<UnitClusterStatus> filter) {
+        this.filter = filter;
     }
 
     @Override
     public void accumulate(Entry item) {
-        byte[] key = item.key();
         byte[] value = item.value();
-        String nodeId = UnitKey.extractNodeId(key);
+        if (value == null) {
+            return;
+        }
 
-        if (Objects.equals(nodeId, consistentId)) {
-            UnitStatus meta = UnitMetaSerializer.deserialize(value);
-            if (meta.status() == DeploymentStatus.DEPLOYED) {
-                result.add(meta.id());
-            }
+        UnitClusterStatus status = UnitClusterStatus.deserialize(value);
+        if (filter.test(status)) {
+            result.add(status);
         }
     }
 
     @Override
-    public List<String> get() throws AccumulateException {
+    public List<UnitClusterStatus> get() throws AccumulateException {
         return result;
     }
 }

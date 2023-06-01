@@ -15,27 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore;
+package org.apache.ignite.internal.deployunit.message;
 
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.util.subscription.AccumulateException;
-import org.apache.ignite.internal.util.subscription.Accumulator;
+import static org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes.DOWNLOAD_UNIT_REQUEST;
+
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * All keys accumulator.
+ * Download unit content request.
  */
-public class KeyAccumulator implements Accumulator<Entry, List<byte[]>> {
-    private final List<byte[]> result = new ArrayList<>();
+@Transferable(DOWNLOAD_UNIT_REQUEST)
+public interface DownloadUnitRequest extends NetworkMessage {
+    /**
+     * Returns deployment unit identifier.
+     *
+     * @return Deployment unit identifier.
+     */
+    String id();
 
-    @Override
-    public void accumulate(Entry item) {
-        result.add(item.key());
-    }
-
-    @Override
-    public List<byte[]> get() throws AccumulateException {
-        return result;
-    }
+    /**
+     * Returns deployment unit version.
+     *
+     * @return Deployment unit version.
+     */
+    String version();
 }

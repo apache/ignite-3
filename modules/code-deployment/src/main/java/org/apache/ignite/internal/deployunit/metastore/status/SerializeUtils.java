@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.metastore.key;
+package org.apache.ignite.internal.deployunit.metastore.status;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.UnitStatus;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Serializer for {@link UnitStatus}.
  */
-public final class UnitMetaSerializer {
+public final class SerializeUtils {
     private static final String SEPARATOR = ";";
 
     private static final String LIST_SEPARATOR = ":";
@@ -37,51 +38,61 @@ public final class UnitMetaSerializer {
     /**
      * Constructor.
      */
-    private UnitMetaSerializer() {
+    private SerializeUtils() {
 
     }
 
     /**
      * Serialize unit meta.
      *
-     * @param meta Unit meta.
-     * @return Serialized unit meta.
+     * @param args Unit status.
+     * @return Serialized unit status.
      */
-    public static byte[] serialize(UnitStatus meta) {
+    static byte[] serialize(Object... args) {
         StringBuilder sb = new StringBuilder();
 
-        appendWithEncoding(sb, meta.id());
-        appendWithEncoding(sb, meta.version().render());
-        appendWithEncoding(sb, meta.status().name());
+        for (Object arg : args) {
+            if (arg == null) {
+                continue;
+            }
+
+            if (arg instanceof Collection) {
+                appendWithEncoding(sb, (Collection<String>) arg);
+            } else {
+                appendWithEncoding(sb, arg.toString());
+            }
+        }
 
         return sb.toString().getBytes(UTF_8);
     }
 
     /**
-     * Deserialize byte array to unit meta.
+     * Deserialize byte array to unit status.
      *
      * @param bytes Byte array.
-     * @return Unit meta.
+     * @return Unit status.
      */
-    public static UnitStatus deserialize(byte[] bytes) {
+    static String[] deserialize(byte[] bytes) {
         String s = new String(bytes, UTF_8);
-        String[] split = s.split(SEPARATOR, -1);
 
-        String id = decode(split[0]);
-        String version = decode(split[1]);
+        return s.split(SEPARATOR, -1);
+    }
 
-        DeploymentStatus status = DeploymentStatus.valueOf(decode(split[2]));
-
-        return new UnitStatus(id, Version.parseVersion(version), status);
+    static Set<String> decodeAsSet(String s) {
+        if (s == null || s.isBlank()) {
+            return Collections.emptySet();
+        }
+        String[] split = s.split(LIST_SEPARATOR, -1);
+        return Arrays.stream(split).map(SerializeUtils::decode).collect(Collectors.toSet());
     }
 
     private static void appendWithEncoding(StringBuilder sb, String content) {
         sb.append(encode(content)).append(SEPARATOR);
     }
 
-    private static void appendWithEncoding(StringBuilder sb, List<String> content) {
+    private static void appendWithEncoding(StringBuilder sb, Collection<String> content) {
         String list = content.stream()
-                .map(UnitMetaSerializer::encode)
+                .map(SerializeUtils::encode)
                 .collect(Collectors.joining(LIST_SEPARATOR));
         sb.append(list).append(SEPARATOR);
     }
@@ -90,7 +101,7 @@ public final class UnitMetaSerializer {
         return new String(Base64.getEncoder().encode(s.getBytes(UTF_8)), UTF_8);
     }
 
-    private static String decode(String s) {
+    static String decode(String s) {
         return new String(Base64.getDecoder().decode(s), UTF_8);
     }
 }

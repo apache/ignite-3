@@ -15,20 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.deployunit.message;
+package org.apache.ignite.internal.deployunit.metastore.accumulator;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.util.subscription.AccumulateException;
+import org.apache.ignite.internal.util.subscription.Accumulator;
 
 /**
- * Deploy unit response.
+ * All keys accumulator.
  */
-@Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
-public interface DeployUnitResponse extends NetworkMessage {
-    /**
-     * Shows success or not deploy process.
-     *
-     * @return success or not deploy process.
-     */
-    boolean success();
+public class KeyAccumulator implements Accumulator<Entry, List<byte[]>> {
+    private final List<byte[]> result = new ArrayList<>();
+
+    @Override
+    public void accumulate(Entry item) {
+        if (item != null && item.key() != null) {
+            result.add(item.key());
+        }
+    }
+
+    @Override
+    public List<byte[]> get() throws AccumulateException {
+        return result;
+    }
 }
