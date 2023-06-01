@@ -17,21 +17,24 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/** Factory for {@link UndeployUnitCall}. */
+@Factory
+public class UndeployUnitCallFactory {
 
     private final ApiClientFactory factory;
 
-    public DeployUnitCallFactory(ApiClientFactory factory) {
+    public UndeployUnitCallFactory(ApiClientFactory factory) {
         this.factory = factory;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    @Bean
+    @Singleton
+    public UndeployUnitCall create() {
+        return new UndeployUnitCall(factory);
     }
 }

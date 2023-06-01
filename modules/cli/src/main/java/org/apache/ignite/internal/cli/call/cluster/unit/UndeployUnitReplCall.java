@@ -17,21 +17,25 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/** Call to undeploy a unit and refresh units registry. */
+public class UndeployUnitReplCall extends UndeployUnitCall {
+    private final UnitsRegistry unitsRegistry;
 
-    private final ApiClientFactory factory;
-
-    public DeployUnitCallFactory(ApiClientFactory factory) {
-        this.factory = factory;
+    UndeployUnitReplCall(ApiClientFactory clientFactory, UnitsRegistry unitsRegistry) {
+        super(clientFactory);
+        this.unitsRegistry = unitsRegistry;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    @Override
+    public CallOutput<String> execute(UndeployUnitCallInput input) {
+        CallOutput<String> output = super.execute(input);
+        if (!output.hasError()) {
+            unitsRegistry.refresh();
+        }
+        return output;
     }
 }

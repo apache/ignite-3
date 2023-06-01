@@ -17,21 +17,28 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/** Factory for {@link UndeployUnitReplCall} in REPL mode. */
+@Factory
+public class UndeployUnitReplCallFactory {
 
     private final ApiClientFactory factory;
 
-    public DeployUnitCallFactory(ApiClientFactory factory) {
+    private final UnitsRegistry registry;
+
+    public UndeployUnitReplCallFactory(ApiClientFactory factory, UnitsRegistry registry) {
         this.factory = factory;
+        this.registry = registry;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    @Bean
+    @Singleton
+    public UndeployUnitReplCall create() {
+        return new UndeployUnitReplCall(factory, registry);
     }
 }

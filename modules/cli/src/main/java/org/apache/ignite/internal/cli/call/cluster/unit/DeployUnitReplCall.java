@@ -17,21 +17,29 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
-import jakarta.inject.Singleton;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/** Call to deploy a unit and refresh units registry. */
+public class DeployUnitReplCall extends DeployUnitCall {
+    private final UnitsRegistry unitsRegistry;
 
-    private final ApiClientFactory factory;
-
-    public DeployUnitCallFactory(ApiClientFactory factory) {
-        this.factory = factory;
+    DeployUnitReplCall(ProgressTracker tracker, ApiClientFactory clientFactory, UnitsRegistry registry) {
+        super(tracker, clientFactory);
+        unitsRegistry = registry;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    @Override
+    public CompletableFuture<CallOutput<String>> execute(DeployUnitCallInput input) {
+        return super.execute(input)
+                .thenApply(output -> {
+                    if (!output.hasError()) {
+                        unitsRegistry.refresh();
+                    }
+                    return output;
+                });
     }
 }
