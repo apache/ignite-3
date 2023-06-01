@@ -100,8 +100,7 @@ class StreamerSubscriber<T, P> implements Subscriber<T> {
                     if (err != null) {
                         log.error("Failed to refresh schemas and partition assignment: " + err.getMessage(), err);
                         close(err);
-                    }
-                    else {
+                    } else {
                         requestMore();
 
                         flushTimer = initFlushTimer();
@@ -161,8 +160,7 @@ class StreamerSubscriber<T, P> implements Subscriber<T> {
                 // If we get here, then retries are exhausted and we should fail the streamer.
                 log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
                 close(err);
-            }
-            else {
+            } else {
                 fut.complete(null);
                 pendingFuts.remove(fut);
 
