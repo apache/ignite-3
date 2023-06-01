@@ -260,7 +260,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Versioned store for tracking RAFT groups initialization and starting completion. Uses a causality token as a value, for convenience.
      * Only updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}. {@code null} by default.
      */
-    private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
+    private final IncrementalVersionedValue<Long> assignmentsUpdatedVv;
 
     /**
      * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails, so we
@@ -407,7 +407,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(registry, () -> null);
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(assignmentsUpdateVvRegistry());
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
@@ -451,6 +451,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         lowWatermark = new LowWatermark(nodeName, tablesCfg.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
         indexBuilder = new IndexBuilder(nodeName, cpus);
+    }
+
+    /**
+     * This registry chains {@link #tablesByIdVv} and {@link #assignmentsUpdatedVv}, guaranteeing that {@link #assignmentsUpdatedVv} is
+     * always completed strictly after the {@link #tablesByIdVv}. In other words, it provides HB for versioned values completion.
+     * This is crucial for methods like {@link #latestTablesById()}.
+     */
+    private Consumer<Function<Long, CompletableFuture<?>>> assignmentsUpdateVvRegistry() {
+        return callback -> tablesByIdVv.whenComplete((causalityToken, tablesById, ex) -> {
+            // Set the latest token.
+            assignmentsUpdatedVv.update(causalityToken, (unused, throwable) -> completedFuture(causalityToken));
+
+            callback.apply(causalityToken);
+        });
     }
 
     @Override
@@ -872,12 +886,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ioExecutor
         );
 
-        return assignmentsUpdatedVv.update(causalityToken, (unused, e) -> {
+        return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            return updateAssignmentsFuture;
+            return updateAssignmentsFuture.thenApply(v -> token);
         });
     }
 
@@ -1750,15 +1764,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Returns the latest tables by ID map, for which all assignment updates have been completed.
      */
     private Map<Integer, TableImpl> latestTablesById() {
-        long latestCausalityToken = assignmentsUpdatedVv.latestCausalityToken();
+        Long latestCausalityToken = assignmentsUpdatedVv.latest();
 
-        if (latestCausalityToken < 0) {
+        if (latestCausalityToken == null) {
             // No tables at all in case of empty causality token.
             return emptyMap();
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
 
-            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv".
+            // "tablesByIdVv" is always completed strictly before the "assignmentsUpdatedVv". See "assignmentsUpdateVvRegistry".
             assert tablesByIdFuture.isDone();
 
             return tablesByIdFuture.join();

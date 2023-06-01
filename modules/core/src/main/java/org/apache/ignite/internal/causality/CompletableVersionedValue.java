@@ -53,11 +53,6 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
     }
 
     @Override
-    public long latestCausalityToken() {
-        return versionedValue.latestCausalityToken();
-    }
-
-    @Override
     public void whenComplete(CompletionListener<T> action) {
         versionedValue.whenComplete(action);
     }

@@ -49,11 +49,6 @@ public interface VersionedValue<T> {
     @Nullable T latest();
 
     /**
-     * Returns the latest completed causality token. Negative value if not initialized.
-     */
-    long latestCausalityToken();
-
-    /**
      * Add listener for completions of this versioned value on every token.
      *
      * @param action Action to perform.
