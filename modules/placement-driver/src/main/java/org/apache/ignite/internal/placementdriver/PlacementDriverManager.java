@@ -253,4 +253,13 @@ public class PlacementDriverManager implements IgniteComponent {
     boolean isActiveActor() {
         return isActiveActor;
     }
+
+    /**
+     * Returns placement driver service.
+     *
+     * @return Placement driver service.
+     */
+    public PlacementDriver placementDriver() {
+        return leaseTracker;
+    }
 }

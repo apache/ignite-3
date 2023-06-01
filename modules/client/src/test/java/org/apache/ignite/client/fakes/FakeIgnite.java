@@ -25,11 +25,11 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -98,7 +98,7 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+                    public ReplicaMeta enlistedPrimaryReplica(TablePartitionId tablePartitionId) {
                         return null;
                     }
 
@@ -118,9 +118,7 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public IgniteBiTuple<ClusterNode, Long> enlist(
-                            TablePartitionId tablePartitionId,
-                            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+                    public ReplicaMeta enlist(TablePartitionId tablePartitionId, ReplicaMeta replica) {
                         return null;
                     }
 

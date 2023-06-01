@@ -37,7 +37,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.placementdriver.LeaseMeta;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -74,7 +74,7 @@ public class LeaseTracker implements PlacementDriver {
     private final Map<ReplicationGroupId, Lease> leases;
 
     /** Map of primary replica waiters. */
-    private final Map<ReplicationGroupId, PendingIndependentComparableValuesTracker<HybridTimestamp, LeaseMeta>> primaryReplicaWaiters;
+    private final Map<ReplicationGroupId, PendingIndependentComparableValuesTracker<HybridTimestamp, ReplicaMeta>> primaryReplicaWaiters;
 
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
@@ -190,7 +190,7 @@ public class LeaseTracker implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<LeaseMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException("Component is stopping."));
         }
@@ -203,7 +203,7 @@ public class LeaseTracker implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<LeaseMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException("Component is stopping."));
         }
