@@ -551,6 +551,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         // Send some batches so that the client receives updated assignment.
         lastOpServerName = null;
         submit.accept(0L);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
+
+        lastOpServerName = null;
         submit.accept(1L);
         assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
 
