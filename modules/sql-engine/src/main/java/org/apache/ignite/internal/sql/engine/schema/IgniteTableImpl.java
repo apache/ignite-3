@@ -359,7 +359,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     .commitPartitionId(commitPartitionId)
                     .binaryRows(partToRows.getValue())
                     .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .build();
@@ -406,7 +406,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     .commitPartitionId(commitPartitionId)
                     .binaryRows(partToRows.getValue())
                     .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
                     .timestampLong(clock.nowLong())
                     .build();
@@ -471,7 +471,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
                     .commitPartitionId(commitPartitionId)
                     .binaryRows(partToRows.getValue())
                     .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)
                     .timestampLong(clock.nowLong())
                     .build();
