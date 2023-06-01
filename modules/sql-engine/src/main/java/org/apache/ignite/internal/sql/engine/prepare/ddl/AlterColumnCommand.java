@@ -17,25 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnAction;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnDefault;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnNotNull;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnType;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ALTER TABLE ... ALTER COLUMN statement.
  */
 public class AlterColumnCommand extends AbstractTableDdlCommand {
-    private final List<AlterColumnAction> changes = new ArrayList<>(1);
+//    private final List<AlterColumnAction> changes = new ArrayList<>(1);
 
     private String columnName;
+
+    private RelDataType type;
+
+    private Boolean notNull;
+
+    private Function<ColumnType, DefaultValue> resolveDfltFunc;
 
     public String columnName() {
         return columnName;
@@ -45,19 +45,31 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         columnName = name;
     }
 
-    public List<AlterColumnAction> changes() {
-        return changes;
-    }
+//    public List<AlterColumnAction> changes() {
+//        return changes;
+//    }
 
     void alterType(RelDataType type) {
-        changes.add(new AlterColumnType(TypeUtils.columnType(type), type.getPrecision(), type.getScale()));
+        this.type = type;
     }
 
     void alterNotNull(boolean notNull) {
-        changes.add(new AlterColumnNotNull(notNull));
+        this.notNull = notNull;
     }
 
     void alterDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-        changes.add(new AlterColumnDefault(resolveDfltFunc));
+        this.resolveDfltFunc = resolveDfltFunc;
+    }
+
+    @Nullable public RelDataType type() {
+        return type;
+    }
+
+    @Nullable public Boolean notNull() {
+        return notNull;
+    }
+
+    @Nullable public Function<ColumnType, DefaultValue> defaultResolver() {
+        return resolveDfltFunc;
     }
 }

@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -51,11 +52,8 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnAction;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnDefault;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnNotNull;
 import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnType;
+import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnTypeParams;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
@@ -583,27 +581,27 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // NULL-> NULL : No-op.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.constant(null))),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // NULL -> 1 : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.constant(1))),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(1)),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
         // 1 -> 1 : No-op.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.constant(1))),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(1)),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 1 -> 2 : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.constant(2))),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(2)),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
         // 2 -> NULL : Ok (for nullable column).
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnDefault((t) -> DefaultValue.constant(null))),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
     }
@@ -626,22 +624,22 @@ public class CatalogServiceSelfTest {
 
         // NULLABLE -> NULLABLE : No-op.
         // NOT NULL -> NOT NULL : No-op.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnNotNull(false)), willBe((Object) null));
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new AlterColumnNotNull(true)), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, false, null), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, true, null), willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // NOT NULL -> NULlABLE : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new AlterColumnNotNull(false)), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, false, null), willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
         // DROP NOT NULL for PK : Error.
-        assertThat(changeColumn(TABLE_NAME, "ID", new AlterColumnNotNull(false)),
-                willThrowFast(SqlException.class, "Cannot drop NOT NULL for the primary key column 'ID'."));
+        assertThat(changeColumn(TABLE_NAME, "ID", null, false, null),
+                willThrowFast(SqlException.class, "Cannot change NOT NULL for the primary key column 'ID'."));
 
         // NULlABLE -> NOT NULL : Error.
-        assertThat(changeColumn(TABLE_NAME, "VAL", new AlterColumnNotNull(true)),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, true, null),
                 willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'."));
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", new AlterColumnNotNull(true)),
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, true, null),
                 willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL_NOT_NULL'."));
 
         assertNull(service.schema(schemaVer + 1));
@@ -660,13 +658,15 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
+        AlterColumnTypeParams typeParams = AlterColumnTypeParams.builder().type(type).precision(10).build();
+
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new AlterColumnType(type, 10, null)),
+                changeColumn(TABLE_NAME, col.name(), typeParams, null, null),
                 willThrowFast(SqlException.class, "Cannot change precision to 10 for column '" + col.name() + "'")
         );
 
         assertThat(
-                changeColumn(TABLE_NAME, colWithPrecision.name(), new AlterColumnType(type, 10, null)),
+                changeColumn(TABLE_NAME, colWithPrecision.name(), typeParams, null, null),
                 willThrowFast(SqlException.class, "Cannot change precision to 10 for column '" + colWithPrecision.name() + "'")
         );
 
@@ -695,19 +695,20 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // ANY-> UNDEFINED PRECISION : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, null)), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).build(), null, null),
+                willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // UNDEFINED PRECISION -> 10 : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), 10, null)),
+                changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).precision(10).build(), null, null),
                 willBe((Object) null)
         );
         assertNotNull(service.schema(++schemaVer));
 
         // 10 -> 11 : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), 11, null)),
+                changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).precision(11).build(), null, null),
                 willBe((Object) null)
         );
 
@@ -725,7 +726,7 @@ public class CatalogServiceSelfTest {
                 : "Cannot decrease length to 10 for column '" + col.name() + "'.";
 
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), 10, null)),
+                changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).precision(10).build(), null, null),
                 willThrowFast(SqlException.class, expMsg)
         );
         assertNull(service.schema(schemaVer + 1));
@@ -743,21 +744,22 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // ANY-> UNDEFINED SCALE : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, null)), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).build(), null, null),
+                willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 3 : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, 3)),
+        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).scale(3).build(), null, null),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 4 : Error.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, 4)),
+        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).scale(4).build(), null, null),
                 willThrowFast(SqlException.class, "Cannot change scale to 4 for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new AlterColumnType(col.type(), null, 2)),
+        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).scale(2).build(), null, null),
                 willThrowFast(SqlException.class, "Cannot change scale to 2 for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
     }
@@ -799,7 +801,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        AlterColumnType changeType = new AlterColumnType(target, null, null);
+//        AlterColumnType changeType = new AlterColumnType(target, null, null);
 
         for (ColumnParams col : testColumns) {
             TypeSafeMatcher<CompletableFuture<?>> matcher;
@@ -813,7 +815,9 @@ public class CatalogServiceSelfTest {
                         "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
             }
 
-            assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), changeType), matcher);
+            AlterColumnTypeParams tyoeParams = AlterColumnTypeParams.builder().type(target).build();
+
+            assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), tyoeParams, null, null), matcher);
             assertNotNull(service.schema(schemaVer));
             assertNull(service.schema(schemaVer + 1));
         }
@@ -823,7 +827,7 @@ public class CatalogServiceSelfTest {
     public void testAlterColumnTypeRejectedForPrimaryKey() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
-        assertThat(changeColumn(TABLE_NAME, "ID", new AlterColumnType(ColumnType.INT64, null, null)),
+        assertThat(changeColumn(TABLE_NAME, "ID", AlterColumnTypeParams.builder().type(ColumnType.INT64).build(), null, null),
                 willThrowFast(SqlException.class, "Cannot change data type for primary key column 'ID'."));
     }
 
@@ -839,14 +843,12 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        AlterColumnAction[] actions = {
-                new AlterColumnDefault(t -> DefaultValue.constant(null)),
-                new AlterColumnNotNull(false),
-                new AlterColumnType(ColumnType.INT64, null, null)
-        };
+        Supplier<DefaultValue> dflt = () -> DefaultValue.constant(null);
+        boolean notNull = false;
+        AlterColumnTypeParams typeParams = AlterColumnTypeParams.builder().type(ColumnType.INT64).build();
 
         // Ensures that 3 different actions applied.
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", actions), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
 
         SchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
@@ -857,15 +859,15 @@ public class CatalogServiceSelfTest {
         assertEquals(ColumnType.INT64, desc.type());
 
         // Ensures that only one of three actions applied.
-        actions[0] = new AlterColumnDefault(t -> DefaultValue.constant(2));
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", actions), willBe((Object) null));
+        dflt = () -> DefaultValue.constant(2);
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
 
         schema = service.schema(++schemaVer);
         assertNotNull(schema);
         assertEquals(DefaultValue.constant(2), schema.table(TABLE_NAME).column("VAL_NOT_NULL").defaultValue());
 
         // Ensures that no action will be applied.
-        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", actions), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
     }
 
@@ -874,7 +876,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(0));
         assertNull(service.schema(1));
 
-        assertThat(changeColumn(TABLE_NAME, "ID"), willThrowFast(TableNotFoundException.class));
+        assertThat(changeColumn(TABLE_NAME, "ID", null, null, null), willThrowFast(TableNotFoundException.class));
 
         assertNotNull(service.schema(0));
         assertNull(service.schema(1));
@@ -1015,11 +1017,19 @@ public class CatalogServiceSelfTest {
         verifyNoMoreInteractions(eventListener);
     }
 
-    private CompletableFuture<Void> changeColumn(String tab, String col, AlterColumnAction... changes) {
+    private CompletableFuture<Void> changeColumn(
+            String tab,
+            String col,
+            AlterColumnTypeParams type,
+            Boolean notNull,
+            Supplier<DefaultValue> dflt
+    ) {
         return service.alterColumn(AlterColumnParams.builder()
                 .tableName(tab)
                 .columnName(col)
-                .changeActions(List.of(changes))
+                .tyoe(type)
+                .defaultResolver(dflt == null ? null : ignore -> dflt.get())
+                .notNull(notNull)
                 .build());
     }
 

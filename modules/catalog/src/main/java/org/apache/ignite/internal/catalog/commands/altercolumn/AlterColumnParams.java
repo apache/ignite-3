@@ -19,7 +19,12 @@ package org.apache.ignite.internal.catalog.commands.altercolumn;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.descriptors.TypeDescriptor;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ALTER TABLE ... ALTER COLUMN statement.
@@ -28,16 +33,27 @@ import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
 public class AlterColumnParams extends AbstractTableCommandParams {
     private String columnName;
 
-    private List<AlterColumnAction> changeActions = new ArrayList<>(1);
+    private @Nullable AlterColumnTypeParams type;
+
+    private @Nullable Boolean notNull;
+
+    private @Nullable Function<ColumnType, DefaultValue> resolveDfltFunc;
 
     /** Returns column name. */
     public String columnName() {
         return columnName;
     }
 
-    /** Returns list of column change actions. */
-    public List<AlterColumnAction> changeActions() {
-        return changeActions;
+    public @Nullable AlterColumnTypeParams typeDesc() {
+        return type;
+    }
+
+    public @Nullable Boolean notNull() {
+        return notNull;
+    }
+
+    public @Nullable Function<ColumnType, DefaultValue> resolveDfltFunc() {
+        return resolveDfltFunc;
     }
 
     public static AlterColumnParams.Builder builder() {
@@ -52,18 +68,34 @@ public class AlterColumnParams extends AbstractTableCommandParams {
             super(new AlterColumnParams());
         }
 
-        /** Sets list of column change actions. */
-        public Builder changeActions(List<AlterColumnAction> changes) {
-            params.changeActions = new ArrayList<>(changes);
-
-            return this;
-        }
-
         /** Sets column name. */
         public Builder columnName(String name) {
             params.columnName = name;
 
             return this;
         }
+
+        /** Sets column type. */
+        public Builder tyoe(@Nullable AlterColumnTypeParams type) {
+            params.type = type;
+
+            return this;
+        }
+
+        /** Sets column precision. */
+        public Builder notNull(@Nullable Boolean notNull) {
+            params.notNull = notNull;
+
+            return this;
+        }
+
+        /** Sets column name. */
+        public Builder defaultResolver(@Nullable Function<ColumnType, DefaultValue> resolveDfltFunc) {
+            params.resolveDfltFunc = resolveDfltFunc;
+
+            return this;
+        }
+
+
     }
 }
