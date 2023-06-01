@@ -74,14 +74,14 @@ class ItEnabledNodeMetricCommandTest extends CliCommandTestInitializedIntegratio
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs("Set name\tMetric name\tDescription" + NL
                         + "jvm\t\t" + NL
-                        + "\tmemory.heap.committed\tCommitted amount of heap memory" + NL
-                        + "\tmemory.heap.max\tMaximum amount of heap memory" + NL
-                        + "\tmemory.non-heap.max\tMaximum amount of non-heap memory" + NL
-                        + "\tmemory.non-heap.init\tInitial amount of non-heap memory" + NL
-                        + "\tmemory.non-heap.committed\tCommitted amount of non-heap memory" + NL
-                        + "\tmemory.non-heap.used\tUsed amount of non-heap memory" + NL
-                        + "\tmemory.heap.used\tCurrent used amount of heap memory" + NL
-                        + "\tmemory.heap.init\tInitial amount of heap memory" + NL
+                        + "\tmemory.heap.Committed\tCommitted amount of heap memory" + NL
+                        + "\tmemory.heap.Max\tMaximum amount of heap memory" + NL
+                        + "\tmemory.non-heap.Max\tMaximum amount of non-heap memory" + NL
+                        + "\tmemory.non-heap.Init\tInitial amount of non-heap memory" + NL
+                        + "\tmemory.non-heap.Committed\tCommitted amount of non-heap memory" + NL
+                        + "\tmemory.non-heap.Used\tUsed amount of non-heap memory" + NL
+                        + "\tmemory.heap.Used\tCurrent used amount of heap memory" + NL
+                        + "\tmemory.heap.Init\tInitial amount of heap memory" + NL
                 )
         );
     }
