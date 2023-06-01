@@ -33,11 +33,14 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Data streamer subscriber.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
-class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
-    private final StreamerBatchSender<T, TPartition> batchSender;
+class StreamerSubscriber<T, P> implements Subscriber<T> {
+    private final StreamerBatchSender<T, P> batchSender;
 
-    private final StreamerPartitionAwarenessProvider<T, TPartition> partitionAwarenessProvider;
+    private final StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider;
 
     private final DataStreamerOptions options;
 
@@ -52,7 +55,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     // TODO: This can accumulate huge number of buffers for dropped connections over time.
     // We should have some logic to check if a buffer is still needed.
     // Maybe this is fine if we use NodeId as partition? Then we will have only one buffer per node.
-    private final ConcurrentHashMap<TPartition, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<P, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
@@ -67,8 +70,8 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
      * @param options Data streamer options.
      */
     StreamerSubscriber(
-            StreamerBatchSender<T, TPartition> batchSender,
-            StreamerPartitionAwarenessProvider<T, TPartition> partitionAwarenessProvider,
+            StreamerBatchSender<T, P> batchSender,
+            StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
             DataStreamerOptions options,
             IgniteLogger log) {
         assert batchSender != null;
@@ -111,7 +114,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
     public void onNext(T item) {
         pendingItemCount.decrementAndGet();
 
-        TPartition partition = partitionAwarenessProvider.partition(item);
+        P partition = partitionAwarenessProvider.partition(item);
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
                 partition,
@@ -143,7 +146,7 @@ class StreamerSubscriber<T, TPartition> implements Subscriber<T> {
         return completionFut;
     }
 
-    private CompletableFuture<Void> sendBatch(TPartition partition, Collection<T> batch) {
+    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
 

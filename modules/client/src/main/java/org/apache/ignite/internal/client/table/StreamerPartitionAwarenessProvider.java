@@ -23,15 +23,16 @@ import java.util.concurrent.CompletableFuture;
  * Partition awareness provider for data streamer.
  *
  * @param <T> Item type.
+ * @param <P> Partition type.
  */
-interface StreamerPartitionAwarenessProvider<T, TPartition> {
+interface StreamerPartitionAwarenessProvider<T, P> {
     /**
      * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
      *
      * @param item Data item.
      * @return Partition.
      */
-    TPartition partition(T item);
+    P partition(T item);
 
     /**
      * Refreshes schemas and partition mapping asynchronously.

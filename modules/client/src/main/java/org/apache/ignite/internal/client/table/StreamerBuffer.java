@@ -60,17 +60,6 @@ class StreamerBuffer<T> {
         }
     }
 
-    synchronized void flush(long period) {
-        if (closed || buf.isEmpty()) {
-            return;
-        }
-
-        if (System.currentTimeMillis() - lastFlushTime > period) {
-            flush(buf);
-            buf = new ArrayList<>(capacity);
-        }
-    }
-
     synchronized CompletableFuture<Void> flushAndClose() {
         if (closed) {
             throw new IllegalStateException("Streamer is already closed.");
@@ -83,6 +72,17 @@ class StreamerBuffer<T> {
         }
 
         return flushFut == null ? CompletableFuture.completedFuture(null) : flushFut;
+    }
+
+    synchronized void flush(long period) {
+        if (closed || buf.isEmpty()) {
+            return;
+        }
+
+        if (System.currentTimeMillis() - lastFlushTime > period) {
+            flush(buf);
+            buf = new ArrayList<>(capacity);
+        }
     }
 
     private void flush(List<T> b) {
