@@ -27,7 +27,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -82,24 +81,24 @@ public interface TxManager extends IgniteComponent {
      * @deprecated Use lockManager directly.
      */
     @Deprecated
-    public LockManager lockManager();
+    LockManager lockManager();
 
     /**
      * Finishes a dependant transactions.
      *
      * @param commitPartition Partition to store a transaction state.
      * @param recipientNode Recipient node.
-     * @param term Raft term.
+     * @param enlistmentConsistencyToken token that allows to detect whether primary replica changed within transaction.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups with raft terms.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             TablePartitionId commitPartition,
-            ClusterNode recipientNode,
-            Long term,
+            String recipientNode,
+            Long enlistmentConsistencyToken,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
             UUID txId
     );
 
@@ -114,7 +113,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
+            String recipientNode,
             List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
             UUID txId,
             boolean commit,
