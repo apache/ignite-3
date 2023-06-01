@@ -44,7 +44,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -167,10 +166,10 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> finish(
             TablePartitionId commitPartition,
-            ClusterNode recipientNode,
-            Long term,
+            String recipientNode,
+            Long enlistmentConsistencyToken,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
@@ -184,7 +183,7 @@ public class TxManagerImpl implements TxManager {
                 .groups(groups)
                 .commit(commit)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .term(term)
+                .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .build();
 
         return replicaService.invoke(recipientNode, req)
@@ -194,7 +193,7 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
+            String recipientNode,
             List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
             UUID txId,
             boolean commit,
@@ -212,7 +211,7 @@ public class TxManagerImpl implements TxManager {
                             .txId(txId)
                             .commit(commit)
                             .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                            .term(tablePartitionIds.get(i).get2())
+                            .enlistmentConsistencyToken(tablePartitionIds.get(i).get2())
                             .build()
             );
         }
