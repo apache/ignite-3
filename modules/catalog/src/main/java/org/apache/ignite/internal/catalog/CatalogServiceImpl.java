@@ -40,6 +40,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneBindTableException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
@@ -327,12 +329,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 && (params.dataNodesAutoAdjustScaleUp() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE
                 || params.dataNodesAutoAdjustScaleDown() != AbstractZoneCommandParams.INFINITE_TIMER_VALUE)
         ) {
-            throw new IgniteInternalException(
+            return failedFuture(new IgniteInternalException(
                     DistributionZones.ZONE_DEFINITION_ERR,
                     "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
                             + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
                             + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
-            );
+            ));
         }
 
         return saveUpdate(catalog -> {
@@ -354,15 +356,29 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> dropDistributionZone(DropZoneParams params) {
-        //TODO IGNITE-19082 Can default zone be dropped?
         return saveUpdate(catalog -> {
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
-            DistributionZoneDescriptor zone = catalog.zone(params.zoneName());
+            DistributionZoneDescriptor zone = catalog.zone(zoneName);
 
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(zoneName);
             }
+            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
+                //TODO IGNITE-19082 Can default zone be dropped?
+                throw new IgniteInternalException(
+                        DistributionZones.ZONE_DROP_ERR,
+                        "Default distribution zone can't be dropped"
+                );
+            }
+
+            catalog.schemas().stream()
+                    .flatMap(s -> Arrays.stream(s.tables()))
+                    .filter(t -> t.zoneId() == zone.id())
+                    .findAny()
+                    .ifPresent(t -> {
+                        throw new DistributionZoneBindTableException(zoneName, t.name());
+                    });
 
             return List.of(
                     new DropZoneEntry(zone.id())
@@ -372,11 +388,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
-        if (DEFAULT_ZONE_NAME.equals(params.newZoneName())) {
-            return failedFuture(new IllegalArgumentException("Default zone can't be renamed."));
-        }
-
+    public CompletableFuture<Void> renameDistributionZone(RenameZoneParams params) {
         return saveUpdate(catalog -> {
             String zoneName = Objects.requireNonNull(params.newZoneName(), "newZoneName");
 
@@ -385,8 +397,41 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(zoneName);
             }
+            if (zone.name().equals(DEFAULT_ZONE_NAME)) {
+                //TODO IGNITE-19082 Can default zone be renamed?
+                throw new IgniteInternalException(
+                        DistributionZones.ZONE_RENAME_ERR,
+                        "Default distribution zone can't be renamed"
+                );
+            }
 
             return List.of(new RenameZoneEntry(zone.id(), params.newZoneName()));
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
+        return saveUpdate(catalog -> {
+            DistributionZoneDescriptor zone = catalog.zone(params.zoneName());
+
+            if (zone == null) {
+                throw new DistributionZoneNotFoundException(params.zoneName());
+            }
+
+            if (params.dataNodesAutoAdjust() != null
+                    && (params.dataNodesAutoAdjustScaleUp() != null
+                    || params.dataNodesAutoAdjustScaleDown() != null)
+            ) {
+                throw new IgniteInternalException(
+                        DistributionZones.ZONE_DEFINITION_ERR,
+                        "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
+                                + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
+                                + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
+                );
+            }
+
+            //TODO:
+            return List.of();
         });
     }
 

@@ -24,6 +24,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
@@ -102,6 +104,20 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
 
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                            .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterZoneRenameCommand) {
+            AlterZoneRenameCommand zoneCommand = (AlterZoneRenameCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.renameDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                            .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterZoneSetCommand) {
+            AlterZoneSetCommand zoneCommand = (AlterZoneSetCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.alterDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
                             .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
                     );
         }

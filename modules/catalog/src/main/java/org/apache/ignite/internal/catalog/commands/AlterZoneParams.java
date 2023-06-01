@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
- * ALTER ZONE ... statement.
+ * ALTER ZONE SET statement.
  */
 public class AlterZoneParams extends AbstractZoneCommandParams {
     /** Creates parameters builder. */
@@ -26,14 +28,76 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
         return new Builder();
     }
 
-    /** New zone name. */
-    private String newZoneName;
+    /** Number of zone replicas. */
+    private @Nullable Integer replicas;
+
+    /** Number of zone partitions. */
+    private @Nullable Integer partitions;
+
+    /** Data nodes auto adjust timeout. */
+    private @Nullable Integer dataNodesAutoAdjust;
+
+    /** Data nodes auto adjust scale up timeout. */
+    private @Nullable Integer dataNodesAutoAdjustScaleUp;
+
+    /** Data nodes auto adjust scale down timeout. */
+    private @Nullable Integer dataNodesAutoAdjustScaleDown;
+
+    /* Nodes' filter. */
+    private @Nullable String filter;
 
     /**
-     * Returns new name for a zone.
+     * Gets number of zone replicas.
+     *
+     * @return Number of zone replicas.
      */
-    public String newZoneName() {
-        return newZoneName;
+    public @Nullable Integer replicas() {
+        return replicas;
+    }
+
+    /**
+     * Gets number of zone partitions.
+     *
+     * @return Number of zone partitions.
+     */
+    public @Nullable Integer partitions() {
+        return partitions;
+    }
+
+    /**
+     * Gets nodes' filter.
+     *
+     * @return Nodes' filter.
+     */
+    public @Nullable String filter() {
+        return filter;
+    }
+
+    /**
+     * Gets timeout in seconds between node added or node left topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust timeout.
+     */
+    public @Nullable Integer dataNodesAutoAdjust() {
+        return dataNodesAutoAdjust;
+    }
+
+    /**
+     * Gets timeout in seconds between node added topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust scale up timeout.
+     */
+    public @Nullable Integer dataNodesAutoAdjustScaleUp() {
+        return dataNodesAutoAdjustScaleUp;
+    }
+
+    /**
+     * Gets timeout in seconds between node left topology event itself and data nodes switch.
+     *
+     * @return Data nodes auto adjust scale down timeout.
+     */
+    public @Nullable Integer dataNodesAutoAdjustScaleDown() {
+        return dataNodesAutoAdjustScaleDown;
     }
 
     /**
@@ -45,12 +109,73 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
         }
 
         /**
-         * Sets new name for a zone.
+         * Sets the number of replicas.
          *
-         * @param zoneName New zone name.
+         * @param replicas Number of replicas.
+         * @return This instance.
          */
-        public Builder newZoneName(String zoneName) {
-            params.newZoneName = zoneName;
+        public Builder replicas(@Nullable Integer replicas) {
+            params.replicas = replicas;
+
+            return this;
+        }
+
+        /**
+         * Sets the number of partitions.
+         *
+         * @param partitions Number of partitions.
+         * @return This instance.
+         */
+        public Builder partitions(@Nullable Integer partitions) {
+            params.partitions = partitions;
+
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
+         *
+         * @param dataNodesAutoAdjust Timeout.
+         * @return This instance.
+         */
+        public Builder dataNodesAutoAdjust(@Nullable Integer dataNodesAutoAdjust) {
+            params.dataNodesAutoAdjust = dataNodesAutoAdjust;
+
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node added topology event itself and data nodes switch.
+         *
+         * @param dataNodesAutoAdjustScaleUp Timeout.
+         * @return This instance.
+         */
+        public Builder dataNodesAutoAdjustScaleUp(@Nullable Integer dataNodesAutoAdjustScaleUp) {
+            params.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node left topology event itself and data nodes switch.
+         *
+         * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
+         * @return This instance.
+         */
+        public Builder dataNodesAutoAdjustScaleDown(@Nullable Integer dataNodesAutoAdjustScaleDown) {
+            params.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+
+            return this;
+        }
+
+        /**
+         * Sets nodes' filter.
+         *
+         * @param filter Nodes' filter.
+         * @return This instance.
+         */
+        public Builder filter(@Nullable String filter) {
+            params.filter = filter;
 
             return this;
         }

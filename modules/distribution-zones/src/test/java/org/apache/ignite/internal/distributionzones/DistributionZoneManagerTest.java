@@ -45,11 +45,11 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.FilterValidator;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneBindTableException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;

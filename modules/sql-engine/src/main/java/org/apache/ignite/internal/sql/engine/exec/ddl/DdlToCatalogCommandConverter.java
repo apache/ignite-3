@@ -21,14 +21,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
@@ -80,6 +84,24 @@ class DdlToCatalogCommandConverter {
     static DropZoneParams convert(DropZoneCommand cmd) {
         return DropZoneParams.builder()
                 .zoneName(cmd.zoneName())
+                .build();
+    }
+
+    static RenameZoneParams convert(AlterZoneRenameCommand cmd) {
+        return RenameZoneParams.builder()
+                .zoneName(cmd.zoneName())
+                .build();
+    }
+
+    static AlterZoneParams convert(AlterZoneSetCommand cmd) {
+        return AlterZoneParams.builder()
+                .zoneName(cmd.zoneName())
+                .partitions(cmd.partitions())
+                .replicas(cmd.replicas())
+                .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
+                .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
+                .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
+                .filter(cmd.nodeFilter())
                 .build();
     }
 

@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.exception;
+package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_BIND_TABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_DROP_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,7 +44,7 @@ public class DistributionZoneBindTableException extends IgniteInternalException 
      * @param cause Optional nested exception (can be {@code null}).
      */
     public DistributionZoneBindTableException(String zoneName, String tableName, @Nullable Throwable cause) {
-        super(ZONE_BIND_TABLE_ERR, "Distribution zone is assigned to the table [zoneName=" + zoneName + ", tableName=" + tableName + ']',
+        super(ZONE_DROP_ERR, "Distribution zone is assigned to the table [zoneName=" + zoneName + ", tableName=" + tableName + ']',
                 cause);
     }
 

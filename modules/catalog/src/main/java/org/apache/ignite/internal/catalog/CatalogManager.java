@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -86,4 +87,12 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Operation future.
      */
     CompletableFuture<Void> alterDistributionZone(AlterZoneParams params);
+
+    /**
+     * Rename distribution zone.
+     *
+     * @param params Parameters.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> renameDistributionZone(RenameZoneParams params);
 }

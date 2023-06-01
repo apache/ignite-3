@@ -100,6 +100,10 @@ public class Catalog {
         return schemas.get(name);
     }
 
+    public Collection<SchemaDescriptor> schemas() {
+        return schemas.values();
+    }
+
     public TableDescriptor table(int tableId) {
         return tablesMap.get(tableId);
     }

@@ -42,13 +42,13 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
@@ -724,7 +724,7 @@ public class CatalogServiceSelfTest {
                 .replicas(15)
                 .build();
 
-        AlterZoneParams alterZoneParams = AlterZoneParams.builder()
+        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
                 .zoneName(ZONE_NAME)
                 .newZoneName("RenamedZone")
                 .build();
@@ -735,7 +735,7 @@ public class CatalogServiceSelfTest {
 
         Thread.sleep(5);
 
-        assertThat(service.alterDistributionZone(alterZoneParams), willBe((Object) null));
+        assertThat(service.renameDistributionZone(renameZoneParams), willBe((Object) null));
 
         // Validate catalog version from the past.
         DistributionZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
