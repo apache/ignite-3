@@ -75,7 +75,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(String name, int version) {
-        throw new UnsupportedOperationException();
+        return schema(name);
     }
 
     /** {@inheritDoc} */
@@ -87,7 +87,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
-        throw new UnsupportedOperationException();
+        return schema(name);
     }
 
     /** {@inheritDoc} */
