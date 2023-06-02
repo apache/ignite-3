@@ -26,14 +26,13 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -127,15 +126,18 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
+        @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have only 1 node,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
-                TIMEOUT_MILLIS
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name(), node(1).name()),
+                TIMEOUT_MILLIS * 2
         );
-
-        @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter
         startNode(2, createStartConfig(secondNodeAttributes));
@@ -156,22 +158,11 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                2,
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name(), node(2).name()),
                 TIMEOUT_MILLIS * 2
         );
-
-        byte[] stableAssignments = metaStorageManager.get(stablePartAssignmentsKey(partId)).get(5_000, MILLISECONDS).value();
-
-        assertNotNull(stableAssignments);
-
-        Set<String> stable = ((Set<Assignment>) fromBytes(stableAssignments)).stream()
-                .map(Assignment::consistentId)
-                .collect(Collectors.toSet());
-
-        assertEquals(2, stable.size());
-
-        assertTrue(stable.contains(node(0).name()) && stable.contains(node(2).name()));
     }
 
     /**
@@ -209,11 +200,14 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
                 TIMEOUT_MILLIS
         );
 
@@ -274,11 +268,14 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
                 TIMEOUT_MILLIS
         );
 
@@ -298,7 +295,16 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
 
-        assertPendingStableAreNull(metaStorageManager, partId);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
+        // which pass the filter, when dataNodes from DistributionZoneManager will be used
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> ((Set<Assignment>) fromBytes(v))
+                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
+                Set.of(node(0).name()),
+                TIMEOUT_MILLIS
+        );
     }
 
     /**
@@ -348,15 +354,15 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingStableAreNull(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
 
-        //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingStableAreNull(metaStorageManager, partId);
+        //Check that pending are null, so there wasn't any rebalance.
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
     @Test
@@ -400,7 +406,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingStableAreNull(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
@@ -408,7 +414,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingStableAreNull(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
                 + "\"REPLICAS\" = 2");
@@ -441,7 +447,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         latch.await(10_000, MILLISECONDS);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingStableAreNull(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
     private static void waitDataNodeAndListenersAreHandled(
@@ -474,24 +480,10 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         );
     }
 
-    private static void assertPendingStableAreNull(
+    private static void assertPendingAssignmentsWereNeverExist(
             MetaStorageManager metaStorageManager,
             TablePartitionId partId
-    ) throws InterruptedException {
-        assertValueInStorage(
-                metaStorageManager,
-                pendingPartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
-                TIMEOUT_MILLIS
-        );
-
-        assertValueInStorage(
-                metaStorageManager,
-                stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
-                null,
-                TIMEOUT_MILLIS
-        );
+    ) throws InterruptedException, ExecutionException {
+        assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
     }
 }

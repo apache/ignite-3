@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -582,12 +584,25 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
-                extConfCh.changeId(tableId);
-                extConfCh.changeZoneId(zoneId);
 
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
+                extConfCh.changeId(tableId);
+
+                extConfCh.changeZoneId(zoneId);
             });
-        }).get();
+        }).thenCompose(v -> {
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
+
+            for (int i = 0; i < assignments.size(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
+
+            }
+
+            return metaStorageManager.putAll(partitionAssignments);
+        })
+        .get();
 
         var grpPart0 = new TablePartitionId(tableId, 0);
 
