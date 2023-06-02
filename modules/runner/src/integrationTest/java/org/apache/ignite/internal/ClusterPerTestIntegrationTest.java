@@ -94,7 +94,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
 
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
-        cluster.startAndInit(initialNodes());
+        cluster.startAndInit(initialNodes(), cmgMetastoreNodes());
     }
 
     /**
@@ -118,6 +118,10 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      */
     protected int initialNodes() {
         return 3;
+    }
+
+    protected int[] cmgMetastoreNodes() {
+        return new int[] { 0 };
     }
 
     /**

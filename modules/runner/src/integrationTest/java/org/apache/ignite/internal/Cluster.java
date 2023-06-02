@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -119,13 +120,17 @@ public class Cluster {
         this.defaultNodeBootstrapConfigTemplate = defaultNodeBootstrapConfigTemplate;
     }
 
+    public void startAndInit(int nodeCount) {
+        startAndInit(nodeCount, new int[] { 0 });
+    }
+
     /**
      * Starts the cluster with the given number of nodes and initializes it.
      *
      * @param nodeCount Number of nodes in the cluster.
      */
-    public void startAndInit(int nodeCount) {
-        startAndInit(nodeCount, builder -> {});
+    public void startAndInit(int nodeCount, int[] cmgNodes) {
+        startAndInit(nodeCount, cmgNodes, builder -> {});
     }
 
     /**
@@ -134,7 +139,7 @@ public class Cluster {
      * @param nodeCount Number of nodes in the cluster.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
-    public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
+    public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -143,11 +148,11 @@ public class Cluster {
                 .mapToObj(this::startClusterNode)
                 .collect(toList());
 
-        String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
+        List<String> metaStorageAndCmgNodeNames = Arrays.stream(cmgNodes).mapToObj(i -> testNodeName(testInfo, i)).collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeName)
-                .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                .destinationNodeName(metaStorageAndCmgNodeNames.get(0))
+                .metaStorageNodeNames(metaStorageAndCmgNodeNames)
                 .clusterName("cluster");
 
         initParametersConfigurator.accept(builder);
