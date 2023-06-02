@@ -732,6 +732,9 @@ public class CatalogServiceSelfTest {
         // Validate actual catalog
         assertNull(service.zone(ZONE_NAME, System.currentTimeMillis()));
         assertNull(service.zone(2, System.currentTimeMillis()));
+
+        // Try to drop non-existing zone.
+        assertThat(service.dropDistributionZone(params), willThrow(DistributionZoneNotFoundException.class));
     }
 
     @Test
@@ -775,6 +778,60 @@ public class CatalogServiceSelfTest {
         assertSame(zone, service.zone(2, System.currentTimeMillis()));
     }
 
+    @Test
+    public void testDefaultZone() {
+        DistributionZoneDescriptor defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis());
+
+        // Try to create zone with default zone name.
+        CreateZoneParams createParams = CreateZoneParams.builder()
+                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+        assertThat(service.createDistributionZone(createParams), willThrow(IgniteInternalException.class));
+
+        // Validate default zone wasn't changed.
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis()));
+
+        // Try to rename default zone.
+        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
+                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .newZoneName("RenamedDefaultZone")
+                .build();
+        assertThat(service.renameDistributionZone(renameZoneParams), willThrow(IgniteInternalException.class));
+
+        // Validate default zone wasn't changed.
+        assertNull(service.zone("RenamedDefaultZone", System.currentTimeMillis()));
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis()));
+
+        // Try to drop default zone.
+        DropZoneParams dropZoneParams = DropZoneParams.builder()
+                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .build();
+        assertThat(service.dropDistributionZone(dropZoneParams), willThrow(IgniteInternalException.class));
+
+        // Validate default zone wasn't changed.
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis()));
+
+        // Try to rename to a zone with default name.
+        createParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+        renameZoneParams = RenameZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .newZoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .build();
+
+        assertThat(service.createDistributionZone(createParams), willBe((Object) null));
+        defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis());
+
+        assertThat(service.renameDistributionZone(renameZoneParams), willThrow(DistributionZoneAlreadyExistsException.class));
+
+        // Validate default zone wasn't changed.
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis()));
+    }
 
     @Test
     public void testAlterZone() {
