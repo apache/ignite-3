@@ -27,5 +27,8 @@ public enum CatalogEvent implements Event {
     TABLE_CREATE,
 
     /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP
+    TABLE_DROP,
+
+    /** This event is fired, when a column was added to or dropped from a table. */
+    TABLE_ALTER,
 }

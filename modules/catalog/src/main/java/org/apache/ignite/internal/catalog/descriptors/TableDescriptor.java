@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,9 +38,9 @@ public class TableDescriptor extends ObjectDescriptor {
     private final int zoneId = 0;
     private final int engineId = 0;
 
-    private final TableColumnDescriptor[] columns;
-    private final String[] primaryKeyColumns;
-    private final String[] colocationColumns;
+    private final List<TableColumnDescriptor> columns;
+    private final List<String> primaryKeyColumns;
+    private final List<String> colocationColumns;
 
     @IgniteToStringExclude
     private transient Map<String, TableColumnDescriptor> columnsMap;
@@ -64,20 +63,19 @@ public class TableDescriptor extends ObjectDescriptor {
     ) {
         super(id, Type.TABLE, name);
 
-        this.columns = Objects.requireNonNull(columns, "No columns defined.").toArray(TableColumnDescriptor[]::new);
-        primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.").toArray(String[]::new);
-        colocationColumns = colocationCols == null ? primaryKeyColumns : colocationCols.toArray(String[]::new);
+        this.columns = Objects.requireNonNull(columns, "No columns defined.");
+        primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
+        colocationColumns = colocationCols == null ? pkCols : colocationCols;
 
         this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
 
         // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
-        assert primaryKeyColumns.length > 0 : "No primary key columns.";
-        assert colocationColumns.length > 0 : "No colocation columns.";
+        assert !primaryKeyColumns.isEmpty() : "No primary key columns.";
+        assert !colocationColumns.isEmpty() : "No colocation columns.";
 
-        assert Arrays.stream(primaryKeyColumns).noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
-        //noinspection ArrayEquality
-        assert primaryKeyColumns == colocationColumns || Set.of(primaryKeyColumns).containsAll(List.of(colocationColumns));
+        assert primaryKeyColumns.stream().noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
+        assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
     }
 
     public int zoneId() {
@@ -88,9 +86,29 @@ public class TableDescriptor extends ObjectDescriptor {
         return engineId;
     }
 
+    public List<String> primaryKeyColumns() {
+        return primaryKeyColumns;
+    }
+
+    public List<String> colocationColumns() {
+        return colocationColumns;
+    }
+
+    public List<TableColumnDescriptor> columns() {
+        return columns;
+    }
+
+    public TableColumnDescriptor column(String name) {
+        return columnsMap.get(name);
+    }
+
+    public boolean isPrimaryKeyColumn(String name) {
+        return primaryKeyColumns.contains(name);
+    }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
-        this.columnsMap = Arrays.stream(columns).collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
+        this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
     }
 
     /** {@inheritDoc} */
