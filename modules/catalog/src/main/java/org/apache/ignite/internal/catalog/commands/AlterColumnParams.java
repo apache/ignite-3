@@ -15,14 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands.altercolumn;
+package org.apache.ignite.internal.catalog.commands;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
-import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.TypeDescriptor;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,19 +28,31 @@ import org.jetbrains.annotations.Nullable;
 public class AlterColumnParams extends AbstractTableCommandParams {
     private String columnName;
 
-    private @Nullable AlterColumnTypeParams type;
+    private ColumnType type;
 
-    private @Nullable Boolean notNull;
+    private Integer precision;
 
-    private @Nullable Function<ColumnType, DefaultValue> resolveDfltFunc;
+    private Integer scale;
+
+    private Boolean notNull;
+
+    private Function<ColumnType, DefaultValue> resolveDfltFunc;
 
     /** Returns column name. */
     public String columnName() {
         return columnName;
     }
 
-    public @Nullable AlterColumnTypeParams typeDesc() {
+    public @Nullable ColumnType type() {
         return type;
+    }
+
+    public @Nullable Integer precision() {
+        return precision;
+    }
+
+    public @Nullable Integer scale() {
+        return scale;
     }
 
     public @Nullable Boolean notNull() {
@@ -76,26 +83,38 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         }
 
         /** Sets column type. */
-        public Builder tyoe(@Nullable AlterColumnTypeParams type) {
+        public Builder type(ColumnType type) {
             params.type = type;
 
             return this;
         }
 
+        /** Sets precision. */
+        public Builder precision(int precision) {
+            params.precision = precision;
+
+            return this;
+        }
+
+        /** Sets scale. */
+        public Builder scale(int scale) {
+            params.scale = scale;
+
+            return this;
+        }
+
         /** Sets column precision. */
-        public Builder notNull(@Nullable Boolean notNull) {
+        public Builder notNull(boolean notNull) {
             params.notNull = notNull;
 
             return this;
         }
 
         /** Sets column name. */
-        public Builder defaultResolver(@Nullable Function<ColumnType, DefaultValue> resolveDfltFunc) {
+        public Builder defaultResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
             params.resolveDfltFunc = resolveDfltFunc;
 
             return this;
         }
-
-
     }
 }

@@ -27,8 +27,6 @@ import org.jetbrains.annotations.Nullable;
  * ALTER TABLE ... ALTER COLUMN statement.
  */
 public class AlterColumnCommand extends AbstractTableDdlCommand {
-//    private final List<AlterColumnAction> changes = new ArrayList<>(1);
-
     private String columnName;
 
     private RelDataType type;
@@ -45,28 +43,24 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         columnName = name;
     }
 
-//    public List<AlterColumnAction> changes() {
-//        return changes;
-//    }
-
-    void alterType(RelDataType type) {
+    void type(RelDataType type) {
         this.type = type;
-    }
-
-    void alterNotNull(boolean notNull) {
-        this.notNull = notNull;
-    }
-
-    void alterDefault(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-        this.resolveDfltFunc = resolveDfltFunc;
     }
 
     @Nullable public RelDataType type() {
         return type;
     }
 
+    void notNull(boolean notNull) {
+        this.notNull = notNull;
+    }
+
     @Nullable public Boolean notNull() {
         return notNull;
+    }
+
+    void defaultResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
+        this.resolveDfltFunc = resolveDfltFunc;
     }
 
     @Nullable public Function<ColumnType, DefaultValue> defaultResolver() {

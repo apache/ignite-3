@@ -432,11 +432,11 @@ public class DdlSqlToCommandConverter {
         cmd.columnName(alterColumnNode.columnName().getSimple());
 
         if (alterColumnNode.dataType() != null) {
-            cmd.alterType(ctx.planner().convert(alterColumnNode.dataType(), true));
+            cmd.type(ctx.planner().convert(alterColumnNode.dataType(), true));
         }
 
         if (alterColumnNode.notNull() != null) {
-            cmd.alterNotNull(alterColumnNode.notNull());
+            cmd.notNull(alterColumnNode.notNull());
         }
 
         if (alterColumnNode.expression() != null) {
@@ -452,7 +452,7 @@ public class DdlSqlToCommandConverter {
                 throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
             }
 
-            cmd.alterDefault(resolveDfltFunc);
+            cmd.defaultResolver(resolveDfltFunc);
         }
 
         return cmd;

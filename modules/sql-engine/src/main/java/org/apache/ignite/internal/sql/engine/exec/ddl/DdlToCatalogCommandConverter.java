@@ -20,15 +20,13 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnTypeParams;
-import org.apache.ignite.internal.catalog.descriptors.TypeDescriptor;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -68,23 +66,34 @@ class DdlToCatalogCommandConverter {
     }
 
     static AlterColumnParams convert(AlterColumnCommand cmd) {
-        RelDataType type = cmd.type();
-
-        return AlterColumnParams.builder()
+        AlterColumnParams.Builder builder = AlterColumnParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .columnName(cmd.columnName())
-                .notNull(cmd.notNull())
-                .tyoe(type == null
-                        ? null
-                        // TODO use builder
-                        : new AlterColumnTypeParams(
-                                TypeUtils.columnType(type),
-                                type.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED ? null : type.getPrecision(),
-                                type.getScale() == RelDataType.SCALE_NOT_SPECIFIED ? null : type.getScale()
-                        ))
-                .defaultResolver(cmd.defaultResolver())
-                .build();
+                .columnName(cmd.columnName());
+
+        if (cmd.notNull() != null) {
+            builder.notNull(cmd.notNull());
+        }
+
+        if (cmd.defaultResolver() != null) {
+            builder.defaultResolver(cmd.defaultResolver());
+        }
+
+        RelDataType type = cmd.type();
+
+        if (type != null) {
+            builder.type(TypeUtils.columnType(type));
+
+            if (type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED) {
+                builder.precision(type.getPrecision());
+            }
+
+            if (type.getScale() != RelDataType.SCALE_NOT_SPECIFIED) {
+                builder.scale(type.getScale());
+            }
+        }
+
+        return builder.build();
     }
 
     static AlterTableAddColumnParams convert(AlterTableAddCommand cmd) {

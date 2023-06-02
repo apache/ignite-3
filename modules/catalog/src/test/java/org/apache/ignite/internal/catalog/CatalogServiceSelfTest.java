@@ -46,14 +46,14 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.altercolumn.AlterColumnTypeParams;
 import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
@@ -83,6 +83,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.hamcrest.TypeSafeMatcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -658,7 +659,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        AlterColumnTypeParams typeParams = AlterColumnTypeParams.builder().type(type).precision(10).build();
+        TestColumnTypeParams typeParams = new TestColumnTypeParams(type, 10, null);
 
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), typeParams, null, null),
@@ -695,20 +696,20 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // ANY-> UNDEFINED PRECISION : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).build(), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // UNDEFINED PRECISION -> 10 : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).precision(10).build(), null, null),
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null), null, null),
                 willBe((Object) null)
         );
         assertNotNull(service.schema(++schemaVer));
 
         // 10 -> 11 : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).precision(11).build(), null, null),
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null), null, null),
                 willBe((Object) null)
         );
 
@@ -726,7 +727,7 @@ public class CatalogServiceSelfTest {
                 : "Cannot decrease length to 10 for column '" + col.name() + "'.";
 
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).precision(10).build(), null, null),
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null), null, null),
                 willThrowFast(SqlException.class, expMsg)
         );
         assertNull(service.schema(schemaVer + 1));
@@ -744,22 +745,22 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // ANY-> UNDEFINED SCALE : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).build(), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 3 : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).scale(3).build(), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 3), null, null),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 4 : Error.
-        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).scale(4).build(), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 4), null, null),
                 willThrowFast(SqlException.class, "Cannot change scale to 4 for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
-        assertThat(changeColumn(TABLE_NAME, col.name(), AlterColumnTypeParams.builder().type(col.type()).scale(2).build(), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 2), null, null),
                 willThrowFast(SqlException.class, "Cannot change scale to 2 for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
     }
@@ -801,8 +802,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-//        AlterColumnType changeType = new AlterColumnType(target, null, null);
-
         for (ColumnParams col : testColumns) {
             TypeSafeMatcher<CompletableFuture<?>> matcher;
             boolean sameType = col.type() == target;
@@ -815,7 +814,7 @@ public class CatalogServiceSelfTest {
                         "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
             }
 
-            AlterColumnTypeParams tyoeParams = AlterColumnTypeParams.builder().type(target).build();
+            TestColumnTypeParams tyoeParams = new TestColumnTypeParams(target);
 
             assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), tyoeParams, null, null), matcher);
             assertNotNull(service.schema(schemaVer));
@@ -827,7 +826,7 @@ public class CatalogServiceSelfTest {
     public void testAlterColumnTypeRejectedForPrimaryKey() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
-        assertThat(changeColumn(TABLE_NAME, "ID", AlterColumnTypeParams.builder().type(ColumnType.INT64).build(), null, null),
+        assertThat(changeColumn(TABLE_NAME, "ID", new TestColumnTypeParams(ColumnType.INT64), null, null),
                 willThrowFast(SqlException.class, "Cannot change data type for primary key column 'ID'."));
     }
 
@@ -845,7 +844,7 @@ public class CatalogServiceSelfTest {
 
         Supplier<DefaultValue> dflt = () -> DefaultValue.constant(null);
         boolean notNull = false;
-        AlterColumnTypeParams typeParams = AlterColumnTypeParams.builder().type(ColumnType.INT64).build();
+        TestColumnTypeParams typeParams = new TestColumnTypeParams(ColumnType.INT64);
 
         // Ensures that 3 different actions applied.
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
@@ -1020,17 +1019,35 @@ public class CatalogServiceSelfTest {
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
-            AlterColumnTypeParams type,
-            Boolean notNull,
-            Supplier<DefaultValue> dflt
+            @Nullable TestColumnTypeParams typeParams,
+            @Nullable Boolean notNull,
+            @Nullable Supplier<DefaultValue> dflt
     ) {
-        return service.alterColumn(AlterColumnParams.builder()
+        Builder builder = AlterColumnParams.builder()
                 .tableName(tab)
-                .columnName(col)
-                .tyoe(type)
-                .defaultResolver(dflt == null ? null : ignore -> dflt.get())
-                .notNull(notNull)
-                .build());
+                .columnName(col);
+
+        if (typeParams != null) {
+            builder.type(typeParams.type);
+
+            if (typeParams.precision != null) {
+                builder.precision(typeParams.precision);
+            }
+
+            if (typeParams.scale != null) {
+                builder.scale(typeParams.scale);
+            }
+        }
+
+        if (notNull != null) {
+            builder.notNull(notNull);
+        }
+
+        if (dflt != null) {
+            builder.defaultResolver(ignore -> dflt.get());
+        }
+
+        return service.alterColumn(builder.build());
     }
 
     private static CreateTableParams simpleTable(String name) {
@@ -1054,5 +1071,21 @@ public class CatalogServiceSelfTest {
                 .columns(cols)
                 .primaryKeyColumns(List.of(cols.get(0).name()))
                 .build();
+    }
+
+    private static class TestColumnTypeParams {
+        private final ColumnType type;
+        private final Integer precision;
+        private final Integer scale;
+
+        private TestColumnTypeParams(ColumnType type) {
+            this(type, null, null);
+        }
+
+        private TestColumnTypeParams(ColumnType type, @Nullable Integer precision, @Nullable Integer scale) {
+            this.type = type;
+            this.precision = precision;
+            this.scale = scale;
+        }
     }
 }
