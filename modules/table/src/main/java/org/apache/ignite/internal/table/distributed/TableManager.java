@@ -558,7 +558,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
-            var createTableFut = createTableLocally(
+            CompletableFuture<?> createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
                     ctx.newValue().id(),
