@@ -48,7 +48,10 @@ public class CatalogUtils {
      * @return Column descriptor.
      */
     public static TableColumnDescriptor fromParams(ColumnParams params) {
+        int precision = params.precision() != null ? params.precision() : 0;
+        int scale = params.scale() != null ? params.scale() : 0;
+
         return new TableColumnDescriptor(params.name(), params.type(), params.nullable(),
-                params.precision(), params.scale(), params.defaultValueDefinition());
+                precision, scale, params.defaultValueDefinition());
     }
 }
