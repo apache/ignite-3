@@ -15,50 +15,51 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.node.unit;
 
+
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusCall;
-import org.apache.ignite.internal.cli.call.unit.UnitStatusCallInput;
+import org.apache.ignite.internal.cli.call.node.unit.NodeListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.internal.cli.commands.UnitListOptionsMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.UnitStatusDecorator;
+import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Option;
 
-/** Command to show status of the unit in REPL mode. */
-@Command(name = "status", description = "Shows status of the unit")
-public class UnitStatusReplCommand extends BaseCommand implements Runnable {
+/** Command to list deployed units in REPL mode. */
+@Command(name = "list", description = "Shows a list of deployed units")
+public class NodeUnitListReplCommand extends BaseCommand implements Runnable {
+    @Mixin
+    private UnitListOptionsMixin listOptions;
 
     @Mixin
-    private ClusterUrlMixin clusterUrl;
+    private NodeUrlMixin nodeUrl;
 
-    /** Unit id. */
-    @Parameters(index = "0")
-    private String id;
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
-    private UnitStatusCall call;
+    private NodeListUnitCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(clusterUrl -> UnitStatusCallInput.builder()
-                        .id(id)
-                        .clusterUrl(clusterUrl)
-                        .build())
+        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+                .map(listOptions::toListUnitCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot get unit status", "cluster init"))
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
                 .verbose(verbose)
-                .print(new UnitStatusDecorator())
+                .print(new UnitListDecorator(plain))
                 .start();
     }
 }

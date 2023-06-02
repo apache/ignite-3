@@ -94,7 +94,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     }
 
     @AfterEach
-    void tearDown() {
+    public void tearDown() {
         session.disconnect();
     }
 

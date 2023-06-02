@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.node.unit;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
-/** Manages deployment units. */
-@Command(name = "unit", subcommands = {
-        UnitDeployCommand.class,
-        UnitUndeployCommand.class,
-        UnitListCommand.class,
-        UnitStatusCommand.class
-}, description = "Manages deployment units")
-public class UnitCommand extends BaseCommand {
+/** Manages deployment units on node level. */
+@Command(name = "unit", subcommands = NodeUnitListCommand.class, description = "Manages deployment units")
+public class NodeUnitCommand extends BaseCommand {
 }
-

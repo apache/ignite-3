@@ -15,26 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.call.cluster.unit;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
-/** Base class for testing CLI sql command which creates a table before each test. */
-public class CliSqlCommandTestBase extends CliCommandTestInitializedIntegrationBase {
-    @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-        createAndPopulateTable();
+/** Factory for {@link DeployUnitCall}. */
+@Singleton
+public class DeployUnitCallFactory {
+
+    private final ApiClientFactory factory;
+
+    private final UnitsRegistry registry;
+
+    public DeployUnitCallFactory(ApiClientFactory factory, UnitsRegistry registry) {
+        this.factory = factory;
+        this.registry = registry;
     }
 
-    @Override
-    @AfterEach
-    public void tearDown() {
-        super.tearDown();
-        dropAllTables();
+    public DeployUnitCall create(ProgressTracker tracker) {
+        return new DeployUnitCall(tracker, factory, registry);
     }
 }
