@@ -149,6 +149,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override
+    public void validateUpdate(SqlUpdate call) {
+        validateUpdateFields(call);
+
+        super.validateUpdate(call);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void validateLiteral(SqlLiteral literal) {
         if (literal.getTypeName() != SqlTypeName.DECIMAL) {
             super.validateLiteral(literal);
