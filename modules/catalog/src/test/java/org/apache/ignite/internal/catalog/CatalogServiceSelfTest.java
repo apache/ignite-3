@@ -914,6 +914,7 @@ public class CatalogServiceSelfTest {
                 .primaryKeyColumns(List.of("ID"))
                 .build();
     }
+
     private static CreateSortedIndexParams simpleIndex(String indexName, String tableName) {
         return CreateSortedIndexParams.builder()
                 .indexName(indexName)

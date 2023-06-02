@@ -72,7 +72,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
     CompletableFuture<Void> createIndex(CreateSortedIndexParams params);
 
     /**
-     * Creates new index.
+     * Creates new hash index.
      *
      * @param params Parameters.
      * @return Operation future.

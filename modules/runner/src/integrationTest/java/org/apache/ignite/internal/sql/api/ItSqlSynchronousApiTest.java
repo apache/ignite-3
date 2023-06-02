@@ -62,7 +62,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -102,7 +101,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         return CLUSTER_NODES.get(0).transactions();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19592")
     @Test
     public void ddl() throws Exception {
         IgniteSql sql = igniteSql();

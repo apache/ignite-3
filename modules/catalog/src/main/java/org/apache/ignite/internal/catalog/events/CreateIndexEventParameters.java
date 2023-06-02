@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.events;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 
 /**
- * Create index event parameters contains a index descriptor for a newly created index.
+ * Create index event parameters that contains a newly created index descriptor.
  */
 public class CreateIndexEventParameters extends CatalogEventParameters {
 

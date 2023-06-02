@@ -277,7 +277,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19592")
     @Test
     public void testAddIndexFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
@@ -472,7 +471,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
-        var tmpl  = "CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)";
+        var tmpl = "CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)";
         var sql = String.format(tmpl, tableName);
 
         try (Session ses = node.sql().createSession()) {
@@ -605,7 +604,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addIndexIfNotExists(Ignite node, String tableName) {
         try (Session ses = node.sql().createSession()) {
-            ses.execute(null, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (CAT_ID)", tableName));
+            ses.execute(null, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (valInt)", tableName));
         }
     }
 }

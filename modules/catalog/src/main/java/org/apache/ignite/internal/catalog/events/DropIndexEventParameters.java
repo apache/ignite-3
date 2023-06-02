@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.events;
 
 /**
- * Drop index event parameters contains an id of dropped index.
+ * Drop index event parameters that contains an id of dropped index.
  */
 public class DropIndexEventParameters extends CatalogEventParameters {
 
