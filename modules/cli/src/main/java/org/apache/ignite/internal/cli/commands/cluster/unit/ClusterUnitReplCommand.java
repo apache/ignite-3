@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /** Manages deployment units in REPL mode. */
 @Command(name = "unit", subcommands = {
-        UnitDeployReplCommand.class,
-        UnitUndeployReplCommand.class,
-        UnitListReplCommand.class,
-        UnitStatusReplCommand.class
+        ClusterUnitDeployReplCommand.class,
+        ClusterUnitUndeployReplCommand.class,
+        ClusterUnitListReplCommand.class
 }, description = "Manages deployment units")
-public class UnitReplCommand extends BaseCommand {
+public class ClusterUnitReplCommand extends BaseCommand {
 }
-

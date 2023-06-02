@@ -34,7 +34,6 @@ public final class UnitKey {
     private static final String DELIMITER = ":";
 
     private UnitKey() {
-
     }
 
     static String[] fromBytes(String prefix, byte[] key) {
@@ -45,17 +44,24 @@ public final class UnitKey {
         }
 
         String content = s.substring(prefix.length());
+        if (content.isEmpty()) {
+            return new String[0];
+        }
         return Arrays.stream(content.split(DELIMITER))
                 .map(e -> new String(Base64.getDecoder().decode(e), StandardCharsets.UTF_8))
                 .toArray(String[]::new);
     }
 
-    static ByteArray toByteArray(String prefix, String... args) {
+    static ByteArray toByteArray(String prefix, String id, String... args) {
         Encoder encoder = Base64.getEncoder();
-        String collect = Arrays.stream(args).filter(Objects::nonNull)
+
+        // Always add a delimiter if id is present so that the lookup on id will happen on exact match
+        String idStr = id != null ? encoder.encodeToString(id.getBytes(StandardCharsets.UTF_8)) + DELIMITER : "";
+
+        String argsStr = Arrays.stream(args).filter(Objects::nonNull)
                 .map(arg -> encoder.encodeToString(arg.getBytes(StandardCharsets.UTF_8)))
                 .collect(Collectors.joining(DELIMITER));
 
-        return new ByteArray(prefix + collect);
+        return new ByteArray(prefix + idStr + argsStr);
     }
 }

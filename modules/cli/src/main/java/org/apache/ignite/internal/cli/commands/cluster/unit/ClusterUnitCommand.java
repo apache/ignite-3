@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
-import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
-
-    private final ApiClientFactory factory;
-
-    private final UnitsRegistry registry;
-
-    public DeployUnitCallFactory(ApiClientFactory factory, UnitsRegistry registry) {
-        this.factory = factory;
-        this.registry = registry;
-    }
-
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory, registry);
-    }
+/** Manages deployment units. */
+@Command(name = "unit", subcommands = {
+        ClusterUnitDeployCommand.class,
+        ClusterUnitUndeployCommand.class,
+        ClusterUnitListCommand.class
+}, description = "Manages deployment units")
+public class ClusterUnitCommand extends BaseCommand {
 }

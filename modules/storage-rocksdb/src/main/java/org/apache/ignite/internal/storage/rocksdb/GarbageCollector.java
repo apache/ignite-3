@@ -38,6 +38,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -152,7 +153,7 @@ class GarbageCollector {
     }
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
+     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#peek(HybridTimestamp)}.
      *
      * @param lowWatermark Low watermark.
      * @return Garbage collected element descriptor.
@@ -163,10 +164,7 @@ class GarbageCollector {
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (
-                RocksIterator it = db.newIterator(gcQueueCf, helper.upperBoundReadOpts);
-                RocksIterator gcIt = helper.wrapIterator(it, gcQueueCf)
-        ) {
+        try (RocksIterator gcIt = newWrappedIterator(gcQueueCf, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
@@ -189,10 +187,10 @@ class GarbageCollector {
 
 
     /**
-     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
+     * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#vacuum(GcEntry)} (HybridTimestamp)}.
      *
      * @param batch Write batch.
-     * @param lowWatermark Low watermark.
+     * @param entry Entry, previously returned by {@link #peek(HybridTimestamp)}.
      * @return Garbage collected element.
      * @throws RocksDBException If failed to collect the garbage.
      */
@@ -205,7 +203,7 @@ class GarbageCollector {
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (RocksIterator gcIt = db.newIterator(gcQueueCf, helper.upperBoundReadOpts)) {
+        try (RocksIterator gcIt = newWrappedIterator(gcQueueCf, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
@@ -225,10 +223,7 @@ class GarbageCollector {
             // Delete element from the GC queue.
             batch.delete(gcQueueCf, gcKeyBuffer);
 
-            try (
-                    RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts);
-                    RocksIterator partIt = helper.wrapIterator(it, partCf)
-            ) {
+            try (RocksIterator partIt = newWrappedIterator(partCf, helper.upperBoundReadOpts)) {
                 // Process the element in data cf that triggered the addition to the GC queue.
                 boolean proceed = checkHasNewerRowAndRemoveTombstone(partIt, batch, gcRowVersion);
 
@@ -385,5 +380,11 @@ class GarbageCollector {
         if (invalid(gcIt)) {
             gcIt.seek(helper.partitionStartPrefix());
         }
+    }
+
+    private RocksIterator newWrappedIterator(ColumnFamilyHandle cf, ReadOptions readOptions) {
+        RocksIterator it = db.newIterator(cf, readOptions);
+
+        return helper.wrapIterator(it, cf);
     }
 }

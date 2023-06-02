@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -418,25 +419,18 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param groupWorkDir Group directory.
      * @param partitionId Partition ID.
      */
-    Path[] findPartitionDeltaFiles(Path groupWorkDir, int partitionId) throws IgniteInternalCheckedException {
+    static Path[] findPartitionDeltaFiles(Path groupWorkDir, int partitionId) throws IgniteInternalCheckedException {
         String partitionDeltaFilePrefix = String.format(PART_DELTA_FILE_PREFIX, partitionId);
 
-        try (Stream<Path> deltaFileStream = Files.find(
-                groupWorkDir,
-                1,
-                (path, basicFileAttributes) -> path.getFileName().toString().startsWith(partitionDeltaFilePrefix))
-        ) {
-            return deltaFileStream.toArray(Path[]::new);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException(
-                    IgniteStringFormatter.format(
-                            "Error while searching delta partition files [groupDir={}, partition={}]",
-                            groupWorkDir,
-                            partitionId
-                    ),
-                    e
-            );
-        }
+        // Files#find is not used on purpose, because if a file is deleted from the directory in parallel, then NoSuchFileException may
+        // appear on unix os.
+        File[] files = groupWorkDir.toFile().listFiles((dir, name) -> name.startsWith(partitionDeltaFilePrefix));
+
+        assert files != null : groupWorkDir;
+
+        return Stream.of(files)
+                .map(File::toPath)
+                .toArray(Path[]::new);
     }
 
     /**

@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -29,6 +28,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
@@ -136,11 +136,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.scanVersions(rowId);
     }
 
-    @Override
-    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        return partitionStorage.pollForVacuum(lowWatermark);
-    }
-
     /**
      * Handles the situation when snapshots are running concurrently with write operations.
      * In case if a row that is going to be changed was not yet sent in an ongoing snapshot,
@@ -201,5 +196,15 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         return partitionStorage.scan(timestamp);
+    }
+
+    @Override
+    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
+        return partitionStorage.peek(lowWatermark);
+    }
+
+    @Override
+    public @Nullable BinaryRow vacuum(GcEntry entry) {
+        return partitionStorage.vacuum(entry);
     }
 }

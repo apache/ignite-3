@@ -134,7 +134,7 @@ public class LeaseUpdater {
         this.clock = clock;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
-        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
+        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
 
