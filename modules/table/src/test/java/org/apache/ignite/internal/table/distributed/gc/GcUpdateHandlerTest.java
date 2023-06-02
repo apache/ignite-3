@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,6 +74,36 @@ public class GcUpdateHandlerTest {
         assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
         verify(partitionStorage).peek(lowWatermark);
         verify(indexUpdateHandler).tryRemoveFromIndexes(binaryRow, rowId, emptyCursor());
+    }
+
+    @Test
+    void testVacuumBatch() {
+        PartitionDataStorage partitionStorage = createPartitionDataStorage();
+
+        IndexUpdateHandler indexUpdateHandler = spy(new IndexUpdateHandler(mock(TableIndexStoragesSupplier.class)));
+
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
+        HybridTimestamp lowWatermark = new HybridTimestamp(100, 100);
+
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRow0 = mock(BinaryRow.class);
+        BinaryRow binaryRow1 = mock(BinaryRow.class);
+
+        GcEntry gcEntry0 = new GcEntryImpl(rowId0, lowWatermark);
+        GcEntry gcEntry1 = new GcEntryImpl(rowId1, lowWatermark);
+
+        when(partitionStorage.peek(lowWatermark)).thenReturn(gcEntry0).thenReturn(gcEntry1);
+        when(partitionStorage.vacuum(gcEntry0)).thenReturn(binaryRow0);
+        when(partitionStorage.vacuum(gcEntry1)).thenReturn(binaryRow1);
+
+        assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 2));
+
+        verify(partitionStorage, times(2)).peek(lowWatermark);
+        verify(partitionStorage).vacuum(gcEntry0);
+        verify(partitionStorage).vacuum(gcEntry1);
     }
 
     private GcUpdateHandler createGcUpdateHandler(PartitionDataStorage partitionStorage, IndexUpdateHandler indexUpdateHandler) {

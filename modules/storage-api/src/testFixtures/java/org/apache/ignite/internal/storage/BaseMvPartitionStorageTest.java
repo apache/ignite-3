@@ -193,6 +193,14 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         });
     }
 
+    /**
+     * Polls the oldest row in the partition, removing it at the same time.
+     *
+     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
+     *      can be removed.
+     * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
+     *      {@code null} if there's no such value.
+     */
     @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         while (true) {
             BinaryRowAndRowId binaryRowAndRowId = storage.runConsistently(locker -> {

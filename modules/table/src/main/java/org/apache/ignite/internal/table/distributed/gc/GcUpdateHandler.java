@@ -84,7 +84,7 @@ public class GcUpdateHandler {
     }
 
     /**
-     * Attempts to collect garbage for one {@link RowId}, if it fails to lock it, then immediately breaks.
+     * Attempts to collect garbage for one {@link RowId}, if it fails to lock it, then immediately stops.
      *
      * <p>Must be called inside a {@link PartitionDataStorage#runConsistently(WriteClosure)} closure.
      *
