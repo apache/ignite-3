@@ -41,7 +41,8 @@ import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,18 +50,19 @@ import org.junit.jupiter.api.Test;
  */
 public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     /** Table name. */
-    public static final String TABLE_NAME = "tbl";
+    private static final String TABLE_NAME = "tbl";
+
+    private static final String ZONE_NAME = "ZONE_" + TABLE_NAME.toUpperCase();
+
     /** Gap in future to request a data. */
-    public static final int FUTURE_GAP = 200;
+    private static final int FUTURE_GAP = 700;
 
-    @BeforeAll
-    public void beforeTestStart() {
-        String zoneName = "ZONE_" + TABLE_NAME.toUpperCase();
-
+    @BeforeEach
+    public void beforeEach() {
         sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
-                zoneName, nodes(), 10));
+                ZONE_NAME, nodes(), 10));
         sql(IgniteStringFormatter.format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) WITH PRIMARY_ZONE='{}'",
-                TABLE_NAME, zoneName));
+                TABLE_NAME, ZONE_NAME));
 
         Ignite ignite = CLUSTER_NODES.get(0);
 
@@ -75,23 +77,11 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         assertEquals(100, checkData(null, id -> "str " + id));
     }
 
-    /**
-     * Check rows in the table {@link ItReadOnlyTransactionTest#TABLE_NAME}.
-     *
-     * @param tx Transaction. The parameter might be {@code null} for implicit transaction.
-     * @param valueMapper Function to map a primary key to a column.
-     * @return Count of rows in the table.
-     */
-    private static int checkData(Transaction tx, Function<Integer, String> valueMapper) {
-        List<List<Object>> rows = sql(tx, "SELECT id, val FROM " + TABLE_NAME + " ORDER BY id");
+    @AfterEach
+    public void afterEach() {
+        sql(IgniteStringFormatter.format("DROP TABLE {}", TABLE_NAME));
 
-        for (List<Object> row : rows) {
-            var id = (Integer) row.get(0);
-
-            assertEquals(valueMapper.apply(id), row.get(1));
-        }
-
-        return rows.size();
+        sql(IgniteStringFormatter.format("DROP ZONE {}", ZONE_NAME));
     }
 
     @Test
@@ -139,14 +129,6 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(100 + nodes(), checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)));
-
-        Ignite ignite = CLUSTER_NODES.get(0);
-
-        ignite.transactions().runInTransaction(tx -> {
-            for (int i = 100; i < 100 + nodes(); i++) {
-                sql(tx, "DELETE FROM " + TABLE_NAME + " WHERE id = ?", i);
-            }
-        });
     }
 
     @Test
@@ -188,14 +170,6 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         }
 
         assertEquals(100 - nodes(), checkData(null, id -> "str " + id));
-
-        Ignite ignite = CLUSTER_NODES.get(0);
-
-        ignite.transactions().runInTransaction(tx -> {
-            for (int i = 0; i < nodes(); i++) {
-                sql(tx, "INSERT INTO " + TABLE_NAME + " VALUES (?, ?)", i, "str " + i);
-            }
-        });
     }
 
     private static Row createRow(SchemaDescriptor schema, int id) {
@@ -213,5 +187,24 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
 
         return new Row(schema, rowBuilder.build());
+    }
+
+    /**
+     * Check rows in the table {@link ItReadOnlyTransactionTest#TABLE_NAME}.
+     *
+     * @param tx Transaction. The parameter might be {@code null} for implicit transaction.
+     * @param valueMapper Function to map a primary key to a column.
+     * @return Count of rows in the table.
+     */
+    private static int checkData(Transaction tx, Function<Integer, String> valueMapper) {
+        List<List<Object>> rows = sql(tx, "SELECT id, val FROM " + TABLE_NAME + " ORDER BY id");
+
+        for (List<Object> row : rows) {
+            var id = (Integer) row.get(0);
+
+            assertEquals(valueMapper.apply(id), row.get(1));
+        }
+
+        return rows.size();
     }
 }
