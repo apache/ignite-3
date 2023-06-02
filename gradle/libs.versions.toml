@@ -77,7 +77,7 @@ awaitility = "4.2.0"
 progressBar = "0.9.4"
 
 #Tools
-pmdTool = "6.28.0"
+pmdTool = "6.55.0"
 checkstyleTool = "10.3.3"
 jacocoTool = "0.8.8"
 
