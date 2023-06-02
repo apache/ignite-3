@@ -37,15 +37,16 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 class ItComputeTestStandalone extends ItComputeBaseTest {
-
     private final URL jobsResource = ItComputeTestStandalone.class.getClassLoader().getResource("units/ignite-jobs-1.0-SNAPSHOT.jar");
+
     private final String unitId = "jobs";
+
     private final Version unitVersion = Version.parseVersion("1.0.0");
+
     private final List<DeploymentUnit> units = List.of(new DeploymentUnit(unitId, unitVersion));
 
     @BeforeEach
     void setUp() throws IOException {
-
         try (InputStream jarStream = jobsResource.openStream()) {
             CompletableFuture<Boolean> deployAsync = node(0).deployment().deployAsync(
                     unitId,
@@ -95,7 +96,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     void executesFailingJobOnRemoteNodes() {
         super.executesFailingJobOnRemoteNodes();
     }
-
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")

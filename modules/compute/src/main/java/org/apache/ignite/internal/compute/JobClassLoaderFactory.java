@@ -32,7 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.FileDeployerService;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -52,17 +52,17 @@ public class JobClassLoaderFactory {
     /**
      * The deployer service.
      */
-    private final FileDeployerService deployerService;
+    private final IgniteDeployment deployment;
 
     /**
      * Constructor.
      *
      * @param detectLastUnitVersion The function to detect the last version of the unit.
-     * @param deployerService The deployer service.
+     * @param deployment The deployer service.
      */
-    public JobClassLoaderFactory(Function<String, Version> detectLastUnitVersion, FileDeployerService deployerService) {
+    public JobClassLoaderFactory(Function<String, Version> detectLastUnitVersion, IgniteDeployment deployment) {
         this.detectLastUnitVersion = detectLastUnitVersion;
-        this.deployerService = deployerService;
+        this.deployment = deployment;
     }
 
     /**
@@ -86,7 +86,7 @@ public class JobClassLoaderFactory {
 
     private Path constructPath(DeploymentUnit unit) {
         Version version = unit.version() == Version.LATEST ? detectLastUnitVersion.apply(unit.name()) : unit.version();
-        return deployerService.unitPath(unit.name(), version);
+        return deployment.path(unit.name(), version);
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {

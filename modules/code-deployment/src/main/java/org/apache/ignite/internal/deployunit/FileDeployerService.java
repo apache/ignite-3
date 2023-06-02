@@ -75,9 +75,7 @@ public class FileDeployerService {
     public CompletableFuture<Boolean> deploy(String id, Version version, UnitContent unitContent) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path unitFolder = unitsFolder
-                        .resolve(id)
-                        .resolve(version.render());
+                Path unitFolder = unitPath(id, version);
 
                 Files.createDirectories(unitFolder);
 
@@ -106,11 +104,7 @@ public class FileDeployerService {
     public CompletableFuture<Boolean> undeploy(String id, Version version) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path unitPath = unitsFolder
-                        .resolve(id)
-                        .resolve(version.render());
-
-                IgniteUtils.deleteIfExistsThrowable(unitPath);
+                IgniteUtils.deleteIfExistsThrowable(unitPath(id, version));
                 return true;
             } catch (IOException e) {
                 LOG.debug("Failed to get content for unit " + id + ":" + version, e);
@@ -130,18 +124,13 @@ public class FileDeployerService {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, byte[]> result = new HashMap<>();
             try {
-                Path unitPath = unitsFolder
-                        .resolve(id)
-                        .resolve(version.render());
-
-                Files.walkFileTree(unitPath, new SimpleFileVisitor<>() {
+                Files.walkFileTree(unitPath(id, version), new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                         result.put(file.getFileName().toString(), Files.readAllBytes(file));
                         return FileVisitResult.CONTINUE;
                     }
                 });
-
             } catch (IOException e) {
                 LOG.debug("Failed to undeploy unit " + id + ":" + version, e);
             }
@@ -157,8 +146,6 @@ public class FileDeployerService {
      * @return Path to unit folder.
      */
     public Path unitPath(String id, Version version) {
-        return unitsFolder
-                .resolve(id)
-                .resolve(version.render());
+        return unitsFolder.resolve(id).resolve(version.render());
     }
 }

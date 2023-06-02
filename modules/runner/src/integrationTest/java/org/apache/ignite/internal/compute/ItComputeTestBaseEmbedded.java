@@ -30,7 +30,6 @@ import org.apache.ignite.compute.JobExecutionContext;
  */
 @SuppressWarnings("resource")
 class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
-
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();
@@ -83,7 +82,7 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
     }
 
     private static class JobException extends RuntimeException {
-        public JobException(String message, Throwable cause) {
+        private JobException(String message, Throwable cause) {
             super(message, cause);
         }
     }

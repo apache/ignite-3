@@ -31,10 +31,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.FileDeployerService;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class JobClassLoaderFactoryTest {
     private final Path units = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
 
+    private final IgniteDeployment igniteDeployment = new DummyIgniteDeployment(units);
+
     @Mock
     private Function<String, Version> detectLastUnitVersion;
 
@@ -53,9 +57,7 @@ class JobClassLoaderFactoryTest {
 
     @BeforeEach
     void setUp() {
-        FileDeployerService deployerService = new FileDeployerService();
-        deployerService.initUnitsFolder(units);
-        jobClassLoaderFactory = new JobClassLoaderFactory(detectLastUnitVersion, deployerService);
+        jobClassLoaderFactory = new JobClassLoaderFactory(detectLastUnitVersion, igniteDeployment);
     }
 
     @Test
@@ -250,5 +252,60 @@ class JobClassLoaderFactoryTest {
         );
 
         assertThat(exception.getMessage(), containsString("Unit does not exist:"));
+    }
+
+    private static final class DummyIgniteDeployment implements IgniteDeployment {
+
+        private final Path unitsPath;
+
+        private DummyIgniteDeployment(Path unitsPath) {
+            this.unitsPath = unitsPath;
+        }
+
+        @Override
+        public CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force,
+                org.apache.ignite.internal.deployunit.DeploymentUnit deploymentUnit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<Boolean> undeployAsync(String id, Version version) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<List<UnitStatuses>> unitsAsync() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<List<Version>> versionsAsync(String id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<UnitStatuses> statusAsync(String id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Path path(String id, Version version) {
+            return unitsPath.resolve(id).resolve(version.toString());
+        }
+
+        @Override
+        public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void start() {
+
+        }
+
+        @Override
+        public void stop() throws Exception {
+
+        }
     }
 }
