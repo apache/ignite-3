@@ -55,7 +55,7 @@ public final class UnitKey {
     static ByteArray toByteArray(String prefix, String id, String... args) {
         Encoder encoder = Base64.getEncoder();
 
-        // Always add a delimiter if id is present so that the lookup on id will hapen on exact match
+        // Always add a delimiter if id is present so that the lookup on id will happen on exact match
         String idStr = id != null ? encoder.encodeToString(id.getBytes(StandardCharsets.UTF_8)) + DELIMITER : "";
 
         String argsStr = Arrays.stream(args).filter(Objects::nonNull)
