@@ -131,7 +131,7 @@ abstract class AbstractMvStorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     @Test
     void testConcurrentExecuteBatchGc() {
-        assertThat(distributionZoneConfig.dataStorage().gcOnUpdateBatchSize().update(2), willSucceedFast());
+        assertThat(distributionZoneConfig.dataStorage().gcOnUpdateBatchSize().update(4), willSucceedFast());
 
         when(lowWatermark.getLowWatermark()).thenReturn(HybridTimestamp.MAX_VALUE);
 
