@@ -335,16 +335,14 @@ namespace Apache.Ignite.Internal.Table
                     IgniteArgumentCheck.NotNull((IEnumerable<T>)batch, nameof(batch));
 
                     var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-                    var tx = ((ITransaction?)null).ToInternal();
-
                     using var writer = ProtoCommon.GetMessageWriter();
                     using var enumerator = batch.GetEnumerator();
                     enumerator.MoveNext();
 
-                    // TODO: Skip hash computation.
-                    _ser.WriteMultiple(writer, tx, schema, enumerator);
+                    // TODO: Use cached serialized data? Not sure, might be easier to compute hash for key part only?
+                    _ser.WriteMultiple(writer, tx: null, schema, enumerator, skipHash: true);
 
-                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
+                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, preferredNode).ConfigureAwait(false);
                 },
                 item => GetPreferredNode(item),
                 options ?? DataStreamerOptions.Default).ConfigureAwait(false);
@@ -465,10 +463,13 @@ namespace Apache.Ignite.Internal.Table
         {
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
 
-            // TODO: Cache resulting serialized row - write to a common batch buffer directly.
+            // TODO: Cache resulting serialized row? We'll have to write to a separate buffer, which will cause a lot of allocations?
             // Should this buffer come from the pool? Probably yes.
             using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.Write(writer, null, schema, record);
+
+            // TODO: A lot of overhead below for table id, tuple builder, etc.
+            // Should we have dedicated logic to compute hash without serializing the whole row?
+            var colocationHash = _ser.Write(writer, null, schema, record, keyOnly: true);
             var preferredNode = await _table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
             return preferredNode;
