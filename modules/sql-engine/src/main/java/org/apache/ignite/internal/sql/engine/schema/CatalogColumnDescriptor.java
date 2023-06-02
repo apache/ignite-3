@@ -21,8 +21,6 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -140,8 +138,7 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
     @Override
     public NativeType physicalType() {
         if (nativeType == null) {
-            RelDataType relDataType = logicalType();
-            nativeType = IgniteTypeFactory.relDataTypeToNative(relDataType);
+            nativeType = TypeUtils.columnType2NativeType(columnType, precision, scale);
         }
         return nativeType;
     }
@@ -150,12 +147,5 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
     @Override
     public @Nullable Object defaultValue() {
         return dfltVal.get();
-    }
-
-    private RelDataType logicalType() {
-        if (logicalType == null) {
-            logicalType = TypeUtils.columnTypeToRelType(Commons.typeFactory(), columnType, precision, scale);
-        }
-        return logicalType;
     }
 }

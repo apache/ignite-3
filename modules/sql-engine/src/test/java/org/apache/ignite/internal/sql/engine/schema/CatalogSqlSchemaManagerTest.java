@@ -43,7 +43,6 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -60,8 +59,6 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
@@ -116,6 +113,7 @@ public class CatalogSqlSchemaManagerTest {
      */
     @ParameterizedTest
     @CsvSource({
+            // column type, precision, scale, has native type.
             "BOOLEAN, -1, -1, false",
 
             "INT8, -1, -1, true",
@@ -128,7 +126,7 @@ public class CatalogSqlSchemaManagerTest {
 
             "DECIMAL, 4, -1, true",
             "DECIMAL, 4, 2, true",
-            "NUMBER, -1, -1, false",
+            "NUMBER, 4, -1, true",
 
             "STRING, 40, -1, true",
             "BYTE_ARRAY, 40, -1, true",
@@ -142,9 +140,9 @@ public class CatalogSqlSchemaManagerTest {
             "DURATION, 2, -1, false",
 
             "UUID, 2, -1, true",
-            "BITMASK, 2, -1, false"
+            "BITMASK, 2, -1, true"
     })
-    public void testTableColumns(ColumnType columnType, int precision, int scale, boolean supported) {
+    public void testTableColumns(ColumnType columnType, int precision, int scale, boolean hasNativeType) {
         TestTable testTable = new TestTable("TEST");
 
         testTable.addColumn("c1_nullable", columnType, precision, scale);
@@ -177,17 +175,14 @@ public class CatalogSqlSchemaManagerTest {
         assertEquals(1, c2.physicalIndex());
         assertFalse(c2.nullable());
 
-        if (supported) {
+        if (hasNativeType) {
             NativeType nativeType = c1.physicalType();
-            IgniteTypeFactory typeFactory = Commons.typeFactory();
+            NativeType expectedNativeType = TypeUtils.columnType2NativeType(columnType, precision, scale);
 
-            RelDataType relDataType = TypeUtils.columnTypeToRelType(typeFactory, columnType, precision, scale);
-            RelDataType relDataType1 = TypeUtils.native2relationalType(typeFactory, nativeType);
-
-            assertEquals(relDataType, relDataType1);
+            assertEquals(expectedNativeType, nativeType);
         } else {
             IllegalArgumentException t = assertThrows(IllegalArgumentException.class, c1::physicalType);
-            assertThat(t.getMessage(), containsString("Type is not supported"));
+            assertThat(t.getMessage(), containsString("Not native type for"));
         }
     }
 
