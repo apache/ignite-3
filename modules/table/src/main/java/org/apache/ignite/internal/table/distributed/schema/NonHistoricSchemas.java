@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 
 /**
@@ -115,48 +116,34 @@ public class NonHistoricSchemas implements Schemas {
             case INT64:
             case FLOAT:
             case DOUBLE:
-                precision = -1;
-                scale = -1;
+            case NUMBER:
+            case DATE:
+            case UUID:
+                precision = 0;
+                scale = 0;
                 break;
             case DECIMAL:
                 DecimalNativeType decimalNativeType = (DecimalNativeType) nativeType;
                 precision = decimalNativeType.precision();
                 scale = decimalNativeType.scale();
                 break;
-            case UUID:
-                precision = -1;
-                scale = -1;
-                break;
             case STRING:
             case BYTES:
                 VarlenNativeType varlenNativeType = (VarlenNativeType) nativeType;
                 precision = varlenNativeType.length();
-                scale = -1;
+                scale = 0;
                 break;
             case BITMASK:
                 BitmaskNativeType bitmaskNativeType = (BitmaskNativeType) nativeType;
                 precision = bitmaskNativeType.bits();
-                scale = -1;
-                break;
-            case NUMBER:
-                precision = -1;
-                scale = -1;
-                break;
-            case DATE:
-                precision = -1;
-                scale = -1;
+                scale = 0;
                 break;
             case TIME:
-                precision = -1;
-                scale = -1;
-                break;
             case DATETIME:
-                precision = -1;
-                scale = -1;
-                break;
             case TIMESTAMP:
-                precision = -1;
-                scale = -1;
+                TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
+                precision = temporalNativeType.precision();
+                scale = 0;
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected native type: " + nativeType);
