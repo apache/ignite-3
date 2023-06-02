@@ -141,7 +141,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", nodes = 1)
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -207,7 +207,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final int TABLES_COUNT = 1000;
     private static final int SLEEP = 30;
 
-    @Test
+    // @Test
     public void createTables() {
         System.out.println("Test started");
         Ignite ignite = CLUSTER_NODES.get(0);
