@@ -23,7 +23,9 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.RE
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +33,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.UnitStatus;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
@@ -100,7 +101,7 @@ public class DeploymentUnitStoreImplTest {
 
         assertThat(metastore.remove(id, version), willBe(true));
 
-        assertThat(metastore.getClusterStatus(id, version), willBe((UnitStatus) null));
+        assertThat(metastore.getClusterStatus(id, version), willBe(nullValue()));
     }
 
     @Test
@@ -135,12 +136,11 @@ public class DeploymentUnitStoreImplTest {
                 willBe(new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3))));
 
         assertThat(metastore.getClusterStatuses(id),
-                willBe(List.of(new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3))))
+                willBe(contains((new UnitClusterStatus(id, version, DEPLOYED, Set.of(node1, node2, node3)))))
         );
 
         assertThat(metastore.remove(id, version), willBe(true));
-        assertThat(metastore.getNodeStatus(node1, id, version),
-                willBe((UnitNodeStatus) null));
+        assertThat(metastore.getNodeStatus(node1, id, version), willBe(nullValue()));
     }
 
     @Test

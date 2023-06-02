@@ -147,7 +147,7 @@ public class DynamicCompleterActivationPoint {
 
         registry.register(
                 CompleterConf.builder()
-                        .command("unit", "deploy")
+                        .command("cluster", "unit", "deploy")
                         .enableOptions(Options.UNIT_PATH)
                         .exclusiveEnableOptions().build(),
                 words -> new FilePathCompleter()
@@ -155,8 +155,10 @@ public class DynamicCompleterActivationPoint {
 
         registry.register(
                 CompleterConf.builder()
-                        .command("unit", "undeploy")
-                        .command("unit", "status")
+                        .command("cluster", "unit", "undeploy")
+                        .command("cluster", "unit", "status")
+                        .command("cluster", "unit", "list")
+                        .command("node", "unit", "list")
                         .singlePositionalParameter()
                         .build(),
                 unitIdDynamicCompleterFactory
@@ -164,7 +166,9 @@ public class DynamicCompleterActivationPoint {
 
         registry.register(
                 CompleterConf.builder()
-                        .command("unit", "undeploy")
+                        .command("cluster", "unit", "undeploy")
+                        .command("cluster", "unit", "list")
+                        .command("node", "unit", "list")
                         .enableOptions(Options.UNIT_VERSION)
                         .exclusiveEnableOptions().build(),
                 unitVersionsDynamicCompleterFactory

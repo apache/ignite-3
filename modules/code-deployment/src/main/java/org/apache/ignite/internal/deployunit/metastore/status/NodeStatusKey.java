@@ -23,7 +23,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.lang.ByteArray;
 
 /**
- *  Deployment unit node status store key.
+ * Deployment unit node status store key.
  */
 public class NodeStatusKey {
     private static final String NODES_PREFIX = DEPLOY_UNIT_PREFIX + "nodes.";
@@ -47,6 +47,11 @@ public class NodeStatusKey {
         this.nodeId = nodeId;
     }
 
+    /**
+     * Serialize key instance to {@link ByteArray}.
+     *
+     * @return {@link ByteArray} instance with serialized content.
+     */
     public ByteArray toByteArray() {
         return UnitKey.toByteArray(NODES_PREFIX, id, version == null ? null : version.render(), nodeId);
     }
@@ -86,6 +91,34 @@ public class NodeStatusKey {
 
     public String nodeId() {
         return nodeId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        NodeStatusKey that = (NodeStatusKey) o;
+
+        if (id != null ? !id.equals(that.id) : that.id != null) {
+            return false;
+        }
+        if (version != null ? !version.equals(that.version) : that.version != null) {
+            return false;
+        }
+        return nodeId != null ? nodeId.equals(that.nodeId) : that.nodeId == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id != null ? id.hashCode() : 0;
+        result = 31 * result + (version != null ? version.hashCode() : 0);
+        result = 31 * result + (nodeId != null ? nodeId.hashCode() : 0);
+        return result;
     }
 
     /**
