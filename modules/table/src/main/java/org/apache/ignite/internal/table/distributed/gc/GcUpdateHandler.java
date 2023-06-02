@@ -65,7 +65,7 @@ public class GcUpdateHandler {
 
     /**
      * Tries removing {@code count} oldest stale entries and their indexes.
-     * If there are fewer rows than the {@code count}, or it was not possible to lock any, then exits prematurely.
+     * If there are fewer rows than the {@code count}, then exits prematurely.
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
@@ -84,7 +84,7 @@ public class GcUpdateHandler {
     }
 
     /**
-     * Attempts to collect garbage for one {@link RowId}, if it fails to lock it, then immediately stops.
+     * Attempts to collect garbage for one {@link RowId}.
      *
      * <p>Must be called inside a {@link PartitionDataStorage#runConsistently(WriteClosure)} closure.
      *
