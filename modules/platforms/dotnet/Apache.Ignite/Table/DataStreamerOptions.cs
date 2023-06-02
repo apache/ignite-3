@@ -29,4 +29,10 @@ using System;
 /// (how many in-flight requests can be active for a given node).</param>
 /// <param name="AutoFlushFrequency">Auto flush frequency - the period of time after which the streamer
 /// will flush the per-node buffer even if it is not full.</param>
-public record DataStreamerOptions(int BatchSize, int RetryLimit, int PerNodeParallelOperations, TimeSpan AutoFlushFrequency);
+public sealed record DataStreamerOptions(int BatchSize, int RetryLimit, int PerNodeParallelOperations, TimeSpan AutoFlushFrequency)
+{
+    /// <summary>
+    /// Default streamer options.
+    /// </summary>
+    public static readonly DataStreamerOptions Default = new(1000, 16, 4, TimeSpan.FromSeconds(5));
+}
