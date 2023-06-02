@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
