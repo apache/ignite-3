@@ -27,7 +27,7 @@ namespace Apache.Ignite.Table
     /// Record view interface provides methods to access table records.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
-    public interface IRecordView<T>
+    public interface IRecordView<T> : IDataStreamerTarget<T>
         where T : notnull
     {
         /// <summary>

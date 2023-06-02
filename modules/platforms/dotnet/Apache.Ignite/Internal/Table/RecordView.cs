@@ -324,6 +324,12 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
+        public Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
         public override string ToString() =>
             new IgniteToStringBuilder(GetType())
                 .Append(Table)

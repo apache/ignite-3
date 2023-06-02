@@ -157,6 +157,12 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
+    public Task StreamDataAsync(IAsyncEnumerable<KeyValuePair<TK, TV>> data, DataStreamerOptions? options = null)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <inheritdoc/>
     public override string ToString() =>
         new IgniteToStringBuilder(GetType())
             .Append(_recordView.Table, "Table")
