@@ -95,13 +95,13 @@ public class GcUpdateHandlerTest {
         GcEntry gcEntry0 = new GcEntryImpl(rowId0, lowWatermark);
         GcEntry gcEntry1 = new GcEntryImpl(rowId1, lowWatermark);
 
-        when(partitionStorage.peek(lowWatermark)).thenReturn(gcEntry0).thenReturn(gcEntry1);
+        when(partitionStorage.peek(lowWatermark)).thenReturn(gcEntry0).thenReturn(gcEntry1).thenReturn(null);
         when(partitionStorage.vacuum(gcEntry0)).thenReturn(binaryRow0);
         when(partitionStorage.vacuum(gcEntry1)).thenReturn(binaryRow1);
 
-        assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 2));
+        assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5));
 
-        verify(partitionStorage, times(2)).peek(lowWatermark);
+        verify(partitionStorage, times(3)).peek(lowWatermark);
         verify(partitionStorage).vacuum(gcEntry0);
         verify(partitionStorage).vacuum(gcEntry1);
     }
