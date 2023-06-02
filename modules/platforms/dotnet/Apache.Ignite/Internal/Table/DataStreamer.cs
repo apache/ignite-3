@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Table;
 
@@ -42,7 +43,43 @@ internal static class DataStreamer
         Func<IList<T>, TPartition, Task> sender,
         Func<T, ValueTask<TPartition>> partitioner,
         DataStreamerOptions options)
+        where TPartition : notnull
     {
-        await Task.Delay(1).ConfigureAwait(false);
+        // TODO: Validate options?
+        var batches = new Dictionary<TPartition, Batch<T>>();
+
+        await foreach (var item in data)
+        {
+            var partition = await partitioner(item).ConfigureAwait(false);
+
+            if (!batches.TryGetValue(partition, out var batch))
+            {
+                batch = new Batch<T>
+                {
+                    // TODO: Pooled buffers.
+                    Buf = new List<T>(options.BatchSize)
+                };
+
+                batches.Add(partition, batch);
+            }
+
+            batch.Buf.Add(item);
+
+            if (batch.Buf.Count >= options.BatchSize)
+            {
+                // TODO: Allow adding items to another buffer while sending previous.
+                await sender(batch.Buf, partition).ConfigureAwait(false);
+
+                batch.Buf.Clear();
+            }
+        }
+    }
+
+    [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Private class.")]
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private class.")]
+    [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Private class.")]
+    private class Batch<T>
+    {
+        public List<T> Buf = null!;
     }
 }

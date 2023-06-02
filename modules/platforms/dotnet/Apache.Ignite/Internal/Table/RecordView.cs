@@ -462,9 +462,10 @@ namespace Apache.Ignite.Internal.Table
         {
             var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
 
-            // TODO: Cache resulting serialized row.
+            // TODO: Cache resulting serialized row - write to a common batch buffer directly.
+            // Should this buffer come from the pool? Probably yes.
             using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.Write(writer, null, schema, record, false);
+            var colocationHash = _ser.Write(writer, null, schema, record);
             var preferredNode = await _table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
             return preferredNode;
