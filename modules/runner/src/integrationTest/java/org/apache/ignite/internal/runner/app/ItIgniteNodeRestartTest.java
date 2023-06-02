@@ -1048,15 +1048,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        PartialNode partialNode = startPartialNode(1, null);
+        IgniteImpl node = startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
 
-        partialNode.stop();
+        stopNode(1);
 
-        partialNode = startPartialNode(1, null);
+        node = startNode(1);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
+        TableManager tableManager = (TableManager) node.tables();
 
         assertNotNull(tableManager);
 
