@@ -23,11 +23,16 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.util.IgniteUtils.collectionToBytes;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -263,6 +268,10 @@ public class LeaseUpdater {
             while (updaterTread != null && !updaterTread.isInterrupted()) {
                 long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
 
+                List<Lease> leasesCurrent = leaseTracker.leasesCurrent();
+                Map<ReplicationGroupId, Lease> renewedLeases = new TreeMap<>(Comparator.comparing(Object::toString));
+                leasesCurrent.forEach(lease -> renewedLeases.put(lease.replicationGroupId(), lease));
+
                 for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
                     ReplicationGroupId grpId = entry.getKey();
 
@@ -272,7 +281,7 @@ public class LeaseUpdater {
                         LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
 
                         if (agreement.isAccepted()) {
-                            publishLease(grpId, lease);
+                            publishLease(grpId, lease, renewedLeases);
 
                             continue;
                         } else if (agreement.ready()) {
@@ -283,7 +292,7 @@ public class LeaseUpdater {
                             }
 
                             // New lease is granting.
-                            writeNewLeaseInMetaStorage(grpId, lease, candidate);
+                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases);
 
                             continue;
                         }
@@ -305,13 +314,23 @@ public class LeaseUpdater {
                         // leaseholders at all.
                         if (isLeaseOutdated(lease)) {
                             // New lease is granting.
-                            writeNewLeaseInMetaStorage(grpId, lease, candidate);
+                            writeNewLeaseInMetaStorage(grpId, lease, candidate, renewedLeases);
                         } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
                             // Old lease is renewing.
-                            prolongLeaseInMetaStorage(grpId, lease);
+                            prolongLeaseInMetaStorage(grpId, lease, renewedLeases);
                         }
                     }
                 }
+
+                var leasesKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX);
+                List<Lease> renewedLeasesList = renewedLeases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(
+                        Collectors.toList());
+
+                msManager.invoke(
+                        or(notExists(leasesKey), value(leasesKey).eq(collectionToBytes(leasesCurrent, Lease::bytes))),
+                        put(leasesKey, collectionToBytes(renewedLeasesList, Lease::bytes)),
+                        noop()
+                );
 
                 try {
                     Thread.sleep(UPDATE_LEASE_MS);
@@ -328,7 +347,8 @@ public class LeaseUpdater {
          * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
          */
-        private void writeNewLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate) {
+        private void writeNewLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
+                Map<ReplicationGroupId, Lease> renewedLeases) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
 
             HybridTimestamp startTs = clock.now();
@@ -337,9 +357,9 @@ public class LeaseUpdater {
 
             byte[] leaseRaw = lease.bytes();
 
-            Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs);
+            Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs, grpId);
 
-            msManager.invoke(
+            /*msManager.invoke(
                     or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
                     put(leaseKey, renewedLease.bytes()),
                     noop()
@@ -349,7 +369,8 @@ public class LeaseUpdater {
 
                     leaseNegotiator.negotiate(grpId, renewedLease, force);
                 }
-            });
+            });*/
+            renewedLeases.put(grpId, renewedLease);
         }
 
         /**
@@ -358,7 +379,7 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Lease to prolong.
          */
-        private void prolongLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease) {
+        private void prolongLeaseInMetaStorage(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
@@ -366,11 +387,12 @@ public class LeaseUpdater {
 
             Lease renewedLease = lease.prolongLease(newTs);
 
-            msManager.invoke(
+            /*msManager.invoke(
                     value(leaseKey).eq(leaseRaw),
                     put(leaseKey, renewedLease.bytes()),
                     noop()
-            );
+            );*/
+            renewedLeases.put(grpId, renewedLease);
         }
 
         /**
@@ -380,7 +402,7 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Lease to accept.
          */
-        private void publishLease(ReplicationGroupId grpId, Lease lease) {
+        private void publishLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
             var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
             var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
 
@@ -388,11 +410,12 @@ public class LeaseUpdater {
 
             Lease renewedLease = lease.acceptLease(newTs);
 
-            msManager.invoke(
+            /*msManager.invoke(
                     value(leaseKey).eq(leaseRaw),
                     put(leaseKey, renewedLease.bytes()),
                     noop()
-            );
+            );*/
+            renewedLeases.put(grpId, renewedLease);
         }
 
         /**
@@ -445,13 +468,13 @@ public class LeaseUpdater {
 
             if (msg instanceof StopLeaseProlongationMessage) {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
-                    denyLease(grpId, lease).whenComplete((res, th) -> {
+                    /*denyLease(grpId, lease).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
                             LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
                         }
-                    });
+                    });*/
                 }
             } else {
                 LOG.warn("Unknown message type [msg={}]", msg.getClass().getSimpleName());

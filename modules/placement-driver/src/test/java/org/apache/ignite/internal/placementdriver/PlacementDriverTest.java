@@ -60,19 +60,22 @@ public class PlacementDriverTest {
     private static final Lease LEASE_FROM_1_TO_5_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
-            new HybridTimestamp(5_000, 0)
+            new HybridTimestamp(5_000, 0),
+            GROUP_1
     );
 
     private static final Lease LEASE_FROM_1_TO_15_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
-            new HybridTimestamp(15_000, 0)
+            new HybridTimestamp(15_000, 0),
+            GROUP_1
     );
 
     private static final Lease LEASE_FROM_15000_TO_30_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(15_000, 0),
-            new HybridTimestamp(30_000, 0)
+            new HybridTimestamp(30_000, 0),
+            GROUP_1
     );
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;

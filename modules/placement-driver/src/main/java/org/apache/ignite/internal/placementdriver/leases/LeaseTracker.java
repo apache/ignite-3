@@ -23,12 +23,21 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.bytesToList;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -89,7 +98,7 @@ public class LeaseTracker implements PlacementDriver {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
 
-        this.leases = new ConcurrentHashMap<>();
+        this.leases = new ConcurrentSkipListMap<>(Comparator.comparing(Object::toString));
         this.primaryReplicaWaiters = new ConcurrentHashMap<>();
     }
 
@@ -104,17 +113,15 @@ public class LeaseTracker implements PlacementDriver {
                 ByteArray.fromString(incrementLastChar(PLACEMENTDRIVER_PREFIX))
         )) {
             for (VaultEntry entry : cursor) {
-                String key = entry.key().toString();
-
-                key = key.replace(PLACEMENTDRIVER_PREFIX, "");
-
-                TablePartitionId grpId = TablePartitionId.fromString(key);
-                Lease lease = fromBytes(entry.value());
-
-                leases.put(grpId, lease);
-
-                primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
-                        .update(lease.getExpirationTime(), lease);
+                leases.clear();
+                ByteBuffer buf = ByteBuffer.wrap(entry.value()).order(ByteOrder.LITTLE_ENDIAN);
+                List<Lease> renewedLeasesList = bytesToList(buf.array(), Lease::fromBytes);
+                renewedLeasesList.forEach(lease -> {
+                    leases.put(lease.replicationGroupId(), lease);
+                    primaryReplicaWaiters.computeIfAbsent(lease.replicationGroupId(),
+                            groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
+                                    .update(lease.getExpirationTime(), lease);
+                });
             }
         }
 
@@ -153,6 +160,10 @@ public class LeaseTracker implements PlacementDriver {
         return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
+    public List<Lease> leasesCurrent() {
+        return leases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(Collectors.toList());
+    }
+
     /**
      * Listen lease holder updates.
      */
@@ -162,23 +173,28 @@ public class LeaseTracker implements PlacementDriver {
             for (EntryEvent entry : event.entryEvents()) {
                 Entry msEntry = entry.newEntry();
 
-                String key = new ByteArray(msEntry.key()).toString();
+                ByteBuffer buf = ByteBuffer.wrap(msEntry.value()).order(ByteOrder.LITTLE_ENDIAN);
 
-                key = key.replace(PLACEMENTDRIVER_PREFIX, "");
+                List<Lease> renewedLeasesList = bytesToList(buf.array(), Lease::fromBytes);
 
-                TablePartitionId grpId = TablePartitionId.fromString(key);
+                Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>();
+                renewedLeasesList.forEach(lease -> renewedLeases.put(lease.replicationGroupId(), lease));
 
-                if (msEntry.empty()) {
-                    leases.remove(grpId);
-                    tryRemoveTracker(grpId);
-                } else {
-                    Lease lease = fromBytes(msEntry.value());
+                for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leases.entrySet().iterator(); iterator.hasNext();) {
+                    Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
 
+                    if (!renewedLeases.containsKey(e.getKey())) {
+                        iterator.remove();
+                        tryRemoveTracker(e.getKey());
+                    }
+                }
+
+                renewedLeases.forEach((grpId, lease) -> {
                     leases.put(grpId, lease);
 
                     primaryReplicaWaiters.computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                             .update(lease.getExpirationTime(), lease);
-                }
+                });
             }
 
             return completedFuture(null);
