@@ -89,14 +89,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
-    private static final EnumSet<ColumnType> varLenTypes = EnumSet.of(ColumnType.STRING, ColumnType.BYTE_ARRAY);
-    private static final Map<ColumnType, Set<ColumnType>> supportedTransitions = new EnumMap<>(ColumnType.class);
+    private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
-        supportedTransitions.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
-        supportedTransitions.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
-        supportedTransitions.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
-        supportedTransitions.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
     }
 
     /** The logger. */
@@ -357,7 +356,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             ColumnType type = Objects.requireNonNullElse(params.type(), origin.type());
             int scale = Objects.requireNonNullElse(params.scale(), origin.scale());
 
-            boolean varLenType = varLenTypes.contains(type);
+            boolean varLenType = type == ColumnType.STRING || type == ColumnType.BYTE_ARRAY;
             int precision = varLenType ? origin.precision() : Objects.requireNonNullElse(params.precision(), origin.precision());
             int length = varLenType ? Objects.requireNonNullElse(params.precision(), origin.length()) : origin.length();
 
@@ -377,9 +376,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             if (origin.type() != target.type()) {
-                Set<ColumnType> supportedTypes = supportedTransitions.get(origin.type());
+                Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(origin.type());
 
-                if (supportedTypes == null || !supportedTypes.contains(params.type())) {
+                if (supportedTransitions == null || !supportedTransitions.contains(params.type())) {
                     throwUnsupportedDdl(
                             "Cannot change data type for column '{}' [from={}, to={}].", origin.name(), origin.type(), target.type());
                 }
