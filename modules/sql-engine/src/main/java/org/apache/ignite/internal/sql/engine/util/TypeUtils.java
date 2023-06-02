@@ -489,7 +489,7 @@ public class TypeUtils {
     public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
         switch (columnType) {
             case BOOLEAN:
-                throw new IllegalArgumentException("Type is not supported: " + columnType);
+                throw new IllegalArgumentException("No NativeType for type: " + columnType);
             case INT8:
                 return NativeTypes.INT8;
             case INT16:
@@ -527,7 +527,7 @@ public class TypeUtils {
             case DURATION:
             case NULL:
             default:
-                throw new IllegalArgumentException("Not native type for: " + columnType);
+                throw new IllegalArgumentException("No NativeType for type: " + columnType);
         }
     }
 }

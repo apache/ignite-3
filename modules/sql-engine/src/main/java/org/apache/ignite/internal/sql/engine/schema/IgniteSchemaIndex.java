@@ -39,7 +39,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 
 /**
- * Index.
+ * Auxiliary data structure to represent a table index.
  */
 public class IgniteSchemaIndex {
 

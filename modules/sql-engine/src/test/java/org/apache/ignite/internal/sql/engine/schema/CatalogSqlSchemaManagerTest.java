@@ -182,7 +182,7 @@ public class CatalogSqlSchemaManagerTest {
             assertEquals(expectedNativeType, nativeType);
         } else {
             IllegalArgumentException t = assertThrows(IllegalArgumentException.class, c1::physicalType);
-            assertThat(t.getMessage(), containsString("Not native type for"));
+            assertThat(t.getMessage(), containsString("No NativeType for type"));
         }
     }
 
