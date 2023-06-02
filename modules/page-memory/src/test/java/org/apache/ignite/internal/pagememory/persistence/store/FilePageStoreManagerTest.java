@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.DEL_PART_FILE_TEMPLATE;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -451,6 +453,7 @@ public class FilePageStoreManagerTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 4, 10, 25, 50})
+    @Timeout(value = 1, unit = MINUTES)
     void testConcurrentFindAndRemoveTmpDeltaFile(int tmpDeltaFileCount) throws Exception {
         for (int i = 0; i < REPEATS; i++) {
             Path tableDir = createGroupWorkDir(workDir, 13);
