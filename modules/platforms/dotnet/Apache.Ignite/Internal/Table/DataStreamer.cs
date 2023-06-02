@@ -73,6 +73,14 @@ internal static class DataStreamer
                 batch.Buf.Clear();
             }
         }
+
+        foreach (var (partition, batch) in batches)
+        {
+            if (batch.Buf.Count > 0)
+            {
+                await sender(batch.Buf, partition).ConfigureAwait(false);
+            }
+        }
     }
 
     [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Private class.")]

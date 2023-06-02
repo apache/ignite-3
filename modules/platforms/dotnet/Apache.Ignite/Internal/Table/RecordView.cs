@@ -339,6 +339,9 @@ namespace Apache.Ignite.Internal.Table
 
                     using var writer = ProtoCommon.GetMessageWriter();
                     using var enumerator = batch.GetEnumerator();
+                    enumerator.MoveNext();
+
+                    // TODO: Skip hash computation.
                     _ser.WriteMultiple(writer, tx, schema, enumerator);
 
                     using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);

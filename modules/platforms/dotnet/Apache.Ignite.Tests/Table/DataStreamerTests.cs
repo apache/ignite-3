@@ -36,7 +36,7 @@ public class DataStreamerTests : IgniteTestsBase
         foreach (var tuple in data)
         {
             var (val, hasVal) = await Table.RecordBinaryView.GetAsync(null, tuple);
-            Assert.IsTrue(hasVal);
+            Assert.IsTrue(hasVal, tuple.ToString());
             Assert.AreEqual(val, tuple);
         }
     }
