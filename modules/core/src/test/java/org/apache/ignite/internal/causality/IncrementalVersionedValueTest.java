@@ -392,29 +392,40 @@ public class IncrementalVersionedValueTest {
     public void testLatest() {
         IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
 
+        // Default token.
         assertEquals(-1, vv.latestCausalityToken());
 
         vv.update(1, (val, e) -> completedFuture(10));
 
+        // Revision is not yet updated, we still have the old value.
         assertNull(vv.latest());
         assertEquals(-1, vv.latestCausalityToken());
 
         register.moveRevision(1);
 
+        // Revision is updated.
         assertEquals(10, vv.latest());
         assertEquals(1, vv.latestCausalityToken());
+
+        register.moveRevision(2);
+
+        // Revision is updated second time. Token must be new, value must be the same.
+        assertEquals(10, vv.latest());
+        assertEquals(2, vv.latestCausalityToken());
 
         CompletableFuture<Integer> fut = new CompletableFuture<>();
         vv.update(5, (val, e) -> fut);
 
         register.moveRevision(5);
 
+        // Future is not yet completed, token and value are still the same.
         assertEquals(10, vv.latest());
-        assertEquals(1, vv.latestCausalityToken());
+        assertEquals(2, vv.latestCausalityToken());
 
         // All handlers must be invoked by te same thread, VV must be completed right after.
         fut.complete(50);
 
+        // Finally, updated value and token.
         assertEquals(50, vv.latest());
         assertEquals(5, vv.latestCausalityToken());
     }
@@ -428,12 +439,14 @@ public class IncrementalVersionedValueTest {
         vv.update(1, (val, e) -> fut);
         register.moveRevision(1);
 
+        // Value and token are not updated until the future is completed.
         assertNull(vv.latest());
         assertEquals(-1, vv.latestCausalityToken());
 
         vv.update(5, (val, e) -> completedFuture(50));
         register.moveRevision(5);
 
+        // Value and token are not updated until the future is completed.
         assertNull(vv.latest());
         assertEquals(-1, vv.latestCausalityToken());
 
