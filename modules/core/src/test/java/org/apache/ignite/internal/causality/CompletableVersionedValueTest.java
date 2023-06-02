@@ -277,6 +277,11 @@ public class CompletableVersionedValueTest {
 
         assertEquals(10, vv.latest());
         assertEquals(1, vv.latestCausalityToken());
+
+        vv.complete(2);
+
+        assertEquals(10, vv.latest());
+        assertEquals(2, vv.latestCausalityToken());
     }
 
     @RepeatedTest(100)
