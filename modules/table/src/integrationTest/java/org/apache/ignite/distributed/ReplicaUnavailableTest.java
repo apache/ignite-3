@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -62,6 +64,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -168,6 +171,36 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertThat(respFur, willSucceedIn(10, TimeUnit.SECONDS));
 
         assertEquals(5, respFur.get().result());
+    }
+
+    @Test
+    public void testStopReplicaException() {
+        ClusterNode clusterNode = clusterService.topologyService().localMember();
+
+        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+
+        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                .groupId(tablePartitionId)
+                .timestampLong(clock.nowLong())
+                .binaryRow(createKeyValueRow(1L, 1L))
+                .requestType(RequestType.RW_GET)
+                .build();
+
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
+                (message, sender, correlationId) -> {
+                    try {
+                        log.info("Replica msg " + message.getClass().getSimpleName());
+
+                        replicaManager.stopReplica(tablePartitionId);
+                    } catch (NodeStoppingException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        CompletableFuture<ReplicaResponse> respFur = replicaService.invoke(clusterNode, request);
+
+        assertThat(respFur, willThrow(Matchers.isA(ReplicaStoppingException.class)));
     }
 
     @Test
