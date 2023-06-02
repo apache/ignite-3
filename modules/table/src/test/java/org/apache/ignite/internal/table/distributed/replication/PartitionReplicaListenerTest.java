@@ -1285,11 +1285,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static TableColumnDescriptor nullableColumn(String colName) {
-        return new TableColumnDescriptor(colName, ColumnType.INT32, true, DefaultValue.constant(null));
+        return new TableColumnDescriptor(colName, ColumnType.INT32, true, -1, -1, DefaultValue.constant(null));
     }
 
     private static TableColumnDescriptor defaultedColumn(String colName, int defaultValue) {
-        return new TableColumnDescriptor(colName, ColumnType.INT32, false, DefaultValue.constant(defaultValue));
+        return new TableColumnDescriptor(colName, ColumnType.INT32, false, -1, -1, DefaultValue.constant(defaultValue));
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<TableColumnDescriptor> columns) {

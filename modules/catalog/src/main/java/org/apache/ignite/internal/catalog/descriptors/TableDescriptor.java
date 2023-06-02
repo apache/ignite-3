@@ -71,8 +71,6 @@ public class TableDescriptor extends ObjectDescriptor {
 
         // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
-        assert !primaryKeyColumns.isEmpty() : "No primary key columns.";
-        assert !colocationColumns.isEmpty() : "No colocation columns.";
 
         assert primaryKeyColumns.stream().noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
         assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
@@ -104,6 +102,10 @@ public class TableDescriptor extends ObjectDescriptor {
 
     public boolean isPrimaryKeyColumn(String name) {
         return primaryKeyColumns.contains(name);
+    }
+
+    public boolean isColocationColumn(String name) {
+        return colocationColumns.contains(name);
     }
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {

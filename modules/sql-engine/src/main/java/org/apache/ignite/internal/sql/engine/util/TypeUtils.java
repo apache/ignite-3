@@ -44,6 +44,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.SqlIntervalQualifier;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -481,6 +483,57 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
+        }
+    }
+
+    /** Converts a {@link ColumnType} to corresponding {@link RelDataType}.*/
+    public static RelDataType columnTypeToRelType(IgniteTypeFactory typeFactory, ColumnType columnType, int precision, int scale) {
+        switch (columnType) {
+            case BOOLEAN:
+                return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
+            case INT8:
+                return typeFactory.createSqlType(SqlTypeName.TINYINT);
+            case INT16:
+                return typeFactory.createSqlType(SqlTypeName.SMALLINT);
+            case INT32:
+                return typeFactory.createSqlType(SqlTypeName.INTEGER);
+            case INT64:
+                return typeFactory.createSqlType(SqlTypeName.BIGINT);
+            case FLOAT:
+                return typeFactory.createSqlType(SqlTypeName.REAL);
+            case DOUBLE:
+                return typeFactory.createSqlType(SqlTypeName.DOUBLE);
+            case DECIMAL:
+                return typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale);
+            case DATE:
+                return typeFactory.createSqlType(SqlTypeName.DATE);
+            case TIME:
+                return typeFactory.createSqlType(SqlTypeName.TIME, precision);
+            case DATETIME:
+                return typeFactory.createSqlType(SqlTypeName.TIMESTAMP, precision);
+            case TIMESTAMP:
+                return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, precision);
+            case UUID:
+                return typeFactory.createCustomType(UuidType.NAME);
+            case BITMASK:
+                throw new IllegalArgumentException("Type is not supported: " + columnType);
+            case STRING:
+                return typeFactory.createSqlType(SqlTypeName.VARCHAR, precision);
+            case BYTE_ARRAY:
+                return typeFactory.createSqlType(SqlTypeName.VARBINARY, precision);
+            case PERIOD:
+                SqlIntervalQualifier yearInterval = new SqlIntervalQualifier(
+                        org.apache.calcite.avatica.util.TimeUnit.YEAR, org.apache.calcite.avatica.util.TimeUnit.MONTH, SqlParserPos.ZERO);
+                return typeFactory.createSqlIntervalType(yearInterval);
+            case DURATION:
+                SqlIntervalQualifier dayInterval = new SqlIntervalQualifier(
+                        org.apache.calcite.avatica.util.TimeUnit.DAY, org.apache.calcite.avatica.util.TimeUnit.HOUR, SqlParserPos.ZERO);
+                return typeFactory.createSqlIntervalType(dayInterval);
+            //fallthrough
+            case NUMBER:
+            case NULL:
+            default:
+                throw new IllegalArgumentException("Type is not supported: " + columnType);
         }
     }
 }

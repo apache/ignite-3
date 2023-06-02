@@ -25,10 +25,14 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 
 /**
  * A dummy implementation over {@link SchemaManager}. It is dummy because:
@@ -100,10 +104,70 @@ public class NonHistoricSchemas implements Schemas {
      * @return Conversion result.
      */
     public static TableColumnDescriptor columnDescriptor(Column column) {
+        NativeType nativeType = column.type();
+        int precision;
+        int scale;
+
+        switch (nativeType.spec()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+                precision = -1;
+                scale = -1;
+                break;
+            case DECIMAL:
+                DecimalNativeType decimalNativeType = (DecimalNativeType) nativeType;
+                precision = decimalNativeType.precision();
+                scale = decimalNativeType.scale();
+                break;
+            case UUID:
+                precision = -1;
+                scale = -1;
+                break;
+            case STRING:
+            case BYTES:
+                VarlenNativeType varlenNativeType = (VarlenNativeType) nativeType;
+                precision = varlenNativeType.length();
+                scale = -1;
+                break;
+            case BITMASK:
+                BitmaskNativeType bitmaskNativeType = (BitmaskNativeType) nativeType;
+                precision = bitmaskNativeType.bits();
+                scale = -1;
+                break;
+            case NUMBER:
+                precision = -1;
+                scale = -1;
+                break;
+            case DATE:
+                precision = -1;
+                scale = -1;
+                break;
+            case TIME:
+                precision = -1;
+                scale = -1;
+                break;
+            case DATETIME:
+                precision = -1;
+                scale = -1;
+                break;
+            case TIMESTAMP:
+                precision = -1;
+                scale = -1;
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected native type: " + nativeType);
+        }
+
         return new TableColumnDescriptor(
                 column.name(),
-                column.type().spec().asColumnType(),
+                nativeType.spec().asColumnType(),
                 column.nullable(),
+                precision,
+                scale,
                 DefaultValue.constant(column.defaultValue())
         );
     }

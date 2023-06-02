@@ -48,6 +48,7 @@ public class CatalogUtils {
      * @return Column descriptor.
      */
     public static TableColumnDescriptor fromParams(ColumnParams params) {
-        return new TableColumnDescriptor(params.name(), params.type(), params.nullable(), params.defaultValueDefinition());
+        return new TableColumnDescriptor(params.name(), params.type(), params.nullable(),
+                params.precision(), params.scale(), params.defaultValueDefinition());
     }
 }

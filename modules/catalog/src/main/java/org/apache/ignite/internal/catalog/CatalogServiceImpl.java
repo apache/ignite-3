@@ -155,8 +155,26 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
+    public @Nullable SchemaDescriptor schema(String schemaName, int version) {
+        Catalog catalog = catalog(version);
+
+        if (catalog == null) {
+            return null;
+        }
+
+        return catalog.schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable SchemaDescriptor activeSchema(long timestamp) {
         return catalogAt(timestamp).schema(CatalogService.PUBLIC);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable SchemaDescriptor activeSchema(String schemaName, long timestamp) {
+        return catalogAt(timestamp).schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
     }
 
     private Catalog catalog(int version) {

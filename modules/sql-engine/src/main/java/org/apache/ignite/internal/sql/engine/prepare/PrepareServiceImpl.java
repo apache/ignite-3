@@ -39,6 +39,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
@@ -253,6 +254,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             // Convert to Relational operators graph
             IgniteRel igniteRel = optimize(validatedNode, planner);
+
+            System.err.println(RelOptUtil.dumpPlan("DUMP", igniteRel, SqlExplainFormat.TEXT, SqlExplainLevel.NON_COST_ATTRIBUTES));
 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);

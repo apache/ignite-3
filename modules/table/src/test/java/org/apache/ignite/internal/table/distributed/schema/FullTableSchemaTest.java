@@ -52,7 +52,7 @@ class FullTableSchemaTest {
 
     @NotNull
     private static TableColumnDescriptor someColumn(String columnName) {
-        return new TableColumnDescriptor(columnName, ColumnType.INT32, true, DefaultValue.constant(null));
+        return new TableColumnDescriptor(columnName, ColumnType.INT32, true, -1, -1, DefaultValue.constant(null));
     }
 
     @Test
@@ -78,7 +78,7 @@ class FullTableSchemaTest {
 
         var schema1 = new FullTableSchema(1, 1, List.of(column1), List.of());
         var schema2 = new FullTableSchema(2, 1,
-                List.of(new TableColumnDescriptor("a", ColumnType.STRING, true, DefaultValue.constant(null))),
+                List.of(new TableColumnDescriptor("a", ColumnType.STRING, true, -1, -1, DefaultValue.constant(null))),
                 List.of()
         );
 

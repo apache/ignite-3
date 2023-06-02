@@ -44,6 +44,7 @@ import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlJoin;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
@@ -153,6 +154,48 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateUpdateFields(call);
 
         super.validateUpdate(call);
+
+        SqlSelect select = call.getSourceSelect();
+        assert select != null : "Update: SourceSelect has not been set";
+
+        // Update creates a source expression list which is not updated
+        // after type coercion adds CASTs to source expressions.
+        syncSelectList(select, call);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateMerge(SqlMerge call) {
+        super.validateMerge(call);
+
+        SqlSelect select = call.getSourceSelect();
+        SqlUpdate update = call.getUpdateCall();
+
+        if (update != null) {
+            assert select != null : "Merge: SourceSelect has not been set";
+
+            // Merge creates a source expression list which is not updated after type coercion adds CASTs
+            // to source expressions in Update.
+            syncSelectList(select, update);
+        }
+    }
+
+    private static void syncSelectList(SqlSelect select, SqlUpdate update) {
+        //
+        // If a table has N columns and update::SourceExpressionList has size = M
+        // then select::SelectList has size = N + M:
+        // col1, ... colN, value_expr1, ..., value_exprM
+        //
+        SqlNodeList sourceExpressionList = update.getSourceExpressionList();
+        SqlNodeList selectList = select.getSelectList();
+        int sourceExprListSize = sourceExpressionList.size();
+        int startPosition = selectList.size() - sourceExprListSize;
+
+        for (var i = 0; i < sourceExprListSize; i++) {
+            SqlNode sourceExpr = sourceExpressionList.get(i);
+            int position = startPosition + i;
+            selectList.set(position, sourceExpr);
+        }
     }
 
     /** {@inheritDoc} */
