@@ -60,7 +60,7 @@ public class CatalogUtils {
         return new HashIndexDescriptor(id,
                 params.indexName(),
                 tableId,
-                true,
+                false,
                 params.columns()
         );
     }

@@ -653,7 +653,7 @@ public class CatalogServiceSelfTest {
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
-        assertTrue(index.unique());
+        assertFalse(index.unique());
         assertFalse(index.writeOnly());
     }
 
