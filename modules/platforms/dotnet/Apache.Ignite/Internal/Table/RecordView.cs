@@ -328,9 +328,22 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(data);
 
-            await DataStreamer.StreamData(
+            await DataStreamer.StreamDataAsync(
                 data,
-                async batch => await UpsertAllAsync(null, batch).ConfigureAwait(false),
+                async (batch, preferredNode) =>
+                {
+                    IgniteArgumentCheck.NotNull((IEnumerable<T>)batch, nameof(batch));
+
+                    var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
+                    var tx = ((ITransaction?)null).ToInternal();
+
+                    using var writer = ProtoCommon.GetMessageWriter();
+                    using var enumerator = batch.GetEnumerator();
+                    _ser.WriteMultiple(writer, tx, schema, enumerator);
+
+                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
+                },
+                item => GetPreferredNode(item),
                 options ?? DataStreamerOptions.Default).ConfigureAwait(false);
         }
 
@@ -443,6 +456,18 @@ namespace Apache.Ignite.Internal.Table
             var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
             return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+        }
+
+        private async ValueTask<PreferredNode> GetPreferredNode(T record)
+        {
+            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
+
+            // TODO: Cache resulting serialized row.
+            using var writer = ProtoCommon.GetMessageWriter();
+            var colocationHash = _ser.Write(writer, null, schema, record, false);
+            var preferredNode = await _table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+
+            return preferredNode;
         }
     }
 }

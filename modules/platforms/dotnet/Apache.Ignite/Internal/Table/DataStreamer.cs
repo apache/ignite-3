@@ -31,11 +31,17 @@ internal static class DataStreamer
     /// Streams the data.
     /// </summary>
     /// <param name="data">Data.</param>
-    /// <param name="sender">Sender action.</param>
+    /// <param name="sender">Batch sender.</param>
+    /// <param name="partitioner">Partitioner.</param>
     /// <param name="options">Options.</param>
     /// <typeparam name="T">Element type.</typeparam>
+    /// <typeparam name="TPartition">Partition type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    internal static async Task StreamData<T>(IAsyncEnumerable<T> data, Func<IList<T>, Task> sender, DataStreamerOptions options)
+    internal static async Task StreamDataAsync<T, TPartition>(
+        IAsyncEnumerable<T> data,
+        Func<IList<T>, TPartition, Task> sender,
+        Func<T, ValueTask<TPartition>> partitioner,
+        DataStreamerOptions options)
     {
         await Task.Delay(1).ConfigureAwait(false);
     }
