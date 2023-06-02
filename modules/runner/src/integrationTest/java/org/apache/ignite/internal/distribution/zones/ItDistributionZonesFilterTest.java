@@ -354,7 +354,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingWasNeverExsists(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
@@ -362,7 +362,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
 
         //Check that pending are null, so there wasn't any rebalance.
-        assertPendingWasNeverExsists(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
     @Test
@@ -406,7 +406,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingWasNeverExsists(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
@@ -414,7 +414,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingWasNeverExsists(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
         session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
                 + "\"REPLICAS\" = 2");
@@ -447,7 +447,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         latch.await(10_000, MILLISECONDS);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingWasNeverExsists(metaStorageManager, partId);
+        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
     private static void waitDataNodeAndListenersAreHandled(
@@ -480,7 +480,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         );
     }
 
-    private static void assertPendingWasNeverExsists(
+    private static void assertPendingAssignmentsWereNeverExist(
             MetaStorageManager metaStorageManager,
             TablePartitionId partId
     ) throws InterruptedException, ExecutionException {

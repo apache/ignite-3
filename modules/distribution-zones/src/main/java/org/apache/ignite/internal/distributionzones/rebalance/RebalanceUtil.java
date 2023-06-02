@@ -405,8 +405,11 @@ public class RebalanceUtil {
      * @param numberOfPartitions Number of partitions.
      * @return Future with table assignments as a value.
      */
-    public static CompletableFuture<List<Set<Assignment>>> tableAssignments(
-            MetaStorageManager metaStorageManager, int tableId, int numberOfPartitions) {
+    static CompletableFuture<List<Set<Assignment>>> tableAssignments(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions
+    ) {
         Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
 
         for (int i = 0; i < numberOfPartitions; i++) {

@@ -191,7 +191,9 @@ public class DistributionZoneRebalanceEngine {
 
                             CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                                     metaStorageManager,
-                                    tableId, distributionZoneConfiguration.partitions().value());
+                                    tableId,
+                                    distributionZoneConfiguration.partitions().value()
+                            );
 
                             tableAssignmentsFut.thenAccept(tableAssignments -> {
 
@@ -283,7 +285,9 @@ public class DistributionZoneRebalanceEngine {
 
                     CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                             metaStorageManager,
-                            tableId, partCnt);
+                            tableId,
+                            partCnt
+                    );
 
                     Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
 
