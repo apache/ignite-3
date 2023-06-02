@@ -104,9 +104,9 @@ public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBas
 
         await().untilAsserted(() -> {
             // And list is not empty
-            List<UnitStatusRecord> unisStatuses = listUnitCall.execute(listAllInput()).body();
-            assertThat(unisStatuses.size()).isEqualTo(1);
-            Assertions.assertThat(unisStatuses.get(0).versionToStatus()).containsExactly(entry("1.0.0", DEPLOYED));
+            List<UnitStatusRecord> unitsStatuses = listUnitCall.execute(listAllInput()).body();
+            assertThat(unitsStatuses.size()).isEqualTo(1);
+            Assertions.assertThat(unitsStatuses.get(0).versionToStatus()).containsExactly(entry("1.0.0", DEPLOYED));
         });
 
         // When undeploy unit
