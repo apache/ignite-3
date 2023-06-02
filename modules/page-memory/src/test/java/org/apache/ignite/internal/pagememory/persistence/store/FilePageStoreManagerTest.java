@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.pagememory.persistence.store.FilePageSt
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.PART_FILE_TEMPLATE;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.TMP_FILE_SUFFIX;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.TMP_PART_DELTA_FILE_TEMPLATE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.Test;
@@ -440,13 +442,77 @@ public class FilePageStoreManagerTest {
         );
     }
 
+    @Test
+    void testConcurrentFindAndRemoveTmpDeltaFile() throws Exception {
+        for (int tmpDeltaFileCount : new int[]{1, 2, 4, 10, 50, 100}) {
+            for (int i = 0; i < 100; i++) {
+                FilePageStoreManager manager = createManager();
+
+                manager.start();
+
+                Path tableDir = createGroupWorkDir(workDir, 13);
+
+                int partitionId = 69;
+
+                for (int j = 0; j < tmpDeltaFileCount; j++) {
+                    Path tmpDeltaFilePath = createTmpDeltaFilePath(tableDir, partitionId, j);
+
+                    Files.createFile(tmpDeltaFilePath);
+                }
+
+                runRace(
+                        () -> findPartitionTmpDeltaFilesWhileExists(manager, tableDir, partitionId),
+                        () -> findPartitionTmpDeltaFilesWhileExists(manager, tableDir, partitionId),
+                        () -> findPartitionTmpDeltaFilesWhileExists(manager, tableDir, partitionId),
+                        () -> removePartitionTmpDeltaFilesWhileExists(tableDir, partitionId, tmpDeltaFileCount)
+                );
+
+                assertThat(collectFilesOnly(tableDir), empty());
+            }
+        }
+    }
+
     private FilePageStoreManager createManager() throws Exception {
         return new FilePageStoreManager("test", workDir, new RandomAccessFileIoFactory(), 1024);
     }
 
-    private List<Path> collectFilesOnly(Path start) throws Exception {
+    private static List<Path> collectFilesOnly(Path start) throws Exception {
         try (Stream<Path> fileStream = Files.find(start, Integer.MAX_VALUE, (path, basicFileAttributes) -> Files.isRegularFile(path))) {
             return fileStream.collect(toList());
+        }
+    }
+
+    private static Path createGroupWorkDir(Path workDir, int tableId) throws Exception {
+        Path groupWorkDir = workDir.resolve("db/table-" + tableId);
+
+        Files.createDirectories(groupWorkDir);
+
+        return groupWorkDir;
+    }
+
+    private static Path createTmpDeltaFilePath(Path groupWorkDir, int partitionId, int i) {
+        return groupWorkDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, i));
+    }
+
+    private static void findPartitionTmpDeltaFilesWhileExists(
+            FilePageStoreManager manager,
+            Path groupWorkDir,
+            int partitionId
+    ) throws Exception {
+        while (true) {
+            Path[] partitionDeltaFiles = manager.findPartitionDeltaFiles(groupWorkDir, partitionId);
+
+            if (ArrayUtils.nullOrEmpty(partitionDeltaFiles)) {
+                break;
+            }
+        }
+    }
+
+    private static void removePartitionTmpDeltaFilesWhileExists(Path groupWorkDir, int partitionId, int count) {
+        for (int i = 0; i < count; i++) {
+            Path tmpDeltaFile = createTmpDeltaFilePath(groupWorkDir, partitionId, i);
+
+            assertTrue(IgniteUtils.deleteIfExists(tmpDeltaFile), tmpDeltaFile.toString());
         }
     }
 }
