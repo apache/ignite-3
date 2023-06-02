@@ -63,9 +63,9 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         return notNull;
     }
 
-    /** Returns function that resolves a default value depending on the type of the column. */
-    public @Nullable Function<ColumnType, DefaultValue> defaultResolver() {
-        return defaultResolver;
+    /** Returns a default value depending on the column type. */
+    public @Nullable DefaultValue defaultValue(ColumnType type) {
+        return defaultResolver == null ? null : defaultResolver.apply(type);
     }
 
     public static AlterColumnParams.Builder builder() {

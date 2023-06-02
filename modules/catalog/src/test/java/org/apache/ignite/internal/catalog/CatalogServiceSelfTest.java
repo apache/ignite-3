@@ -659,17 +659,17 @@ public class CatalogServiceSelfTest {
         assertNotNull(service.schema(schemaVer));
         assertNull(service.schema(schemaVer + 1));
 
-        TestColumnTypeParams typeParams = new TestColumnTypeParams(type, 10, null);
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 10, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
 
-        assertThat(
-                changeColumn(TABLE_NAME, col.name(), typeParams, null, null),
-                willThrowFast(SqlException.class, "Cannot change precision to 10 for column '" + col.name() + "'")
-        );
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 10, null), null, null),
+                willBe((Object) null));
 
-        assertThat(
-                changeColumn(TABLE_NAME, colWithPrecision.name(), typeParams, null, null),
-                willThrowFast(SqlException.class, "Cannot change precision to 10 for column '" + colWithPrecision.name() + "'")
-        );
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 9, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 11, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
 
         assertNull(service.schema(schemaVer + 1));
     }
@@ -756,12 +756,12 @@ public class CatalogServiceSelfTest {
 
         // 3 -> 4 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 4), null, null),
-                willThrowFast(SqlException.class, "Cannot change scale to 4 for column '" + col.name() + "'."));
+                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 2), null, null),
-                willThrowFast(SqlException.class, "Cannot change scale to 2 for column '" + col.name() + "'."));
+                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
     }
 

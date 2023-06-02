@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -353,117 +352,53 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            Optional<Boolean> nullableChange = resolveColumnNullableChange(origin, params.notNull());
-            Optional<DefaultValue> dfltChange = resolveColumnDefaultChange(origin, params.defaultResolver());
-            Optional<AlterColumnParams> typeParamsChange = resolveColumnTypeChange(origin, params);
+            boolean nullable = !Objects.requireNonNullElse(params.notNull(), !origin.nullable());
+            DefaultValue defaultValue = Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue());
+            ColumnType type = Objects.requireNonNullElse(params.type(), origin.type());
+            int scale = Objects.requireNonNullElse(params.scale(), origin.scale());
 
-            if (nullableChange.isEmpty() && dfltChange.isEmpty() && typeParamsChange.isEmpty()) {
-                // No-op.
+            boolean varLenType = varLenTypes.contains(type);
+            int precision = varLenType ? origin.precision() : Objects.requireNonNullElse(params.precision(), origin.precision());
+            int length = varLenType ? Objects.requireNonNullElse(params.precision(), origin.length()) : origin.length();
+
+            TableColumnDescriptor target = new TableColumnDescriptor(origin.name(), type, nullable, defaultValue, precision, scale, length);
+
+            if (origin.equals(target)) {
+                // No modifications required.
                 return Collections.emptyList();
             }
 
-            boolean varLenType = typeParamsChange.isPresent() && varLenTypes.contains(typeParamsChange.get().type());
-
-            return List.of(new AlterColumnEntry(table.id(), new TableColumnDescriptor(
-                    origin.name(),
-                    typeParamsChange.map(AlterColumnParams::type).orElse(origin.type()),
-                    nullableChange.orElse(origin.nullable()),
-                    dfltChange.orElse(origin.defaultValue()),
-                    varLenType || typeParamsChange.isEmpty() || typeParamsChange.get().precision() == null
-                            ? origin.precision()
-                            : typeParamsChange.get().precision(),
-                    origin.scale(),
-                    varLenType && typeParamsChange.get().precision() != null
-                            ? typeParamsChange.get().precision()
-                            : origin.length()
-            )));
-        });
-    }
-
-    /**
-     * Returns optional with {@code nullable} column attribute to be modified or empty optional if no change is required.
-     */
-    private Optional<Boolean> resolveColumnNullableChange(TableColumnDescriptor origin, @Nullable Boolean notNull) {
-        if (notNull == null || origin.nullable() != notNull) {
-            return Optional.empty();
-        }
-
-        if (notNull) {
-            throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
-        }
-
-        return Optional.of(true);
-    }
-
-    /**
-     * Returns optional with {@code default} column value to be modified or empty optional if no change is required.
-     */
-    private Optional<DefaultValue> resolveColumnDefaultChange(
-            TableColumnDescriptor origin,
-            @Nullable Function<ColumnType, DefaultValue> dfltFunc
-    ) {
-        if (dfltFunc == null) {
-            return Optional.empty();
-        }
-
-        DefaultValue dflt = dfltFunc.apply(origin.type());
-
-        if (dflt.equals(origin.defaultValue())) {
-            return Optional.empty();
-        }
-
-        return Optional.of(dflt);
-    }
-
-    /**
-     * Returns optional with {@code type} column attributes to be modified or empty optional if no change is required.
-     */
-    private Optional<AlterColumnParams> resolveColumnTypeChange(TableColumnDescriptor origin, AlterColumnParams params) {
-        if (params.type() == null) {
-            return Optional.empty();
-        }
-
-        boolean varLenType = varLenTypes.contains(params.type());
-
-        if (origin.type() == params.type()
-                && (params.scale() == null || origin.scale() == params.scale())
-                && (params.precision() == null
-                    || (varLenType && origin.length() == params.precision())
-                    || (params.type() == ColumnType.DECIMAL && origin.precision() == params.precision())
-                )
-        ) {
-            // No-op.
-            return Optional.empty();
-        }
-
-        if (origin.type() != params.type()) {
-            Set<ColumnType> supportedTypes = supportedTransitions.get(origin.type());
-
-            if (supportedTypes == null || !supportedTypes.contains(params.type())) {
-                throwUnsupportedDdl(
-                        "Cannot change data type for column '{}' [from={}, to={}].", origin.name(), origin.type(), params.type());
+            if (origin.nullable() != target.nullable() && origin.nullable()) {
+                throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
             }
-        }
 
-        if (params.scale() != null && origin.scale() != params.scale()) {
-            throwUnsupportedDdl("Cannot change scale to {} for column '{}'.", params.scale(), origin.name());
-        }
+            if (origin.scale() != target.scale()) {
+                throwUnsupportedDdl("Cannot change scale for column '{}'.", origin.name());
+            }
 
-        if (params.precision() != null) {
-            if (varLenType) {
-                if (params.precision() < origin.length()) {
-                    throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", params.precision(), origin.name());
+            if (origin.type() != target.type()) {
+                Set<ColumnType> supportedTypes = supportedTransitions.get(origin.type());
+
+                if (supportedTypes == null || !supportedTypes.contains(params.type())) {
+                    throwUnsupportedDdl(
+                            "Cannot change data type for column '{}' [from={}, to={}].", origin.name(), origin.type(), target.type());
                 }
-            } else if (params.type() == ColumnType.DECIMAL) {
-                if (params.precision() < origin.precision()) {
+            }
+
+            if (target.length() < origin.length()) {
+                throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
+            }
+
+            if (origin.precision() != target.precision()) {
+                if (target.type() != ColumnType.DECIMAL) {
+                    throwUnsupportedDdl("Cannot change precision for column '{}'.", origin.name());
+                } else if (target.precision() < origin.precision()) {
                     throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", params.precision(), origin.name());
                 }
-            } else {
-                throwUnsupportedDdl("Cannot change precision to {} for column '{}'.", params.precision(), origin.name());
             }
-        }
 
-        return Optional.of(params);
+            return List.of(new AlterColumnEntry(table.id(), target));
+        });
     }
 
     private void registerCatalog(Catalog newCatalog) {
