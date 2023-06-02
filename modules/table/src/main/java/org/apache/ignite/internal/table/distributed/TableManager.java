@@ -74,6 +74,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -266,7 +267,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #updateAssignmentInternal(ConfigurationNotificationEvent)}.
+     * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, ExtendedTableView, TableImpl)}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -664,7 +665,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             long causalityToken,
             List<Set<Assignment>> assignments,
             ExtendedTableView tblCfg,
-            TableImpl table) {
+            TableImpl table
+    ) {
         int tblId = tblCfg.id();
 
         DistributionZoneConfiguration dstCfg = getZoneById(distributionZonesConfiguration, tblCfg.zoneId());
@@ -687,7 +689,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         String localMemberName = localNode().name();
 
         // Create new raft nodes according to new assignments.
-        Function<TableImpl, CompletableFuture<Void>> updateAssignmentsClosure = table -> {
+        Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> {
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
@@ -896,7 +898,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
 
         CompletableFuture<Void> updateAssignmentsFuture = tablesByIdVv.get(causalityToken).thenComposeAsync(
-                tablesById -> inBusyLock(busyLock, () -> updateAssignmentsClosure.apply(tablesById.get(tblId))),
+                tablesById -> inBusyLock(busyLock, updateAssignmentsClosure),
                 ioExecutor
         );
 
@@ -1001,7 +1003,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Map<Integer, TableImpl> tablesToStop = Stream.concat(tablesByIdVv.latest().entrySet().stream(), pendingTables.entrySet().stream())
+        Map<Integer, TableImpl> tablesToStop = Stream.concat(latestTablesById().entrySet().stream(), pendingTables.entrySet().stream())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
 
         cleanUpTablesResources(tablesToStop);
@@ -1901,7 +1903,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     TableImpl table = tables.get(id);
 
                     if (table != null) {
-                        getTblFut.complete(table);
+                        assignmentsUpdatedVv.get(token).whenComplete((v, e) -> {
+                            if (e != null) {
+                                getTblFut.completeExceptionally(e);
+                            } else {
+                                getTblFut.complete(table);
+                            }
+                        });
                     }
                 } else {
                     getTblFut.completeExceptionally(th);
