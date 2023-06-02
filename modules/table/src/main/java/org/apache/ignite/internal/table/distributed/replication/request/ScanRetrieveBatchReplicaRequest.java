@@ -83,6 +83,5 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return Bitset to include columns.
      */
     @Nullable
-    @Marshallable
     BitSet columnsToInclude();
 }

@@ -94,12 +94,34 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Byte readBoxedByte(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Byte val = stream.readBoxedByte();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public short readShort(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         short val = stream.readShort();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Short readBoxedShort(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Short val = stream.readBoxedShort();
 
         lastRead = stream.lastFinished();
 
@@ -125,7 +147,7 @@ public class DirectMessageReader implements MessageReader {
     }
 
     @Override
-    public Integer readBoxedInt(String name) {
+    public @Nullable Integer readBoxedInt(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         Integer val = stream.readBoxedInt();
@@ -147,12 +169,34 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Long readBoxedLong(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Long val = stream.readBoxedLong();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public float readFloat(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         float val = stream.readFloat();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Float readBoxedFloat(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Float val = stream.readBoxedFloat();
 
         lastRead = stream.lastFinished();
 
@@ -171,6 +215,17 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Double readBoxedDouble(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Double val = stream.readBoxedDouble();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public char readChar(String name) {
@@ -183,12 +238,34 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public @Nullable Character readBoxedChar(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Character val = stream.readBoxedChar();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean readBoolean(String name) {
         DirectByteBufferStream stream = state.item().stream;
 
         boolean val = stream.readBoolean();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public @Nullable Boolean readBoxedBoolean(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        Boolean val = stream.readBoxedBoolean();
 
         lastRead = stream.lastFinished();
 
