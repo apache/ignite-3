@@ -67,8 +67,6 @@ public class IgniteIndex {
         HASH, SORTED
     }
 
-    private final String name;
-
     private final List<String> columns;
 
     private final @Nullable List<Collation> collations;
@@ -84,20 +82,10 @@ public class IgniteIndex {
      */
     public IgniteIndex(Index<?> index) {
         this.index = Objects.requireNonNull(index, "index");
-        this.name = index.name();
 
         this.columns = index.descriptor().columns();
         this.collations = deriveCollations(index);
         this.type = index instanceof SortedIndex ? Type.SORTED : Type.HASH;
-    }
-
-    /** Constructor. */
-    public IgniteIndex(String name, List<String> columns, Type type, @Nullable List<Collation> collations) {
-        this.name = name;
-        this.index = null;
-        this.type = type;
-        this.columns = columns;
-        this.collations = collations;
     }
 
     /** Returns a list of names of indexed columns. */
@@ -119,12 +107,11 @@ public class IgniteIndex {
 
     /** Returns the name of a current index. */
     public String name() {
-        return name;
+        return index.name();
     }
 
     /** Returns an object providing access to a data. */
     public Index<?> index() {
-        assert index != null : "CatalogSqlSchemaManager does not set physical index, index should be acquired via proper API";
         return index;
     }
 
