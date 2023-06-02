@@ -147,7 +147,6 @@ public class CatalogServiceSelfTest {
         CreateTableParams params = CreateTableParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .ifTableExists(true)
                 .zone(ZONE_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
@@ -197,9 +196,7 @@ public class CatalogServiceSelfTest {
         assertEquals(0L, table.zoneId());
 
         // Validate another table creation.
-        fut = service.createTable(simpleTable(TABLE_NAME_2));
-
-        assertThat(fut, willBe((Object) null));
+        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
 
         // Validate actual catalog has both tables.
         schema = service.schema(2);
@@ -217,35 +214,12 @@ public class CatalogServiceSelfTest {
         assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
 
         assertNotSame(schema.table(TABLE_NAME), schema.table(TABLE_NAME_2));
-    }
 
-    @Test
-    public void testCreateTableIfExistsFlag() {
-        CreateTableParams params = CreateTableParams.builder()
-                .tableName(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                ))
-                .primaryKeyColumns(List.of("key"))
-                .ifTableExists(true)
-                .build();
+        // Try to create another table with same name.
+        assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willThrowFast(TableAlreadyExistsException.class));
 
-        assertThat(service.createTable(params), willBe((Object) null));
-        assertThat(service.createTable(params), willThrowFast(TableAlreadyExistsException.class));
-
-        CompletableFuture<?> fut = service.createTable(
-                CreateTableParams.builder()
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(
-                                ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                                ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                        ))
-                        .primaryKeyColumns(List.of("key"))
-                        .ifTableExists(false)
-                        .build());
-
-        assertThat(fut, willThrowFast(TableAlreadyExistsException.class));
+        // Validate schema wasn't changed.
+        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
     }
 
     @Test
@@ -291,38 +265,12 @@ public class CatalogServiceSelfTest {
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
         assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
-    }
 
-    @Test
-    public void testDropTableIfExistsFlag() {
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                ))
-                .primaryKeyColumns(List.of("key"))
-                .build();
+        // Try to drop table once again.
+        assertThat(service.dropTable(dropTableParams), willThrowFast(TableNotFoundException.class));
 
-        assertThat(service.createTable(createTableParams), willBe((Object) null));
-
-        DropTableParams params = DropTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .ifTableExists(true)
-                .build();
-
-        assertThat(service.dropTable(params), willBe((Object) null));
-        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
-
-        params = DropTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .ifTableExists(false)
-                .build();
-
-        assertThat(service.dropTable(params), willThrowFast(TableNotFoundException.class));
+        // Validate schema wasn't changed.
+        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
     }
 
     @Test
@@ -407,26 +355,26 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropColumnIfTableExistsFlag() {
+    public void testCreateDropColumnIfTableNotExists() {
         assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
 
-        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
+        // Try to add a new column.
+        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
                 .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .ifTableExists(false)
                 .build();
 
-        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+        assertThat(service.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
 
-        params = AlterTableAddColumnParams.builder()
+        // Try to drop column.
+        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .ifTableExists(true)
+                .columns(Set.of("VAL"))
                 .build();
 
-        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
+        assertThat(service.dropColumn(dropColumnParams), willThrow(TableNotFoundException.class));
     }
 
     @Test
@@ -461,29 +409,6 @@ public class CatalogServiceSelfTest {
 
         assertNotNull(schema.table(TABLE_NAME).column("ID"));
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
-    }
-
-    @Test
-    public void testAddColumnIfTableExistsFlag() {
-        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
-
-        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .ifTableExists(false)
-                .build();
-
-        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
-
-        params = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .ifTableExists(true)
-                .build();
-
-        assertThat(service.addColumn(params), willThrow(TableNotFoundException.class));
     }
 
     @Test
@@ -610,7 +535,6 @@ public class CatalogServiceSelfTest {
         CreateTableParams params = CreateTableParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .ifTableExists(true)
                 .zone(ZONE_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
@@ -655,7 +579,6 @@ public class CatalogServiceSelfTest {
                         .nullable(true)
                         .build()
                 ))
-                .ifTableExists(true)
                 .build();
 
         AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
