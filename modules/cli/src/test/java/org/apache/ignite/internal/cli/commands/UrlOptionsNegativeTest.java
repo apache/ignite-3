@@ -43,6 +43,10 @@ import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyC
 import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
@@ -60,12 +64,8 @@ import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceListC
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceListReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitListCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitListReplCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
+import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListCommand;
+import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListReplCommand;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -139,9 +139,9 @@ public class UrlOptionsNegativeTest {
                 arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19090
                 // arguments(UnitDeployCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
-                arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterUnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
+                arguments(ClusterUnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(NodeUnitListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
@@ -165,9 +165,9 @@ public class UrlOptionsNegativeTest {
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19090
                 // arguments(UnitDeployReplCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(UnitStatusReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
-                arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterUnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
+                arguments(ClusterUnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(NodeUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378

@@ -15,30 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
+
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.unit.ListUnitCall;
+import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.UnitListOptionsMixin;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command to list deployed units in REPL mode. */
 @Command(name = "list", description = "Shows a list of deployed units")
-public class UnitListReplCommand extends BaseCommand implements Runnable {
+public class ClusterUnitListReplCommand extends BaseCommand implements Runnable {
+
+    @Mixin
+    private UnitListOptionsMixin listOptions;
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
+
     @Inject
-    private ListUnitCall call;
+    private ClusterListUnitCall call;
 
     @Inject
     private ConnectToClusterQuestion question;
@@ -46,11 +56,11 @@ public class UnitListReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(UrlCallInput::new)
+                .map(listOptions::toListUnitCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "cluster init"))
                 .verbose(verbose)
-                .print(new UnitListDecorator())
+                .print(new UnitListDecorator(plain))
                 .start();
     }
 }

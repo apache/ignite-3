@@ -51,7 +51,6 @@ class DdlToCatalogCommandConverter {
         return CreateTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .ifTableExists(cmd.ifTableExists())
 
                 .columns(columns)
                 .colocationColumns(cmd.colocationColumns())
@@ -66,7 +65,6 @@ class DdlToCatalogCommandConverter {
         return DropTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .ifTableExists(cmd.ifTableExists())
                 .build();
     }
 
@@ -76,7 +74,6 @@ class DdlToCatalogCommandConverter {
         return AlterTableAddColumnParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .ifTableExists(cmd.ifTableExists())
 
                 .columns(columns)
 
@@ -87,7 +84,6 @@ class DdlToCatalogCommandConverter {
         return AlterTableDropColumnParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .ifTableExists(cmd.ifTableExists())
 
                 .columns(cmd.columns())
 

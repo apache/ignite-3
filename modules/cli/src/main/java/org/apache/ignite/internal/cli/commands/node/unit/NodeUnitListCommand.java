@@ -15,39 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.node.unit;
 
+
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.unit.ListUnitCall;
+import org.apache.ignite.internal.cli.call.node.unit.NodeListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.UnitListOptionsMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /** Command to list deployed units. */
 @Command(name = "list", description = "Shows a list of deployed units")
-public class UnitListCommand extends BaseCommand implements Callable<Integer> {
+public class NodeUnitListCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private UnitListOptionsMixin listOptions;
+
+    @Mixin
+    private NodeUrlProfileMixin nodeUrl;
+
+    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
+    private boolean plain;
 
     @Inject
-    private ListUnitCall listUnitCall;
+    private NodeListUnitCall listUnitCall;
 
     @Override
     public Integer call() throws Exception {
         return CallExecutionPipeline.builder(listUnitCall)
-                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
+                .inputProvider(() -> listOptions.toListUnitCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
-                .decorator(new UnitListDecorator())
+                .decorator(new UnitListDecorator(plain))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
                 .build().runPipeline();
     }

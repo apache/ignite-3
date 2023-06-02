@@ -20,7 +20,6 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.util.List;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -39,7 +38,6 @@ public final class LocalStorageOutter {
         @Nullable
         RaftOutter.SnapshotMeta meta();
 
-        @Marshallable
         List<LocalStorageOutter.LocalSnapshotPbMeta.File> filesList();
 
         @Transferable(value = RaftMessageGroup.RaftOutterMessageGroup.LOCAL_SNAPSHOT_META_FILE)

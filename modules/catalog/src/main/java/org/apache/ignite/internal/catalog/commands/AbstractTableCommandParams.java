@@ -24,9 +24,6 @@ public class AbstractTableCommandParams implements DdlCommandParams {
     /** Table name. */
     protected String tableName;
 
-    /** Quietly ignore this command if table is not exists. */
-    protected boolean ifTableExists;
-
     /** Schema name where this new table will be created. */
     protected String schema;
 
@@ -42,13 +39,6 @@ public class AbstractTableCommandParams implements DdlCommandParams {
      */
     public String schemaName() {
         return schema;
-    }
-
-    /**
-     * Quietly ignore if table is not exist.
-     */
-    public boolean ifTableExists() {
-        return ifTableExists;
     }
 
     /**
@@ -80,18 +70,6 @@ public class AbstractTableCommandParams implements DdlCommandParams {
          */
         public BuilderT tableName(String tableName) {
             params.tableName = tableName;
-            return (BuilderT) this;
-        }
-
-        /**
-         * Set quietly ignore flag.
-         *
-         * @param ifTableNotExists Flag.
-         * @return {@code this}.
-         */
-        public BuilderT ifTableExists(boolean ifTableNotExists) {
-            params.ifTableExists = ifTableNotExists;
-
             return (BuilderT) this;
         }
 
