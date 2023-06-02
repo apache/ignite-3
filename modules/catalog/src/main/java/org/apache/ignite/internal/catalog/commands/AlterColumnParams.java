@@ -36,31 +36,36 @@ public class AlterColumnParams extends AbstractTableCommandParams {
 
     private Boolean notNull;
 
-    private Function<ColumnType, DefaultValue> resolveDfltFunc;
+    private Function<ColumnType, DefaultValue> defaultResolver;
 
     /** Returns column name. */
     public String columnName() {
         return columnName;
     }
 
+    /** Returns column type. */
     public @Nullable ColumnType type() {
         return type;
     }
 
+    /** Returns column precision. */
     public @Nullable Integer precision() {
         return precision;
     }
 
+    /** Returns column scale. */
     public @Nullable Integer scale() {
         return scale;
     }
 
+    /** Returns the {@code NOT NULL} constraint change flag. */
     public @Nullable Boolean notNull() {
         return notNull;
     }
 
-    public @Nullable Function<ColumnType, DefaultValue> resolveDfltFunc() {
-        return resolveDfltFunc;
+    /** Returns function that resolves a default value depending on the type of the column. */
+    public @Nullable Function<ColumnType, DefaultValue> defaultResolver() {
+        return defaultResolver;
     }
 
     public static AlterColumnParams.Builder builder() {
@@ -89,30 +94,30 @@ public class AlterColumnParams extends AbstractTableCommandParams {
             return this;
         }
 
-        /** Sets precision. */
+        /** Sets column precision. */
         public Builder precision(int precision) {
             params.precision = precision;
 
             return this;
         }
 
-        /** Sets scale. */
+        /** Sets column scale. */
         public Builder scale(int scale) {
             params.scale = scale;
 
             return this;
         }
 
-        /** Sets column precision. */
+        /** Sets the {@code NOT NULL} constraint change flag. */
         public Builder notNull(boolean notNull) {
             params.notNull = notNull;
 
             return this;
         }
 
-        /** Sets column name. */
+        /** Sets function that resolves a default value depending on the type of the column. */
         public Builder defaultResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
-            params.resolveDfltFunc = resolveDfltFunc;
+            params.defaultResolver = resolveDfltFunc;
 
             return this;
         }

@@ -42,7 +42,7 @@ public class AlterColumnEventParameters extends CatalogEventParameters {
         this.columnDescriptor = columnDescriptor;
     }
 
-    /** Returns an id of dropped table. */
+    /** Returns an id of a modified table. */
     public int tableId() {
         return tableId;
     }

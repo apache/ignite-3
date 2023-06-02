@@ -354,7 +354,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             Optional<Boolean> nullableChange = resolveColumnNullableChange(origin, params.notNull());
-            Optional<DefaultValue> dfltChange = resolveColumnDefaultChange(origin, params.resolveDfltFunc());
+            Optional<DefaultValue> dfltChange = resolveColumnDefaultChange(origin, params.defaultResolver());
             Optional<AlterColumnParams> typeParamsChange = resolveColumnTypeChange(origin, params);
 
             if (nullableChange.isEmpty() && dfltChange.isEmpty() && typeParamsChange.isEmpty()) {
