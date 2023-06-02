@@ -110,6 +110,7 @@ public class NonHistoricSchemas implements Schemas {
         NativeType nativeType = column.type();
         int precision;
         int scale;
+        int length;
 
         switch (nativeType.spec()) {
             case INT8:
@@ -123,22 +124,26 @@ public class NonHistoricSchemas implements Schemas {
             case UUID:
                 precision = 0;
                 scale = 0;
+                length = 0;
                 break;
             case DECIMAL:
                 DecimalNativeType decimalNativeType = (DecimalNativeType) nativeType;
                 precision = decimalNativeType.precision();
                 scale = decimalNativeType.scale();
+                length = 0;
                 break;
             case STRING:
             case BYTES:
                 VarlenNativeType varlenNativeType = (VarlenNativeType) nativeType;
-                precision = varlenNativeType.length();
+                precision = 0;
                 scale = 0;
+                length = varlenNativeType.length();
                 break;
             case BITMASK:
                 BitmaskNativeType bitmaskNativeType = (BitmaskNativeType) nativeType;
-                precision = bitmaskNativeType.bits();
+                precision = 0;
                 scale = 0;
+                length = bitmaskNativeType.bits();
                 break;
             case TIME:
             case DATETIME:
@@ -146,6 +151,7 @@ public class NonHistoricSchemas implements Schemas {
                 TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
                 precision = temporalNativeType.precision();
                 scale = 0;
+                length = 0;
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected native type: " + nativeType);
@@ -157,6 +163,7 @@ public class NonHistoricSchemas implements Schemas {
                 column.nullable(),
                 precision,
                 scale,
+                length,
                 defaultValue(column.defaultValueProvider())
         );
     }

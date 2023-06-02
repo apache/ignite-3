@@ -50,8 +50,6 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
 
     private final int scale;
 
-    private RelDataType logicalType;
-
     private NativeType nativeType;
 
     /**

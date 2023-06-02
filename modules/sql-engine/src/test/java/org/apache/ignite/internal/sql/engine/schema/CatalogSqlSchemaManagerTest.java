@@ -524,13 +524,13 @@ public class CatalogSqlSchemaManagerTest {
 
         void addColumn(String name, ColumnType columnType) {
             DefaultValue defaultValue = DefaultValue.constant(null);
-            columns.add(new TableColumnDescriptor(name, columnType, true, -1, -1, defaultValue));
+            columns.add(new TableColumnDescriptor(name, columnType, true, 0, 0, 0, defaultValue));
             setDefault(name, defaultValue);
         }
 
         void addColumn(String name, ColumnType columnType, int precision, int scale) {
             DefaultValue defaultValue = DefaultValue.constant(null);
-            columns.add(new TableColumnDescriptor(name, columnType, true, precision, scale, defaultValue));
+            columns.add(new TableColumnDescriptor(name, columnType, true, precision, scale, precision, defaultValue));
             setDefault(name, defaultValue);
         }
 
@@ -563,8 +563,10 @@ public class CatalogSqlSchemaManagerTest {
                 boolean nullable = !notNull.contains(colName);
                 int precision = col.precision();
                 int scale = col.scale();
+                int length = col.length();
 
-                TableColumnDescriptor newCol = new TableColumnDescriptor(colName, col.type(), nullable, precision, scale, defaultValue);
+                TableColumnDescriptor newCol = new TableColumnDescriptor(colName, col.type(), nullable,
+                        precision, scale, length, defaultValue);
                 columnDescriptors.add(newCol);
             }
 
