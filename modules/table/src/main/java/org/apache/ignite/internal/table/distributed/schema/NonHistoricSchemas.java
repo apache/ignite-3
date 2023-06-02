@@ -27,6 +27,8 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -155,7 +157,16 @@ public class NonHistoricSchemas implements Schemas {
                 column.nullable(),
                 precision,
                 scale,
-                DefaultValue.constant(column.defaultValue())
+                defaultValue(column.defaultValueProvider())
         );
+    }
+
+    private static DefaultValue defaultValue(DefaultValueProvider defaultValueProvider) {
+        if (defaultValueProvider instanceof FunctionalValueProvider) {
+            FunctionalValueProvider functionalProvider = (FunctionalValueProvider) defaultValueProvider;
+            return DefaultValue.functionCall(functionalProvider.name());
+        } else {
+            return DefaultValue.constant(defaultValueProvider.get());
+        }
     }
 }
