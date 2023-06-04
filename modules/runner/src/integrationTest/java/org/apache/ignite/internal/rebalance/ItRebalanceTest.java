@@ -21,9 +21,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -32,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
@@ -40,7 +38,6 @@ import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -49,8 +46,6 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -92,25 +87,16 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
-        CompletableFuture<Void> failoverUpdateFuture = cluster.node(0)
-                .nodeConfiguration()
-                .getConfiguration(ClusterManagementConfiguration.KEY)
-                .failoverTimeout()
-                .update(0L);
-
-        assertThat(failoverUpdateFuture, willCompleteSuccessfully());
-
         //Creates table with 1 partition and 3 replicas.
         createTestTable();
 
-        waitAssignments(List.of(
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2)
-        ));
-
         TableImpl table = (TableImpl) cluster.node(0).tables().table("TEST");
+
+        waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
+                nodeName(1),
+                nodeName(2)
+        ), table.tableId());
 
         BinaryRowEx row = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1).set("value", "value1"));
         BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1));
@@ -127,30 +113,28 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
         assertThat(
                 table.internalTable().get(key, clock.now(), cluster.node(3).node()),
-                willFailIn(10, TimeUnit.SECONDS, ReplicaUnavailableException.class)
+                willThrow(ReplicaUnavailableException.class, 10, TimeUnit.SECONDS)
         );
 
-        cluster.simulateNetworkPartitionOf(2);
+        cluster.stopNode(2);
 
-        waitAssignments(List.of(
-                Set.of(0, 1, 3),
-                Set.of(0, 1, 3),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 3)
-        ));
+        waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
+                nodeName(1),
+                nodeName(3)
+        ), table.tableId());
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(3).node()), willBe(notNullValue()));
 
-        cluster.removeNetworkPartitionOf(2);
+        cluster.startNode(2);
 
-        waitAssignments(List.of(
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2),
-                Set.of(0, 1, 2)
-        ));
+        waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
+                nodeName(1),
+                nodeName(2)
+        ), table.tableId());
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));
@@ -158,48 +142,29 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
         assertThat(
                 table.internalTable().get(key, clock.now(), cluster.node(3).node()),
-                willFailIn(10, TimeUnit.SECONDS, ReplicaUnavailableException.class)
+                willThrow(ReplicaUnavailableException.class, 10, TimeUnit.SECONDS)
         );
     }
 
-    /**
-     * Wait assignments on nodes.
-     *
-     * @param expectedAssignments Expected assignments.
-     * @return {@code true} if the expected and actual assignments are the same.
-     * @throws InterruptedException If interrupted.
-     */
-    private void waitAssignments(List<Set<Integer>> expectedAssignments) throws InterruptedException {
-        boolean success = waitForCondition(() -> expectedAssignments.equals(getCurrentAssignments()), 30000);
+    private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, int table) throws InterruptedException {
+        Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
-        assertTrue(success, () -> "Expected assignments: " + expectedAssignments + ". Actual assignments: " + getCurrentAssignments());
+        assertTrue(waitForCondition(() -> {
+            Set<String> assignments =
+                    partitionAssignments(
+                            cluster.aliveNode().metaStorageManager(), table, 0
+                    ).join().stream()
+                            .map(Assignment::consistentId)
+                            .collect(Collectors.toSet());
+
+            lastAssignmentsHolderForLog[0] = assignments;
+
+            return assignments.equals(expectedNodes);
+        }, 30000), "Expected nodes: " + expectedNodes + ", actual nodes: " + lastAssignmentsHolderForLog[0]);
     }
 
-    private List<Set<Integer>> getCurrentAssignments() {
-        List<String> runningNodeNames = cluster.runningNodes().map(IgniteImpl::name).collect(toList());
-
-        return cluster.runningNodes()
-                .map(node -> {
-                    ExtendedTableConfiguration table = (ExtendedTableConfiguration) node
-                            .clusterConfiguration()
-                            .getConfiguration(TablesConfiguration.KEY)
-                            .tables()
-                            .get("TEST");
-
-                Set<Assignment> assignments =
-                        partitionAssignments(
-                                node.metaStorageManager(), table.id().value(), 0).join();
-
-                    if (assignments != null) {
-                        return assignments.stream()
-                                .map(Assignment::consistentId)
-                                .map(runningNodeNames::indexOf)
-                                .collect(Collectors.toSet());
-                    } else {
-                        return Set.<Integer>of();
-                    }
-                })
-                .collect(toList());
+    private String nodeName(int nodeIndex) {
+        return cluster.node(nodeIndex).name();
     }
 
     private void createTestTable() throws InterruptedException {
