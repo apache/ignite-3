@@ -2,7 +2,7 @@
 
 ## Unit tests
 `modules/compute/src/test/resources/units/test-units-1.0-SNAPSHOT-src.zip` contains a zip archive with a 
-test project which was used to create jars for `org.apache.ignite.internal.compute.JobClassLoaderFactoryTest` tests.
+test project which was used to create jars for `org.apache.ignite.internal.compute.loader.JobClassLoaderFactoryTest` tests.
 
 [unit1-1.0-SNAPSHOT.jar](resources%2Funits%2Funit2%2F1.0.0%2Funit1-1.0-SNAPSHOT.jar) contains two classes 
 which are used in tests:

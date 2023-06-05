@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.compute.version.Version;
@@ -72,26 +73,33 @@ public class FileDeployerService {
      * @param unitContent Map of deploy unit file names to file content.
      * @return Future with deploy result.
      */
-    public CompletableFuture<Boolean> deploy(String id, Version version, UnitContent unitContent) {
-        return CompletableFuture.supplyAsync(() -> {
+    public CompletableFuture<Void> deploy(String id, Version version, UnitContent unitContent) {
+        return CompletableFuture.runAsync(() -> {
             try {
-                Path unitFolder = unitPath(id, version);
-
-                Files.createDirectories(unitFolder);
-
-                for (Entry<String, byte[]> entry : unitContent) {
-                    String fileName = entry.getKey();
-                    Path unitPath = unitFolder.resolve(fileName);
-                    Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
-                    Files.write(unitPathTmp, entry.getValue(), CREATE, SYNC, TRUNCATE_EXISTING);
-                    Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
-                }
-                return true;
+                deployUnit(id, version, unitContent);
             } catch (IOException e) {
-                LOG.error("Failed to deploy unit " + id + ":" + version, e);
-                return false;
+                throw new CompletionException(e);
             }
-        }, executor);
+        }, executor)
+        .whenComplete((res, err) -> {
+            if (err != null) {
+                LOG.debug("Failed to deploy unit " + id + ":" + version, err);
+            }
+        });
+    }
+
+    private void deployUnit(String id, Version version, UnitContent unitContent) throws IOException {
+        Path unitFolder = unitPath(id, version);
+
+        Files.createDirectories(unitFolder);
+
+        for (Entry<String, byte[]> entry : unitContent) {
+            String fileName = entry.getKey();
+            Path unitPath = unitFolder.resolve(fileName);
+            Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
+            Files.write(unitPathTmp, entry.getValue(), CREATE, SYNC, TRUNCATE_EXISTING);
+            Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
+        }
     }
 
     /**

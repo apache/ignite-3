@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.loader;
 
-import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
@@ -35,6 +37,8 @@ public class JobClassLoader extends URLClassLoader {
      */
     private static final Pattern SYSTEM_PACKAGES_PATTERN = Pattern.compile("^(java|x|javax|org\\.apache\\.ignite)\\..*$");
 
+    private final List<DisposableDeploymentUnit> units;
+
     /**
      * Parent class loader.
      */
@@ -44,11 +48,17 @@ public class JobClassLoader extends URLClassLoader {
      * Creates new instance of {@link JobClassLoader}.
      *
      * @param urls URLs to load classes from.
+     * @param units Units to load classes from.
      * @param parent Parent class loader.
      */
-    JobClassLoader(URL[] urls, ClassLoader parent) {
+    public JobClassLoader(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
         super(urls, parent);
+        this.units = units;
         this.parent = parent;
+    }
+
+    public List<DisposableDeploymentUnit> units() {
+        return units;
     }
 
     /**
@@ -109,14 +119,32 @@ public class JobClassLoader extends URLClassLoader {
 
     @Override
     public void close() {
+        List<Exception> exceptions = new ArrayList<>();
+
+        for (DisposableDeploymentUnit unit : units) {
+            try {
+                unit.release();
+            } catch (Exception e) {
+                exceptions.add(e);
+            }
+        }
+
         try {
             super.close();
-        } catch (IOException e) {
-            throw new IgniteException(
+        } catch (Exception e) {
+            exceptions.add(e);
+        }
+
+        if (!exceptions.isEmpty()) {
+            IgniteException igniteException = new IgniteException(
                     Compute.CLASS_LOADER_ERR,
-                    "Failed to close class loader: " + e.getMessage(),
-                    e
+                    "Failed to close class loader"
             );
+
+            for (Exception exception : exceptions) {
+                igniteException.addSuppressed(exception);
+            }
+            throw igniteException;
         }
     }
 

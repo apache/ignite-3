@@ -384,6 +384,9 @@ public class ErrorGroups {
 
         /** Deployment unit content read error. */
         public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+
+        /** Deployment unit is unavailable for computing. */
+        public static final int UNIT_UNAVAILABLE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(4);
     }
 
     /**

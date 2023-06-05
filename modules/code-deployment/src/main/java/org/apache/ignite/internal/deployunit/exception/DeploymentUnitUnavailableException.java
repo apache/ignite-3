@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.deployunit.exception;
 
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Throws when trying to access information about unit which doesn't exist.
+ * Throws when trying to use unavailable unit for computing. Unit can be unavailable if it has one of the following statuses:
+ * {@link DeploymentStatus#OBSOLETE} or {@link DeploymentStatus#REMOVING} or {@link DeploymentStatus#UPLOADING}.
  */
-public class DeploymentUnitNotFoundException extends IgniteException {
+public class DeploymentUnitUnavailableException extends IgniteException {
 
     /**
      * Unit id.
@@ -38,35 +39,29 @@ public class DeploymentUnitNotFoundException extends IgniteException {
     private final Version version;
 
     /**
-     * Constructor.
-     *
-     * @param id Unit id.
+     * Cluster status.
      */
-    public DeploymentUnitNotFoundException(String id) {
-        super(CodeDeployment.UNIT_NOT_FOUND_ERR, message(id, null));
-        this.id = id;
-        this.version = null;
-    }
+    private final DeploymentStatus clusterStatus;
 
+    /**
+     * Node status.
+     */
+    private final DeploymentStatus nodeStatus;
 
     /**
      * Constructor.
      *
      * @param id Unit id.
      * @param version Unit version.
+     * @param clusterStatus Cluster status.
+     * @param nodeStatus Node status.
      */
-    public DeploymentUnitNotFoundException(String id, Version version) {
-        super(CodeDeployment.UNIT_NOT_FOUND_ERR, message(id, version));
+    public DeploymentUnitUnavailableException(String id, Version version, DeploymentStatus clusterStatus, DeploymentStatus nodeStatus) {
+        super(CodeDeployment.UNIT_UNAVAILABLE_ERR, message(id, version, clusterStatus, nodeStatus));
         this.id = id;
         this.version = version;
-    }
-
-    private static String message(String id, @Nullable Version version) {
-        if (version == null) {
-            return "Unit " + id + " not found";
-        } else {
-            return "Unit " + id + ":" + version + " not found";
-        }
+        this.clusterStatus = clusterStatus;
+        this.nodeStatus = nodeStatus;
     }
 
     public String id() {
@@ -76,4 +71,18 @@ public class DeploymentUnitNotFoundException extends IgniteException {
     public Version version() {
         return version;
     }
+
+    public DeploymentStatus clusterStatus() {
+        return clusterStatus;
+    }
+
+    public DeploymentStatus nodeStatus() {
+        return nodeStatus;
+    }
+
+    private static String message(String id, Version version, DeploymentStatus clusterStatus, DeploymentStatus nodeStatus) {
+        return "Unit " + id + ":" + version + " is unavailable. "
+                + "Cluster status: " + clusterStatus + ", node status: " + nodeStatus;
+    }
+
 }

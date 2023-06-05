@@ -423,7 +423,7 @@ public class ItGeneratedRestClientTest {
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(404));
-        assertThat(problem.getDetail(), containsString("Unit test.unit.id with version 0.0.0 doesn't exist"));
+        assertThat(problem.getDetail(), containsString("Unit test.unit.id:0.0.0 not found"));
     }
 
     private static File emptyFile() {

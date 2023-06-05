@@ -544,7 +544,7 @@ paths:
           content:
             application/json:
               schema:
-                type: boolean
+                $ref: '#/components/schemas/Void'
         "404":
           description: Unit with provided identifier and version does not exist.
           content:

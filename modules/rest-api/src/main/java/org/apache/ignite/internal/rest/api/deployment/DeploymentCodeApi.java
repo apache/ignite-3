@@ -67,7 +67,7 @@ public interface DeploymentCodeApi {
     )
     @Consumes(FORM_DATA)
     @Post("units")
-    CompletableFuture<Boolean> deploy(
+    CompletableFuture<Void> deploy(
             @Schema(name = "unitId", requiredMode = REQUIRED, description = "The ID of the deployment unit.")
             String unitId,
             @Schema(name = "unitVersion", requiredMode = REQUIRED, description = "The version of the deployment unit.")
@@ -90,7 +90,7 @@ public interface DeploymentCodeApi {
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @Delete("units/{unitId}/{unitVersion}")
-    CompletableFuture<Boolean> undeploy(
+    CompletableFuture<Void> undeploy(
             @Schema(name = "unitId", description = "The ID of the deployment unit.", requiredMode = REQUIRED)
             String unitId,
             @Schema(name = "unitVersion", description = "The version of the deployment unit.", requiredMode = REQUIRED)

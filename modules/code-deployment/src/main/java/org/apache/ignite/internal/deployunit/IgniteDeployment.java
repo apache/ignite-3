@@ -37,7 +37,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
-    default CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
+    default CompletableFuture<Void> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
         return deployAsync(id, version, false, deploymentUnit);
     }
 
@@ -51,7 +51,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
-    CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
+    CompletableFuture<Void> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
 
     /**
      * Undeploys unit with corresponding identifier and version.
@@ -62,7 +62,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @return Future completed when unit will be undeployed.
      *      In case when specified unit not exist future will be failed.
      */
-    CompletableFuture<Boolean> undeployAsync(String id, Version version);
+    CompletableFuture<Void> undeployAsync(String id, Version version);
 
     /**
      * Lists all units statuses.
@@ -135,8 +135,6 @@ public interface IgniteDeployment extends IgniteComponent {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @return {@code true} if unit already deployed or deployed successfully.
-     *      {@code false} if deploy failed or unit with provided identifier and version doesn't exist.
      */
-    CompletableFuture<Boolean> onDemandDeploy(String id, Version version);
+    CompletableFuture<Void> onDemandDeploy(String id, Version version);
 }
