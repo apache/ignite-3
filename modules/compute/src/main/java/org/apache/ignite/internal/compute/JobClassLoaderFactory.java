@@ -26,9 +26,12 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
@@ -45,11 +48,6 @@ public class JobClassLoaderFactory {
     private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
     /**
-     * The function to detect the last version of the unit.
-     */
-    private final Function<String, Version> detectLastUnitVersion;
-
-    /**
      * The deployer service.
      */
     private final IgniteDeployment deployment;
@@ -57,11 +55,9 @@ public class JobClassLoaderFactory {
     /**
      * Constructor.
      *
-     * @param detectLastUnitVersion The function to detect the last version of the unit.
      * @param deployment The deployer service.
      */
-    public JobClassLoaderFactory(Function<String, Version> detectLastUnitVersion, IgniteDeployment deployment) {
-        this.detectLastUnitVersion = detectLastUnitVersion;
+    public JobClassLoaderFactory(IgniteDeployment deployment) {
         this.deployment = deployment;
     }
 
@@ -71,22 +67,48 @@ public class JobClassLoaderFactory {
      * @param units The units of the job.
      * @return The class loader.
      */
-    public JobClassLoader createClassLoader(List<DeploymentUnit> units) {
-        URL[] classPath = units.stream()
-                .map(this::constructPath)
-                .flatMap(JobClassLoaderFactory::collectClasspath)
-                .toArray(URL[]::new);
+    public CompletableFuture<JobClassLoader> createClassLoader(List<DeploymentUnit> units) {
+        Map<Integer, Stream<URL>> map = new TreeMap<>();
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Classpath for job: " + Arrays.toString(classPath));
-        }
+        CompletableFuture[] futures = IntStream.range(0, units.size())
+                .mapToObj(id -> {
+                    return constructPath(units.get(id))
+                            .thenApply(JobClassLoaderFactory::collectClasspath)
+                            .thenApply(stream -> map.put(id, stream));
+                }).toArray(CompletableFuture[]::new);
 
-        return new JobClassLoader(classPath, getClass().getClassLoader());
+        return CompletableFuture.allOf(futures).thenApply(v -> {
+            return map.values().stream()
+                    .flatMap(Function.identity())
+                    .toArray(URL[]::new);
+        })
+                .thenApply(it -> new JobClassLoader(it, getClass().getClassLoader()))
+                .whenComplete((cl, err) -> {
+                    if (err != null) {
+                        LOG.error("Failed to create class loader", err);
+                    } else {
+                        System.out.println(map);
+                        System.out.println("Created class loader: " + cl);
+                        LOG.debug("Created class loader: {}", cl);
+                    }
+                });
     }
 
-    private Path constructPath(DeploymentUnit unit) {
-        Version version = unit.version() == Version.LATEST ? detectLastUnitVersion.apply(unit.name()) : unit.version();
-        return deployment.path(unit.name(), version);
+    private CompletableFuture<Path> constructPath(DeploymentUnit unit) {
+        return CompletableFuture.completedFuture(unit.version())
+                .thenCompose(version -> {
+                    if (version == Version.LATEST) {
+                        return lastVersion(unit.name());
+                    } else {
+                        return CompletableFuture.completedFuture(version);
+                    }
+                })
+                .thenCompose(version -> deployment.path(unit.name(), version));
+    }
+
+    private CompletableFuture<Version> lastVersion(String name) {
+        return deployment.versionsAsync(name)
+                .thenApply(versions -> versions.stream().max(Version::compareTo).orElseThrow());
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {

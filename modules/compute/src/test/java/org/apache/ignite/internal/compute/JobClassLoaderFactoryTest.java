@@ -18,30 +18,31 @@
 package org.apache.ignite.internal.compute;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doReturn;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,14 +51,11 @@ class JobClassLoaderFactoryTest {
 
     private final IgniteDeployment igniteDeployment = new DummyIgniteDeployment(units);
 
-    @Mock
-    private Function<String, Version> detectLastUnitVersion;
-
     private JobClassLoaderFactory jobClassLoaderFactory;
 
     @BeforeEach
     void setUp() {
-        jobClassLoaderFactory = new JobClassLoaderFactory(detectLastUnitVersion, igniteDeployment);
+        jobClassLoaderFactory = new JobClassLoaderFactory(igniteDeployment);
     }
 
     @Test
@@ -68,8 +66,8 @@ class JobClassLoaderFactoryTest {
         List<DeploymentUnit> units1 = List.of(new DeploymentUnit("unit1", Version.parseVersion("1.0.0")));
         List<DeploymentUnit> units2 = List.of(new DeploymentUnit("unit2", Version.parseVersion("2.0.0")));
 
-        try (JobClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(units1);
-                JobClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(units2)) {
+        try (JobClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(units1).join();
+                JobClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(units2).join()) {
             // then classes from the first unit are loaded from the first class loader
             Class<?> clazz1 = classLoader1.loadClass("org.my.job.compute.unit.UnitJob");
             Callable<Object> job1 = (Callable<Object>) clazz1.getDeclaredConstructor().newInstance();
@@ -89,12 +87,10 @@ class JobClassLoaderFactoryTest {
     @Test
     @DisplayName("Load unit with the LATEST version")
     public void unit2LatestVersion() throws Exception {
-        doReturn(Version.parseVersion("2.0.0")).when(detectLastUnitVersion).apply("unit2");
-
         // when the version is LATEST
         List<DeploymentUnit> units = List.of(new DeploymentUnit("unit2", Version.LATEST));
 
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units).join()) {
             // the the unit with the highest version is loaded
             Class<?> clazz = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
             Callable<Object> job = (Callable<Object>) clazz.getDeclaredConstructor().newInstance();
@@ -115,7 +111,7 @@ class JobClassLoaderFactoryTest {
                 new DeploymentUnit("unit1", Version.parseVersion("2.0.0"))
         );
 
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units).join()) {
             Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
             assertNotNull(unitJobClass);
 
@@ -146,7 +142,7 @@ class JobClassLoaderFactoryTest {
         );
 
         // then class from all jars are loaded
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units).join()) {
             Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
             assertNotNull(unitJobClass);
 
@@ -168,7 +164,7 @@ class JobClassLoaderFactoryTest {
         );
 
         // then class from all jars are loaded
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units).join()) {
             Class<?> unitJobClass = classLoader.loadClass("org.my.job.compute.unit.UnitJob");
             assertNotNull(unitJobClass);
 
@@ -190,7 +186,7 @@ class JobClassLoaderFactoryTest {
         );
 
         // then class loader throws an exception
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units).join()) {
             assertThrows(ClassNotFoundException.class, () -> classLoader.loadClass("org.my.job.compute.unit.UnitJob"));
         }
     }
@@ -210,7 +206,7 @@ class JobClassLoaderFactoryTest {
         );
 
         // then the files are accessible
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units).join()) {
             String resource = Files.readString(Path.of(classLoader.getResource("test.txt").getPath()));
             String subDirResource = Files.readString(Path.of(classLoader.getResource("subdir/test.txt").getPath()));
             assertEquals(expectedContent, resource);
@@ -233,11 +229,11 @@ class JobClassLoaderFactoryTest {
         List<DeploymentUnit> units = List.of(
                 new DeploymentUnit("non-existing", Version.parseVersion("1.0.0"))
         );
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> jobClassLoaderFactory.createClassLoader(units)
+
+        assertThat(
+                jobClassLoaderFactory.createClassLoader(units),
+                CompletableFutureExceptionMatcher.willThrow(DeploymentUnitNotFoundException.class, "Unit non-existing:1.0.0 not found")
         );
-        assertThat(exception.getMessage(), containsString("Unit does not exist:"));
     }
 
     @Test
@@ -246,16 +242,14 @@ class JobClassLoaderFactoryTest {
         List<DeploymentUnit> units = List.of(
                 new DeploymentUnit("unit1", Version.parseVersion("-1.0.0"))
         );
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> jobClassLoaderFactory.createClassLoader(units)
-        );
 
-        assertThat(exception.getMessage(), containsString("Unit does not exist:"));
+        assertThat(
+                jobClassLoaderFactory.createClassLoader(units),
+                CompletableFutureExceptionMatcher.willThrow(DeploymentUnitNotFoundException.class, "Unit unit1:-1.0.0 not found")
+        );
     }
 
     private static final class DummyIgniteDeployment implements IgniteDeployment {
-
         private final Path unitsPath;
 
         private DummyIgniteDeployment(Path unitsPath) {
@@ -280,7 +274,12 @@ class JobClassLoaderFactoryTest {
 
         @Override
         public CompletableFuture<List<Version>> versionsAsync(String id) {
-            throw new UnsupportedOperationException();
+            return CompletableFuture.supplyAsync(() -> Arrays.stream(unitsPath.resolve(id).toFile().listFiles())
+                    .filter(File::isDirectory)
+                    .map(File::getName)
+                    .map(Version::parseVersion)
+                    .sorted()
+                    .collect(Collectors.toList()));
         }
 
         @Override
@@ -289,8 +288,15 @@ class JobClassLoaderFactoryTest {
         }
 
         @Override
-        public Path path(String id, Version version) {
-            return unitsPath.resolve(id).resolve(version.toString());
+        public CompletableFuture<Path> path(String id, Version version) {
+            return CompletableFuture.supplyAsync(() -> {
+                Path path = unitsPath.resolve(id).resolve(version.toString());
+                if (path.toFile().exists()) {
+                    return path;
+                } else {
+                    throw new DeploymentUnitNotFoundException("Unit " + id + ":" + version + " not found");
+                }
+            });
         }
 
         @Override

@@ -104,7 +104,9 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            return doExecuteLocally(jobClass(jobClassLoader(units), jobClassName), args);
+            return jobClassLoader(units)
+                    .<Class<? extends ComputeJob<R>>>thenApply(it -> jobClass(it, jobClassName))
+                    .thenCompose(it -> doExecuteLocally(it, args));
         } catch (Exception e) {
             return failedFuture(e);
         } finally {
@@ -232,9 +234,10 @@ public class ComputeComponentImpl implements ComputeComponent {
 
         try {
             List<DeploymentUnit> units = toDeploymentUnit(executeRequest.deploymentUnits());
-            Class<ComputeJob<Object>> jobClass = jobClass(jobClassLoader(units), executeRequest.jobClassName());
 
-            doExecuteLocally(jobClass, executeRequest.args())
+            jobClassLoader(units)
+                    .thenApply(it -> jobClass(it, executeRequest.jobClassName()))
+                    .thenCompose(it -> doExecuteLocally(it, executeRequest.args()))
                     .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
         } finally {
             busyLock.leaveBusy();
@@ -261,7 +264,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    private JobClassLoader jobClassLoader(List<DeploymentUnit> units) {
+    private CompletableFuture<JobClassLoader> jobClassLoader(List<DeploymentUnit> units) {
         return jobClassLoaderFactory.createClassLoader(units);
     }
 

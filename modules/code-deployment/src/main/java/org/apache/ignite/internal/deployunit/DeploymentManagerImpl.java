@@ -262,8 +262,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public Path path(String id, Version version) {
-        return deployer.unitPath(id, version);
+    public CompletableFuture<Path> path(String id, Version version) {
+        return CompletableFuture.supplyAsync(() -> {
+            Path path = deployer.unitPath(id, version);
+            if (path.toFile().exists()) {
+                return path;
+            } else {
+                throw new DeploymentUnitNotFoundException("Unit " + id + ":" + version + " not found");
+            }
+        });
     }
 
     @Override

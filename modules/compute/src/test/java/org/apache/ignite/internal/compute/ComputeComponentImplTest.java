@@ -121,7 +121,7 @@ class ComputeComponentImplTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
 
         lenient().when(jobClassLoaderFactory.createClassLoader(anyList()))
-                .thenReturn(new JobClassLoader(new URL[0], getClass().getClassLoader()));
+                .thenReturn(CompletableFuture.completedFuture(new JobClassLoader(new URL[0], getClass().getClassLoader())));
 
         doAnswer(invocation -> {
             computeMessageHandlerRef.set(invocation.getArgument(1));
@@ -336,11 +336,11 @@ class ComputeComponentImplTest {
         // take the only executor thread
         computeComponent.executeLocally(List.of(), LongJob.class.getName());
 
-        Object result = computeComponent.executeLocally(List.of(), SimpleJob.class.getName())
+        Exception result = (Exception) computeComponent.executeLocally(List.of(), SimpleJob.class.getName())
                 .handle((res, ex) -> ex != null ? ex : res)
                 .get();
 
-        assertThat(result, is(instanceOf(RejectedExecutionException.class)));
+        assertThat(result.getCause(), is(instanceOf(RejectedExecutionException.class)));
     }
 
     private void restrictPoolSizeTo1() {
@@ -370,9 +370,9 @@ class ComputeComponentImplTest {
 
         // now work queue is dropped to the floor, so the future should be resolved with a cancellation
 
-        Object result = resultFuture.get(3, TimeUnit.SECONDS);
+        Exception result = (Exception) resultFuture.get(3, TimeUnit.SECONDS);
 
-        assertThat(result, is(instanceOf(CancellationException.class)));
+        assertThat(result.getCause(), is(instanceOf(CancellationException.class)));
     }
 
     @Test

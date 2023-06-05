@@ -536,12 +536,7 @@ public class IgniteImpl implements Ignite {
                 cmgMgr
         );
 
-        JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(
-                unitName -> {
-                    throw new UnsupportedOperationException("LATEST version is not supported for job class loading");
-                },
-                deploymentManager
-        );
+        JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(deploymentManager);
 
         computeComponent = new ComputeComponentImpl(
                 this,
