@@ -101,6 +101,7 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -301,7 +302,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
 
         mockMetastore();
 
@@ -687,6 +688,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
+            doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
             doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
 
             return completedFuture(null);
@@ -756,8 +758,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
-            RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+            RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
 
