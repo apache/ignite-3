@@ -1179,7 +1179,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        createTablePartitionsLocally(causalityToken, assignments, (ExtendedTableView) tableCfg.value(), table);
+        CompletableFuture<?> updateAssignmentsFuture =
+                createTablePartitionsLocally(causalityToken, assignments, (ExtendedTableView) tableCfg.value(), table);
 
         pendingTables.put(tblId, table);
 
@@ -1192,7 +1193,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
-        return fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId));
+        return allOf(updateAssignmentsFuture, fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId)));
     }
 
     /**
@@ -1888,7 +1889,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tblCfgFut.thenCompose(isCfg -> inBusyLock(busyLock, () -> {
             if (!isCfg) {
                 return completedFuture(null);
-            }
+            }//
 
             TableImpl tbl = latestTablesById().get(id);
 
