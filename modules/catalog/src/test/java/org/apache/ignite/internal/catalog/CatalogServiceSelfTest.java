@@ -540,10 +540,10 @@ public class CatalogServiceSelfTest {
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME), service.table(1, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME), service.table(2, beforeDropTimestamp));
 
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, beforeDropTimestamp));
-        assertSame(schema.index(INDEX_NAME), service.index(2, beforeDropTimestamp));
+        assertSame(schema.index(INDEX_NAME), service.index(3, beforeDropTimestamp));
 
         // Validate actual catalog
         schema = service.schema(3);
@@ -556,11 +556,11 @@ public class CatalogServiceSelfTest {
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertNull(service.table(1, System.currentTimeMillis()));
+        assertNull(service.table(2, System.currentTimeMillis()));
 
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, System.currentTimeMillis()));
-        assertNull(service.index(2, System.currentTimeMillis()));
+        assertNull(service.index(3, System.currentTimeMillis()));
     }
 
     @Test
@@ -581,7 +581,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, 123L));
-        assertNull(service.index(2, 123L));
+        assertNull(service.index(3, 123L));
 
         // Validate actual catalog
         schema = service.schema(2);
@@ -589,12 +589,12 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(service.index(1, System.currentTimeMillis()));
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, System.currentTimeMillis()));
-        assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
+        assertSame(schema.index(INDEX_NAME), service.index(3, System.currentTimeMillis()));
 
         // Validate newly created hash index
         HashIndexDescriptor index = (HashIndexDescriptor) schema.index(INDEX_NAME);
 
-        assertEquals(2L, index.id());
+        assertEquals(3L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -622,7 +622,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, 123L));
-        assertNull(service.index(2, 123L));
+        assertNull(service.index(3, 123L));
 
         // Validate actual catalog
         schema = service.schema(2);
@@ -630,12 +630,12 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(service.index(1, System.currentTimeMillis()));
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, System.currentTimeMillis()));
-        assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
+        assertSame(schema.index(INDEX_NAME), service.index(3, System.currentTimeMillis()));
 
         // Validate newly created sorted index
         SortedIndexDescriptor index = (SortedIndexDescriptor) schema.index(INDEX_NAME);
 
-        assertEquals(2L, index.id());
+        assertEquals(3L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
