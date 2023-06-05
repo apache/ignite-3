@@ -27,6 +27,7 @@ import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.apache.ignite.internal.network.processor.ProcessingException;
@@ -115,10 +116,12 @@ class BaseMethodNameResolver {
     private String resolveReferenceMethodName(DeclaredType parameterType) {
         var typeUtils = new TypeUtils(processingEnvironment);
 
-        if (typeUtils.isSameType(parameterType, String.class)) {
+        PrimitiveType unboxedType = typeUtils.unboxedType(parameterType);
+
+        if (unboxedType != null) {
+            return "Boxed" + resolvePrimitiveMethodName(unboxedType);
+        } else if (typeUtils.isSameType(parameterType, String.class)) {
             return "String";
-        } else if (typeUtils.isSameType(parameterType, Integer.class)) {
-            return "BoxedInt";
         } else if (typeUtils.isSameType(parameterType, UUID.class)) {
             return "Uuid";
         } else if (typeUtils.isSameType(parameterType, IgniteUuid.class)) {

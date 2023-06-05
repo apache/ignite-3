@@ -15,35 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.catalog.events;
 
-import java.io.Serializable;
-import java.util.Objects;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 
-/** Serializable class for marshallable test. */
-public class SimpleSerializableObject implements Serializable {
-    private static final long serialVersionUID = 0L;
+/**
+ * Create index event parameters that contains a newly created index descriptor.
+ */
+public class CreateIndexEventParameters extends CatalogEventParameters {
 
-    private final int val;
+    private final IndexDescriptor indexDescriptor;
 
-    public SimpleSerializableObject(int val) {
-        this.val = val;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexDescriptor Newly created index descriptor.
+     */
+    public CreateIndexEventParameters(long causalityToken, IndexDescriptor indexDescriptor) {
+        super(causalityToken);
+
+        this.indexDescriptor = indexDescriptor;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SimpleSerializableObject simpleSerializableObject = (SimpleSerializableObject) o;
-        return val == simpleSerializableObject.val;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(val);
+    /**
+     * Gets index descriptor for a newly created index.
+     */
+    public IndexDescriptor indexDescriptor() {
+        return indexDescriptor;
     }
 }

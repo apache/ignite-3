@@ -15,35 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
-import java.util.Objects;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.tostring.S;
 
-/** Serializable class for marshallable test. */
-public class SimpleSerializableObject implements Serializable {
-    private static final long serialVersionUID = 0L;
+/**
+ * Describes addition of a new index.
+ */
+public class NewIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = 6717363577013237711L;
 
-    private final int val;
+    private final IndexDescriptor descriptor;
 
-    public SimpleSerializableObject(int val) {
-        this.val = val;
+    /**
+     * Constructs the object.
+     *
+     * @param descriptor A descriptor of an index to add.
+     */
+    public NewIndexEntry(IndexDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SimpleSerializableObject simpleSerializableObject = (SimpleSerializableObject) o;
-        return val == simpleSerializableObject.val;
+    /** Gets descriptor of an index to add. */
+    public IndexDescriptor descriptor() {
+        return descriptor;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public int hashCode() {
-        return Objects.hash(val);
+    public String toString() {
+        return S.toString(this);
     }
 }

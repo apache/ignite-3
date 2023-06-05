@@ -18,20 +18,25 @@
 package org.apache.ignite.internal.catalog.commands;
 
 /**
- * Abstract table ddl command.
+ * DROP INDEX statement.
  */
-public class AbstractTableCommandParams implements DdlCommandParams {
-    /** Table name. */
-    protected String tableName;
+public class DropIndexParams implements DdlCommandParams {
+    /** Creates parameters builder. */
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    /** Schema name where this new table will be created. */
+    /** Index name. */
+    protected String indexName;
+
+    /** Schema name where this new index will be created. */
     protected String schema;
 
     /**
-     * Returns table simple name.
+     * Returns index simple name.
      */
-    public String tableName() {
-        return tableName;
+    public String indexName() {
+        return indexName;
     }
 
     /**
@@ -44,11 +49,11 @@ public class AbstractTableCommandParams implements DdlCommandParams {
     /**
      * Parameters builder.
      */
-    protected abstract static class AbstractBuilder<ParamT extends AbstractTableCommandParams, BuilderT> {
-        protected ParamT params;
+    public static class Builder {
+        private DropIndexParams params;
 
-        AbstractBuilder(ParamT params) {
-            this.params = params;
+        Builder() {
+            this.params = new DropIndexParams();
         }
 
         /**
@@ -57,20 +62,20 @@ public class AbstractTableCommandParams implements DdlCommandParams {
          * @param schemaName Schema name.
          * @return {@code this}.
          */
-        public BuilderT schemaName(String schemaName) {
+        public Builder schemaName(String schemaName) {
             params.schema = schemaName;
-            return (BuilderT) this;
+            return this;
         }
 
         /**
-         * Sets table simple name.
+         * Sets index simple name.
          *
-         * @param tableName Table simple name.
+         * @param indexName Index simple name.
          * @return {@code this}.
          */
-        public BuilderT tableName(String tableName) {
-            params.tableName = tableName;
-            return (BuilderT) this;
+        public Builder indexName(String indexName) {
+            params.indexName = indexName;
+            return this;
         }
 
         /**
@@ -78,8 +83,8 @@ public class AbstractTableCommandParams implements DdlCommandParams {
          *
          * @return Parameters.
          */
-        public ParamT build() {
-            ParamT params0 = params;
+        public DropIndexParams build() {
+            DropIndexParams params0 = params;
             params = null;
             return params0;
         }

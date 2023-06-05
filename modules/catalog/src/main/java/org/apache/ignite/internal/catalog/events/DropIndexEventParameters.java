@@ -15,35 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.catalog.events;
 
-import java.io.Serializable;
-import java.util.Objects;
+/**
+ * Drop index event parameters that contains an id of dropped index.
+ */
+public class DropIndexEventParameters extends CatalogEventParameters {
 
-/** Serializable class for marshallable test. */
-public class SimpleSerializableObject implements Serializable {
-    private static final long serialVersionUID = 0L;
+    private final int indexId;
 
-    private final int val;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexId An id of dropped index.
+     */
+    public DropIndexEventParameters(long causalityToken, int indexId) {
+        super(causalityToken);
 
-    public SimpleSerializableObject(int val) {
-        this.val = val;
+        this.indexId = indexId;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SimpleSerializableObject simpleSerializableObject = (SimpleSerializableObject) o;
-        return val == simpleSerializableObject.val;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(val);
+    /** Returns an id of dropped index. */
+    public int indexId() {
+        return indexId;
     }
 }

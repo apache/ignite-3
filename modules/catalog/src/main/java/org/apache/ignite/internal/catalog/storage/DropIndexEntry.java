@@ -15,35 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization;
+package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
-import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 
-/** Serializable class for marshallable test. */
-public class SimpleSerializableObject implements Serializable {
-    private static final long serialVersionUID = 0L;
+/**
+ * Describes deletion of an index.
+ */
+public class DropIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = -604729846502020728L;
 
-    private final int val;
+    private final int indexId;
 
-    public SimpleSerializableObject(int val) {
-        this.val = val;
+    /**
+     * Constructs the object.
+     *
+     * @param indexId An id of an index to drop.
+     */
+    public DropIndexEntry(int indexId) {
+        this.indexId = indexId;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SimpleSerializableObject simpleSerializableObject = (SimpleSerializableObject) o;
-        return val == simpleSerializableObject.val;
+    /** Returns an id of an index to drop. */
+    public int indexId() {
+        return indexId;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public int hashCode() {
-        return Objects.hash(val);
+    public String toString() {
+        return S.toString(this);
     }
 }

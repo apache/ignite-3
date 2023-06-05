@@ -37,19 +37,35 @@ import org.jetbrains.annotations.Nullable;
 public interface AllTypesMessage extends NetworkMessage, Serializable {
     byte byteA();
 
+    @Nullable Byte boxedByte();
+
     short shortB();
+
+    @Nullable Short boxedShort();
 
     int intC();
 
+    @Nullable Integer boxedInt();
+
     long longD();
+
+    @Nullable Long boxedLong();
 
     float floatE();
 
+    @Nullable Float boxedFloat();
+
     double doubleF();
+
+    @Nullable Double boxedDouble();
 
     char charG();
 
+    @Nullable Character boxedChar();
+
     boolean booleanH();
+
+    @Nullable Boolean boxedBoolean();
 
     byte @Nullable [] byteArrI();
 
