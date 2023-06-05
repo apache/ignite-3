@@ -17,22 +17,26 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Call to undeploy a unit and refresh units registry. */
-public class UndeployUnitReplCall extends UndeployUnitCall {
+@Singleton
+public class UndeployUnitReplCall implements Call<UndeployUnitCallInput, String> {
+    private final UndeployUnitCall undeployUnitCall;
+
     private final UnitsRegistry unitsRegistry;
 
-    UndeployUnitReplCall(ApiClientFactory clientFactory, UnitsRegistry unitsRegistry) {
-        super(clientFactory);
+    UndeployUnitReplCall(UndeployUnitCall undeployUnitCall, UnitsRegistry unitsRegistry) {
+        this.undeployUnitCall = undeployUnitCall;
         this.unitsRegistry = unitsRegistry;
     }
 
     @Override
     public CallOutput<String> execute(UndeployUnitCallInput input) {
-        CallOutput<String> output = super.execute(input);
+        CallOutput<String> output = undeployUnitCall.execute(input);
         if (!output.hasError()) {
             unitsRegistry.refresh();
         }

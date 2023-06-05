@@ -18,23 +18,24 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Call to deploy a unit and refresh units registry. */
-public class DeployUnitReplCall extends DeployUnitCall {
+public class DeployUnitReplCall implements AsyncCall<DeployUnitCallInput, String>  {
+    private final DeployUnitCall deployUnitCall;
+
     private final UnitsRegistry unitsRegistry;
 
-    DeployUnitReplCall(ProgressTracker tracker, ApiClientFactory clientFactory, UnitsRegistry registry) {
-        super(tracker, clientFactory);
-        unitsRegistry = registry;
+    DeployUnitReplCall(DeployUnitCall deployUnitCall, UnitsRegistry unitsRegistry) {
+        this.deployUnitCall = deployUnitCall;
+        this.unitsRegistry = unitsRegistry;
     }
 
     @Override
     public CompletableFuture<CallOutput<String>> execute(DeployUnitCallInput input) {
-        return super.execute(input)
+        return deployUnitCall.execute(input)
                 .thenApply(output -> {
                     if (!output.hasError()) {
                         unitsRegistry.refresh();

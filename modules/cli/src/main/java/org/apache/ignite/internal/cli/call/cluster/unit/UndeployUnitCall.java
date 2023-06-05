@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
+import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -29,6 +30,7 @@ import org.apache.ignite.rest.client.api.DeploymentApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /** Call to undeploy a unit. */
+@Singleton
 public class UndeployUnitCall implements Call<UndeployUnitCallInput, String> {
 
     private final ApiClientFactory clientFactory;
