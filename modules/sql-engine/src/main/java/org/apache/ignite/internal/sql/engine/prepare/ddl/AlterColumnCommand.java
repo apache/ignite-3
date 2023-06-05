@@ -59,11 +59,11 @@ public class AlterColumnCommand extends AbstractTableDdlCommand {
         return notNull;
     }
 
-    void defaultResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
+    void defaultValueResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
         this.resolveDfltFunc = resolveDfltFunc;
     }
 
-    @Nullable public Function<ColumnType, DefaultValue> defaultResolver() {
+    @Nullable public Function<ColumnType, DefaultValue> defaultValueResolver() {
         return resolveDfltFunc;
     }
 }

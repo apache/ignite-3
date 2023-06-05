@@ -69,15 +69,9 @@ class DdlToCatalogCommandConverter {
         AlterColumnParams.Builder builder = AlterColumnParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .columnName(cmd.columnName());
-
-        if (cmd.notNull() != null) {
-            builder.notNull(cmd.notNull());
-        }
-
-        if (cmd.defaultResolver() != null) {
-            builder.defaultResolver(cmd.defaultResolver());
-        }
+                .columnName(cmd.columnName())
+                .notNull(cmd.notNull())
+                .defaultValueResolver(cmd.defaultValueResolver());
 
         RelDataType type = cmd.type();
 

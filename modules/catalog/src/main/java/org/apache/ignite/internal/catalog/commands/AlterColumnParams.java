@@ -109,14 +109,14 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         }
 
         /** Sets the {@code NOT NULL} constraint change flag. */
-        public Builder notNull(boolean notNull) {
+        public Builder notNull(@Nullable Boolean notNull) {
             params.notNull = notNull;
 
             return this;
         }
 
         /** Sets function that resolves a default value depending on the type of the column. */
-        public Builder defaultResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
+        public Builder defaultValueResolver(@Nullable Function<ColumnType, DefaultValue> resolveDfltFunc) {
             params.defaultResolver = resolveDfltFunc;
 
             return this;

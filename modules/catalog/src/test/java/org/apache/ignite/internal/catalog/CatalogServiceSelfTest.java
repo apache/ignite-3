@@ -1025,7 +1025,12 @@ public class CatalogServiceSelfTest {
     ) {
         Builder builder = AlterColumnParams.builder()
                 .tableName(tab)
-                .columnName(col);
+                .columnName(col)
+                .notNull(notNull);
+
+        if (dflt != null) {
+            builder.defaultValueResolver(ignore -> dflt.get());
+        }
 
         if (typeParams != null) {
             builder.type(typeParams.type);
@@ -1037,14 +1042,6 @@ public class CatalogServiceSelfTest {
             if (typeParams.scale != null) {
                 builder.scale(typeParams.scale);
             }
-        }
-
-        if (notNull != null) {
-            builder.notNull(notNull);
-        }
-
-        if (dflt != null) {
-            builder.defaultResolver(ignore -> dflt.get());
         }
 
         return service.alterColumn(builder.build());

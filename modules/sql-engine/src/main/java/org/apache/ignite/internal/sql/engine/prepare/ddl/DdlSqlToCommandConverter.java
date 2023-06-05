@@ -452,7 +452,7 @@ public class DdlSqlToCommandConverter {
                 throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
             }
 
-            cmd.defaultResolver(resolveDfltFunc);
+            cmd.defaultValueResolver(resolveDfltFunc);
         }
 
         return cmd;
