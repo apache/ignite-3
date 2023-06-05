@@ -29,7 +29,7 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
     private final int tableId;
 
     /** Unique constraint flag. */
-    private boolean unique;
+    private final boolean unique;
 
     /** Write only flag. {@code True} when index is building. */
     private boolean writeOnly;
