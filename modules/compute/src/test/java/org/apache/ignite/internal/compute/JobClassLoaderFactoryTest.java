@@ -38,6 +38,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -257,8 +258,12 @@ class JobClassLoaderFactoryTest {
         }
 
         @Override
-        public CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force,
-                org.apache.ignite.internal.deployunit.DeploymentUnit deploymentUnit) {
+        public CompletableFuture<Boolean> deployAsync(
+                String id,
+                Version version,
+                boolean force,
+                org.apache.ignite.internal.deployunit.DeploymentUnit deploymentUnit
+        ) {
             throw new UnsupportedOperationException();
         }
 
@@ -268,7 +273,17 @@ class JobClassLoaderFactoryTest {
         }
 
         @Override
-        public CompletableFuture<List<UnitStatuses>> unitsAsync() {
+        public CompletableFuture<List<UnitStatuses>> clusterStatusesAsync() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<UnitStatuses> clusterStatusesAsync(String id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<DeploymentStatus> clusterStatusAsync(String id, Version version) {
             throw new UnsupportedOperationException();
         }
 
@@ -283,7 +298,17 @@ class JobClassLoaderFactoryTest {
         }
 
         @Override
-        public CompletableFuture<UnitStatuses> statusAsync(String id) {
+        public CompletableFuture<List<UnitStatuses>> nodeStatusesAsync() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<UnitStatuses> nodeStatusesAsync(String id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<DeploymentStatus> nodeStatusAsync(String id, Version version) {
             throw new UnsupportedOperationException();
         }
 

@@ -98,6 +98,13 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<List<Version>> versionsAsync(String id);
 
     /**
+     * Lists all units statuses on this node.
+     *
+     * @return Future with the list of unit statuses.
+     */
+    CompletableFuture<List<UnitStatuses>> nodeStatusesAsync();
+
+    /**
      * Returns status of unit with provided identifier.
      *
      * @param id Unit identifier.

@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -76,7 +77,7 @@ public class JobClassLoaderFactory {
     public CompletableFuture<JobClassLoader> createClassLoader(List<DeploymentUnit> units) {
         Stream<URL>[] unitUrls = new Stream[units.size()];
 
-        // writing and reading to/from the unitUrls array must be done in the same thread to avoid concurrency issues.
+        // writing and reading to/from unitUrls array must be done in the same thread to avoid concurrency issues.
         CompletableFuture[] futures = IntStream.range(0, units.size())
                 .mapToObj(id -> {
                     return constructPath(units.get(id))
@@ -114,7 +115,11 @@ public class JobClassLoaderFactory {
 
     private CompletableFuture<Version> lastVersion(String name) {
         return deployment.versionsAsync(name)
-                .thenApply(versions -> versions.stream().max(Version::compareTo).orElseThrow());
+                .thenApply(versions -> {
+                    return versions.stream()
+                            .max(Version::compareTo)
+                            .orElseThrow(() -> new DeploymentUnitNotFoundException("No versions found for deployment unit: " + name));
+                });
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {
