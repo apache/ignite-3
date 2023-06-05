@@ -17,71 +17,67 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/**
- * Abstract table ddl command.
- */
-public class AbstractTableCommandParams implements DdlCommandParams {
-    /** Table name. */
-    protected String tableName;
+import java.util.List;
 
-    /** Schema name where this new table will be created. */
-    protected String schema;
+/**
+ * CREATE INDEX statement.
+ */
+public class CreateHashIndexParams extends AbstractIndexCommandParams {
+    /** Creates parameters builder. */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /** Table name. */
+    private String tableName;
+
+    /** Indexed columns. */
+    private List<String> columns;
 
     /**
-     * Returns table simple name.
+     * Gets table name.
      */
     public String tableName() {
         return tableName;
     }
 
     /**
-     * Returns schema name.
+     * Gets indexed columns.
      */
-    public String schemaName() {
-        return schema;
+    public List<String> columns() {
+        return columns;
     }
 
     /**
      * Parameters builder.
      */
-    protected abstract static class AbstractBuilder<ParamT extends AbstractTableCommandParams, BuilderT> {
-        protected ParamT params;
-
-        AbstractBuilder(ParamT params) {
-            this.params = params;
+    public static class Builder extends AbstractIndexCommandParams.AbstractBuilder<CreateHashIndexParams, CreateHashIndexParams.Builder> {
+        private Builder() {
+            super(new CreateHashIndexParams());
         }
 
         /**
-         * Sets schema name.
+         * Set table name.
          *
-         * @param schemaName Schema name.
+         * @param tableName Table name.
          * @return {@code this}.
          */
-        public BuilderT schemaName(String schemaName) {
-            params.schema = schemaName;
-            return (BuilderT) this;
-        }
-
-        /**
-         * Sets table simple name.
-         *
-         * @param tableName Table simple name.
-         * @return {@code this}.
-         */
-        public BuilderT tableName(String tableName) {
+        public Builder tableName(String tableName) {
             params.tableName = tableName;
-            return (BuilderT) this;
+
+            return this;
         }
 
         /**
-         * Builds parameters.
+         * Set columns names.
          *
-         * @return Parameters.
+         * @param columns Columns names.
+         * @return {@code this}.
          */
-        public ParamT build() {
-            ParamT params0 = params;
-            params = null;
-            return params0;
+        public Builder columns(List<String> columns) {
+            params.columns = columns;
+
+            return this;
         }
     }
 }

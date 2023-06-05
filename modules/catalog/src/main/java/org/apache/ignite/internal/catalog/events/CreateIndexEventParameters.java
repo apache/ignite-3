@@ -17,24 +17,31 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 
 /**
- * Catalog management events.
+ * Create index event parameters that contains a newly created index descriptor.
  */
-public enum CatalogEvent implements Event {
-    /** This event is fired, when a table was created in Catalog. */
-    TABLE_CREATE,
+public class CreateIndexEventParameters extends CatalogEventParameters {
 
-    /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP,
+    private final IndexDescriptor indexDescriptor;
 
-    /** This event is fired, when a column was added to or dropped from a table. */
-    TABLE_ALTER,
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexDescriptor Newly created index descriptor.
+     */
+    public CreateIndexEventParameters(long causalityToken, IndexDescriptor indexDescriptor) {
+        super(causalityToken);
 
-    /** This event is fired, when an index was created in Catalog. */
-    INDEX_CREATE,
+        this.indexDescriptor = indexDescriptor;
+    }
 
-    /** This event is fired, when an index was dropped in Catalog. */
-    INDEX_DROP
+    /**
+     * Gets index descriptor for a newly created index.
+     */
+    public IndexDescriptor indexDescriptor() {
+        return indexDescriptor;
+    }
 }

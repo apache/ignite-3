@@ -41,6 +41,8 @@ public interface CatalogService {
 
     TableDescriptor table(int tableId, long timestamp);
 
+    IndexDescriptor index(String indexName, long timestamp);
+
     IndexDescriptor index(int indexId, long timestamp);
 
     Collection<IndexDescriptor> tableIndexes(int tableId, long timestamp);

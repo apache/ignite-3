@@ -15,26 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Catalog management events.
+ * Describes deletion of an index.
  */
-public enum CatalogEvent implements Event {
-    /** This event is fired, when a table was created in Catalog. */
-    TABLE_CREATE,
+public class DropIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = -604729846502020728L;
 
-    /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP,
+    private final int indexId;
 
-    /** This event is fired, when a column was added to or dropped from a table. */
-    TABLE_ALTER,
+    /**
+     * Constructs the object.
+     *
+     * @param indexId An id of an index to drop.
+     */
+    public DropIndexEntry(int indexId) {
+        this.indexId = indexId;
+    }
 
-    /** This event is fired, when an index was created in Catalog. */
-    INDEX_CREATE,
+    /** Returns an id of an index to drop. */
+    public int indexId() {
+        return indexId;
+    }
 
-    /** This event is fired, when an index was dropped in Catalog. */
-    INDEX_DROP
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 }

@@ -15,26 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Catalog management events.
+ * Describes addition of a new index.
  */
-public enum CatalogEvent implements Event {
-    /** This event is fired, when a table was created in Catalog. */
-    TABLE_CREATE,
+public class NewIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = 6717363577013237711L;
 
-    /** This event is fired, when a table was dropped in Catalog. */
-    TABLE_DROP,
+    private final IndexDescriptor descriptor;
 
-    /** This event is fired, when a column was added to or dropped from a table. */
-    TABLE_ALTER,
+    /**
+     * Constructs the object.
+     *
+     * @param descriptor A descriptor of an index to add.
+     */
+    public NewIndexEntry(IndexDescriptor descriptor) {
+        this.descriptor = descriptor;
+    }
 
-    /** This event is fired, when an index was created in Catalog. */
-    INDEX_CREATE,
+    /** Gets descriptor of an index to add. */
+    public IndexDescriptor descriptor() {
+        return descriptor;
+    }
 
-    /** This event is fired, when an index was dropped in Catalog. */
-    INDEX_DROP
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
+    }
 }

@@ -18,20 +18,20 @@
 package org.apache.ignite.internal.catalog.commands;
 
 /**
- * Abstract table ddl command.
+ * Abstract index ddl command.
  */
-public class AbstractTableCommandParams implements DdlCommandParams {
-    /** Table name. */
-    protected String tableName;
+public abstract class AbstractIndexCommandParams implements DdlCommandParams {
+    /** Index name. */
+    protected String indexName;
 
-    /** Schema name where this new table will be created. */
+    /** Schema name where this new index will be created. */
     protected String schema;
 
     /**
-     * Returns table simple name.
+     * Returns index simple name.
      */
-    public String tableName() {
-        return tableName;
+    public String indexName() {
+        return indexName;
     }
 
     /**
@@ -44,7 +44,7 @@ public class AbstractTableCommandParams implements DdlCommandParams {
     /**
      * Parameters builder.
      */
-    protected abstract static class AbstractBuilder<ParamT extends AbstractTableCommandParams, BuilderT> {
+    protected abstract static class AbstractBuilder<ParamT extends AbstractIndexCommandParams, BuilderT> {
         protected ParamT params;
 
         AbstractBuilder(ParamT params) {
@@ -63,13 +63,13 @@ public class AbstractTableCommandParams implements DdlCommandParams {
         }
 
         /**
-         * Sets table simple name.
+         * Sets index simple name.
          *
-         * @param tableName Table simple name.
+         * @param indexName Index simple name.
          * @return {@code this}.
          */
-        public BuilderT tableName(String tableName) {
-            params.tableName = tableName;
+        public BuilderT indexName(String indexName) {
+            params.indexName = indexName;
             return (BuilderT) this;
         }
 
