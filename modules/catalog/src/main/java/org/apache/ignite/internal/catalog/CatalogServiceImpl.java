@@ -46,7 +46,6 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
@@ -361,32 +360,31 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     .findFirst()
                     .orElseThrow(() ->  new ColumnNotFoundException(columnName));
 
-            if (table.isPrimaryKeyColumn(origin.name())) {
-                if (params.notNull() != null) {
-                    throwUnsupportedDdl("Cannot change NOT NULL for the primary key column '{}'.", origin.name());
-                }
-
-                if (params.type() != null) {
-                    throwUnsupportedDdl("Cannot change data type for primary key column '{}'.", origin.name());
-                }
-            }
-
-            boolean nullable = !Objects.requireNonNullElse(params.notNull(), !origin.nullable());
-            DefaultValue defaultValue = Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue());
-            ColumnType type = Objects.requireNonNullElse(params.type(), origin.type());
-            int precision = Objects.requireNonNullElse(params.precision(), origin.precision());
-            int length = Objects.requireNonNullElse(params.length(), origin.length());
-            int scale = Objects.requireNonNullElse(params.scale(), origin.scale());
-
-            TableColumnDescriptor target = new TableColumnDescriptor(origin.name(), type, nullable, defaultValue, precision, scale, length);
+            TableColumnDescriptor target = new TableColumnDescriptor(
+                    origin.name(),
+                    Objects.requireNonNullElse(params.type(), origin.type()),
+                    !Objects.requireNonNullElse(params.notNull(), !origin.nullable()),
+                    Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue()),
+                    Objects.requireNonNullElse(params.precision(), origin.precision()),
+                    Objects.requireNonNullElse(params.scale(), origin.scale()),
+                    Objects.requireNonNullElse(params.length(), origin.length())
+            );
 
             if (origin.equals(target)) {
                 // No modifications required.
                 return Collections.emptyList();
             }
 
-            if (origin.nullable() != target.nullable() && origin.nullable()) {
-                throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
+            boolean isPkColumn = table.isPrimaryKeyColumn(origin.name());
+
+            if (origin.nullable() != target.nullable()) {
+                if (isPkColumn) {
+                    throwUnsupportedDdl("Cannot change NOT NULL for the primary key column '{}'.", origin.name());
+                }
+
+                if (origin.nullable()) {
+                    throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
+                }
             }
 
             if (origin.scale() != target.scale()) {
@@ -394,6 +392,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             if (origin.type() != target.type()) {
+                if (isPkColumn) {
+                    throwUnsupportedDdl("Cannot change data type for primary key column '{}'.", origin.name());
+                }
+
                 Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(origin.type());
 
                 if (supportedTransitions == null || !supportedTransitions.contains(params.type())) {
@@ -402,20 +404,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            if (origin.length() != target.length()) {
-                if (target.type() != ColumnType.STRING && target.type() != ColumnType.BYTE_ARRAY) {
-                    throwUnsupportedDdl("Cannot change length for column '{}'.", origin.name());
-                } else  if (target.length() < origin.length()) {
-                    throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
-                }
+            if (origin.length() != target.length() && target.type() != ColumnType.STRING && target.type() != ColumnType.BYTE_ARRAY) {
+                throwUnsupportedDdl("Cannot change length for column '{}'.", origin.name());
+            } else if (target.length() < origin.length()) {
+                throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
             }
 
-            if (origin.precision() != target.precision()) {
-                if (target.type() != ColumnType.DECIMAL) {
-                    throwUnsupportedDdl("Cannot change precision for column '{}'.", origin.name());
-                } else if (target.precision() < origin.precision()) {
-                    throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", params.precision(), origin.name());
-                }
+            if (origin.precision() != target.precision() && target.type() != ColumnType.DECIMAL) {
+                throwUnsupportedDdl("Cannot change precision for column '{}'.", origin.name());
+            } else if (target.precision() < origin.precision()) {
+                throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", params.precision(), origin.name());
             }
 
             return List.of(new AlterColumnEntry(table.id(), target));
