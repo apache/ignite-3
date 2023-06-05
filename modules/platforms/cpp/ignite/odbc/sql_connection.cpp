@@ -106,18 +106,17 @@ sql_result sql_connection::internal_get_info(connection_info::info_type type, vo
     return res;
 }
 
-void sql_connection::establish(const std::string& connectStr, void* parentWindow)
+void sql_connection::establish(const std::string& connect_str, void* parent_window)
 {
-    IGNITE_ODBC_API_CALL(internal_establish(connectStr, parentWindow));
+    IGNITE_ODBC_API_CALL(internal_establish(connect_str, parent_window));
 }
 
-sql_result sql_connection::internal_establish(const std::string& connectStr, void* parentWindow)
+sql_result sql_connection::internal_establish(const std::string& connect_str, void* parent_window)
 {
-    configuration config;
-    connection_string_parser parser(config);
-    parser.parse_connection_string(connectStr, &get_diagnostic_records());
+    connection_string_parser parser(m_config);
+    parser.parse_connection_string(connect_str, &get_diagnostic_records());
 
-    if (parentWindow)
+    if (parent_window)
     {
         // TODO: IGNITE-19210 Implement UI for connection
         add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Connection using UI is not supported");

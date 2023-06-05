@@ -97,7 +97,8 @@ TEST_F(connection_test, connection_success) {
     std::string addr_str;
     auto addrs = ignite::ignite_runner::get_node_addrs();
     for (auto &addr : addrs)
-        addr_str += addr;
+        addr_str += addr + ",";
+    addr_str.pop_back();
 
     odbc_connect("DRIVER={Apache Ignite};ADDRESS=" + addr_str);
 }
