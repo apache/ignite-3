@@ -42,6 +42,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -513,7 +514,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().storage()).close();
+                        doThrow(new RuntimeException("Test exception")).when(tblAndMnr.get1().internalTable().storage()).close();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -650,6 +651,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
         when(bm.nodes()).thenReturn(Set.of(node));
 
         distributionZonesConfiguration.distributionZones().change(zones -> {
@@ -711,8 +713,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThat(cfgChangeFuture, willCompleteSuccessfully());
 
-        verify(txStateStorage).clear();
-        verify(mvTableStorage).clearPartition(anyInt());
+        verify(txStateStorage, timeout(1000)).clear();
+        verify(mvTableStorage, timeout(1000)).clearPartition(anyInt());
     }
 
     /**
