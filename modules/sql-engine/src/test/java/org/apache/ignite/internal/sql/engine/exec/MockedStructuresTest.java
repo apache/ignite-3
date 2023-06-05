@@ -36,6 +36,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -336,6 +338,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         });
 
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
+
+        //noinspection unchecked
+        when(msm.invoke(any(), any(Collection.class), any(Collection.class))).thenReturn(completedFuture(null));
     }
 
     /**
@@ -515,8 +520,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
-            RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+            RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
 
