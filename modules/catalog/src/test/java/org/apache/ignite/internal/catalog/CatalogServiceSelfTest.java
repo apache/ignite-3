@@ -1198,7 +1198,7 @@ public class CatalogServiceSelfTest {
         return CreateTableParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(name)
-                .zone("ZONE")
+                .zone(ZONE_NAME)
                 .columns(cols)
                 .primaryKeyColumns(List.of(cols.get(0).name()))
                 .build();
