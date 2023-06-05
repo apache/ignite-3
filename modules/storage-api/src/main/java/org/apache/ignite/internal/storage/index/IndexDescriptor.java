@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 /**
  * Index descriptor.
  */
+// TODO: IGNITE-19646 избавиться от конфигурации
 public interface IndexDescriptor {
     /**
      * Index column descriptor.
@@ -77,5 +78,26 @@ public interface IndexDescriptor {
         } else {
             throw new AssertionError("Unknown type: " + indexView);
         }
+    }
+
+    /**
+     * Creates an index description based on the catalog descriptors.
+     *
+     * @param table Catalog table descriptor.
+     * @param index Catalog index descriptor.
+     */
+    static IndexDescriptor createIndexDescriptor(
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor index
+    ) {
+        if (index instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {
+            return new HashIndexDescriptor(table, (org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) index);
+        }
+
+        if (index instanceof org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) {
+            return new SortedIndexDescriptor(table, ((org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) index));
+        }
+
+        throw new IllegalArgumentException("Unknown type: " + index);
     }
 }

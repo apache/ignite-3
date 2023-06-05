@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.getNativeType;
 
 import java.util.List;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
@@ -40,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see SortedIndexStorage
  */
+// TODO: IGNITE-19646 избавиться от конфигурации
 public class SortedIndexDescriptor implements IndexDescriptor {
     /**
      * Descriptor of a Sorted Index column (column name and column sort order).
@@ -126,6 +131,19 @@ public class SortedIndexDescriptor implements IndexDescriptor {
     }
 
     /**
+     * Constructor.
+     *
+     * @param table Catalog table descriptor.
+     * @param index Catalog index descriptor.
+     */
+    public SortedIndexDescriptor(
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
+            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index
+    ) {
+        this(index.id(), extractIndexColumnsConfiguration(table, index));
+    }
+
+    /**
      * Creates an Index Descriptor from a given set of column descriptors.
      *
      * @param indexId Index ID.
@@ -208,5 +226,26 @@ public class SortedIndexDescriptor implements IndexDescriptor {
      */
     public BinaryTupleSchema binaryTupleSchema() {
         return binaryTupleSchema;
+    }
+
+    private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
+            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index
+    ) {
+        assert table.id() == index.id() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
+
+        return index.columns().stream()
+                .map(columnDescriptor -> {
+                    String columnName = columnDescriptor.name();
+
+                    TableColumnDescriptor column = table.column(columnName);
+
+                    assert column != null : columnName;
+
+                    ColumnCollation collation = columnDescriptor.collation();
+
+                    return new SortedIndexColumnDescriptor(columnName, getNativeType(column), column.nullable(), collation.asc());
+                })
+                .collect(toList());
     }
 }

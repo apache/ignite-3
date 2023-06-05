@@ -455,12 +455,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), indexId, tableId, causalityToken);
 
-        IndexDescriptor descriptor = newDescriptor(tableIndexView);
+        IndexDescriptor eventIndexDescriptor = newDescriptor(tableIndexView);
 
         org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(tablesView, indexId);
 
         CompletableFuture<?> fireEventFuture =
-                fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, descriptor));
+                fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
 
         CompletableFuture<TableImpl> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
@@ -469,10 +469,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         CompletableFuture<?> createIndexFuture = tableFuture.thenAcceptBoth(schemaRegistryFuture, (table, schemaRegistry) -> {
             TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
                     schemaRegistry,
-                    descriptor.columns().toArray(STRING_EMPTY_ARRAY)
+                    eventIndexDescriptor.columns().toArray(STRING_EMPTY_ARRAY)
             );
 
-            if (descriptor instanceof SortedIndexDescriptor) {
+            if (eventIndexDescriptor instanceof SortedIndexDescriptor) {
                 table.registerSortedIndex(
                         (org.apache.ignite.internal.storage.index.SortedIndexDescriptor) storageIndexDescriptor,
                         tableRowConverter::convert

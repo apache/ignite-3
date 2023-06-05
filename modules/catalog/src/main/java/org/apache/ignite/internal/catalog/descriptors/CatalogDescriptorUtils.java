@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.descriptors.ColumnCollation.DES
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
@@ -100,6 +101,50 @@ public class CatalogDescriptorUtils {
                 config.tableId(),
                 config.columns().stream().map(CatalogDescriptorUtils::toIndexColumnDescriptor).collect(toList())
         );
+    }
+
+    /**
+     * Gets the column native type from the catalog table column descriptor.
+     *
+     * @param column Table column descriptor.
+     */
+    public static NativeType getNativeType(TableColumnDescriptor column) {
+        switch (column.type()) {
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(column.precision(), column.scale());
+            case NUMBER:
+                return NativeTypes.numberOf(column.precision());
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time(column.precision());
+            case DATETIME:
+                return NativeTypes.datetime(column.precision());
+            case TIMESTAMP:
+                return NativeTypes.timestamp(column.precision());
+            case UUID:
+                return NativeTypes.UUID;
+            case BITMASK:
+                return NativeTypes.bitmaskOf(column.length());
+            case STRING:
+                return NativeTypes.stringOf(column.length());
+            case BYTE_ARRAY:
+                return NativeTypes.blobOf(column.length());
+            default:
+                throw new IllegalArgumentException("Unknown type: " + column.type());
+        }
     }
 
     private static TableColumnDescriptor toTableColumnDescriptor(ColumnView config) {

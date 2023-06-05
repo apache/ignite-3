@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.getNativeType;
 
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
@@ -38,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see HashIndexStorage
  */
+// TODO: IGNITE-19646 избавиться от конфигурации
 public class HashIndexDescriptor implements IndexDescriptor {
     /**
      * Descriptor of a Hash Index column.
@@ -109,6 +113,19 @@ public class HashIndexDescriptor implements IndexDescriptor {
     }
 
     /**
+     * Constructor.
+     *
+     * @param table Catalog table descriptor.
+     * @param index Catalog index descriptor.
+     */
+    public HashIndexDescriptor(
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
+            org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index
+    ) {
+        this(index.id(), extractIndexColumnsConfiguration(table, index));
+    }
+
+    /**
      * Creates an Index Descriptor from a given set of columns.
      *
      * @param indexId Index id.
@@ -173,5 +190,22 @@ public class HashIndexDescriptor implements IndexDescriptor {
     @Override
     public List<HashIndexColumnDescriptor> columns() {
         return columns;
+    }
+
+    private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
+            org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index
+    ) {
+        assert table.id() == index.id() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
+
+        return index.columns().stream()
+                .map(columnName -> {
+                    TableColumnDescriptor column = table.column(columnName);
+
+                    assert column != null : columnName;
+
+                    return new HashIndexColumnDescriptor(column.name(), getNativeType(column), column.nullable());
+                })
+                .collect(toList());
     }
 }
