@@ -443,4 +443,34 @@ public class DistributionZonesTestUtil {
             assertThat(storageValue == null ? null : valueTransformer.apply(storageValue), is(expectedValue));
         }
     }
+
+    /**
+     * Asserts data nodes from the distribution zone manager.
+     *
+     * @param distributionZoneManager Distribution zone manager.
+     * @param zoneId Zone id.
+     * @param expectedValue Expected value.
+     * @param timeoutMillis Timeout in milliseconds.
+     * @throws InterruptedException If interrupted.
+     */
+    public static void assertDataNodesFromManager(
+            DistributionZoneManager distributionZoneManager,
+            int zoneId,
+            @Nullable Set<String> expectedValue,
+            long timeoutMillis
+    ) throws InterruptedException {
+        boolean success = waitForCondition(() -> {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
+            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+
+            return Objects.equals(dataNodes, expectedValue);
+        }, timeoutMillis);
+
+        // We do a second check simply to print a nice error message in case the condition above is not achieved.
+        if (!success) {
+            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+
+            assertThat(dataNodes, is(expectedValue));
+        }
+    }
 }

@@ -42,7 +42,7 @@ public class ItNodeOnlyEndpointsFilterInitializedTest extends IntegrationTestBas
 
     private static Stream<Arguments> endpoints() {
         return Stream.of(
-                Arguments.of("deployment/units"),
+                Arguments.of("deployment/cluster/units"),
                 Arguments.of("node/state"),
                 Arguments.of("configuration/cluster"),
                 Arguments.of("configuration/node"),

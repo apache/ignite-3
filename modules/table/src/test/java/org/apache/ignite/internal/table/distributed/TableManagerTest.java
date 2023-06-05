@@ -50,7 +50,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -63,7 +62,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -113,7 +111,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -323,16 +320,9 @@ public class TableManagerTest extends IgniteAbstractTest {
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeZoneId(ZONE_ID);
-
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                var assignment = new ArrayList<Set<Assignment>>(PARTITIONS);
-
-                for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new HashSet<>(Collections.singleton(Assignment.forPeer(node.name()))));
-                }
-
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
+                extConfCh.changeSchemaId(1);
             });
         }).join();
 
@@ -658,6 +648,15 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        when(bm.nodes()).thenReturn(Set.of(node));
+
+        distributionZonesConfiguration.distributionZones().change(zones -> {
+            zones.create(ZONE_NAME, ch -> {
+                ch.changeZoneId(ZONE_ID);
+                ch.changePartitions(1);
+                ch.changeReplicas(1);
+            });
+        }).join();
 
         mockMetastore();
 
@@ -702,12 +701,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                         tableChange -> {
                             SchemaConfigurationConverter.convert(scmTbl, tableChange);
 
-                            // Trigger "onUpdateAssignments"
-                            var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
-
                             ((ExtendedTableChange) tableChange)
-                                    .changeAssignments(ByteUtils.toBytes(assignments))
-                                    .changeSchemaId(1);
+                                    .changeSchemaId(1)
+                                    .changeZoneId(ZONE_ID);
                         }));
 
         assertThat(cfgChangeFuture, willCompleteSuccessfully());
@@ -740,6 +736,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(null));
     }
 
     /**

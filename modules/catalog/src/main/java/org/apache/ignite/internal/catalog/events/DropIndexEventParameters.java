@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+/**
+ * Drop index event parameters that contains an id of dropped index.
+ */
+public class DropIndexEventParameters extends CatalogEventParameters {
 
-/** Manages deployment units in REPL mode. */
-@Command(name = "unit", subcommands = {
-        UnitDeployReplCommand.class,
-        UnitUndeployReplCommand.class,
-        UnitListReplCommand.class,
-        UnitStatusReplCommand.class
-}, description = "Manages deployment units")
-public class UnitReplCommand extends BaseCommand {
+    private final int indexId;
+
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexId An id of dropped index.
+     */
+    public DropIndexEventParameters(long causalityToken, int indexId) {
+        super(causalityToken);
+
+        this.indexId = indexId;
+    }
+
+    /** Returns an id of dropped index. */
+    public int indexId() {
+        return indexId;
+    }
 }
-

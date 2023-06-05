@@ -35,11 +35,12 @@ public class HashIndexDescriptor extends IndexDescriptor {
      * @param id Id of the index.
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public HashIndexDescriptor(int id, String name, int tableId, List<String> columns) {
-        super(id, name, tableId, true);
+    public HashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
+        super(id, name, tableId, unique);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }

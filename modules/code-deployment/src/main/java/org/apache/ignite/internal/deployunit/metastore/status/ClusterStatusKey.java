@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.deployunit.metastore.status.UnitKey.DEP
 
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment unit cluster status store key.
@@ -29,10 +28,8 @@ import org.jetbrains.annotations.Nullable;
 public class ClusterStatusKey {
     private static final String UNITS_PREFIX = DEPLOY_UNIT_PREFIX + "units.";
 
-    @Nullable
     private final String id;
 
-    @Nullable
     private final Version version;
 
     /**
@@ -41,17 +38,9 @@ public class ClusterStatusKey {
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
      */
-    private ClusterStatusKey(@Nullable String id, @Nullable Version version) {
+    private ClusterStatusKey(String id, Version version) {
         this.id = id;
         this.version = version;
-    }
-
-    public @Nullable String getId() {
-        return id;
-    }
-
-    public @Nullable Version getVersion() {
-        return version;
     }
 
     /**
@@ -76,6 +65,30 @@ public class ClusterStatusKey {
         Version version = length > 1 ? Version.parseVersion(parse[1]) : null;
 
         return builder().id(id).version(version).build();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        ClusterStatusKey that = (ClusterStatusKey) o;
+
+        if (id != null ? !id.equals(that.id) : that.id != null) {
+            return false;
+        }
+        return version != null ? version.equals(that.version) : that.version == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id != null ? id.hashCode() : 0;
+        result = 31 * result + (version != null ? version.hashCode() : 0);
+        return result;
     }
 
     public static ClusterStatusKeyBuilder builder() {

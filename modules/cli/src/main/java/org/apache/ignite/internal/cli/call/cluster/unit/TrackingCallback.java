@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.unit;
+package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import java.util.List;
 import java.util.Map;

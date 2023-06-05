@@ -15,27 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.unit;
+package org.apache.ignite.internal.catalog.events;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
-import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/**
+ * Create index event parameters that contains a newly created index descriptor.
+ */
+public class CreateIndexEventParameters extends CatalogEventParameters {
 
-    private final ApiClientFactory factory;
+    private final IndexDescriptor indexDescriptor;
 
-    private final UnitsRegistry registry;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexDescriptor Newly created index descriptor.
+     */
+    public CreateIndexEventParameters(long causalityToken, IndexDescriptor indexDescriptor) {
+        super(causalityToken);
 
-    public DeployUnitCallFactory(ApiClientFactory factory, UnitsRegistry registry) {
-        this.factory = factory;
-        this.registry = registry;
+        this.indexDescriptor = indexDescriptor;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory, registry);
+    /**
+     * Gets index descriptor for a newly created index.
+     */
+    public IndexDescriptor indexDescriptor() {
+        return indexDescriptor;
     }
 }

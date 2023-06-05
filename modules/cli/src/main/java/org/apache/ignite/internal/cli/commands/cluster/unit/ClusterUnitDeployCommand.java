@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION;
@@ -28,26 +28,25 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_
 import jakarta.inject.Inject;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.cli.call.unit.DeployUnitCallFactory;
-import org.apache.ignite.internal.cli.call.unit.DeployUnitCallInput;
+import java.util.concurrent.Callable;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 
-/** Command to deploy a unit in REPL mode. */
-@Command(name = "deploy", description = "Deploys a unit")
-public class UnitDeployReplCommand extends BaseCommand implements Runnable {
+/** Command to deploy a unit. */
+@Command(name = "deploy", description = "Deploys a unit from file or a directory (non-recursively)")
+public class ClusterUnitDeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
-    private ClusterUrlMixin clusterUrl;
+    private ClusterUrlProfileMixin clusterUrl;
 
     /** Unit id. */
     @Parameters(index = "0")
@@ -73,27 +72,19 @@ public class UnitDeployReplCommand extends BaseCommand implements Runnable {
     @Inject
     private DeployUnitCallFactory callFactory;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Override
-    public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(clusterUrl -> DeployUnitCallInput.builder()
+    public Integer call() throws Exception {
+        return CallExecutionPipeline.asyncBuilder(callFactory::create)
+                .inputProvider(() -> DeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
                         .path(path)
-                        .clusterUrl(clusterUrl)
+                        .clusterUrl(clusterUrl.getClusterUrl())
                         .build())
-                .then(Flows.mono(input ->
-                    CallExecutionPipeline.asyncBuilder(callFactory::create)
-                            .inputProvider(() -> input)
-                            .output(spec.commandLine().getOut())
-                            .errOutput(spec.commandLine().getErr())
-                            .verbose(verbose)
-                            .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "cluster init"))
-                            .build().runPipeline()
-                ))
-                .start();
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
+                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "ignite cluster init"))
+                .build().runPipeline();
     }
 }
