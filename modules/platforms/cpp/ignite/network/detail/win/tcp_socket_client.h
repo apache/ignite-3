@@ -229,7 +229,7 @@ private:
      * @param rd Wait for read if @c true, or for write if @c false.
      * @return -errno on error, wait_result::TIMEOUT on timeout and wait_result::SUCCESS on success.
      */
-    int wait_on_socket(std::int32_t timeout, bool rd)
+    int wait_on_socket(std::int32_t timeout, bool rd) // NOLINT(readability-make-member-function-const)
     {
         return detail::wait_on_socket(m_socket_handle, timeout, rd);
     }

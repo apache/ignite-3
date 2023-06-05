@@ -178,6 +178,10 @@ if (${ENABLE_TESTS})
     if (${ENABLE_CLIENT})
         add_subdirectory(tests/client-test)
     endif()
+
+    if (${ENABLE_CLIENT})
+        add_subdirectory(tests/odbc-test)
+    endif()
 endif()
 
 # Source code formatting with clang-format.
