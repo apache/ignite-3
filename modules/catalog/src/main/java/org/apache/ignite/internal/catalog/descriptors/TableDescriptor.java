@@ -78,6 +78,13 @@ public class TableDescriptor extends ObjectDescriptor {
         assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
     }
 
+    /**
+     * Returns column descriptor for column with given name.
+     */
+    public TableColumnDescriptor columnDescriptor(String columnName) {
+        return columnsMap.get(columnName);
+    }
+
     public int zoneId() {
         return zoneId;
     }

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
 /**
  * Provides access to the Deployment Unit functionality.
@@ -64,29 +65,54 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<Boolean> undeployAsync(String id, Version version);
 
     /**
-     * Lists all deployed units.
+     * Lists all units statuses.
      *
-     * @return Future with result.
+     * @return Future with the list of unit statuses.
      */
-    CompletableFuture<List<UnitStatuses>> unitsAsync();
+    CompletableFuture<List<UnitStatuses>> clusterStatusesAsync();
+
+    /**
+     * Lists all versions of the unit.
+     *
+     * @param id Unit identifier.
+     * @return Future with the unit statuses.
+     */
+    CompletableFuture<UnitStatuses> clusterStatusesAsync(String id);
+
+    /**
+     * Gets unit status of particular version.
+     *
+     * @param id Unit identifier.
+     * @param version Unit version.
+     * @return Future with unit status.
+     */
+    CompletableFuture<DeploymentStatus> clusterStatusAsync(String id, Version version);
 
     /**
      * Lists all deployed versions of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
-     * @return Future with list of all available version of unit.
-     *      In case when unit with specified identifier not exist future list will be empty.
+     * @return Future with list of all available version of unit. In case when unit with specified identifier not exist future list will be
+     *         empty.
      */
     CompletableFuture<List<Version>> versionsAsync(String id);
 
     /**
      * Returns status of unit with provided identifier.
      *
-     * @param id Unit identifier. Not empty and not null.
-     * @return Future with unit status.
-     *      Future will be failed if unit with specified identifier not exist.
+     * @param id Unit identifier.
+     * @return Future with the unit statuses.
      */
-    CompletableFuture<UnitStatuses> statusAsync(String id);
+    CompletableFuture<UnitStatuses> nodeStatusesAsync(String id);
+
+    /**
+     * Gets unit status of particular version on this node.
+     *
+     * @param id Unit identifier.
+     * @param version Unit version.
+     * @return Future with unit status.
+     */
+    CompletableFuture<DeploymentStatus> nodeStatusAsync(String id, Version version);
 
     /**
      * Returns path to unit with provided identifier and version.

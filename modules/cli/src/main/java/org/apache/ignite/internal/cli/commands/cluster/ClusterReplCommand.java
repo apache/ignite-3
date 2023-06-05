@@ -22,6 +22,7 @@ import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigReplC
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.TopologyReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitReplCommand;
 import picocli.CommandLine.Command;
 
 /**
@@ -32,7 +33,8 @@ import picocli.CommandLine.Command;
                 ClusterConfigReplCommand.class,
                 ClusterInitReplCommand.class,
                 ClusterStatusReplCommand.class,
-                TopologyReplCommand.class
+                TopologyReplCommand.class,
+                ClusterUnitReplCommand.class
         },
         description = "Manages an Ignite cluster")
 public class ClusterReplCommand extends BaseCommand {

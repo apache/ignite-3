@@ -72,7 +72,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<List<UnitClusterStatus>> getAllClusterStatuses() {
+    public CompletableFuture<List<UnitClusterStatus>> getClusterStatuses() {
         CompletableFuture<List<UnitClusterStatus>> result = new CompletableFuture<>();
         metaStorage.prefix(ClusterStatusKey.builder().build().toByteArray())
                 .subscribe(new ClusterStatusAccumulator().toSubscriber(result));
@@ -109,9 +109,9 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId, String id) {
+    public CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId, String unitId) {
         CompletableFuture<List<UnitNodeStatus>> result = new CompletableFuture<>();
-        metaStorage.prefix(NodeStatusKey.builder().id(id).build().toByteArray())
+        metaStorage.prefix(NodeStatusKey.builder().id(unitId).build().toByteArray())
                 .subscribe(new NodeStatusAccumulator(unitNodeStatus -> Objects.equals(unitNodeStatus.nodeId(), nodeId))
                         .toSubscriber(result));
         return result;

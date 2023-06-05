@@ -808,6 +808,11 @@ public class IgniteImpl implements Ignite {
         return indexManager;
     }
 
+    @TestOnly
+    public MetaStorageManager metaStorageManager() {
+        return metaStorageMgr;
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {

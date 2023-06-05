@@ -37,7 +37,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -48,7 +47,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
  *
- * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+ * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int)
  */
 public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
@@ -243,17 +242,7 @@ public class MvGc implements ManuallyCloseable {
                 // We can only start garbage collection when the partition safe time is reached.
                 gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
-                        .thenApplyAsync(unused -> {
-                            for (int i = 0; i < GC_BATCH_SIZE; i++) {
-                                // If the storage has been deleted or there is no garbage, then we will stop.
-                                if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
-                                        || !gcUpdateHandler.vacuum(lowWatermark)) {
-                                    return false;
-                                }
-                            }
-
-                            return true;
-                        }, executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException
