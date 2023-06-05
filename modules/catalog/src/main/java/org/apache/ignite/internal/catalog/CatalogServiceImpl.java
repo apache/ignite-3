@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -357,13 +356,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             String columnName = params.columnName();
 
-            Optional<TableColumnDescriptor> source = table.columns().stream().filter(desc -> desc.name().equals(columnName)).findFirst();
-
-            if (source.isEmpty()) {
-                throw new ColumnNotFoundException(columnName);
-            }
-
-            TableColumnDescriptor origin = source.get();
+            TableColumnDescriptor origin = table.columns().stream()
+                    .filter(desc -> desc.name().equals(columnName))
+                    .findFirst()
+                    .orElseThrow(() ->  new ColumnNotFoundException(columnName));
 
             if (table.isPrimaryKeyColumn(origin.name())) {
                 if (params.notNull() != null) {

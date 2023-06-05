@@ -537,7 +537,7 @@ public class CatalogServiceSelfTest {
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
 
-        // 2 -> NULL : Ok (for nullable column).
+        // 2 -> NULL : Ok.
         assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
                 willBe((Object) null));
         assertNotNull(service.schema(++schemaVer));
