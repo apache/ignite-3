@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFIN
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -30,14 +31,18 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
@@ -50,16 +55,20 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
+import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
+import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -78,10 +87,13 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneBindTableException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.SqlException;
@@ -145,6 +157,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public TableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IndexDescriptor index(String indexName, long timestamp) {
+        return catalogAt(timestamp).schema(CatalogService.PUBLIC).index(indexName);
     }
 
     /** {@inheritDoc} */
@@ -232,9 +250,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableNotFoundException(schemaName, params.tableName());
             }
 
-            return List.of(
-                    new DropTableEntry(table.id())
-            );
+            List<UpdateEntry> updateEntries = new ArrayList<>();
+
+            Arrays.stream(schema.indexes())
+                    .filter(index -> index.tableId() == table.id())
+                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id())));
+
+            updateEntries.add(new DropTableEntry(table.id()));
+
+            return updateEntries;
         });
     }
 
@@ -317,6 +341,129 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             return List.of(
                     new DropColumnsEntry(table.id(), params.columns())
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            if (schema.index(params.indexName()) != null) {
+                throw new IndexAlreadyExistsException(schemaName, params.indexName());
+            }
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            if (params.columns().isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "No index columns was specified."
+                );
+            }
+
+            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
+
+            for (String columnName : params.columns()) {
+                TableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+
+                if (columnDescriptor == null) {
+                    throw new ColumnNotFoundException(columnName);
+                } else if (duplicateValidator.test(columnName)) {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Can't create index on duplicate columns: columnName=" + columnName
+                    );
+                }
+            }
+
+            IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+
+            return List.of(
+                    new NewIndexEntry(index),
+                    new ObjectIdGenUpdateEntry(1)
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            if (schema.index(params.indexName()) != null) {
+                throw new IndexAlreadyExistsException(schemaName, params.indexName());
+            }
+
+            TableDescriptor table = schema.table(params.tableName());
+
+            if (table == null) {
+                throw new TableNotFoundException(schemaName, params.tableName());
+            }
+
+            if (params.columns().isEmpty()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "No index columns was specified."
+                );
+            } else if (params.collations().size() != params.columns().size()) {
+                throw new IgniteInternalException(
+                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                        "Columns collations doesn't match number of columns."
+                );
+            }
+
+            Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
+
+            for (String columnName : params.columns()) {
+                TableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+
+                if (columnDescriptor == null) {
+                    throw new ColumnNotFoundException(columnName);
+                } else if (duplicateValidator.test(columnName)) {
+                    throw new IgniteInternalException(
+                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Can't create index on duplicate columns: columnName=" + columnName
+                    );
+                }
+            }
+
+            IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+
+            return List.of(
+                    new NewIndexEntry(index),
+                    new ObjectIdGenUpdateEntry(1)
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> dropIndex(DropIndexParams params) {
+        return saveUpdate(catalog -> {
+            String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
+
+            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+
+            IndexDescriptor index = schema.index(params.indexName());
+
+            if (index == null) {
+                throw new IndexNotFoundException(schemaName, params.indexName());
+            }
+
+            return List.of(
+                    new DropIndexEntry(index.id())
             );
         });
     }
@@ -628,6 +775,46 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     eventFutures.add(fireEvent(
                             CatalogEvent.TABLE_ALTER,
                             new DropColumnEventParameters(version, tableId, columns)
+                    ));
+                } else if (entry instanceof NewIndexEntry) {
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            catalog.zones(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    schema.tables(),
+                                    ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.INDEX_CREATE,
+                            new CreateIndexEventParameters(version, ((NewIndexEntry) entry).descriptor())
+                    ));
+                } else if (entry instanceof DropIndexEntry) {
+                    int indexId = ((DropIndexEntry) entry).indexId();
+
+                    catalog = new Catalog(
+                            version,
+                            System.currentTimeMillis(),
+                            catalog.objectIdGenState(),
+                            catalog.zones(),
+                            new SchemaDescriptor(
+                                    schema.id(),
+                                    schema.name(),
+                                    version,
+                                    schema.tables(),
+                                    Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(IndexDescriptor[]::new)
+                            )
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.INDEX_DROP,
+                            new DropIndexEventParameters(version, indexId)
                     ));
                 } else if (entry instanceof NewZoneEntry) {
                     catalog = new Catalog(

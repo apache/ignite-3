@@ -36,11 +36,12 @@ public class SortedIndexDescriptor extends IndexDescriptor {
      * @param id Id of the index.
      * @param name Name of the index.
      * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
-    public SortedIndexDescriptor(int id, String name, int tableId, List<IndexColumnDescriptor> columns) {
-        super(id, name, tableId, false);
+    public SortedIndexDescriptor(int id, String name, int tableId, boolean unique, List<IndexColumnDescriptor> columns) {
+        super(id, name, tableId, unique);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
