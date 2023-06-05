@@ -235,7 +235,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema))
+                                .defaultSchema(sqlSchemaManager.schema(schema, null))
                                 .build()
                 )
                 .logger(LOG)

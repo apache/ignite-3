@@ -45,6 +45,7 @@ import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
@@ -148,7 +149,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String schema) {
+    public SchemaPlus schema(@Nullable String schema, @Nullable HybridTimestamp ts) {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
         // stub for waiting pk indexes, more clear place is IgniteSchema

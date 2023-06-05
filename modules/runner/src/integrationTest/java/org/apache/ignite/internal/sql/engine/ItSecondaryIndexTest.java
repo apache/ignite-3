@@ -1033,7 +1033,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
             SqlSchemaManagerImpl sqlSchemaManager = (SqlSchemaManagerImpl) IgniteTestUtils.getFieldValue(qp,
                     SqlQueryProcessor.class, "sqlSchemaManager");
 
-            IgniteTableImpl tbl = (IgniteTableImpl) sqlSchemaManager.schema("PUBLIC").getTable(tableName);
+            IgniteTableImpl tbl = (IgniteTableImpl) sqlSchemaManager.schema("PUBLIC", null).getTable(tableName);
 
             IgniteIndex idx = tbl.getIndex(idxName);
 

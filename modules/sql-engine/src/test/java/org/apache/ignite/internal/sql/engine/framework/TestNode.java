@@ -96,7 +96,7 @@ public class TestNode implements LifecycleAware {
     ) {
         this.nodeName = nodeName;
         this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class)));
-        this.schema = schemaManager.schema("PUBLIC");
+        this.schema = schemaManager.schema("PUBLIC", null);
 
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();

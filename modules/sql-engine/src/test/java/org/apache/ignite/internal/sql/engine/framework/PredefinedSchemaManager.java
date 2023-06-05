@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -68,7 +69,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String schema) {
+    public SchemaPlus schema(@Nullable String schema, @Nullable HybridTimestamp ts) {
         return schema == null ? root : root.getSubSchema(schema);
     }
 

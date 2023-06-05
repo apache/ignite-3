@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -285,6 +287,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
 
         when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
+
+        when(tm.begin(anyBoolean())).thenReturn(new NoOpTransaction(NODE_NAME + "_tx"));
 
         tblManager = mockManagers();
 
