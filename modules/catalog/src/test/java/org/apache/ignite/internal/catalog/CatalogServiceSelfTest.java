@@ -582,45 +582,16 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
     }
 
-    @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
-    public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
-        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
-        ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(10).build();
-
-        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe((Object) null));
-
-        int schemaVer = 1;
-        assertNotNull(service.schema(schemaVer));
-        assertNull(service.schema(schemaVer + 1));
-
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 10, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
-
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 10, null), null, null),
-                willBe((Object) null));
-
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 9, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
-
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 11, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
-
-        assertNull(service.schema(schemaVer + 1));
-    }
-
     /**
      * Checks for possible changes of the precision of a column descriptor.
      *
      * <ul>
      *  <li>Increasing precision is allowed for non-PK {@link ColumnType#DECIMAL} column.</li>
-     *  <li>Increasing length is allowed for non-PK {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY} column.</li>
-     *  <li>Decreasing precision (and length for varlen types) is forbidden.</li>
+     *  <li>Decreasing precision is forbidden.</li>
      * </ul>
      */
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"DECIMAL", "STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"DECIMAL"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypePrecision(ColumnType type) {
         ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
         ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
@@ -638,14 +609,14 @@ public class CatalogServiceSelfTest {
 
         // UNDEFINED PRECISION -> 10 : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null), null, null),
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
                 willBe((Object) null)
         );
         assertNotNull(service.schema(++schemaVer));
 
         // 10 -> 11 : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null), null, null),
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null, null), null, null),
                 willBe((Object) null)
         );
 
@@ -658,14 +629,120 @@ public class CatalogServiceSelfTest {
         assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
 
         // 11 -> 10 : Error.
-        String expMsg = col.type() == ColumnType.DECIMAL
-                ? "Cannot decrease precision to 10 for column '" + col.name() + "'."
-                : "Cannot decrease length to 10 for column '" + col.name() + "'.";
-
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null), null, null),
-                willThrowFast(SqlException.class, expMsg)
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot decrease precision to 10 for column '" + col.name() + "'.")
         );
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL"}, mode = Mode.EXCLUDE)
+    public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
+        ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(10).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 10, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 10, null, null), null, null),
+                willBe((Object) null));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 9, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 11, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    /**
+     * Checks for possible changes of the length of a column descriptor.
+     *
+     * <ul>
+     *  <li>Increasing length is allowed for non-PK {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY} column.</li>
+     *  <li>Decreasing length is forbidden.</li>
+     * </ul>
+     */
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
+    public void testAlterColumnTypeLength(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // ANY-> UNDEFINED LENGTH : No-op.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // UNDEFINED LENGTH -> 10 : Ok.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
+                willBe((Object) null)
+        );
+        assertNotNull(service.schema(++schemaVer));
+
+        // 10 -> 11 : Ok.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 11, null), null, null),
+                willBe((Object) null)
+        );
+
+        SchemaDescriptor schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+
+        TableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
+
+        assertNotSame(desc.length(), desc.precision());
+        assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
+
+        // 11 -> 10 : Error.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
+                willThrowFast(SqlException.class, "Cannot decrease length to 10 for column '" + col.name() + "'.")
+        );
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"NULL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
+    public void testAlterColumnTypeAnyLengthChangeIsRejected(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
+        ColumnParams colWithLength = ColumnParams.builder().name("COL_PRECISION").type(type).length(10).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithLength))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change length for column '" + col.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
+                willBe((Object) null));
+
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 9, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change length for column '" + colWithLength.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 11, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change length for column '" + colWithLength.name() + "'"));
+
         assertNull(service.schema(schemaVer + 1));
     }
 
@@ -686,17 +763,17 @@ public class CatalogServiceSelfTest {
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 3 : No-op.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 3), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 3), null, null),
                 willBe((Object) null));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 4 : Error.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 4), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 4), null, null),
                 willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 2), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 2), null, null),
                 willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
         assertNull(service.schema(schemaVer + 1));
     }
@@ -1173,6 +1250,10 @@ public class CatalogServiceSelfTest {
                 builder.precision(typeParams.precision);
             }
 
+            if (typeParams.length != null) {
+                builder.length(typeParams.length);
+            }
+
             if (typeParams.scale != null) {
                 builder.scale(typeParams.scale);
             }
@@ -1217,15 +1298,17 @@ public class CatalogServiceSelfTest {
     private static class TestColumnTypeParams {
         private final ColumnType type;
         private final Integer precision;
+        private final Integer length;
         private final Integer scale;
 
         private TestColumnTypeParams(ColumnType type) {
-            this(type, null, null);
+            this(type, null, null, null);
         }
 
-        private TestColumnTypeParams(ColumnType type, @Nullable Integer precision, @Nullable Integer scale) {
+        private TestColumnTypeParams(ColumnType type, @Nullable Integer precision, @Nullable Integer length, @Nullable Integer scale) {
             this.type = type;
             this.precision = precision;
+            this.length = length;
             this.scale = scale;
         }
     }

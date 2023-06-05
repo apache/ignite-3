@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -85,7 +86,11 @@ class DdlToCatalogCommandConverter {
             builder.type(TypeUtils.columnType(type));
 
             if (type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED) {
-                builder.precision(type.getPrecision());
+                if (type.getSqlTypeName() == SqlTypeName.VARCHAR || type.getSqlTypeName() == SqlTypeName.VARBINARY) {
+                    builder.length(type.getPrecision());
+                } else {
+                    builder.precision(type.getPrecision());
+                }
             }
 
             if (type.getScale() != RelDataType.SCALE_NOT_SPECIFIED) {

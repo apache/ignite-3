@@ -32,6 +32,8 @@ public class AlterColumnParams extends AbstractTableCommandParams {
 
     private Integer precision;
 
+    private Integer length;
+
     private Integer scale;
 
     private Boolean notNull;
@@ -51,6 +53,11 @@ public class AlterColumnParams extends AbstractTableCommandParams {
     /** Returns column precision. */
     public @Nullable Integer precision() {
         return precision;
+    }
+
+    /** Returns column length. */
+    public @Nullable Integer length() {
+        return length;
     }
 
     /** Returns column scale. */
@@ -97,6 +104,13 @@ public class AlterColumnParams extends AbstractTableCommandParams {
         /** Sets column precision. */
         public Builder precision(int precision) {
             params.precision = precision;
+
+            return this;
+        }
+
+        /** Sets column length. */
+        public Builder length(int length) {
+            params.length = length;
 
             return this;
         }

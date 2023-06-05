@@ -374,11 +374,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             boolean nullable = !Objects.requireNonNullElse(params.notNull(), !origin.nullable());
             DefaultValue defaultValue = Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue());
             ColumnType type = Objects.requireNonNullElse(params.type(), origin.type());
+            int precision = Objects.requireNonNullElse(params.precision(), origin.precision());
+            int length = Objects.requireNonNullElse(params.length(), origin.length());
             int scale = Objects.requireNonNullElse(params.scale(), origin.scale());
-
-            boolean varLenType = type == ColumnType.STRING || type == ColumnType.BYTE_ARRAY;
-            int precision = varLenType ? origin.precision() : Objects.requireNonNullElse(params.precision(), origin.precision());
-            int length = varLenType ? Objects.requireNonNullElse(params.precision(), origin.length()) : origin.length();
 
             TableColumnDescriptor target = new TableColumnDescriptor(origin.name(), type, nullable, defaultValue, precision, scale, length);
 
@@ -404,8 +402,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            if (target.length() < origin.length()) {
-                throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
+            if (origin.length() != target.length()) {
+                if (target.type() != ColumnType.STRING && target.type() != ColumnType.BYTE_ARRAY) {
+                    throwUnsupportedDdl("Cannot change length for column '{}'.", origin.name());
+                } else  if (target.length() < origin.length()) {
+                    throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
+                }
             }
 
             if (origin.precision() != target.precision()) {
