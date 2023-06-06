@@ -594,13 +594,13 @@ public class CatalogSqlSchemaManagerTest {
 
         IndexDescriptor newDescriptor(int tableId) {
             if (hashColumns != null) {
-                return new HashIndexDescriptor(id, name, tableId, hashColumns);
+                return new HashIndexDescriptor(id, name, tableId, false, hashColumns);
             } else if (sortedColumns != null) {
                 List<IndexColumnDescriptor> indexColumns = sortedColumns.stream()
                         .map((e) -> new IndexColumnDescriptor(e.getKey(), e.getValue()))
                         .collect(Collectors.toList());
 
-                return new SortedIndexDescriptor(id, name, tableId, indexColumns);
+                return new SortedIndexDescriptor(id, name, tableId, false, indexColumns);
             } else {
                 throw new IllegalStateException("Unable to create index");
             }
