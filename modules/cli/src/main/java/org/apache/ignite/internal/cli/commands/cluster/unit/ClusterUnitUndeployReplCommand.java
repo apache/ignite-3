@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitReplCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
@@ -53,7 +53,7 @@ public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runna
     private String version;
 
     @Inject
-    private UndeployUnitCall call;
+    private UndeployUnitReplCall call;
 
     @Inject
     private ConnectToClusterQuestion question;

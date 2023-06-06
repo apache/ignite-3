@@ -40,13 +40,6 @@ public class TableColumnDescriptor implements Serializable {
     private final DefaultValue defaultValue;
 
     /**
-     * Constructs a column descriptor using only mandatory parameters.
-     */
-    public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
-        this(Objects.requireNonNull(name, "name"), Objects.requireNonNull(type), nullable, defaultValue, null, null, null);
-    }
-
-    /**
      * Constructor.
      *
      * @param name Column name.
@@ -57,22 +50,15 @@ public class TableColumnDescriptor implements Serializable {
      * @param scale Scale.
      * @param length Length.
      */
-    public TableColumnDescriptor(
-            String name,
-            ColumnType type,
-            boolean nullable,
-            DefaultValue defaultValue,
-            @Nullable Integer precision,
-            @Nullable Integer scale,
-            @Nullable Integer length
-    ) {
+    public TableColumnDescriptor(String name, ColumnType type, boolean nullable,
+            int precision, int scale, int length, @Nullable DefaultValue defaultValue) {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type);
         this.nullable = nullable;
+        this.precision = precision;
+        this.scale = scale;
+        this.length = length;
         this.defaultValue = defaultValue;
-        this.precision = Objects.requireNonNullElse(precision, 0);
-        this.scale = Objects.requireNonNullElse(scale, 0);
-        this.length = Objects.requireNonNullElse(length, 0);
     }
 
     public String name() {
@@ -99,6 +85,7 @@ public class TableColumnDescriptor implements Serializable {
         return length;
     }
 
+    @Nullable
     public DefaultValue defaultValue() {
         return defaultValue;
     }

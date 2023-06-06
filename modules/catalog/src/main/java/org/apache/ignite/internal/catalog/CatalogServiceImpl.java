@@ -180,8 +180,26 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
+    public @Nullable SchemaDescriptor schema(String schemaName, int version) {
+        Catalog catalog = catalog(version);
+
+        if (catalog == null) {
+            return null;
+        }
+
+        return catalog.schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @Nullable SchemaDescriptor activeSchema(long timestamp) {
         return catalogAt(timestamp).schema(CatalogService.PUBLIC);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable SchemaDescriptor activeSchema(String schemaName, long timestamp) {
+        return catalogAt(timestamp).schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
     }
 
     private Catalog catalog(int version) {
@@ -353,10 +371,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     origin.name(),
                     Objects.requireNonNullElse(params.type(), origin.type()),
                     !Objects.requireNonNullElse(params.notNull(), !origin.nullable()),
-                    Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue()),
                     Objects.requireNonNullElse(params.precision(), origin.precision()),
                     Objects.requireNonNullElse(params.scale(), origin.scale()),
-                    Objects.requireNonNullElse(params.length(), origin.length())
+                    Objects.requireNonNullElse(params.length(), origin.length()),
+                    Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue())
             );
 
             if (origin.equals(target)) {

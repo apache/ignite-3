@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -99,7 +99,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             SchemaManager schemaManager,
             ReplicaService replicaService,
             HybridClock clock,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
@@ -159,6 +159,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
+    public SchemaPlus schema(String name, int version) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<?> actualSchemaAsync(long ver) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -180,6 +186,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

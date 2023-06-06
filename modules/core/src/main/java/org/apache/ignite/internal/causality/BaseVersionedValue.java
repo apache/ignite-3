@@ -116,6 +116,17 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
         return getDefault();
     }
 
+    @Override
+    public long latestCausalityToken() {
+        for (Entry<Long, CompletableFuture<T>> entry : history.descendingMap().entrySet()) {
+            if (entry.getValue().isDone()) {
+                return entry.getKey();
+            }
+        }
+
+        return NOT_INITIALIZED;
+    }
+
     /**
      * Returns the default value.
      */
