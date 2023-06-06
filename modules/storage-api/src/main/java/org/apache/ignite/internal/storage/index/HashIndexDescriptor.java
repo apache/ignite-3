@@ -117,7 +117,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index
     ) {
-        assert table.id() == index.id() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
+        assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
         return index.columns().stream()
                 .map(columnName -> {

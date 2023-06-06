@@ -151,7 +151,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index
     ) {
-        assert table.id() == index.id() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
+        assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
         return index.columns().stream()
                 .map(columnDescriptor -> {
