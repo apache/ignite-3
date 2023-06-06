@@ -33,13 +33,8 @@
 #include <random>
 #include <sstream>
 
-// Uncomment for per-byte debug.
-// TODO: Change to m_env variable
-#define PER_BYTE_DEBUG
-
 constexpr const std::size_t PROTOCOL_HEADER_SIZE = 4;
 
-#ifdef PER_BYTE_DEBUG
 namespace
 {
 
@@ -66,7 +61,6 @@ std::string hex_dump(const void* data, std::size_t count)
 }
 
 }
-#endif // PER_BYTE_DEBUG
 
 std::vector<ignite::network::tcp_range> collect_addresses(const ignite::configuration& cfg)
 {
@@ -241,9 +235,7 @@ bool sql_connection::send(const std::byte* data, std::size_t len, std::int32_t t
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
-#ifdef PER_BYTE_DEBUG
-    LOG_MSG("message sent: (" <<  msg.size() << " bytes)" << hex_dump(msg.data(), msg.size()));
-#endif //PER_BYTE_DEBUG
+    TRACE_MSG("message sent: (" <<  msg.size() << " bytes)" << hex_dump(msg.data(), msg.size()));
 
     return true;
 }
@@ -304,9 +296,7 @@ bool sql_connection::receive(std::vector<std::byte>& msg, std::int32_t timeout)
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message body");
 
-#ifdef PER_BYTE_DEBUG
-    LOG_MSG("Message received: " << hex_dump(&msg[0], msg.size()));
-#endif //PER_BYTE_DEBUG
+    TRACE_MSG("Message received: " << hex_dump(&msg[0], msg.size()));
 
     return true;
 }

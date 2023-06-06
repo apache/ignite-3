@@ -100,5 +100,5 @@ TEST_F(connection_test, connection_success) {
         addr_str += addr + ",";
     addr_str.pop_back();
 
-    odbc_connect("DRIVER={Apache Ignite};ADDRESS=" + addr_str);
+    odbc_connect("DRIVER={Apache Ignite 3};ADDRESS=" + addr_str);
 }
