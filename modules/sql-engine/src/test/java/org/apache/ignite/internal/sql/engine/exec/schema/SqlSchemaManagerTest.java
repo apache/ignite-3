@@ -41,6 +41,7 @@ import java.util.function.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -74,6 +75,8 @@ public class SqlSchemaManagerTest {
     private final int tableId = 1;
 
     private final int indexId = 2;
+
+    private HybridTimestamp fakeTs = HybridTimestamp.hybridTimestamp(1);
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             1,
@@ -156,7 +159,7 @@ public class SqlSchemaManagerTest {
 
         testRevisionRegister.moveForward();
 
-        Table schemaTable = sqlSchemaManager.schema("PUBLIC", null).getTable("T");
+        Table schemaTable = sqlSchemaManager.schema("PUBLIC", fakeTs).getTable("T");
 
         assertNotNull(schemaTable);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
@@ -165,7 +168,7 @@ public class SqlSchemaManagerTest {
         sqlSchemaManager.onTableDropped("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        assertNull(sqlSchemaManager.schema("PUBLIC", null).getTable("T"));
+        assertNull(sqlSchemaManager.schema("PUBLIC", fakeTs).getTable("T"));
     }
 
     @Test
@@ -194,7 +197,7 @@ public class SqlSchemaManagerTest {
 
         testRevisionRegister.moveForward();
 
-        assertEquals(1, ((IgniteTableImpl) sqlSchemaManager.schema("PUBLIC", null).getTable("T")).indexes().size());
+        assertEquals(1, ((IgniteTableImpl) sqlSchemaManager.schema("PUBLIC", fakeTs).getTable("T")).indexes().size());
 
         IndexDescriptor descMock = mock(IndexDescriptor.class);
         when(descMock.columns()).thenReturn(List.of());
@@ -204,7 +207,7 @@ public class SqlSchemaManagerTest {
 
         testRevisionRegister.moveForward();
 
-        IgniteSchema schema = sqlSchemaManager.schema("PUBLIC", null).unwrap(IgniteSchema.class);
+        IgniteSchema schema = sqlSchemaManager.schema("PUBLIC", fakeTs).unwrap(IgniteSchema.class);
         Table schemaTable = schema.getTable("T");
         IgniteIndex igniteIndex = schema.index(indexId);
 
@@ -218,7 +221,7 @@ public class SqlSchemaManagerTest {
         sqlSchemaManager.onIndexDropped("PUBLIC", igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        assertNull(sqlSchemaManager.schema("PUBLIC", null).unwrap(IgniteSchema.class).index(indexId));
+        assertNull(sqlSchemaManager.schema("PUBLIC", fakeTs).unwrap(IgniteSchema.class).index(indexId));
 
         verifyNoMoreInteractions(tableManager);
     }
@@ -257,12 +260,12 @@ public class SqlSchemaManagerTest {
         when(descMock.name()).thenReturn(idxName);
 
         {
-            SchemaPlus schema1 = sqlSchemaManager.schema("PUBLIC", null);
+            SchemaPlus schema1 = sqlSchemaManager.schema("PUBLIC", fakeTs);
 
             sqlSchemaManager.onIndexCreated(tableId, indexId, descMock, testRevisionRegister.actualToken() + 1);
             testRevisionRegister.moveForward();
 
-            SchemaPlus schema2 = sqlSchemaManager.schema("PUBLIC", null);
+            SchemaPlus schema2 = sqlSchemaManager.schema("PUBLIC", fakeTs);
 
             // Validate schema snapshot.
             assertNotSame(schema1, schema2);
@@ -276,10 +279,10 @@ public class SqlSchemaManagerTest {
         }
         {
             sqlSchemaManager.onIndexDropped("PUBLIC", table.tableId(), indexId, testRevisionRegister.actualToken() + 1);
-            SchemaPlus schema1 = sqlSchemaManager.schema("PUBLIC", null);
+            SchemaPlus schema1 = sqlSchemaManager.schema("PUBLIC", fakeTs);
             testRevisionRegister.moveForward();
 
-            SchemaPlus schema2 = sqlSchemaManager.schema("PUBLIC", null);
+            SchemaPlus schema2 = sqlSchemaManager.schema("PUBLIC", fakeTs);
 
             // Validate schema snapshot.
             assertNotSame(schema1, schema2);

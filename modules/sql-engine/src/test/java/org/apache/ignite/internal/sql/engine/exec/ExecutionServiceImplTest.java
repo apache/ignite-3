@@ -484,11 +484,11 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
 
-        when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
-
         CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
         rootSch.add(schema.getName(), schema);
         SchemaPlus plus = rootSch.plus();
+
+        when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(plus));
 
         when(schemaManagerMock.schema(any(), any())).thenReturn(plus);
 

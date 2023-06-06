@@ -33,6 +33,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -82,6 +83,8 @@ public class TestNode implements LifecycleAware {
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
+    private HybridTimestamp fakeTs = HybridTimestamp.hybridTimestamp(1);
+
     /**
      * Constructs the object.
      *
@@ -96,7 +99,7 @@ public class TestNode implements LifecycleAware {
     ) {
         this.nodeName = nodeName;
         this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class)));
-        this.schema = schemaManager.schema("PUBLIC", null);
+        this.schema = schemaManager.schema("PUBLIC", fakeTs);
 
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();

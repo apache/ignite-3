@@ -30,9 +30,9 @@ public interface SqlSchemaManager {
      * Returns a required schema if specified, or default schema otherwise.
      *
      * @param schema Schema name.
-     * @param ts Transaction timestamp to obtain the effective schema version or {@code null} if called from distributed fragments.
+     * @param ts Transaction timestamp to obtain the effective schema version.
      */
-    SchemaPlus schema(@Nullable String schema, @Nullable HybridTimestamp ts);
+    SchemaPlus schema(@Nullable String schema, HybridTimestamp ts);
 
     /**
      * Returns a table by given id.
@@ -46,5 +46,5 @@ public interface SqlSchemaManager {
     /**
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
      */
-    CompletableFuture<?> actualSchemaAsync(long ver);
+    CompletableFuture<SchemaPlus> actualSchemaAsync(long ver);
 }

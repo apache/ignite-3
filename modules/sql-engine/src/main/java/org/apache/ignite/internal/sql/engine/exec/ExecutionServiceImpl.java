@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
+import static org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl.getSchemaOrDefault;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
@@ -30,6 +31,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +43,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -229,13 +232,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, SchemaPlus schema, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema, null))
+                                .defaultSchema(schema)
                                 .build()
                 )
                 .logger(LOG)
@@ -320,18 +323,24 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        CompletableFuture<?> fut = sqlSchemaManager.actualSchemaAsync(msg.schemaVersion());
+        CompletableFuture<SchemaPlus> fut = sqlSchemaManager.actualSchemaAsync(msg.schemaVersion());
+        String schema = msg.schema();
 
         if (fut.isDone()) {
-            submitFragment(nodeName, msg);
+            SchemaPlus schemaPlus = fut.join();
+            SchemaPlus schema0 = getSchemaOrDefault(schema, schemaPlus);
+            submitFragment(nodeName, schema0, msg);
         } else {
             fut.whenComplete((mgr, ex) -> {
+                SchemaPlus schemaPlus = fut.join();
+                SchemaPlus schema0 = getSchemaOrDefault(schema, schemaPlus);
+
                 if (ex != null) {
-                    handleError(ex, nodeName, msg);
+                    handleError(ex, nodeName, schema0, msg);
                     return;
                 }
 
-                taskExecutor.execute(msg.queryId(), msg.fragmentId(), () -> submitFragment(nodeName, msg));
+                taskExecutor.execute(msg.queryId(), msg.fragmentId(), () -> submitFragment(nodeName, schema0, msg));
             });
         }
     }
@@ -403,21 +412,23 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.localFragments();
     }
 
-    private void submitFragment(String nodeName, QueryStartRequest msg) {
-        DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
+    private void submitFragment(String nodeName, SchemaPlus schema, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = getOrCreateQueryManager(msg, schema);
 
         queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
     }
 
-    private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
-        DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
+    private void handleError(Throwable ex, String nodeName, SchemaPlus schema, QueryStartRequest msg) {
+        DistributedQueryManager queryManager = getOrCreateQueryManager(msg, schema);
 
         queryManager.handleError(ex, nodeName, msg.fragmentDescription().fragmentId());
     }
 
-    private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
+    private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg, SchemaPlus schema) {
+        Objects.requireNonNull(schema, "schema");
+
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, schema, msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });

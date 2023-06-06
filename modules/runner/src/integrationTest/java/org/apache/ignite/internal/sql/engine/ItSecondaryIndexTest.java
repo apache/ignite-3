@@ -1025,6 +1025,8 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     private List<RowCountingIndex> injectRowCountingIndex(String tableName, String idxName) {
         List<RowCountingIndex> countingIdxs = new ArrayList<>();
 
+        HybridTimestamp fakeTs = HybridTimestamp.hybridTimestamp(1);
+
         for (Ignite ign : CLUSTER_NODES) {
             IgniteImpl ignEx = (IgniteImpl) ign;
 
@@ -1033,7 +1035,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
             SqlSchemaManagerImpl sqlSchemaManager = (SqlSchemaManagerImpl) IgniteTestUtils.getFieldValue(qp,
                     SqlQueryProcessor.class, "sqlSchemaManager");
 
-            IgniteTableImpl tbl = (IgniteTableImpl) sqlSchemaManager.schema("PUBLIC", null).getTable(tableName);
+            IgniteTableImpl tbl = (IgniteTableImpl) sqlSchemaManager.schema("PUBLIC", fakeTs).getTable(tableName);
 
             IgniteIndex idx = tbl.getIndex(idxName);
 

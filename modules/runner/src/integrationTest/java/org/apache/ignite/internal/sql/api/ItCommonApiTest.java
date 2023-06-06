@@ -249,7 +249,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         }
 
         @Override
-        public CompletableFuture<?> actualSchemaAsync(long ver) {
+        public CompletableFuture<SchemaPlus> actualSchemaAsync(long ver) {
             throw new UnsupportedOperationException();
         }
     }
