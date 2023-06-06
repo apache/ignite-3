@@ -326,8 +326,6 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null)
         {
-            IgniteArgumentCheck.NotNull(data);
-
             await DataStreamer.StreamDataAsync(
                 data,
                 async (batch, preferredNode) =>
@@ -342,6 +340,7 @@ namespace Apache.Ignite.Internal.Table
                     // TODO: Use cached serialized data? Not sure, might be easier to compute hash for key part only?
                     _ser.WriteMultiple(writer, tx: null, schema, enumerator, skipHash: true);
 
+                    // TODO: Override retry policy with streamer-specific one.
                     using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, preferredNode).ConfigureAwait(false);
                 },
                 item => GetPreferredNode(item),

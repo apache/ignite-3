@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using Common;
 using Ignite.Table;
 
 /// <summary>
@@ -45,6 +46,13 @@ internal static class DataStreamer
         DataStreamerOptions options)
         where TPartition : notnull
     {
+        IgniteArgumentCheck.NotNull(data);
+
+        IgniteArgumentCheck.Ensure(options.BatchSize > 0, $"{nameof(options.BatchSize)} should be positive.");
+        IgniteArgumentCheck.Ensure(
+            options.PerNodeParallelOperations > 0,
+            $"{nameof(options.PerNodeParallelOperations)} should be positive.");
+
         // TODO: Validate options?
         var batches = new Dictionary<TPartition, Batch<T>>();
 
