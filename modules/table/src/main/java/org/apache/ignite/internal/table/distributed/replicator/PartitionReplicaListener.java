@@ -159,7 +159,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
 
     /** Secondary indices. */
-    private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
+    private final Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages;
 
     /** Versioned partition storage. */
     private final MvPartitionStorage mvDataStorage;
@@ -203,7 +203,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final ConcurrentHashMap<UUID, CompletableFuture<TxMeta>> txTimestampUpdateMap = new ConcurrentHashMap<>();
 
-    private final Supplier<Map<UUID, IndexLocker>> indexesLockers;
+    private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
     private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
@@ -228,6 +228,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /** Flag indicates whether the current replica is the primary. */
+    private volatile boolean primary;
 
     /**
      * The constructor.
@@ -259,9 +262,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             Executor scanRequestExecutor,
             int partId,
             int tableId,
-            Supplier<Map<UUID, IndexLocker>> indexesLockers,
+            Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
-            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
@@ -745,7 +748,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        UUID indexId = request.indexToUse();
+        Integer indexId = request.indexToUse();
 
         BinaryTuple exactKey = request.exactKey();
 
@@ -782,7 +785,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        UUID indexId = request.indexToUse();
+        Integer indexId = request.indexToUse();
 
         BinaryTuplePrefix lowerBound = request.lowerBound();
         BinaryTuplePrefix upperBound = request.upperBound();
@@ -2388,22 +2391,26 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    // TODO: IGNITE-19053 Must handle the change of leader
-    // TODO: IGNITE-19053 Add a test to change the leader even at the start of the task
     public void onBecomePrimary(ClusterNode clusterNode) {
         inBusyLock(() -> {
-            if (!clusterNode.equals(localNode)) {
-                // We are not the primary replica.
-                return;
-            }
+            if (clusterNode.equals(localNode)) {
+                if (primary) {
+                    // Current replica has already become the primary, we do not need to do anything.
+                    return;
+                }
 
-            registerIndexesListener();
+                primary = true;
 
-            // Let's try to build an index for the previously created indexes for the table.
-            TablesView tablesView = mvTableStorage.tablesConfiguration().value();
+                startBuildIndexes();
+            } else {
+                if (!primary) {
+                    // Current replica was not the primary replica, we do not need to do anything.
+                    return;
+                }
 
-            for (UUID indexId : collectIndexIds(tablesView)) {
-                startBuildIndex(createIndexDescriptor(tablesView, indexId));
+                primary = false;
+
+                stopBuildIndexes();
             }
         });
     }
@@ -2416,13 +2423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         busyLock.block();
 
-        ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
-
-        if (listener != null) {
-            mvTableStorage.tablesConfiguration().indexes().stopListenElements(listener);
-        }
-
-        indexBuilder.stopBuildIndexes(tableId(), partId());
+        stopBuildIndexes();
     }
 
     private void registerIndexesListener() {
@@ -2479,11 +2480,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         indexBuilder.startBuildIndex(tableId(), partId(), indexDescriptor.id(), indexStorage, mvDataStorage, raftClient);
     }
 
-    private List<UUID> collectIndexIds(TablesView tablesView) {
+    private int[] collectIndexIds(TablesView tablesView) {
         return tablesView.indexes().stream()
                 .filter(tableIndexView -> replicationGroupId.tableId() == tableIndexView.tableId())
-                .map(TableIndexView::id)
-                .collect(toList());
+                .mapToInt(TableIndexView::id)
+                .toArray();
     }
 
     private int partId() {
@@ -2508,5 +2509,26 @@ public class PartitionReplicaListener implements ReplicaListener {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private void startBuildIndexes() {
+        registerIndexesListener();
+
+        // Let's try to build an index for the previously created indexes for the table.
+        TablesView tablesView = mvTableStorage.tablesConfiguration().value();
+
+        for (int indexId : collectIndexIds(tablesView)) {
+            startBuildIndex(createIndexDescriptor(tablesView, indexId));
+        }
+    }
+
+    private void stopBuildIndexes() {
+        ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
+
+        if (listener != null) {
+            mvTableStorage.tablesConfiguration().indexes().stopListenElements(listener);
+        }
+
+        indexBuilder.stopBuildIndexes(tableId(), partId());
     }
 }

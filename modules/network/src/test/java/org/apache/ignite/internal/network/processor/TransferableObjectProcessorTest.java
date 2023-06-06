@@ -257,7 +257,9 @@ public class TransferableObjectProcessorTest {
     void testFieldBothNetworkMessageAndMarkedMarshallable() {
         Compilation compilation = compile("MessageWithMarshallableNetworkMessageField");
 
-        assertThat(compilation).hadErrorContaining("msgField is both NetworkMessage and @Marshallable");
+        assertThat(compilation).hadErrorContaining(
+                "\"msgField\" field is marked as @Marshallable but this type is supported by native serialization"
+        );
     }
 
     /**

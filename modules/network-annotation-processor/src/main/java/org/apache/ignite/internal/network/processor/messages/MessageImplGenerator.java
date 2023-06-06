@@ -75,6 +75,8 @@ public class MessageImplGenerator {
 
     private final TypeUtils typeUtils;
 
+    private final MarshallableTypesBlackList marshallableTypesBlackList;
+
     /**
      * Constructor.
      *
@@ -85,6 +87,7 @@ public class MessageImplGenerator {
         this.processingEnv = processingEnv;
         this.messageGroup = messageGroup;
         this.typeUtils = new TypeUtils(processingEnv);
+        this.marshallableTypesBlackList = new MarshallableTypesBlackList(typeUtils);
     }
 
     /**
@@ -105,8 +108,8 @@ public class MessageImplGenerator {
         var fields = new ArrayList<FieldSpec>(getters.size());
         var methodImpls = new ArrayList<MethodSpec>(getters.size());
 
-        Set<String> notNullFieldNames = new HashSet<>();
-        Set<String> marshallableFieldNames = new HashSet<>();
+        var notNullFieldNames = new HashSet<String>();
+        var marshallableFieldNames = new HashSet<String>();
 
         // create a field and a getter implementation for every getter in the message interface
         for (ExecutableElement getter : getters) {
@@ -115,20 +118,21 @@ public class MessageImplGenerator {
 
             String getterName = getter.getSimpleName().toString();
 
-            FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)
-                    .addAnnotation(IgniteToStringInclude.class)
-                    .addModifiers(Modifier.PRIVATE);
-
             boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
-            boolean isNotNull = shouldRequireNotNull(getter);
-            boolean isNetworkMessage = typeUtils.isSubType(getterType, NetworkMessage.class);
 
-            if (isMarshallable && isNetworkMessage) {
-                String error =
-                        "Failed to process " + message.className() + ": " + getterName + " is both NetworkMessage and @Marshallable";
+            if (isMarshallable && !marshallableTypesBlackList.canBeMarshallable(getterType)) {
+                String error = String.format(
+                        "\"%s\" field is marked as @Marshallable but this type is supported by native serialization, "
+                                + "remove this annotation from the field",
+                        getterName
+                );
 
                 throw new ProcessingException(error);
             }
+
+            FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)
+                    .addAnnotation(IgniteToStringInclude.class)
+                    .addModifiers(Modifier.PRIVATE);
 
             boolean generateSetter = getter.getAnnotation(WithSetter.class) != null;
 
@@ -136,18 +140,16 @@ public class MessageImplGenerator {
                 fieldBuilder.addModifiers(Modifier.FINAL);
             }
 
-            if (isNotNull) {
+            if (requiresNotNullCheck(getter)) {
                 notNullFieldNames.add(getterName);
-            }
-
-            if (isMarshallable) {
-                marshallableFieldNames.add(getterName);
             }
 
             FieldSpec field = fieldBuilder.build();
             fields.add(field);
 
             if (isMarshallable) {
+                marshallableFieldNames.add(getterName);
+
                 String name = getByteArrayFieldName(getterName);
                 FieldSpec marshallableFieldArray = FieldSpec.builder(BYTE_ARRAY_TYPE, name)
                         .addModifiers(Modifier.PRIVATE)
@@ -758,7 +760,7 @@ public class MessageImplGenerator {
                 .build();
     }
 
-    private static boolean shouldRequireNotNull(ExecutableElement el) {
+    private static boolean requiresNotNullCheck(ExecutableElement el) {
         TypeMirror returnType = el.getReturnType();
 
         TypeKind kind = returnType.getKind();

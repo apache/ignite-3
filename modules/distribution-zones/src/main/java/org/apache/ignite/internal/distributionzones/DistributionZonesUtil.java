@@ -123,7 +123,7 @@ public class DistributionZonesUtil {
      *
      * @return ByteArray representation.
      */
-    public static ByteArray zoneLogicalTopologyPrefix() {
+    public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 

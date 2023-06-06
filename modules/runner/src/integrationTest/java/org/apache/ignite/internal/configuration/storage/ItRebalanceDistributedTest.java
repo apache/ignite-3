@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -60,7 +61,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -148,7 +149,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -541,10 +541,11 @@ public class ItRebalanceDistributedTest {
                 .getConfiguration(TablesConfiguration.KEY).tables().get("TBL1"));
 
         if (table != null) {
-            byte[] assignments = table.assignments().value();
+            Set<Assignment> assignments =
+                    partitionAssignments(nodes.get(nodeNum).metaStorageManager, table.id().value(), partNum).join();
 
             if (assignments != null) {
-                return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignments)).get(partNum);
+                return assignments;
             }
         }
 
@@ -713,7 +714,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator()
             );
 
-            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->
+            Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);

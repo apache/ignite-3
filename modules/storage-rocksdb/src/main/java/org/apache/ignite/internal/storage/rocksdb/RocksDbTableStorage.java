@@ -133,10 +133,10 @@ public class RocksDbTableStorage implements MvTableStorage {
     private volatile MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages;
 
     /** Hash Index storages by Index IDs. */
-    private final ConcurrentMap<UUID, HashIndex> hashIndices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, HashIndex> hashIndices = new ConcurrentHashMap<>();
 
     /** Sorted Index storages by Index IDs. */
-    private final ConcurrentMap<UUID, SortedIndex> sortedIndices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, SortedIndex> sortedIndices = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -250,7 +250,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             try {
                 db = RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles);
 
-                Map<UUID, ColumnFamily> sortedIndexColumnFamilyByIndexId = new HashMap<>();
+                Map<Integer, ColumnFamily> sortedIndexColumnFamilyByIndexId = new HashMap<>();
 
                 // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
                 for (ColumnFamilyHandle cfHandle : cfHandles) {
@@ -291,8 +291,8 @@ public class RocksDbTableStorage implements MvTableStorage {
                 assert partitionCf != null;
                 assert hashIndexCf != null;
 
-                for (Entry<UUID, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
-                    UUID indexId = entry.getKey();
+                for (Entry<Integer, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
+                    int indexId = entry.getKey();
 
                     var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
 
@@ -515,7 +515,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int indexId) {
         return inBusyLock(busyLock, () -> {
             HashIndex hashIdx = hashIndices.remove(indexId);
 

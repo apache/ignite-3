@@ -28,8 +28,13 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -375,5 +380,55 @@ public class RebalanceUtil {
      */
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
         return op1.stream().filter(op2::contains).collect(Collectors.toSet());
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param partitionNumber Partition number.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> partitionAssignments(
+            MetaStorageManager metaStorageManager, int tableId, int partitionNumber) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .thenApply(e -> (e.value() == null) ? null : ByteUtils.fromBytes(e.value()));
+    }
+
+    /**
+     * Returns table assignments for all table partitions from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @return Future with table assignments as a value.
+     */
+    static CompletableFuture<List<Set<Assignment>>> tableAssignments(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions
+    ) {
+        Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
+
+        for (int i = 0; i < numberOfPartitions; i++) {
+            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
+        }
+
+        return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
+                .thenApply(entries -> {
+                    if (entries.isEmpty()) {
+                        return Collections.emptyList();
+                    }
+
+                    Set<Assignment>[] result = new Set[numberOfPartitions];
+
+                    for (var entry : entries.entrySet()) {
+                        result[partitionKeysToPartitionNumber.get(entry.getKey())] = ByteUtils.fromBytes(entry.getValue().value());
+                    }
+
+                    return Arrays.asList(result);
+                });
     }
 }

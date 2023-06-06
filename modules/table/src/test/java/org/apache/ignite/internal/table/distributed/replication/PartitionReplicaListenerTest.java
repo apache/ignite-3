@@ -346,9 +346,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         lenient().when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
         lenient().when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
-        UUID pkIndexId = UUID.randomUUID();
-        UUID sortedIndexId = UUID.randomUUID();
-        UUID hashIndexId = UUID.randomUUID();
+        int pkIndexId = 1;
+        int sortedIndexId = 2;
+        int hashIndexId = 3;
 
         schemaDescriptor = schemaDescriptorWith(CURRENT_SCHEMA_VERSION);
         schemaDescriptorVersion2 = schemaDescriptorWith(FUTURE_SCHEMA_VERSION);
@@ -621,7 +621,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testWriteScanRetrieveBatchReplicaRequestWithSortedIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
-        UUID sortedIndexId = sortedIndexStorage.id();
+        int sortedIndexId = sortedIndexStorage.id();
 
         IntStream.range(0, 6).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -728,7 +728,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testReadOnlyScanRetrieveBatchReplicaRequestSortedIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
-        UUID sortedIndexId = sortedIndexStorage.id();
+        int sortedIndexId = sortedIndexStorage.id();
 
         IntStream.range(0, 6).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -830,7 +830,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testReadOnlyScanRetrieveBatchReplicaRequstHashIndex() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
-        UUID hashIndexId = hashIndexStorage.id();
+        int hashIndexId = hashIndexStorage.id();
 
         IntStream.range(0, 7).forEach(i -> {
             RowId rowId = new RowId(partId);
@@ -1285,11 +1285,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static TableColumnDescriptor nullableColumn(String colName) {
-        return new TableColumnDescriptor(colName, ColumnType.INT32, true, DefaultValue.constant(null));
+        return new TableColumnDescriptor(colName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
     }
 
     private static TableColumnDescriptor defaultedColumn(String colName, int defaultValue) {
-        return new TableColumnDescriptor(colName, ColumnType.INT32, false, DefaultValue.constant(defaultValue));
+        return new TableColumnDescriptor(colName, ColumnType.INT32, false, 0, 0, 0, DefaultValue.constant(defaultValue));
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<TableColumnDescriptor> columns) {

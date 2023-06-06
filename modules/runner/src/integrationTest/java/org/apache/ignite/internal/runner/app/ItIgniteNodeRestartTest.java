@@ -48,8 +48,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -163,6 +163,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
 
+    @Language("HOCON")
+    private static final String RAFT_CFG = "{\n"
+            + "  fsync: false,\n"
+            + "  retryDelay: 20\n"
+            + "}";
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
@@ -175,10 +181,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             + "      failurePingRequestMembers: 1,\n"
             + "      gossipInterval: 10\n"
             + "    },\n"
-            + "  }\n"
+            + "  },\n"
+            + "  raft: " + RAFT_CFG + "\n"
             + "}";
 
-    @InjectConfiguration
+    @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
@@ -347,7 +354,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
+        Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
                 .listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
@@ -1010,7 +1017,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19408 Need to use ItIgniteNodeRestartTest.startPartialNode(int, String)
         startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2);
@@ -1042,15 +1048,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
-        PartialNode partialNode = startPartialNode(1, null);
+        IgniteImpl node = startNode(1);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
 
-        partialNode.stop();
+        stopNode(1);
 
-        partialNode = startPartialNode(1, null);
+        node = startNode(1);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
+        TableManager tableManager = (TableManager) node.tables();
 
         assertNotNull(tableManager);
 

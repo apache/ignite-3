@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.BitSet;
-import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -38,11 +37,8 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
 
     /**
      * Gets an index to use fot the retrieve request.
-     *
-     * @return Index id.
      */
-    @Nullable
-    UUID indexToUse();
+    @Nullable Integer indexToUse();
 
     /**
      * Gets a key which is used for exact comparison in the index.
@@ -87,6 +83,5 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      * @return Bitset to include columns.
      */
     @Nullable
-    @Marshallable
     BitSet columnsToInclude();
 }

@@ -34,11 +34,10 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -74,7 +73,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SqlSchemaManagerTest {
     private final int tableId = 1;
 
-    private final UUID indexId = UUID.randomUUID();
+    private final int indexId = 2;
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             1,
@@ -299,11 +298,11 @@ public class SqlSchemaManagerTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
+    private static class TestRevisionRegister implements Consumer<LongFunction<CompletableFuture<?>>> {
         AtomicLong token = new AtomicLong(-1);
 
         /** Revision consumer. */
-        private Function<Long, CompletableFuture<?>> moveRevision;
+        private LongFunction<CompletableFuture<?>> moveRevision;
 
         /**
          * Moves forward token.
@@ -323,11 +322,11 @@ public class SqlSchemaManagerTest {
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Function<Long, CompletableFuture<?>> function) {
+        public void accept(LongFunction<CompletableFuture<?>> function) {
             if (moveRevision == null) {
                 moveRevision = function;
             } else {
-                Function<Long, CompletableFuture<?>> old = moveRevision;
+                LongFunction<CompletableFuture<?>> old = moveRevision;
 
                 moveRevision = rev -> allOf(
                         old.apply(rev),

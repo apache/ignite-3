@@ -19,14 +19,17 @@ package org.apache.ignite.internal.rest.deployment;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,11 +53,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -95,7 +98,6 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    @Disabled("IGNITE-19526")
     public void testDeploySuccessful() {
         String id = "testId";
         String version = "1.1.1";
@@ -103,12 +105,14 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
 
         assertThat(response.code(), is(OK.code()));
 
-        MutableHttpRequest<Object> get = HttpRequest.GET("units");
-        UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
+        await().timeout(10, SECONDS).untilAsserted(() -> {
+            MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
+            UnitStatus status = client.toBlocking().retrieve(get, UnitStatus.class);
 
-        assertThat(status.id(), is(id));
-        assertThat(status.versionToStatus().keySet(), equalTo(Set.of(version)));
-        assertThat(status.versionToStatus().get(version), equalTo(DEPLOYED));
+            assertThat(status.id(), is(id));
+            assertThat(status.versionToStatus().keySet(), equalTo(Set.of(version)));
+            assertThat(status.versionToStatus().get(version), equalTo(DEPLOYED));
+        });
     }
 
     @Test
@@ -136,10 +140,10 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class, () -> deploy(id));
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
-        MutableHttpRequest<Object> get = HttpRequest.GET("units");
+        MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units");
         List<UnitStatus> status = client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
 
-        assertThat(status.size(), is(0));
+        assertThat(status, is(empty()));
     }
 
     @Test
@@ -178,18 +182,14 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    public void testVersionEmpty() {
+    public void testEmpty() {
         String id = "nonExisted";
 
-        HttpClientResponseException e = assertThrows(
-                HttpClientResponseException.class,
-                () -> versions(id));
-
-        assertThat(e.getResponse().code(), is(NOT_FOUND.code()));
+        assertThat(list(id), is(empty()));
     }
 
     @Test
-    public void testVersionOrder() {
+    public void testList() {
         String id = "unitId";
         deploy(id, "1.1.1");
         deploy(id, "1.1.2");
@@ -198,9 +198,12 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         deploy(id, "1.0.0");
         deploy(id, "1.0.1");
 
-        List<String> versions = versions(id);
+        List<UnitStatus> list = list(id);
 
-        assertThat(versions, contains("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
+        List<String> versions = list.stream()
+                .flatMap(unitStatus -> unitStatus.versionToStatus().keySet().stream())
+                .collect(Collectors.toList());
+        assertThat(versions, containsInAnyOrder("1.0.0", "1.0.1", "1.1.1", "1.1.2", "1.2.1", "2.0.0"));
     }
 
     private HttpResponse<Object> deploy(String id) {
@@ -235,18 +238,9 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         return client.toBlocking().exchange(delete);
     }
 
-    private List<String> versions(String id) {
-        MutableHttpRequest<Object> versions = HttpRequest
-                .GET("units/" + id + "/versions")
-                .contentType(MediaType.APPLICATION_JSON);
+    private List<UnitStatus> list(String id) {
+        MutableHttpRequest<Object> get = HttpRequest.GET("cluster/units/" + id);
 
-        return client.toBlocking().retrieve(versions, Argument.listOf(String.class));
-
-    }
-
-    private UnitStatus status(String id) {
-        MutableHttpRequest<Object> get = HttpRequest.GET("units/" + id + "/status");
-        return client.toBlocking().retrieve(get, UnitStatus.class);
+        return client.toBlocking().retrieve(get, Argument.listOf(UnitStatus.class));
     }
 }
-

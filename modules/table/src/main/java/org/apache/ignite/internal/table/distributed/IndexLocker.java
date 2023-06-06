@@ -30,7 +30,7 @@ import org.apache.ignite.internal.tx.Lock;
  */
 public interface IndexLocker {
     /** Returns an identifier of the index this locker created for. */
-    UUID id();
+    int id();
 
     /**
      * Acquires the lock for lookup operation.

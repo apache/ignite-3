@@ -694,7 +694,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             newIdx = random.nextInt(peers0.size());
 
             if (newIdx != lastPeerIndex) {
-                break;
+                Peer peer = peers0.get(newIdx);
+
+                if (cluster.topologyService().getByConsistentId(peer.consistentId()) != null) {
+                    break;
+                }
             }
         }
 

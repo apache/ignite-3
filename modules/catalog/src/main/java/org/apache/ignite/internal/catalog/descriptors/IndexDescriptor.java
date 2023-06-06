@@ -29,7 +29,7 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
     private final int tableId;
 
     /** Unique constraint flag. */
-    private boolean unique;
+    private final boolean unique;
 
     /** Write only flag. {@code True} when index is building. */
     private boolean writeOnly;
@@ -40,10 +40,12 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
         this.unique = unique;
     }
 
+    /** Gets table id. */
     public int tableId() {
         return tableId;
     }
 
+    /** Gets index unique flag. */
     public boolean unique() {
         return unique;
     }
@@ -51,6 +53,14 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
     public boolean writeOnly() {
         return writeOnly;
     }
+
+    /**
+     * Checks if a column with given name is indexed.
+     *
+     * @param columnName Column name to check.
+     * @return {@code true} if index contains the column, {@code false} otherwise.
+     */
+    public abstract boolean hasColumn(String columnName);
 
     /** {@inheritDoc} */
     @Override

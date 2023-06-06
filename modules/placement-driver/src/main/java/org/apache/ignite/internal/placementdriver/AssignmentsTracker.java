@@ -18,20 +18,15 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -40,9 +35,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -63,16 +55,8 @@ public class AssignmentsTracker {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
-    /** Tables configuration. */
-    private final TablesConfiguration tablesCfg;
-
-    private final DistributionZonesConfiguration distributionZonesConfiguration;
-
     /** Map replication group id to assignment nodes. */
     private final Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
-
-    /** Assignment configuration listener. */
-    private final AssignmentsCfgListener assignmentsCfgListener;
 
     /** Assignment Meta storage watch listener. */
     private final AssignmentsListener assignmentsListener;
@@ -82,17 +66,12 @@ public class AssignmentsTracker {
      *
      * @param vaultManager Vault manager.
      * @param msManager Metastorage manager.
-     * @param tablesCfg Table configuration.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager,
-            TablesConfiguration tablesCfg, DistributionZonesConfiguration distributionZonesConfiguration) {
+    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager) {
         this.vaultManager = vaultManager;
         this.msManager = msManager;
-        this.tablesCfg = tablesCfg;
-        this.distributionZonesConfiguration = distributionZonesConfiguration;
 
         this.groupAssignments = new ConcurrentHashMap<>();
-        this.assignmentsCfgListener = new AssignmentsCfgListener();
         this.assignmentsListener = new AssignmentsListener();
     }
 
@@ -100,7 +79,6 @@ public class AssignmentsTracker {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentsCfgListener);
         msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), assignmentsListener);
 
         try (Cursor<VaultEntry> cursor = vaultManager.range(
@@ -134,7 +112,6 @@ public class AssignmentsTracker {
      */
     public void stopTrack() {
         msManager.unregisterWatch(assignmentsListener);
-        ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().stopListen(assignmentsCfgListener);
     }
 
     /**
@@ -147,58 +124,19 @@ public class AssignmentsTracker {
     }
 
     /**
-     * Configuration assignments listener.
-     */
-    private class AssignmentsCfgListener implements ConfigurationListener<byte[]> {
-        @Override
-        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
-            ExtendedTableView tblCfg = assignmentsCtx.newValue(ExtendedTableView.class);
-
-            DistributionZoneView distributionZoneView =
-                    getZoneById(distributionZonesConfiguration, tblCfg.zoneId()).value();
-
-            int tblId = tblCfg.id();
-
-            LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
-                    assignmentsCtx.storageRevision(), tblId);
-
-            List<Set<Assignment>> tableAssignments =
-                    assignmentsCtx.newValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.newValue());
-
-            boolean leaseRenewalRequired = false;
-
-            for (int part = 0; part < distributionZoneView.partitions(); part++) {
-                var replicationGrpId = new TablePartitionId(tblId, part);
-
-                if (tableAssignments == null) {
-                    groupAssignments.remove(replicationGrpId);
-                } else {
-                    Set<Assignment> prevAssignment = groupAssignments.put(replicationGrpId, tableAssignments.get(part));
-
-                    if (CollectionUtils.nullOrEmpty(prevAssignment)) {
-                        leaseRenewalRequired = true;
-                    }
-                }
-            }
-
-            if (leaseRenewalRequired) {
-                triggerToRenewLeases();
-            }
-
-            return completedFuture(null);
-        }
-    }
-
-    /**
      * Meta storage assignments watch.
      */
     private class AssignmentsListener implements WatchListener {
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            assert !event.entryEvent().newEntry().empty() : "New assignments are empty";
+            assert !event.entryEvents().stream().anyMatch(e -> e.newEntry().empty()) : "New assignments are empty";
 
-            LOG.debug("Assignment update [revision={}, key={}]", event.revision(),
-                    new ByteArray(event.entryEvent().newEntry().key()));
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Assignment update [revision={}, keys={}]", event.revision(),
+                        event.entryEvents().stream()
+                                .map(e -> new ByteArray(e.newEntry().key()).toString())
+                                .collect(Collectors.joining(",")));
+            }
 
             boolean leaseRenewalRequired = false;
 

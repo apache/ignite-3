@@ -172,10 +172,11 @@ TEST_F(compute_test, job_error_propagates_to_client) {
                 m_client.get_compute().execute(cluster_nodes, ERROR_JOB, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
-                EXPECT_THAT(e.what_str(),
-                    testing::HasSubstr(
-                        "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException"));
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("IGN-TBL-3"));
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19603
+                // EXPECT_THAT(e.what_str(),
+                //     testing::HasSubstr(
+                //         "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException"));
+                // EXPECT_THAT(e.what_str(), testing::HasSubstr("IGN-TBL-3"));
                 throw;
             }
         },

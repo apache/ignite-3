@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -261,7 +260,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ).when(svc).run(any());
 
         int tableId = tableId();
-        UUID indexId = UUID.randomUUID();
+        int indexId = 1;
 
         Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
@@ -429,16 +428,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<UUID, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
         return new TableIndexStoragesSupplier() {
             @Override
-            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+            public Map<Integer, TableSchemaAwareIndexStorage> get() {
                 return indexes;
             }
 
             @Override
-            public void addIndexToWaitIfAbsent(UUID indexId) {
-                fail("not supported");
+            public void addIndexToWaitIfAbsent(int indexId) {
             }
         };
     }

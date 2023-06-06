@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -251,11 +251,12 @@ public class StopCalciteModuleTest {
         when(tbl.tableId()).thenReturn(tblId);
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
-        when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().distributionZoneConfiguration()).thenReturn(mock(DistributionZoneConfiguration.class));
         when(tbl.storage().distributionZoneConfiguration().partitions()).thenReturn(mock(ConfigurationValue.class));
         when(tbl.storage().distributionZoneConfiguration().partitions().value()).thenReturn(1);
+
+        when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 
@@ -316,17 +317,17 @@ public class StopCalciteModuleTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
+    private static class TestRevisionRegister implements Consumer<LongFunction<CompletableFuture<?>>> {
         /** Revision consumer. */
-        Function<Long, CompletableFuture<?>> moveRevision;
+        LongFunction<CompletableFuture<?>> moveRevision;
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Function<Long, CompletableFuture<?>> function) {
+        public void accept(LongFunction<CompletableFuture<?>> function) {
             if (moveRevision == null) {
                 moveRevision = function;
             } else {
-                Function<Long, CompletableFuture<?>> old = moveRevision;
+                LongFunction<CompletableFuture<?>> old = moveRevision;
 
                 moveRevision = rev -> allOf(
                         old.apply(rev),
