@@ -39,10 +39,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -51,6 +49,7 @@ import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -803,12 +802,6 @@ public class CatalogServiceSelfTest {
 
         CreateTableParams createTableParams = simpleTable(TABLE_NAME, tableColumns);
 
-        Map<ColumnType, Set<ColumnType>> validTransitions = new EnumMap<>(ColumnType.class);
-        validTransitions.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
-        validTransitions.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
-        validTransitions.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
-        validTransitions.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
-
         assertThat(service.createTable(createTableParams), willBe((Object) null));
 
         int schemaVer = 1;
@@ -819,7 +812,7 @@ public class CatalogServiceSelfTest {
             TypeSafeMatcher<CompletableFuture<?>> matcher;
             boolean sameType = col.type() == target;
 
-            if (sameType || (validTransitions.containsKey(col.type()) && validTransitions.get(col.type()).contains(target))) {
+            if (sameType || CatalogUtils.isSupportedColumnTypeChange(col.type(), target)) {
                 matcher = willBe((Object) null);
                 schemaVer += sameType ? 0 : 1;
             } else {

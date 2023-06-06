@@ -25,11 +25,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -99,14 +96,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
-    private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
-
-    static {
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
-        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
-    }
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
@@ -396,11 +385,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     throwUnsupportedDdl("Cannot change data type for primary key column '{}'.", origin.name());
                 }
 
-                Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(origin.type());
-
-                if (supportedTransitions == null || !supportedTransitions.contains(params.type())) {
-                    throwUnsupportedDdl(
-                            "Cannot change data type for column '{}' [from={}, to={}].", origin.name(), origin.type(), target.type());
+                if (!CatalogUtils.isSupportedColumnTypeChange(origin.type(), target.type())) {
+                    throwUnsupportedDdl("Cannot change data type for column '{}' [from={}, to={}].",
+                            origin.name(), origin.type(), target.type());
                 }
             }
 
