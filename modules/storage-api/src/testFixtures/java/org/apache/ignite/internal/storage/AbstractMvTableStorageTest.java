@@ -304,7 +304,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 .appendInt(2)
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         partitionStorage1.runConsistently(locker -> {
             storage1.put(new IndexRowImpl(tuple, rowId1));

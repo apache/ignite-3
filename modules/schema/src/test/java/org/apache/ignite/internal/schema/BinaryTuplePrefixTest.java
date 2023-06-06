@@ -27,7 +27,6 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,17 +39,9 @@ public class BinaryTuplePrefixTest {
      */
     @Test
     public void testPrefix() {
-        BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[]{
-                new Element(NativeTypes.INT32, false),
-                new Element(NativeTypes.STRING, false),
-                new Element(NativeTypes.DATE, false),
-                new Element(NativeTypes.UUID, false),
-                new Element(NativeTypes.DOUBLE, false)
-        });
-
         LocalDate date = LocalDate.now();
 
-        ByteBuffer tuple = new BinaryTuplePrefixBuilder(3, schema.elementCount())
+        ByteBuffer tuple = new BinaryTuplePrefixBuilder(3, 5)
                 .appendInt(42)
                 .appendString("foobar")
                 .appendDate(date)
@@ -58,7 +49,7 @@ public class BinaryTuplePrefixTest {
 
         assertTrue((tuple.get(0) & BinaryTupleCommon.PREFIX_FLAG) != 0);
 
-        var prefix = new BinaryTuplePrefix(schema, tuple);
+        var prefix = new BinaryTuplePrefix(5, tuple);
 
         assertThat(prefix.count(), is(3));
         assertThat(prefix.elementCount(), is(3));
@@ -75,15 +66,11 @@ public class BinaryTuplePrefixTest {
      */
     @Test
     public void testInternalBufferReallocation() {
-        BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[]{
-                new Element(NativeTypes.INT32, false)
-        });
-
-        ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, schema.elementCount(), 4)
+        ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, 1, 4)
                 .appendInt(Integer.MAX_VALUE)
                 .build();
 
-        var prefix = new BinaryTuplePrefix(schema, tuple);
+        var prefix = new BinaryTuplePrefix(1, tuple);
 
         assertThat(prefix.count(), is(1));
         assertThat(prefix.intValue(0), is(Integer.MAX_VALUE));

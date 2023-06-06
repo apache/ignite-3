@@ -28,7 +28,6 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -90,7 +89,7 @@ public class BinaryTupleRowSerializer {
             appendValue(builder, value);
         }
 
-        var tuple = new BinaryTuple(tupleSchema, builder.build());
+        var tuple = new BinaryTuple(tupleSchema.elementCount(), builder.build());
 
         return new IndexRowImpl(tuple, rowId);
     }
@@ -113,7 +112,7 @@ public class BinaryTupleRowSerializer {
             appendValue(builder, value);
         }
 
-        return new BinaryTuplePrefix(tupleSchema, builder.build());
+        return new BinaryTuplePrefix(tupleSchema.elementCount(), builder.build());
     }
 
     /**
@@ -127,9 +126,7 @@ public class BinaryTupleRowSerializer {
         var result = new Object[schema.size()];
 
         for (int i = 0; i < result.length; i++) {
-            NativeTypeSpec typeSpec = schema.get(i).type.spec();
-
-            result[i] = typeSpec.objectValue(tuple, i);
+            result[i] = tupleSchema.value(tuple, i);
         }
 
         return result;
