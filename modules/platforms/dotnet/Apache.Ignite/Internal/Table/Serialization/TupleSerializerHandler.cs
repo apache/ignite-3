@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using Ignite.Sql;
     using Ignite.Table;
+    using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
 
@@ -74,6 +76,62 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     tupleBuilder.AppendNoValue(noValueSet);
                 }
             }
+        }
+
+        /// <inheritdoc/>
+        public int GetColocationHash(IIgniteTuple record, Schema schema)
+        {
+            // _hash = HashUtils.Hash32((sbyte)0, _hash);
+            var hash = 0;
+
+            for (int index = 0; index < schema.KeyColumnCount; index++)
+            {
+                if (!schema.IsHashedColumnIndex(index))
+                {
+                    continue;
+                }
+
+                var col = schema.Columns[index];
+                var colIdx = record.GetOrdinal(col.Name);
+
+                if (colIdx < 0)
+                {
+                    throw new InvalidOperationException($"Key column '{col.Name}' is missing in the tuple.");
+                }
+
+                object? val = record[colIdx];
+
+                if (val == null)
+                {
+                    throw new InvalidOperationException($"Key column '{col.Name}' is null.");
+                }
+
+                hash = col.Type switch
+                {
+                    ColumnType.Boolean => HashUtils.Hash32((bool)val ? (sbyte)1 : (sbyte)0, hash),
+                    ColumnType.Int8 => HashUtils.Hash32((sbyte)val, hash),
+                    ColumnType.Int16 => HashUtils.Hash32((short)val, hash),
+                    ColumnType.Int32 => HashUtils.Hash32((int)val, hash),
+                    ColumnType.Int64 => HashUtils.Hash32((long)val, hash),
+                    ColumnType.Float => expr,
+                    ColumnType.Double => expr,
+                    ColumnType.Decimal => expr,
+                    ColumnType.Date => expr,
+                    ColumnType.Time => expr,
+                    ColumnType.Datetime => expr,
+                    ColumnType.Timestamp => expr,
+                    ColumnType.Uuid => expr,
+                    ColumnType.Bitmask => expr,
+                    ColumnType.String => expr,
+                    ColumnType.ByteArray => expr,
+                    ColumnType.Period => expr,
+                    ColumnType.Duration => expr,
+                    ColumnType.Number => expr,
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+            }
+
+            return hash;
         }
     }
 }
