@@ -75,14 +75,15 @@ public:
 
         std::stringstream converter;
         converter << port;
-        std::string strPort = converter.str();
+        std::string str_port = converter.str();
 
         // Resolve the server address and port
         addrinfo *result{NULL}; // NOLINT(modernize-use-nullptr)
-        int res = getaddrinfo(hostname, strPort.c_str(), &hints, &result);
+        int res = getaddrinfo(hostname, str_port.c_str(), &hints, &result);
 
         if (res != 0)
-            throw ignite_error(status_code::NETWORK, "Can not resolve host: " + std::string(hostname) + ":" + strPort);
+            throw ignite_error(status_code::NETWORK, "Can not resolve host: " + std::string(hostname) + ":" + str_port
+                    + ", error_code=" + std::to_string(res));
 
         std::vector<addrinfo*> shuffled = detail::shuffle_addresses(result);
 
