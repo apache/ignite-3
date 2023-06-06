@@ -263,7 +263,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
 
-        return needToCast(fromType, toType, false);
+        return needToCast(fromType, toType);
     }
 
     /**
@@ -271,11 +271,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
      * This method returns {@code false} if type are the same.
      */
     public boolean needToCast(RelDataType fromType, RelDataType toType) {
-        return needToCast(fromType, toType, true);
-    }
-
-    public boolean needToCast(RelDataType fromType, RelDataType toType, boolean index) {
-
         if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.
@@ -286,7 +281,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 return false;
             }
 
-            if (!index && SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
+            if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
                 return true;
             }
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
