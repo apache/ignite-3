@@ -21,6 +21,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.GC_QUEUE_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
@@ -40,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -52,7 +53,11 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -235,7 +240,10 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageException("Failed to create a directory for the table storage", e);
             }
 
-            List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors();
+            TablesView tablesView = tablesCfg.value();
+            TableView tableView = tableCfg.value();
+
+            List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors(tablesView, tableView);
 
             List<ColumnFamilyHandle> cfHandles = new ArrayList<>(cfDescriptors.size());
 
@@ -294,7 +302,11 @@ public class RocksDbTableStorage implements MvTableStorage {
                 for (Entry<Integer, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
                     int indexId = entry.getKey();
 
-                    var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
+                    SortedIndexView indexView = (SortedIndexView) findIndexView(tablesView, indexId);
+
+                    assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
+
+                    var indexDescriptor = new SortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
 
                     sortedIndices.put(indexId, new SortedIndex(entry.getValue(), indexDescriptor, meta));
                 }
@@ -305,7 +317,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages =
-                    new MvPartitionStorages<>(tableCfg.value(), distributionZoneConfiguration().value());
+                    new MvPartitionStorages<>(tableView, distributionZoneConfiguration().value());
 
             for (int partitionId : meta.getPartitionIds()) {
                 // There is no need to wait for futures, since there will be no parallel operations yet.
@@ -574,19 +586,17 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /**
      * Returns a list of CF descriptors present in the RocksDB instance.
-     *
-     * @return List of CF descriptors.
      */
-    private List<ColumnFamilyDescriptor> getExistingCfDescriptors() {
+    private List<ColumnFamilyDescriptor> getExistingCfDescriptors(TablesView tablesView, TableView tableView) {
         return getExistingCfNames().stream()
-                .map(this::cfDescriptorFromName)
+                .map(cfName -> cfDescriptorFromName(tablesView, tableView, cfName))
                 .collect(toList());
     }
 
     /**
      * Creates a Column Family descriptor for the given Family type (encoded in its name).
      */
-    private ColumnFamilyDescriptor cfDescriptorFromName(String cfName) {
+    private ColumnFamilyDescriptor cfDescriptorFromName(TablesView tablesView, TableView tableView, String cfName) {
         switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
             case GC_QUEUE:
@@ -608,12 +618,18 @@ public class RocksDbTableStorage implements MvTableStorage {
                 );
 
             case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tablesCfg.value());
+                int indexId = sortedIndexId(cfName);
+
+                SortedIndexView indexView = (SortedIndexView) findIndexView(tablesView, indexId);
+
+                assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
+
+                var indexDescriptor = new SortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
 
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 
             default:
-                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + getTableName() + ']');
+                throw new StorageException("Unidentified column family [name={}, table={}]", cfName, tableView.name());
         }
     }
 
@@ -764,5 +780,19 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             return (IndexStorage) null;
         });
+    }
+
+    private static @Nullable TableIndexView findIndexView(TablesView tablesView, int indexId) {
+        return tablesView.indexes().stream()
+                .filter(tableIndexView -> indexId == tableIndexView.id())
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static @Nullable TableView findTableView(TablesView tablesView, int tableId) {
+        return tablesView.tables().stream()
+                .filter(tableIndexView -> tableId == tableIndexView.id())
+                .findFirst()
+                .orElse(null);
     }
 }

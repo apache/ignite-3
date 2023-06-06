@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
@@ -53,7 +55,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
@@ -129,9 +134,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         TablesView tablesView = tablesCfg.value();
 
+        TableIndexView indexView = tablesView.indexes().get(indexDefinition.name());
+        TableView tableView = findTableView(tablesView, indexView.tableId());
+
         return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
-                new SortedIndexDescriptor(tablesView.indexes().get(indexDefinition.name()).id(), tablesView)
+                new SortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor((SortedIndexView) indexView))
         );
     }
 
