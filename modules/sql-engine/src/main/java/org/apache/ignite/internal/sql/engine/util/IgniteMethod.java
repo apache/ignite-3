@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -107,7 +108,9 @@ public enum IgniteMethod {
     GEN_RANDOM_UUID(IgniteSqlFunctions.class, "genRandomUuid"),
 
     /** See {@link IgniteSqlFunctions#consumeFirstArgument(Object, Object)}. **/
-    CONSUME_FIRST_ARGUMENT(IgniteSqlFunctions.class, "consumeFirstArgument", Object.class, Object.class);
+    CONSUME_FIRST_ARGUMENT(IgniteSqlFunctions.class, "consumeFirstArgument", Object.class, Object.class),
+
+    SUBSTR(SqlFunctions.class, "substring", String.class, int.class, int.class);
 
     private final Method method;
 
