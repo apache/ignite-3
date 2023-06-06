@@ -744,7 +744,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+    public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         return inBusyLock(busyLock, () -> {
             if (mvPartitionStorages.get(partitionId) == null) {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));

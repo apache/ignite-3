@@ -53,6 +53,7 @@ dependencies {
     testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-schema')))

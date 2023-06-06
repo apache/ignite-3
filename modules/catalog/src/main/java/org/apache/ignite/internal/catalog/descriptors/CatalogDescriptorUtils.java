@@ -181,8 +181,7 @@ public class CatalogDescriptorUtils {
     }
 
     private static IndexColumnDescriptor toIndexColumnDescriptor(IndexColumnView config) {
-        // There is no suitable property in the configuration, in IGNITE-19646 the configuration will have to be deleted, so a temporary
-        // value has been selected for now.
+        // TODO: IGNITE-15141 We need to understand how to configure null and whether we need it
         ColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_LAST;
 
         return new IndexColumnDescriptor(config.name(), collation);

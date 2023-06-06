@@ -19,15 +19,10 @@ package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 
 /**
  * Index descriptor.
  */
-// TODO: IGNITE-19646 избавиться от конфигурации
 public interface IndexDescriptor {
     /**
      * Index column descriptor.
@@ -58,27 +53,6 @@ public interface IndexDescriptor {
      * Returns index column descriptions.
      */
     List<? extends ColumnDescriptor> columns();
-
-    /**
-     * Creates an index description based on the configuration.
-     *
-     * @param tablesView Tables configuration.
-     * @param indexId Index ID.
-     */
-    static IndexDescriptor createIndexDescriptor(TablesView tablesView, int indexId) {
-        TableIndexView indexView = tablesView.indexes().stream()
-                .filter(tableIndexView -> indexId == tableIndexView.id())
-                .findFirst()
-                .orElse(null);
-
-        if (indexView instanceof HashIndexView) {
-            return new HashIndexDescriptor(indexId, tablesView);
-        } else if (indexView instanceof SortedIndexView) {
-            return new SortedIndexDescriptor(indexId, tablesView);
-        } else {
-            throw new AssertionError("Unknown type: " + indexView);
-        }
-    }
 
     /**
      * Creates an index description based on the catalog descriptors.

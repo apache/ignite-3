@@ -20,6 +20,9 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.index.IndexUtils.toEventIndexDescriptor;
 import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
@@ -51,9 +54,6 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
@@ -70,7 +70,6 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -78,6 +77,7 @@ import org.jetbrains.annotations.Nullable;
  * as well as managing indexes' lifecycle.
  */
 // TODO: IGNITE-19082 Delete this class
+// TODO: IGNITE-19646 избавиться от конфигурации таблицы и индексов
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
@@ -330,6 +330,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param tableName Table name.
      * @return List of index configuration views.
      */
+    // TODO: IGNITE-19646 вот тут наверное тоже надо разобраться
     public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
         Integer targetTableId = null;
@@ -355,8 +356,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         return res;
     }
 
-    @Nullable
-    private static TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
+    private static @Nullable TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
         for (TableView tableView : tablesView) {
             if (tableView.id() == tableId) {
                 return tableView;
@@ -422,10 +422,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @return A future.
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
-        int tableId = evt.newValue().tableId();
+        TableIndexView indexConfig = evt.newValue();
+
+        int tableId = indexConfig.tableId();
 
         if (!busyLock.enterBusy()) {
-            int idxId = evt.newValue().id();
+            int idxId = indexConfig.id();
 
             fireEvent(IndexEvent.CREATE,
                     new IndexEventParameters(evt.storageRevision(), tableId, idxId),
@@ -436,7 +438,14 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            return createIndexLocally(evt.storageRevision(), tableId, evt.newValue(), evt.newValue(TablesView.class));
+            TablesView tablesView = evt.newValue(TablesView.class);
+
+            TableView tableView = findTableView(tableId, (NamedListView<TableView>) tablesView.tables());
+
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexConfig);
+
+            return createIndexLocally(evt.storageRevision(), catalogTableDescriptor, catalogIndexDescriptor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -444,20 +453,21 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<?> createIndexLocally(
             long causalityToken,
-            int tableId,
-            TableIndexView tableIndexView,
-            TablesView tablesView
+            org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor,
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor
     ) {
-        assert tableIndexView != null;
-
-        int indexId = tableIndexView.id();
+        int tableId = catalogTableDescriptor.id();
+        int indexId = catalogIndexDescriptor.id();
 
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
-                tableIndexView.name(), indexId, tableId, causalityToken);
+                catalogIndexDescriptor.name(), indexId, tableId, causalityToken);
 
-        IndexDescriptor eventIndexDescriptor = newDescriptor(tableIndexView);
+        IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(catalogIndexDescriptor);
 
-        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(tablesView, indexId);
+        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(
+                catalogTableDescriptor,
+                catalogIndexDescriptor
+        );
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
@@ -478,57 +488,21 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         tableRowConverter::convert
                 );
             } else {
+                boolean unique = catalogIndexDescriptor.unique();
+
                 table.registerHashIndex(
                         (HashIndexDescriptor) storageIndexDescriptor,
-                        tableIndexView.uniq(),
+                        unique,
                         tableRowConverter::convert
                 );
 
-                if (tableIndexView.uniq()) {
+                if (unique) {
                     table.pkId(indexId);
                 }
             }
         });
 
         return allOf(createIndexFuture, fireEventFuture);
-    }
-
-    private IndexDescriptor newDescriptor(TableIndexView indexView) {
-        if (indexView instanceof SortedIndexView) {
-            return convert((SortedIndexView) indexView);
-        } else if (indexView instanceof HashIndexView) {
-            return convert((HashIndexView) indexView);
-        }
-
-        throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
-    }
-
-    private IndexDescriptor convert(HashIndexView indexView) {
-        return new IndexDescriptor(
-                indexView.name(),
-                Arrays.asList(indexView.columnNames())
-        );
-    }
-
-    private SortedIndexDescriptor convert(SortedIndexView indexView) {
-        int colsCount = indexView.columns().size();
-        var indexedColumns = new ArrayList<String>(colsCount);
-        var collations = new ArrayList<ColumnCollation>(colsCount);
-
-        for (IndexColumnView columnView : indexView.columns()) {
-            //TODO IGNITE-15141: Make null-order configurable.
-            // NULLS FIRST for DESC, NULLS LAST for ASC by default.
-            boolean nullsFirst = !columnView.asc();
-
-            indexedColumns.add(columnView.name());
-            collations.add(ColumnCollation.get(columnView.asc(), nullsFirst));
-        }
-
-        return new SortedIndexDescriptor(
-                indexView.name(),
-                indexedColumns,
-                collations
-        );
     }
 
     /**
@@ -616,29 +590,23 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return onIndexCreate(ctx);
         }
 
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onRename(
-                ConfigurationNotificationEvent<TableIndexView> ctx
-        ) {
+        public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
         }
 
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return onIndexDrop(ctx);
         }
 
-        /** {@inheritDoc} */
         @Override
-        public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
         }
     }

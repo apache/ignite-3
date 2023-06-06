@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toHashIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
@@ -25,7 +27,10 @@ import static org.hamcrest.Matchers.empty;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
@@ -55,9 +60,12 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         TablesView tablesView = tablesCfg.value();
 
+        TableIndexView indexView = tablesView.indexes().get(indexDefinition.name());
+        TableView tableView = findTableView(tablesView, indexView.tableId());
+
         return tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
-                new HashIndexDescriptor(tablesView.indexes().get(indexDefinition.name()).id(), tablesView)
+                new HashIndexDescriptor(toTableDescriptor(tableView), toHashIndexDescriptor(((HashIndexView) indexView)))
         );
     }
 

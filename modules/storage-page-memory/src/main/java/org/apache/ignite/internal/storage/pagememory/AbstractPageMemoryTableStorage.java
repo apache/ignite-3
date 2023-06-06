@@ -319,7 +319,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+    public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 

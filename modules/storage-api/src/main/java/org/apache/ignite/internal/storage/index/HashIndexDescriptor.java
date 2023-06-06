@@ -18,30 +18,17 @@
 package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.getNativeType;
 
-import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.configuration.ColumnView;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Descriptor for creating a Hash Index Storage.
  *
  * @see HashIndexStorage
  */
-// TODO: IGNITE-19646 избавиться от конфигурации
 public class HashIndexDescriptor implements IndexDescriptor {
     /**
      * Descriptor of a Hash Index column.
@@ -64,17 +51,6 @@ public class HashIndexDescriptor implements IndexDescriptor {
             this.name = name;
             this.type = type;
             this.nullable = nullable;
-        }
-
-        /**
-         * Creates a Column Descriptor.
-         *
-         * @param tableColumnView Table column configuration.
-         */
-        HashIndexColumnDescriptor(ColumnView tableColumnView) {
-            this.name = tableColumnView.name();
-            this.type = ConfigurationToSchemaDescriptorConverter.convert(tableColumnView.type());
-            this.nullable = tableColumnView.nullable();
         }
 
         @Override
@@ -103,16 +79,6 @@ public class HashIndexDescriptor implements IndexDescriptor {
     private final List<HashIndexColumnDescriptor> columns;
 
     /**
-     * Creates an Index Descriptor from a given Table Configuration.
-     *
-     * @param indexId Index id.
-     * @param tablesConfig Tables and indexes configuration.
-     */
-    public HashIndexDescriptor(int indexId, TablesView tablesConfig) {
-        this(indexId, extractIndexColumnsConfiguration(indexId, tablesConfig));
-    }
-
-    /**
      * Constructor.
      *
      * @param table Catalog table descriptor.
@@ -136,52 +102,6 @@ public class HashIndexDescriptor implements IndexDescriptor {
         this.columns = columns;
     }
 
-    private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(int indexId, TablesView tablesConfig) {
-        TableIndexView indexConfig = tablesConfig.indexes().stream()
-                .filter(tableIndexView -> tableIndexView.id() == indexId)
-                .findFirst()
-                .orElse(null);
-
-        if (indexConfig == null) {
-            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
-        }
-
-        if (!(indexConfig instanceof HashIndexView)) {
-            throw new StorageException(String.format(
-                    "Index \"%s\" is not configured as a Hash Index. Actual type: %s",
-                    indexConfig.id(), indexConfig.type()
-            ));
-        }
-
-        TableView tableConfig = findTableById(indexConfig.tableId(), tablesConfig.tables());
-
-        if (tableConfig == null) {
-            throw new StorageException(String.format("Table configuration for \"%s\" could not be found", indexConfig.tableId()));
-        }
-
-        String[] indexColumns = ((HashIndexView) indexConfig).columnNames();
-
-        return Arrays.stream(indexColumns)
-                .map(columnName -> {
-                    ColumnView columnView = tableConfig.columns().get(columnName);
-
-                    assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
-
-                    return new HashIndexColumnDescriptor(columnView);
-                })
-                .collect(toUnmodifiableList());
-    }
-
-    private @Nullable static TableView findTableById(int tableId, NamedListView<? extends TableView> tablesView) {
-        for (TableView table : tablesView) {
-            if (table.id() == tableId) {
-                return table;
-            }
-        }
-
-        return null;
-    }
-
     @Override
     public int id() {
         return id;
@@ -192,6 +112,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
         return columns;
     }
 
+    // TODO: IGNITE-19646 возможно нужно тут избавиться от этого в смысле избавиться от зависимости католога
     private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index
@@ -200,7 +121,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
         return index.columns().stream()
                 .map(columnName -> {
-                    TableColumnDescriptor column = table.column(columnName);
+                    org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor column = table.column(columnName);
 
                     assert column != null : columnName;
 

@@ -49,7 +49,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
@@ -379,5 +382,19 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
             return null;
         });
+    }
+
+    protected static @Nullable TableView findTableView(TablesView tablesView, int tableId) {
+        return tablesView.tables().stream()
+                .filter(tableView -> tableId == tableView.id())
+                .findFirst()
+                .orElse(null);
+    }
+
+    protected static @Nullable TableIndexView findIndexView(TablesView tablesView, int indexId) {
+        return tablesView.indexes().stream()
+                .filter(indexView -> indexId == indexView.id())
+                .findFirst()
+                .orElse(null);
     }
 }
