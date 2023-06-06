@@ -284,6 +284,24 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     }
 
     /**
+     * Function calls.
+     */
+    @TestFactory
+    public Stream<DynamicTest> testFunction() {
+        return Stream.of(
+                // nested function call - OK
+                checkStatement()
+                        .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", "123456")
+                        .project("SUBSTRING(SUBSTRING(?0, 1), 2)"),
+
+                // nested function call - invalid dynamic parameter
+                checkStatement()
+                        .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", 123456)
+                        .fails("Values passed to SUBSTRING operator must have compatible types")
+        );
+    }
+
+    /**
      * Custom data types.
      */
     @TestFactory
