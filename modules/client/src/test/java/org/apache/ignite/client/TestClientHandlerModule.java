@@ -195,7 +195,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        mock(IgniteSql.class),
+                                        ignite.sql(),
                                         clusterId,
                                         metrics,
                                         authenticationManager(authenticationConfiguration)));
