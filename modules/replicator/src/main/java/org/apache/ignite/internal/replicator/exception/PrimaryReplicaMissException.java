@@ -22,6 +22,7 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
+// TODO: sanpwc rework
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
