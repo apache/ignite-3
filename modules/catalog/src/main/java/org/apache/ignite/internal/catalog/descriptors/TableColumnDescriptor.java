@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table column descriptor.
@@ -44,39 +45,16 @@ public class TableColumnDescriptor implements Serializable {
      * @param name Column name.
      * @param type Column type.
      * @param nullable Nullability flag.
-     * @param defaultValue Column default value.
-     * @param length Column max length.
-     * @param precision Column precision.
-     * @param scale Column scale.
      */
-    public TableColumnDescriptor(
-            String name,
-            ColumnType type,
-            boolean nullable,
-            DefaultValue defaultValue,
-            int length,
-            int precision,
-            int scale
-    ) {
+    public TableColumnDescriptor(String name, ColumnType type, boolean nullable,
+            int precision, int scale, int length, @Nullable DefaultValue defaultValue) {
         this.name = Objects.requireNonNull(name, "name");
-        this.type = Objects.requireNonNull(type, "type");
+        this.type = Objects.requireNonNull(type);
         this.nullable = nullable;
-        this.defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
-        this.length = length;
         this.precision = precision;
         this.scale = scale;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param name Column name.
-     * @param type Column type.
-     * @param nullable Nullability flag.
-     * @param defaultValue Column default value.
-     */
-    public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
-        this(name, type, nullable, defaultValue, 0, 0, 0);
+        this.length = length;
+        this.defaultValue = defaultValue;
     }
 
     public String name() {
@@ -103,6 +81,7 @@ public class TableColumnDescriptor implements Serializable {
         return length;
     }
 
+    @Nullable
     public DefaultValue defaultValue() {
         return defaultValue;
     }
@@ -136,7 +115,7 @@ public class TableColumnDescriptor implements Serializable {
         if (type != that.type) {
             return false;
         }
-        return defaultValue.equals(that.defaultValue);
+        return defaultValue != null ? defaultValue.equals(that.defaultValue) : that.defaultValue == null;
     }
 
     @Override
@@ -147,10 +126,11 @@ public class TableColumnDescriptor implements Serializable {
         result = 31 * result + length;
         result = 31 * result + precision;
         result = 31 * result + scale;
-        result = 31 * result + defaultValue.hashCode();
+        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
         return result;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
