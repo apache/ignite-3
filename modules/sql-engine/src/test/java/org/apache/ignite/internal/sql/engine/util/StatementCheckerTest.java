@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -114,8 +115,9 @@ public class StatementCheckerTest {
     /** Validation success check fails - prepare throws an error. */
     @Test
     public void testOkPrepareThrows() throws Exception {
+        RuntimeException cause = new RuntimeException("Invalid statement");
         when(sqlPrepare.prepare(any(IgniteSchema.class), any(String.class), any(List.class)))
-                .thenThrow(new RuntimeException("Invalid statement"));
+                .thenThrow(cause);
 
         DynamicTest test = newChecker().sql("SELECT 1").ok();
 
@@ -123,6 +125,7 @@ public class StatementCheckerTest {
 
         RuntimeException t = assertThrows(RuntimeException.class, () -> test.getExecutable().execute());
         expectTestLocationIsPresent(t);
+        assertSame(cause, t.getCause(), "cause");
     }
 
     /** Validates that project for a value fails when values has more than one row. */

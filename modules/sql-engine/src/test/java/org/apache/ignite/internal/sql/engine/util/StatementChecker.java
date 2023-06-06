@@ -379,7 +379,7 @@ public class StatementChecker {
                 checkRel(root, schema);
             } catch (Throwable e) {
                 String message = format("Failed to validate:\n{}\n", formatSqlStatementForErrorMessage());
-                RuntimeException error = new RuntimeException(message);
+                RuntimeException error = new RuntimeException(message, e);
                 error.addSuppressed(exception);
 
                 throw error;
