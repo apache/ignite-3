@@ -45,10 +45,6 @@ public class TableColumnDescriptor implements Serializable {
      * @param name Column name.
      * @param type Column type.
      * @param nullable Nullability flag.
-     * @param defaultValue Default value.
-     * @param precision Precision.
-     * @param scale Scale.
-     * @param length Length.
      */
     public TableColumnDescriptor(String name, ColumnType type, boolean nullable,
             int precision, int scale, int length, @Nullable DefaultValue defaultValue) {
