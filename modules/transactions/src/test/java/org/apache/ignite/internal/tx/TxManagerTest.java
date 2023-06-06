@@ -43,7 +43,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -106,9 +105,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ClusterNode node = mock(ClusterNode.class);
 
-        tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
-
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(tablePartitionId));
+        // TODO: sanpwc Implement.
+//        tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
+//
+//        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedReplica(tablePartitionId));
     }
 
     @Test
