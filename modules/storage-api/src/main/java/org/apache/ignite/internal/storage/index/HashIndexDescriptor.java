@@ -112,7 +112,6 @@ public class HashIndexDescriptor implements IndexDescriptor {
         return columns;
     }
 
-    // TODO: IGNITE-19646 возможно нужно тут избавиться от этого в смысле избавиться от зависимости католога
     private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index

@@ -33,7 +33,6 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see SortedIndexStorage
  */
-// TODO: IGNITE-19646 избавиться от конфигурации
 public class SortedIndexDescriptor implements IndexDescriptor {
     /**
      * Descriptor of a Sorted Index column (column name and column sort order).
@@ -145,8 +144,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
     public BinaryTupleSchema binaryTupleSchema() {
         return binaryTupleSchema;
     }
-
-    // TODO: IGNITE-19646 возможно нужно тут избавиться от этого в смысле избавиться от зависимости католога
+    
     private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index
