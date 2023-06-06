@@ -86,7 +86,7 @@ public class CatalogDescriptorUtils {
      * @param config Hash index configuration.
      */
     public static HashIndexDescriptor toHashIndexDescriptor(HashIndexView config) {
-        return new HashIndexDescriptor(config.id(), config.name(), config.tableId(), List.of(config.columnNames()));
+        return new HashIndexDescriptor(config.id(), config.name(), config.tableId(), config.uniq(), List.of(config.columnNames()));
     }
 
     /**
@@ -99,6 +99,7 @@ public class CatalogDescriptorUtils {
                 config.id(),
                 config.name(),
                 config.tableId(),
+                config.uniq(),
                 config.columns().stream().map(CatalogDescriptorUtils::toIndexColumnDescriptor).collect(toList())
         );
     }
