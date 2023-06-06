@@ -39,21 +39,21 @@ public interface MessageReader {
      *
      * @param buf Byte buffer.
      */
-    public void setBuffer(ByteBuffer buf);
+    void setBuffer(ByteBuffer buf);
 
     /**
      * Sets the type of the message that is currently being read.
      *
      * @param msgCls Message type.
      */
-    public void setCurrentReadClass(Class<? extends NetworkMessage> msgCls);
+    void setCurrentReadClass(Class<? extends NetworkMessage> msgCls);
 
     /**
      * Callback that must be invoked by implementations of message serializers before they start decoding the message body.
      *
      * @return {@code True} if a read operation is allowed to proceed, {@code false} otherwise.
      */
-    public boolean beforeMessageRead();
+    boolean beforeMessageRead();
 
     /**
      * Callback that must be invoked by implementations of message serializers after they finished decoding the message body.
@@ -61,7 +61,7 @@ public interface MessageReader {
      * @param msgCls Class of the message that is finishing read stage.
      * @return {@code True} if a read operation can be proceeded, {@code false} otherwise.
      */
-    public boolean afterMessageRead(Class<? extends NetworkMessage> msgCls);
+    boolean afterMessageRead(Class<? extends NetworkMessage> msgCls);
 
     /**
      * Reads a {@code byte} value.
@@ -69,7 +69,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code byte} value.
      */
-    public byte readByte(String name);
+    byte readByte(String name);
+
+    /**
+     * Reads a {@code Byte} value.
+     *
+     * @param name Field name.
+     * @return {@code Byte} value.
+     */
+    @Nullable Byte readBoxedByte(String name);
 
     /**
      * Reads a {@code short} value.
@@ -77,7 +85,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code short} value.
      */
-    public short readShort(String name);
+    short readShort(String name);
+
+    /**
+     * Reads a {@code Short} value.
+     *
+     * @param name Field name.
+     * @return {@code Short} value.
+     */
+    @Nullable Short readBoxedShort(String name);
 
     /**
      * Reads an {@code int} value.
@@ -85,7 +101,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code int} value.
      */
-    public int readInt(String name);
+    int readInt(String name);
 
     /**
      * Reads an {@code int} value.
@@ -94,7 +110,7 @@ public interface MessageReader {
      * @param dflt A default value if the field is not found.
      * @return {@code int} value.
      */
-    public int readInt(String name, int dflt);
+    int readInt(String name, int dflt);
 
     /**
      * Reads an {@code Integer} value.
@@ -102,7 +118,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code Integer} value.
      */
-    public @Nullable Integer readBoxedInt(String name);
+    @Nullable Integer readBoxedInt(String name);
 
     /**
      * Reads a {@code long} value.
@@ -110,7 +126,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code long} value.
      */
-    public long readLong(String name);
+    long readLong(String name);
+
+    /**
+     * Reads a {@code Long} value.
+     *
+     * @param name Field name.
+     * @return {@code Long} value.
+     */
+    @Nullable Long readBoxedLong(String name);
 
     /**
      * Reads a {@code float} value.
@@ -118,7 +142,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code float} value.
      */
-    public float readFloat(String name);
+    float readFloat(String name);
+
+    /**
+     * Reads a {@code Float} value.
+     *
+     * @param name Field name.
+     * @return {@code Float} value.
+     */
+    @Nullable Float readBoxedFloat(String name);
 
     /**
      * Reads a {@code double} value.
@@ -126,7 +158,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code double} value.
      */
-    public double readDouble(String name);
+    double readDouble(String name);
+
+    /**
+     * Reads a {@code Double} value.
+     *
+     * @param name Field name.
+     * @return {@code Double} value.
+     */
+    @Nullable Double readBoxedDouble(String name);
 
     /**
      * Reads a {@code char} value.
@@ -134,7 +174,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code char} value.
      */
-    public char readChar(String name);
+    char readChar(String name);
+
+    /**
+     * Reads a {@code Character} value.
+     *
+     * @param name Field name.
+     * @return {@code Character} value.
+     */
+    @Nullable Character readBoxedChar(String name);
 
     /**
      * Reads a {@code boolean} value.
@@ -142,7 +190,15 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code boolean} value.
      */
-    public boolean readBoolean(String name);
+    boolean readBoolean(String name);
+
+    /**
+     * Reads a {@code Boolean} value.
+     *
+     * @param name Field name.
+     * @return {@code Boolean} value.
+     */
+    @Nullable Boolean readBoxedBoolean(String name);
 
     /**
      * Reads a {@code byte} array.
@@ -150,7 +206,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code byte} array.
      */
-    public byte[] readByteArray(String name);
+    byte[] readByteArray(String name);
 
     /**
      * Reads a {@code short} array.
@@ -158,7 +214,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code short} array.
      */
-    public short[] readShortArray(String name);
+    short[] readShortArray(String name);
 
     /**
      * Reads an {@code int} array.
@@ -166,7 +222,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code int} array.
      */
-    public int[] readIntArray(String name);
+    int[] readIntArray(String name);
 
     /**
      * Reads a {@code long} array.
@@ -174,7 +230,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code long} array.
      */
-    public long[] readLongArray(String name);
+    long[] readLongArray(String name);
 
     /**
      * Reads a {@code float} array.
@@ -182,7 +238,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code float} array.
      */
-    public float[] readFloatArray(String name);
+    float[] readFloatArray(String name);
 
     /**
      * Reads a {@code double} array.
@@ -190,7 +246,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code double} array.
      */
-    public double[] readDoubleArray(String name);
+    double[] readDoubleArray(String name);
 
     /**
      * Reads a {@code char} array.
@@ -198,7 +254,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code char} array.
      */
-    public char[] readCharArray(String name);
+    char[] readCharArray(String name);
 
     /**
      * Reads a {@code boolean} array.
@@ -206,7 +262,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@code boolean} array.
      */
-    public boolean[] readBooleanArray(String name);
+    boolean[] readBooleanArray(String name);
 
     /**
      * Reads a {@link String}.
@@ -214,7 +270,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@link String}.
      */
-    public String readString(String name);
+    String readString(String name);
 
     /**
      * Reads a {@link BitSet}.
@@ -222,7 +278,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@link BitSet}.
      */
-    public BitSet readBitSet(String name);
+    BitSet readBitSet(String name);
 
     /**
      * Reads a {@link ByteBuffer}.
@@ -238,7 +294,7 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@link UUID}.
      */
-    public UUID readUuid(String name);
+    UUID readUuid(String name);
 
     /**
      * Reads an {@link IgniteUuid}.
@@ -246,69 +302,69 @@ public interface MessageReader {
      * @param name Field name.
      * @return {@link IgniteUuid}.
      */
-    public IgniteUuid readIgniteUuid(String name);
+    IgniteUuid readIgniteUuid(String name);
 
     /**
      * Reads a nested message.
      *
-     * @param <T>  Type of a message;
+     * @param <T> Type of a message;
      * @param name Field name.
      * @return Message.
      */
-    public <T extends NetworkMessage> T readMessage(String name);
+    <T extends NetworkMessage> T readMessage(String name);
 
     /**
      * Reads an array of objects.
      *
-     * @param <T>      Type of an array.
-     * @param name     Field name.
+     * @param <T> Type of an array.
+     * @param name Field name.
      * @param itemType A component type of the array.
-     * @param itemCls  A component class of the array.
+     * @param itemCls A component class of the array.
      * @return Array of objects.
      */
-    public <T> T[] readObjectArray(String name, MessageCollectionItemType itemType, Class<T> itemCls);
+    <T> T[] readObjectArray(String name, MessageCollectionItemType itemType, Class<T> itemCls);
 
     /**
      * Reads a collection.
      *
-     * @param <C>      Type of collection.
-     * @param name     Field name.
+     * @param <C> Type of collection.
+     * @param name Field name.
      * @param itemType An item type of the collection.
      * @return Collection.
      */
-    public <C extends Collection<?>> C readCollection(String name, MessageCollectionItemType itemType);
+    <C extends Collection<?>> C readCollection(String name, MessageCollectionItemType itemType);
 
     /**
      * Reads a list.
      *
-     * @param <C>      Type of list.
-     * @param name     Field name.
+     * @param <C> Type of list.
+     * @param name Field name.
      * @param itemType An item type of the list.
      * @return List.
      */
-    public <C extends List<?>> C readList(String name, MessageCollectionItemType itemType);
+    <C extends List<?>> C readList(String name, MessageCollectionItemType itemType);
 
     /**
      * Reads a set.
      *
-     * @param <C>      Type of set.
-     * @param name     Field name.
+     * @param <C> Type of set.
+     * @param name Field name.
      * @param itemType An item type of the set.
      * @return Set.
      */
-    public <C extends Set<?>> C readSet(String name, MessageCollectionItemType itemType);
+    <C extends Set<?>> C readSet(String name, MessageCollectionItemType itemType);
 
     /**
      * Reads a map.
      *
-     * @param <M>     Type of a map.
-     * @param name    Field name.
+     * @param <M> Type of a map.
+     * @param name Field name.
      * @param keyType The type of the map's key.
      * @param valType The type of the map's value.
-     * @param linked  Whether a {@link LinkedHashMap} should be created.
+     * @param linked Whether a {@link LinkedHashMap} should be created.
      * @return Map.
      */
-    public <M extends Map<?, ?>> M readMap(String name, MessageCollectionItemType keyType,
+    <M extends Map<?, ?>> M readMap(String name, MessageCollectionItemType keyType,
             MessageCollectionItemType valType, boolean linked);
 
     /**
@@ -317,34 +373,34 @@ public interface MessageReader {
      *
      * @return Whether the last value was fully read.
      */
-    public boolean isLastRead();
+    boolean isLastRead();
 
     /**
      * Gets a current read state.
      *
      * @return Read state.
      */
-    public int state();
+    int state();
 
     /**
      * Increments a read state.
      */
-    public void incrementState();
+    void incrementState();
 
     /**
      * Callback called before an inner message is read.
      */
-    public void beforeInnerMessageRead();
+    void beforeInnerMessageRead();
 
     /**
      * Callback called after an inner message is read.
      *
      * @param finished Whether a message was fully read.
      */
-    public void afterInnerMessageRead(boolean finished);
+    void afterInnerMessageRead(boolean finished);
 
     /**
      * Resets this reader.
      */
-    public void reset();
+    void reset();
 }

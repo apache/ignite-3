@@ -35,6 +35,7 @@ test {
 pmd {
     ignoreFailures = false
     consoleOutput = true
+    incrementalAnalysis = true
 
     toolVersion = libs.versions.pmdTool.get()
     ruleSets = ["$rootDir/check-rules/pmd-rules.xml"]

@@ -344,10 +344,9 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
-            StringAssert.EndsWith("Table already exists [name=\"PUBLIC\".\"TEST\"]", ex!.Message);
-            StringAssert.StartsWith("IGN-TBL-1", ex.Message);
-            StringAssert.StartsWith("IGN-TBL-1", ex.CodeAsString);
-            StringAssert.StartsWith("TBL", ex.GroupName);
+            Assert.AreEqual("Table already exists [name=\"PUBLIC\".\"TEST\"]", ex!.Message);
+            Assert.AreEqual("IGN-TBL-1", ex.CodeAsString);
+            Assert.AreEqual("TBL", ex.GroupName);
             Assert.AreEqual(ErrorGroups.Table.TableAlreadyExists, ex.Code);
         }
 
@@ -357,10 +356,9 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<TableNotFoundException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            StringAssert.EndsWith("The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]", ex!.Message);
-            StringAssert.StartsWith("IGN-TBL-2", ex.Message);
-            StringAssert.StartsWith("IGN-TBL-2", ex.CodeAsString);
-            StringAssert.StartsWith("TBL", ex.GroupName);
+            Assert.AreEqual("The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]", ex!.Message);
+            Assert.AreEqual("IGN-TBL-2", ex.CodeAsString);
+            Assert.AreEqual("TBL", ex.GroupName);
             Assert.AreEqual(ErrorGroups.Table.TableNotFound, ex.Code);
         }
 
@@ -370,10 +368,9 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            StringAssert.EndsWith("Column already exists [name=\"ID\"]", ex!.Message);
-            StringAssert.StartsWith("IGN-TBL-3", ex.Message);
-            StringAssert.StartsWith("IGN-TBL-3", ex.CodeAsString);
-            StringAssert.StartsWith("TBL", ex.GroupName);
+            Assert.AreEqual("Column already exists [name=\"ID\"]", ex!.Message);
+            Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
+            Assert.AreEqual("TBL", ex.GroupName);
             Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
         }
 

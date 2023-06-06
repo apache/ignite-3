@@ -36,8 +36,10 @@ public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
         createAndPopulateTable();
     }
 
+    @Override
     @AfterEach
-    void tearDown() {
+    public void tearDown() {
+        super.tearDown();
         dropAllTables();
     }
 

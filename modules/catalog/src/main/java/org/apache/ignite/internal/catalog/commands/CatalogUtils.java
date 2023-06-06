@@ -17,7 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 
@@ -41,7 +48,50 @@ public class CatalogUtils {
         );
     }
 
-    private static TableColumnDescriptor fromParams(ColumnParams params) {
+    /**
+     * Converts CreateIndex command params to hash index descriptor.
+     *
+     * @param id Index id.
+     * @param tableId Table id.
+     * @param params Parameters.
+     * @return Index descriptor.
+     */
+    public static IndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new HashIndexDescriptor(id,
+                params.indexName(),
+                tableId,
+                false,
+                params.columns()
+        );
+    }
+
+    /**
+     * Converts CreateIndex command params to sorted index descriptor.
+     *
+     * @param id Index id.
+     * @param tableId Table id.
+     * @param params Parameters.
+     * @return Index descriptor.
+     */
+    public static IndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
+        List<ColumnCollation> collations = params.collations();
+
+        assert collations.size() == params.columns().size();
+
+        List<IndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
+                .mapToObj(i -> new IndexColumnDescriptor(params.columns().get(i), collations.get(i)))
+                .collect(Collectors.toList());
+
+        return new SortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+    }
+
+    /**
+     * Converts AlterTableAdd command columns parameters to column descriptor.
+     *
+     * @param params Parameters.
+     * @return Column descriptor.
+     */
+    public static TableColumnDescriptor fromParams(ColumnParams params) {
         return new TableColumnDescriptor(params.name(), params.type(), params.nullable(), params.defaultValueDefinition());
     }
 }

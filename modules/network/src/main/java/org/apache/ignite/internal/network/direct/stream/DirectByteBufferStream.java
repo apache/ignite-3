@@ -63,11 +63,25 @@ public interface DirectByteBufferStream {
     void writeByte(byte val);
 
     /**
+     * Writes {@code Byte}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedByte(@Nullable Byte val);
+
+    /**
      * Writes {@code short}.
      *
      * @param val Value.
      */
     void writeShort(short val);
+
+    /**
+     * Writes {@code Short}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedShort(@Nullable Short val);
 
     /**
      * Writes {@code int}.
@@ -91,11 +105,25 @@ public interface DirectByteBufferStream {
     void writeLong(long val);
 
     /**
+     * Writes {@code Long}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedLong(@Nullable Long val);
+
+    /**
      * Writes {@code float}.
      *
      * @param val Value.
      */
     void writeFloat(float val);
+
+    /**
+     * Writes {@code Float}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedFloat(@Nullable Float val);
 
     /**
      * Writes {@code double}.
@@ -105,6 +133,13 @@ public interface DirectByteBufferStream {
     void writeDouble(double val);
 
     /**
+     * Writes {@code Double}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedDouble(@Nullable Double val);
+
+    /**
      * Writes {@code char}.
      *
      * @param val Value.
@@ -112,11 +147,25 @@ public interface DirectByteBufferStream {
     void writeChar(char val);
 
     /**
+     * Writes {@code Character}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedChar(@Nullable Character val);
+
+    /**
      * Writes {@code boolean}.
      *
      * @param val Value.
      */
     void writeBoolean(boolean val);
+
+    /**
+     * Writes {@code Boolean}.
+     *
+     * @param val Value.
+     */
+    void writeBoxedBoolean(@Nullable Boolean val);
 
     /**
      * Writes {@code byte} array.
@@ -285,11 +334,25 @@ public interface DirectByteBufferStream {
     byte readByte();
 
     /**
+     * Reads {@code Byte}.
+     *
+     * @return Value.
+     */
+    @Nullable Byte readBoxedByte();
+
+    /**
      * Reads {@code short}.
      *
      * @return Value.
      */
     short readShort();
+
+    /**
+     * Reads {@code Short}.
+     *
+     * @return Value.
+     */
+    @Nullable Short readBoxedShort();
 
     /**
      * Reads {@code int}.
@@ -313,11 +376,25 @@ public interface DirectByteBufferStream {
     long readLong();
 
     /**
+     * Reads {@code Long}.
+     *
+     * @return Value.
+     */
+    @Nullable Long readBoxedLong();
+
+    /**
      * Reads {@code float}.
      *
      * @return Value.
      */
     float readFloat();
+
+    /**
+     * Reads {@code Float}.
+     *
+     * @return Value.
+     */
+    @Nullable Float readBoxedFloat();
 
     /**
      * Reads {@code double}.
@@ -327,6 +404,13 @@ public interface DirectByteBufferStream {
     double readDouble();
 
     /**
+     * Reads {@code Double}.
+     *
+     * @return Value.
+     */
+    @Nullable Double readBoxedDouble();
+
+    /**
      * Reads {@code char}.
      *
      * @return Value.
@@ -334,11 +418,25 @@ public interface DirectByteBufferStream {
     char readChar();
 
     /**
+     * Reads {@code Character}.
+     *
+     * @return Value.
+     */
+    @Nullable Character readBoxedChar();
+
+    /**
      * Reads {@code boolean}.
      *
      * @return Value.
      */
     boolean readBoolean();
+
+    /**
+     * Reads {@code Boolean}.
+     *
+     * @return Value.
+     */
+    @Nullable Boolean readBoxedBoolean();
 
     /**
      * Reads {@code byte} array.

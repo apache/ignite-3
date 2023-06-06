@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -98,7 +99,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         await().timeout(2, SECONDS)
                 .pollDelay(500, MILLISECONDS)
-                .until(() -> node(2).deployment().unitsAsync(), willBe(Collections.singletonList(status)));
+                .until(() -> node(2).deployment().clusterStatusesAsync(), willBe(Collections.singletonList(status)));
     }
 
     @Test
@@ -113,7 +114,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         await().timeout(2, SECONDS)
                 .pollDelay(500, MILLISECONDS)
-                .until(() -> node(2).deployment().unitsAsync(), willBe(Collections.singletonList(status)));
+                .until(() -> node(2).deployment().clusterStatusesAsync(), willBe(Collections.singletonList(status)));
     }
 
     @Test
@@ -126,7 +127,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         unit.undeploy();
         waitUnitClean(cmg, unit);
 
-        CompletableFuture<List<UnitStatuses>> list = node(2).deployment().unitsAsync();
+        CompletableFuture<List<UnitStatuses>> list = node(2).deployment().clusterStatusesAsync();
         assertThat(list, willBe(Collections.emptyList()));
     }
 
@@ -144,7 +145,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         await().timeout(2, SECONDS)
                 .pollDelay(100, MILLISECONDS)
-                .until(() -> node(2).deployment().statusAsync(id), willBe(status));
+                .until(() -> node(2).deployment().clusterStatusesAsync(id), willBe(status));
 
         CompletableFuture<List<Version>> versions = node(2).deployment().versionsAsync(unit1.id);
         assertThat(versions, willBe(List.of(unit1.version, unit2.version)));
@@ -164,7 +165,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         await().timeout(2, SECONDS)
                 .pollDelay(500, MILLISECONDS)
-                .until(() -> node(2).deployment().statusAsync(id), willBe(status));
+                .until(() -> node(2).deployment().clusterStatusesAsync(id), willBe(status));
 
         unit2.undeploy();
         CompletableFuture<List<Version>> newVersions = node(2).deployment().versionsAsync(unit1.id);
@@ -177,24 +178,22 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         Version version = Version.parseVersion("1.1.0");
         Unit unit = deployAndVerifyMedium(id, version, 1);
 
-        CompletableFuture<UnitStatuses> status = node(2).deployment().statusAsync(id);
-        assertThat(status.thenApply(status1 -> status1.status(version)), willBe(UPLOADING));
+        CompletableFuture<DeploymentStatus> status = node(2).deployment().clusterStatusAsync(id, version);
+        assertThat(status, willBe(UPLOADING));
 
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
 
         await().timeout(2, SECONDS)
                 .pollDelay(300, MILLISECONDS)
-                .until(() -> node(2).deployment().statusAsync(id)
-                        .thenApply(status1 -> status1.status(version)), willBe(DEPLOYED));
+                .until(() -> node(2).deployment().clusterStatusAsync(id, version), willBe(DEPLOYED));
 
         assertThat(unit.undeployAsync(), willSucceedFast());
 
         waitUnitClean(unit.deployedNode, unit);
         waitUnitClean(cmg, unit);
 
-        assertThat(node(2).deployment().statusAsync(id)
-                .thenApply(status1 -> status1.status(version)), willBe((DeploymentStatus) null));
+        assertThat(node(2).deployment().clusterStatusAsync(id, version), willBe(nullValue()));
     }
 
     @Test
@@ -252,7 +251,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         Unit smallUnit = deployAndVerify(id, version, smallFile, 0);
 
         await().untilAsserted(() -> {
-            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().unitsAsync();
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
             assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
         });
     }

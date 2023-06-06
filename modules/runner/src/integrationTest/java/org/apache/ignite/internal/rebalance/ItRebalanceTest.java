@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -176,21 +176,23 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                         (ExtendedTableConfiguration) cluster.node(i)
                                 .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
 
-                byte[] assignmentsBytes = table.assignments().value();
+                Set<Assignment> assignments =
+                        partitionAssignments(
+                                cluster.node(i).metaStorageManager(), table.id().value(), 0).join();
 
-                Set<String> assignments;
+                Set<String> assignmentIds;
 
-                if (assignmentsBytes != null) {
-                    assignments = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0)
+                if (assignments != null) {
+                    assignmentIds = assignments
                             .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
                 } else {
-                    assignments = Collections.emptySet();
+                    assignmentIds = Collections.emptySet();
                 }
 
-                LOG.info("Assignments for node " + i + ": " + assignments);
+                LOG.info("Assignments for node " + i + ": " + assignmentIds);
 
-                if (!(expectedAssignments.size() == assignments.size())
-                        || !expectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
+                if (!(expectedAssignments.size() == assignmentIds.size())
+                        || !expectedAssignments.stream().allMatch(node -> assignmentIds.contains(cluster.node(node).name()))) {
                     return false;
                 }
             }
