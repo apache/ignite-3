@@ -92,7 +92,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     private static final int MAX_RETRY_COUNT = 10;
 
     /** Safe time to wait before new Catalog version activation. */
-    private static final int DELAY_DURATION = 0;
+    private static final int DEFAULT_DELAY_DURATION = 0;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
@@ -109,12 +109,22 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final HybridClock clock;
 
+    private final long delayDurationMs;
+
     /**
      * Constructor.
      */
     public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock) {
+        this(updateLog, clock, DEFAULT_DELAY_DURATION);
+    }
+
+    /**
+     * Constructor.
+     */
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, long delayDurationMs) {
         this.updateLog = updateLog;
         this.clock = clock;
+        this.delayDurationMs = delayDurationMs;
     }
 
     /** {@inheritDoc} */
@@ -696,10 +706,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     /**
-     * Returns catalog activation timestamp.
+     * Calculate catalog activation timestamp.
      */
-    protected long activationTimestamp() {
-        return clock.now().addPhysicalTime(DELAY_DURATION).longValue();
+    private long activationTimestamp() {
+        return clock.now().addPhysicalTime(delayDurationMs).longValue();
     }
 
     @FunctionalInterface

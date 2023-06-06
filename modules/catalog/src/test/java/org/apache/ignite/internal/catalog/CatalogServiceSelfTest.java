@@ -123,13 +123,7 @@ public class CatalogServiceSelfTest {
         );
 
         clock = new HybridClockImpl();
-        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, vault), clock) {
-            // Immediate activation.
-            @Override
-            protected long activationTimestamp() {
-                return clock.nowLong();
-            }
-        };
+        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, vault), clock, 0L);
 
         vault.start();
         metastore.start();
@@ -675,14 +669,61 @@ public class CatalogServiceSelfTest {
         assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
 
         // retry limit is hardcoded at org.apache.ignite.internal.catalog.CatalogServiceImpl.MAX_RETRY_COUNT
-        Mockito.verify(updateLogMock, times(10)).append(any());
+        verify(updateLogMock, times(10)).append(any());
+    }
+
+    @Test
+    public void catalogActivationTime() throws Exception {
+        final int delayDuration = 3_000;
+
+        InMemoryVaultService vaultService = new InMemoryVaultService();
+        VaultManager vault = new VaultManager(vaultService);
+        StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
+        UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, vault));
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, delayDuration);
+
+        vault.start();
+        metaStorageManager.start();
+        service.start();
+
+        metaStorageManager.deployWatches();
+
+        try {
+            CreateTableParams params = CreateTableParams.builder()
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .columns(List.of(
+                            ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                            ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                    ))
+                    .primaryKeyColumns(List.of("key"))
+                    .build();
+
+            CompletableFuture<Void> fut = service.createTable(params);
+
+            verify(updateLogMock).append(any());
+            // TODO IGNITE-19400: recheck future completion guarantees
+            assertThat(fut, willBe((Object) null));
+
+            assertSame(service.schema(0), service.activeSchema(clock.nowLong()));
+            assertNull(service.table(TABLE_NAME, clock.nowLong()));
+
+            clock.update(clock.now().addPhysicalTime(delayDuration));
+
+            assertSame(service.schema(1), service.activeSchema(clock.nowLong()));
+            assertNotNull(service.table(TABLE_NAME, clock.nowLong()));
+        } finally {
+            service.stop();
+            metaStorageManager.stop();
+            vault.stop();
+        }
     }
 
     @Test
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = Mockito.mock(UpdateLog.class);
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, Mockito.mock(HybridClock.class));
 
         service.start();
 
