@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -490,7 +491,7 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(plus));
 
-        when(schemaManagerMock.schema(any(), any())).thenReturn(plus);
+        when(schemaManagerMock.schema(any(), anyLong())).thenReturn(plus);
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
