@@ -71,11 +71,8 @@ public:
      * Examples of supported formats:
      * - 192.168.1.25 - Default port is used, see DEFAULT_PORT;
      * - 192.168.1.25:780 - Custom port;
-     * - 192.168.1.25:780..787  - Custom port range - ports are checked from
-     *      lesser to greater until an open port is found;
      * - my-host.com - Default port is used, see DEFAULT_PORT;
      * - my-host.com:780 - Custom port;
-     * - my-host.com:780..787 - Custom port range.
      *
      * Default is "localhost"
      *
@@ -91,11 +88,8 @@ public:
      * Examples of supported formats:
      * - 192.168.1.25 - Default port is used, see DEFAULT_PORT;
      * - 192.168.1.25:780 - Custom port;
-     * - 192.168.1.25:780..787  - Custom port range - ports are checked from
-     *      lesser to greater until an open port is found;
      * - my-host.com - Default port is used, see DEFAULT_PORT;
      * - my-host.com:780 - Custom port;
-     * - my-host.com:780..787 - Custom port range.
      *
      * Default is "localhost"
      *

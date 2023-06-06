@@ -347,6 +347,14 @@ private:
     std::int32_t retrieve_timeout(void* value);
 
     /**
+     * Safe connect.
+     *
+     * @param addr Address.
+     * @return @c true if connection was successful.
+     */
+    bool safe_connect(const end_point &addr);
+
+    /**
      * Constructor.
      */
     explicit sql_connection(sql_environment * env)

@@ -62,9 +62,9 @@ std::string hex_dump(const void* data, std::size_t count)
 
 }
 
-std::vector<ignite::network::tcp_range> collect_addresses(const ignite::configuration& cfg)
+std::vector<ignite::end_point> collect_addresses(const ignite::configuration& cfg)
 {
-    std::vector<ignite::network::tcp_range> end_points = cfg.get_addresses();
+    std::vector<ignite::end_point> end_points = cfg.get_addresses();
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -614,37 +614,24 @@ void sql_connection::ensure_connected()
 
 bool sql_connection::try_restore_connection()
 {
-    std::vector<network::tcp_range> addrs = collect_addresses(m_config);
+    std::vector<end_point> addrs = collect_addresses(m_config);
 
     if (!m_socket)
         init_socket();
 
     bool connected = false;
-    while (!addrs.empty() && !connected)
+    while (!addrs.empty())
     {
-        const network::tcp_range& addr = addrs.back();
+        const end_point& addr = addrs.back();
 
-        for (auto port = addr.port; port <= addr.port + addr.range; ++port)
+        connected = safe_connect(addr);
+        if (connected)
         {
-            try
-            {
-                connected = m_socket->connect(addr.host.c_str(), port, m_login_timeout);
-            }
-            catch (const ignite_error& err)
-            {
-                std::stringstream msgs;
-                msgs << "Error while trying connect to " << addr.host << ":" << addr.port <<", " << err.what_str();
-                add_status_record(sql_state::S08001_CANNOT_CONNECT, msgs.str());
-            }
+            sql_result res = make_request_handshake();
 
+            connected = res != sql_result::AI_ERROR;
             if (connected)
-            {
-                sql_result res = make_request_handshake();
-
-                connected = res != sql_result::AI_ERROR;
-                if (connected)
-                    break;
-            }
+                break;
         }
 
         addrs.pop_back();
@@ -654,6 +641,18 @@ bool sql_connection::try_restore_connection()
         close();
 
     return connected;
+}
+
+bool sql_connection::safe_connect(const end_point &addr)
+{
+    try {
+        return m_socket->connect(addr.host.c_str(), addr.port, m_login_timeout);
+    } catch (const ignite_error& err) {
+        std::stringstream msgs;
+        msgs << "Error while trying connect to " << addr.host << ":" << addr.port <<", " << err.what_str();
+        add_status_record(sql_state::S08001_CANNOT_CONNECT, msgs.str());
+        return false;
+    }
 }
 
 std::int32_t sql_connection::retrieve_timeout(void* value)

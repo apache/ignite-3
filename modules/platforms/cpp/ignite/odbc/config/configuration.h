@@ -21,7 +21,7 @@
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/ssl_mode.h"
 
-#include "ignite/network/tcp_range.h"
+#include "ignite/common/end_point.h"
 
 #include <cstdint>
 #include <string>
@@ -90,14 +90,14 @@ public:
      *
      * @return Addresses.
      */
-    [[nodiscard]] const std::vector<network::tcp_range>& get_addresses() const;
+    [[nodiscard]] const std::vector<end_point>& get_addresses() const;
 
     /**
      * Set addresses to connect to.
      *
      * @param end_points Addresses.
      */
-    void set_addresses(const std::vector<network::tcp_range>& end_points);
+    void set_addresses(const std::vector<end_point>& end_points);
 
     /**
      * Check if the value set.
@@ -152,7 +152,7 @@ private:
     settable_value<int32_t> m_page_size;
 
     /** Connection end-points. */
-    settable_value< std::vector<network::tcp_range> > m_end_points;
+    settable_value< std::vector<end_point> > m_end_points;
 };
 
 template<>
@@ -164,7 +164,7 @@ void configuration::add_to_map<int32_t>(argument_map& map, const std::string& ke
     const settable_value<int32_t>& value);
 
 template<>
-void configuration::add_to_map< std::vector<network::tcp_range> >(argument_map& map, const std::string& key,
-    const settable_value< std::vector<network::tcp_range> >& value);
+void configuration::add_to_map< std::vector<end_point> >(argument_map& map, const std::string& key,
+    const settable_value< std::vector<end_point> >& value);
 
 } // namespace ignite
