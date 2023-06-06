@@ -83,7 +83,7 @@ public class TestNode implements LifecycleAware {
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
-    private HybridTimestamp fakeTs = HybridTimestamp.hybridTimestamp(1);
+    private long fakeTs = HybridTimestamp.hybridTimestamp(1).longValue();
 
     /**
      * Constructs the object.

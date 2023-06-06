@@ -76,7 +76,7 @@ public class SqlSchemaManagerTest {
 
     private final int indexId = 2;
 
-    private HybridTimestamp fakeTs = HybridTimestamp.hybridTimestamp(1);
+    private final long fakeTs = HybridTimestamp.hybridTimestamp(1).longValue();
 
     private final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(
             1,

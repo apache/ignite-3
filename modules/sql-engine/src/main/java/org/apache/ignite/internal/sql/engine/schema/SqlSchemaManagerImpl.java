@@ -46,7 +46,6 @@ import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
@@ -150,8 +149,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String schema, HybridTimestamp ts) {
-        Objects.requireNonNull(ts, "timestamp");
+    public SchemaPlus schema(@Nullable String schema, long ts) {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
         // stub for waiting pk indexes, more clear place is IgniteSchema
@@ -168,7 +166,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
         try {
             if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(null);
+                return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;
@@ -188,7 +186,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** Return appropriate schema. */
     public static @Nullable SchemaPlus getSchemaOrDefault(@Nullable String schema, SchemaPlus schemaPlus) {
         Objects.requireNonNull(schemaPlus, "schemaPlus");
-        return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
+        return schemaPlus.getSubSchema(Objects.requireNonNullElse(schema, DEFAULT_SCHEMA_NAME));
     }
 
     /** {@inheritDoc} */

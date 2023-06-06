@@ -425,7 +425,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
 
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, tx.get().startTimestamp());
+                    long txStart = tx.get().startTimestamp().longValue();
+
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txStart);
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(

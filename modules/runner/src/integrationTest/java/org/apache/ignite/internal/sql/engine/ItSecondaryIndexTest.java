@@ -1025,7 +1025,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     private List<RowCountingIndex> injectRowCountingIndex(String tableName, String idxName) {
         List<RowCountingIndex> countingIdxs = new ArrayList<>();
 
-        HybridTimestamp fakeTs = HybridTimestamp.hybridTimestamp(1);
+        long fakeTs = HybridTimestamp.hybridTimestamp(1).longValue();
 
         for (Ignite ign : CLUSTER_NODES) {
             IgniteImpl ignEx = (IgniteImpl) ign;

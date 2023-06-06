@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,9 +29,9 @@ public interface SqlSchemaManager {
      * Returns a required schema if specified, or default schema otherwise.
      *
      * @param schema Schema name.
-     * @param ts Transaction timestamp to obtain the effective schema version.
+     * @param timeStamp Transaction timestamp to obtain the effective schema version.
      */
-    SchemaPlus schema(@Nullable String schema, HybridTimestamp ts);
+    SchemaPlus schema(@Nullable String schema, long timeStamp);
 
     /**
      * Returns a table by given id.

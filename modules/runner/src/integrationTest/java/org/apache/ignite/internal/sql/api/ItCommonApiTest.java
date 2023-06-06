@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -239,7 +238,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {
         @Override
-        public SchemaPlus schema(@Nullable String schema, HybridTimestamp ts) {
+        public SchemaPlus schema(@Nullable String schema, long ts) {
             return null;
         }
 
