@@ -55,7 +55,9 @@ class IndexUtils {
      *
      * @param descriptor Catalog sorted index descriptor.
      */
-    static SortedIndexDescriptor toEventSortedIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor descriptor) {
+    static SortedIndexDescriptor toEventSortedIndexDescriptor(
+            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor descriptor
+    ) {
         List<String> columns = new ArrayList<>(descriptor.columns().size());
         List<ColumnCollation> collations = new ArrayList<>(descriptor.columns().size());
 
