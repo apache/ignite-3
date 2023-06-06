@@ -100,7 +100,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final int PART_ID = 0;
 
-    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
+    public static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
@@ -125,11 +125,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a new local table.
      *
      * @param replicaSvc Replica service.
+     * @param schema Schema descriptor.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc) {
-        this(replicaSvc, SCHEMA);
-    }
-
     public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema) {
         this(replicaSvc, new TestMvPartitionStorage(0), schema);
     }

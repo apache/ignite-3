@@ -267,6 +267,23 @@ public class CompletableVersionedValueTest {
         assertEquals(TEST_VALUE, fut2.get());
     }
 
+    @Test
+    public void testLatest() {
+        CompletableVersionedValue<Integer> vv = new CompletableVersionedValue<>();
+
+        assertEquals(-1, vv.latestCausalityToken());
+
+        vv.complete(1, 10);
+
+        assertEquals(10, vv.latest());
+        assertEquals(1, vv.latestCausalityToken());
+
+        vv.complete(2);
+
+        assertEquals(10, vv.latest());
+        assertEquals(2, vv.latestCausalityToken());
+    }
+
     @RepeatedTest(100)
     void testConcurrentGetAndComplete() throws Exception {
         var versionedValue = new CompletableVersionedValue<Integer>();
