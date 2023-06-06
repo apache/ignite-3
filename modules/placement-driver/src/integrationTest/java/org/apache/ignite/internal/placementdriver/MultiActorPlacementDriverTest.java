@@ -191,7 +191,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .groupId(((LeaseGrantedMessage) msg).groupId())
                         .accepted(true)
                         .build();
             }
