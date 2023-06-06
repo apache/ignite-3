@@ -15,23 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.unit;
+package org.apache.ignite.internal.catalog.storage;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.tostring.S;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/**
+ * Describes deletion of an index.
+ */
+public class DropIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = -604729846502020728L;
 
-    private final ApiClientFactory factory;
+    private final int indexId;
 
-    public DeployUnitCallFactory(ApiClientFactory factory) {
-        this.factory = factory;
+    /**
+     * Constructs the object.
+     *
+     * @param indexId An id of an index to drop.
+     */
+    public DropIndexEntry(int indexId) {
+        this.indexId = indexId;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    /** Returns an id of an index to drop. */
+    public int indexId() {
+        return indexId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

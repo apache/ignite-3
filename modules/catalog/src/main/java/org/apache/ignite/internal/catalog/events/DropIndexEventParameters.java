@@ -15,23 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.unit;
+package org.apache.ignite.internal.catalog.events;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+/**
+ * Drop index event parameters that contains an id of dropped index.
+ */
+public class DropIndexEventParameters extends CatalogEventParameters {
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+    private final int indexId;
 
-    private final ApiClientFactory factory;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param indexId An id of dropped index.
+     */
+    public DropIndexEventParameters(long causalityToken, int indexId) {
+        super(causalityToken);
 
-    public DeployUnitCallFactory(ApiClientFactory factory) {
-        this.factory = factory;
+        this.indexId = indexId;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    /** Returns an id of dropped index. */
+    public int indexId() {
+        return indexId;
     }
 }

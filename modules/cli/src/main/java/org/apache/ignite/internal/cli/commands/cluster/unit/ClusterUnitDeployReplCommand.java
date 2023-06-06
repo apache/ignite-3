@@ -28,8 +28,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_
 import jakarta.inject.Inject;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitReplCallFactory;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
@@ -71,7 +71,7 @@ public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnabl
     }
 
     @Inject
-    private DeployUnitCallFactory callFactory;
+    private DeployUnitReplCallFactory callFactory;
 
     @Inject
     private ConnectToClusterQuestion question;

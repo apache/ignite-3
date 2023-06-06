@@ -15,23 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.cluster.unit;
+package org.apache.ignite.internal.catalog.storage;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.call.ProgressTracker;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.tostring.S;
 
-/** Factory for {@link DeployUnitCall}. */
-@Singleton
-public class DeployUnitCallFactory {
+/**
+ * Describes addition of a new index.
+ */
+public class NewIndexEntry implements UpdateEntry {
+    private static final long serialVersionUID = 6717363577013237711L;
 
-    private final ApiClientFactory factory;
+    private final IndexDescriptor descriptor;
 
-    public DeployUnitCallFactory(ApiClientFactory factory) {
-        this.factory = factory;
+    /**
+     * Constructs the object.
+     *
+     * @param descriptor A descriptor of an index to add.
+     */
+    public NewIndexEntry(IndexDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
-    public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory);
+    /** Gets descriptor of an index to add. */
+    public IndexDescriptor descriptor() {
+        return descriptor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

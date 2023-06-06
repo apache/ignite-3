@@ -40,10 +40,12 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
         this.unique = unique;
     }
 
+    /** Gets table id. */
     public int tableId() {
         return tableId;
     }
 
+    /** Gets index unique flag. */
     public boolean unique() {
         return unique;
     }
