@@ -329,7 +329,7 @@ public class LeaseUpdater {
                 byte[] renewedValue = collectionToBytes(renewedLeasesList, Lease::bytes);
 
                 if (renewedLeasesList.size() > 50) {
-                    LOG.info("qqq Leases count=" + renewedLeasesList.size() + ", size=" + renewedValue);
+                    LOG.info("qqq Leases count=" + renewedLeasesList.size() + ", size=" + renewedValue.length);
                 }
 
                 msManager.invoke(
