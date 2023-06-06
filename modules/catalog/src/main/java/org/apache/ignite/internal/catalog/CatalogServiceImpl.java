@@ -65,6 +65,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
@@ -90,6 +91,9 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
+    /** Safe time to wait before new Catalog version activation. */
+    private static final int DELAY_DURATION = 0;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
@@ -103,11 +107,14 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
 
+    private final HybridClock clock;
+
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog) {
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock) {
         this.updateLog = updateLog;
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -519,7 +526,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 if (entry instanceof NewTableEntry) {
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -540,7 +547,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -561,7 +568,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -592,7 +599,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -621,7 +628,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (entry instanceof NewIndexEntry) {
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -641,7 +648,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -659,7 +666,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -686,6 +693,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                         }
                     });
         }
+    }
+
+    /**
+     * Returns catalog activation timestamp.
+     */
+    protected long activationTimestamp() {
+        return clock.now().addPhysicalTime(DELAY_DURATION).longValue();
     }
 
     @FunctionalInterface

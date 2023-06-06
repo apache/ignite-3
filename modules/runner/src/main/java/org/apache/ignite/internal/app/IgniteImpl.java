@@ -486,7 +486,7 @@ public class IgniteImpl implements Ignite {
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
 
-        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr));
+        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr), clock);
 
         distributedTblMgr = new TableManager(
                 name,
