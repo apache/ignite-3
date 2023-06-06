@@ -54,6 +54,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -145,10 +146,10 @@ public class ItColocationTest {
             @Override
             public CompletableFuture<Void> finish(
                     TablePartitionId commitPartition,
-                    ClusterNode recipientNode,
-                    Long term,
+                    String recipientNode,
+                    Long enlistmentConsistencyToken,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+                    Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
                     UUID txId) {
                 return completedFuture(null);
             }
@@ -236,7 +237,8 @@ public class ItColocationTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class)
+                Mockito.mock(HybridClock.class),
+                Mockito.mock(PlacementDriver.class)
         );
     }
 
