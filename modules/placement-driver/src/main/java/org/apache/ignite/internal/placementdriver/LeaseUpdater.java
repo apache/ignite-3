@@ -326,13 +326,15 @@ public class LeaseUpdater {
                 List<Lease> renewedLeasesList = renewedLeases.entrySet().stream().map(Map.Entry::getValue).sorted().collect(
                         Collectors.toList());
 
-                if (renewedLeases.size() > 50) {
-                    LOG.info("qqq Leases count=" + renewedLeases.size());
+                byte[] renewedValue = collectionToBytes(renewedLeasesList, Lease::bytes);
+
+                if (renewedLeasesList.size() > 50) {
+                    LOG.info("qqq Leases count=" + renewedLeasesList.size() + ", size=" + renewedValue);
                 }
 
                 msManager.invoke(
                         or(notExists(leasesKey), value(leasesKey).eq(collectionToBytes(leasesCurrent, Lease::bytes))),
-                        put(leasesKey, collectionToBytes(renewedLeasesList, Lease::bytes)),
+                        put(leasesKey, renewedValue),
                         noop()
                 );
 
