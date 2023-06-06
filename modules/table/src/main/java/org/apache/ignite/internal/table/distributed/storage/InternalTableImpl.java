@@ -246,7 +246,7 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        ReplicaMeta primaryReplica = tx0.enlistedPrimaryReplica(partGroupId);
+        ReplicaMeta primaryReplica = tx0.enlistedReplica(partGroupId);
 
         CompletableFuture<R> fut;
 
@@ -319,7 +319,7 @@ public class InternalTableImpl implements InternalTable {
         for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
 
-            ReplicaMeta primaryReplica = tx0.enlistedPrimaryReplica(partGroupId);
+            ReplicaMeta primaryReplica = tx0.enlistedReplica(partGroupId);
 
             CompletableFuture<Object> fut;
 
@@ -380,7 +380,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        ReplicaMeta primaryReplica = tx.enlistedPrimaryReplica(partGroupId);
+        ReplicaMeta primaryReplica = tx.enlistedReplica(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
