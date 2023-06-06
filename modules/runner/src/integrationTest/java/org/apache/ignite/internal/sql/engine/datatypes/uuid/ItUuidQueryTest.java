@@ -41,7 +41,7 @@ public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
      */
     @ParameterizedTest
     @MethodSource("binaryComparisonOperators")
-    public void testInvalidComparisonOperation(String opSql, String opName) {
+    public void testInvalidComparisonOperation(String opSql) {
         String query = format("SELECT * FROM t WHERE test_key {} 1", opSql);
 
         CalciteContextException t = assertThrows(CalciteContextException.class, () -> checkQuery(query).check());
