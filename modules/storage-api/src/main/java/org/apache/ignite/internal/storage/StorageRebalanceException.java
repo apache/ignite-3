@@ -64,4 +64,15 @@ public class StorageRebalanceException extends StorageException {
     public StorageRebalanceException(String messagePattern, Throwable cause, Object... params) {
         super(Storage.STORAGE_REBALANCE_ERR, messagePattern, cause, params);
     }
+
+    /**
+     * Constructor.
+     *
+     * @param messagePattern Error message pattern.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public StorageRebalanceException(String messagePattern, Object... params) {
+        super(Storage.STORAGE_REBALANCE_ERR, messagePattern, params);
+    }
 }
