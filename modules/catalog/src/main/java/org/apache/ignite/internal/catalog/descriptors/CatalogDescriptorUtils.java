@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.ColumnCollation.ASC_NULLS_LAST;
-import static org.apache.ignite.internal.catalog.descriptors.ColumnCollation.DESC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.ColumnCollation.DESC_NULLS_FIRST;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -182,8 +182,9 @@ public class CatalogDescriptorUtils {
     }
 
     private static IndexColumnDescriptor toIndexColumnDescriptor(IndexColumnView config) {
-        // TODO: IGNITE-15141 We need to understand how to configure null and whether we need it
-        ColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_LAST;
+        //TODO IGNITE-15141: Make null-order configurable.
+        // NULLS FIRST for DESC, NULLS LAST for ASC by default.
+        ColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_FIRST;
 
         return new IndexColumnDescriptor(config.name(), collation);
     }
