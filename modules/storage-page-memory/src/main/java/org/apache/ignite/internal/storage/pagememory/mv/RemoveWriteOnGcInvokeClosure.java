@@ -28,12 +28,13 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link InvokeClosure} for deleting a row version in version chain on garbage collection in
- * {@link AbstractPageMemoryMvPartitionStorage#pollForVacuum(HybridTimestamp)}.
+ * {@link AbstractPageMemoryMvPartitionStorage#vacuum(GcEntry)}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *

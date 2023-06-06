@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.unit;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.unit.UndeployUnitCall;
-import org.apache.ignite.internal.cli.call.unit.UndeployUnitCallInput;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
+import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitReplCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
@@ -37,7 +37,7 @@ import picocli.CommandLine.Parameters;
 
 /** Command to undeploy a unit in REPL mode. */
 @Command(name = "undeploy", description = "Undeploys a unit")
-public class UnitUndeployReplCommand extends BaseCommand implements Runnable {
+public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runnable {
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
@@ -53,7 +53,7 @@ public class UnitUndeployReplCommand extends BaseCommand implements Runnable {
     private String version;
 
     @Inject
-    private UndeployUnitCall call;
+    private UndeployUnitReplCall call;
 
     @Inject
     private ConnectToClusterQuestion question;

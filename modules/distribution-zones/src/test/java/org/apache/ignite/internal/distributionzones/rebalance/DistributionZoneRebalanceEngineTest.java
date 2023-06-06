@@ -204,6 +204,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             return ret;
         });
 
+        // stable partitions for tables are empty
+        when(metaStorageManager.getAll(any())).thenReturn(completedFuture(Map.of()));
+
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
     }

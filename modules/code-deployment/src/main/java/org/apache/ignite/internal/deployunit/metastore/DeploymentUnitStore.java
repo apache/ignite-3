@@ -45,7 +45,7 @@ public interface DeploymentUnitStore {
      *
      * @return Cluster statuses of all existed deployment units.
      */
-    CompletableFuture<List<UnitClusterStatus>> getAllClusterStatuses();
+    CompletableFuture<List<UnitClusterStatus>> getClusterStatuses();
 
     /**
      * Returns cluster status of deployment unit with provided identifier.
@@ -76,10 +76,10 @@ public interface DeploymentUnitStore {
      * Returns node status of deployment unit.
      *
      * @param nodeId Node consistent identifier.
-     * @param id Deployment unit identifier.
+     * @param unitId Deployment unit identifier.
      * @return Node status of deployment unit.
      */
-    CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId, String id);
+    CompletableFuture<List<UnitNodeStatus>> getNodeStatuses(String nodeId, String unitId);
 
     /**
      * Returns node status of deployment unit.

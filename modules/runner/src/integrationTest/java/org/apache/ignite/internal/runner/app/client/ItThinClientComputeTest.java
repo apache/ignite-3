@@ -157,7 +157,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
@@ -171,7 +171,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
         assertEquals(INTERNAL_ERR, cause.code());
 
         assertNotNull(cause.getCause());
@@ -263,7 +263,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new NullPointerException("null ref");
+            throw new ArithmeticException("math err");
         }
     }
 

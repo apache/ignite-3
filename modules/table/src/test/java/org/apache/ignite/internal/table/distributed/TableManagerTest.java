@@ -42,6 +42,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,7 +51,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -61,9 +61,9 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -102,6 +102,7 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -113,7 +114,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -211,7 +211,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
 
     /** Revision updater. */
-    private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
+    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
     @InjectConfiguration
@@ -254,7 +254,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
 
-        revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
+        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
@@ -303,7 +303,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
 
         mockMetastore();
 
@@ -323,16 +323,9 @@ public class TableManagerTest extends IgniteAbstractTest {
             tablesChange.create(scmTbl.name(), tableChange -> {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeZoneId(ZONE_ID);
-
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                var assignment = new ArrayList<Set<Assignment>>(PARTITIONS);
-
-                for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new HashSet<>(Collections.singleton(Assignment.forPeer(node.name()))));
-                }
-
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
+                extConfCh.changeSchemaId(1);
             });
         }).join();
 
@@ -521,7 +514,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().storage()).close();
+                        doThrow(new RuntimeException("Test exception")).when(tblAndMnr.get1().internalTable().storage()).close();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -658,6 +651,16 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
+        when(bm.nodes()).thenReturn(Set.of(node));
+
+        distributionZonesConfiguration.distributionZones().change(zones -> {
+            zones.create(ZONE_NAME, ch -> {
+                ch.changeZoneId(ZONE_ID);
+                ch.changePartitions(1);
+                ch.changeReplicas(1);
+            });
+        }).join();
 
         mockMetastore();
 
@@ -687,6 +690,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
+            doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
             doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
 
             return completedFuture(null);
@@ -702,18 +706,15 @@ public class TableManagerTest extends IgniteAbstractTest {
                         tableChange -> {
                             SchemaConfigurationConverter.convert(scmTbl, tableChange);
 
-                            // Trigger "onUpdateAssignments"
-                            var assignments = List.of(Set.of(Assignment.forPeer(NODE_NAME)));
-
                             ((ExtendedTableChange) tableChange)
-                                    .changeAssignments(ByteUtils.toBytes(assignments))
-                                    .changeSchemaId(1);
+                                    .changeSchemaId(1)
+                                    .changeZoneId(ZONE_ID);
                         }));
 
         assertThat(cfgChangeFuture, willCompleteSuccessfully());
 
-        verify(txStateStorage).clear();
-        verify(mvTableStorage).clearPartition(anyInt());
+        verify(txStateStorage, timeout(1000)).clear();
+        verify(mvTableStorage, timeout(1000)).clearPartition(anyInt());
     }
 
     /**
@@ -740,6 +741,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(null));
     }
 
     /**
@@ -758,8 +760,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
-            RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
+        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+            RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
 

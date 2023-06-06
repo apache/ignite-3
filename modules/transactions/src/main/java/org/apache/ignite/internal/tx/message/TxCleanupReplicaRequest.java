@@ -23,7 +23,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,6 +73,5 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      * @return Raft term.
      */
     @Deprecated
-    @Marshallable
     Long term();
 }

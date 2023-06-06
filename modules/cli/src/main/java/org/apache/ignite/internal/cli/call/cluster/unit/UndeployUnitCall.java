@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.unit;
+package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -23,23 +23,20 @@ import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.UnitNotFoundException;
-import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.api.DeploymentApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
-/** Undeploy unit call. */
+/** Call to undeploy a unit. */
 @Singleton
 public class UndeployUnitCall implements Call<UndeployUnitCallInput, String> {
 
     private final ApiClientFactory clientFactory;
-    private final UnitsRegistry unitsRegistry;
 
-    UndeployUnitCall(ApiClientFactory clientFactory, UnitsRegistry unitsRegistry) {
+    UndeployUnitCall(ApiClientFactory clientFactory) {
         this.clientFactory = clientFactory;
-        this.unitsRegistry = unitsRegistry;
     }
 
     @Override
@@ -48,7 +45,6 @@ public class UndeployUnitCall implements Call<UndeployUnitCallInput, String> {
             DeploymentApi api = new DeploymentApi(clientFactory.getClient(input.clusterUrl()));
             api.undeployUnit(input.id(), input.version());
 
-            unitsRegistry.refresh();
             return DefaultCallOutput.success(MessageUiComponent.from(UiElements.done()).render());
         } catch (ApiException e) {
             if (e.getCode() == 404) {

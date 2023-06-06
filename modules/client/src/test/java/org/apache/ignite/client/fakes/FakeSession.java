@@ -38,6 +38,8 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL session.
  */
 public class FakeSession implements Session {
+    public static final String FAILED_SQL = "SELECT FAIL";
+
     @Nullable
     private final Integer defaultPageSize;
 
@@ -91,6 +93,10 @@ public class FakeSession implements Session {
             Statement statement,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
+
+        if (FAILED_SQL.equals(statement.query())) {
+            return CompletableFuture.failedFuture(new RuntimeException("Query failed"));
+        }
 
         return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));
     }

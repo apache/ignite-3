@@ -48,7 +48,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -195,7 +194,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        mock(IgniteSql.class),
+                                        ignite.sql(),
                                         clusterId,
                                         metrics,
                                         authenticationManager(authenticationConfiguration)));
