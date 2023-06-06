@@ -407,6 +407,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return List of current assignments.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
+    @Deprecated
     List<String> assignments();
 
     /**
@@ -414,6 +416,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return List of current primary replicas for each partition.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
+    @Deprecated
     List<PrimaryReplica> primaryReplicas();
 
     /**
