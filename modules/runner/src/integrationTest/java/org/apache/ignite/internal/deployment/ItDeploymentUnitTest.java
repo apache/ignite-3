@@ -44,11 +44,13 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.InitialDeployMode;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -256,6 +258,35 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         });
     }
 
+    @Test
+    public void testDeployToSpecificNode() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = deployAndVerify(id, version, false, List.of(smallFile), 0, null, List.of(node(1).name()));
+
+        waitUnitReplica(cluster.node(1), smallUnit);
+
+        await().untilAsserted(() -> {
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
+            assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
+        });
+    }
+
+    @Test
+    public void testDeployToAll() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = deployAndVerify(id, version, false, List.of(smallFile), 0, InitialDeployMode.ALL, List.of());
+
+        waitUnitReplica(cluster.node(1), smallUnit);
+        waitUnitReplica(cluster.node(2), smallUnit);
+
+        await().untilAsserted(() -> {
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
+            assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
+        });
+    }
+
     private UnitStatuses buildStatus(String id, Unit... units) {
         UnitStatusesBuilder builder = UnitStatuses.builder(id);
         for (Unit unit : units) {
@@ -274,14 +305,32 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     }
 
     private Unit deployAndVerify(String id, Version version, boolean force, List<DeployFile> files, int nodeIndex) {
+        return deployAndVerify(id, version, force, files, nodeIndex, null, List.of());
+    }
+
+    private Unit deployAndVerify(
+            String id,
+            Version version,
+            boolean force,
+            List<DeployFile> files,
+            int nodeIndex,
+            @Nullable InitialDeployMode deployMode,
+            List<String> initialNodes
+    ) {
         IgniteImpl entryNode = node(nodeIndex);
 
         List<Path> paths = files.stream()
                 .map(deployFile -> deployFile.file)
                 .collect(Collectors.toList());
 
-        CompletableFuture<Boolean> deploy = entryNode.deployment()
-                .deployAsync(id, version, force, fromPaths(paths));
+        CompletableFuture<Boolean> deploy;
+        if (deployMode != null) {
+            deploy = entryNode.deployment()
+                    .deployAsync(id, version, force, fromPaths(paths), deployMode);
+        } else {
+            deploy = entryNode.deployment()
+                    .deployAsync(id, version, force, fromPaths(paths), initialNodes);
+        }
 
         assertThat(deploy, willBe(true));
 

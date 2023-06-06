@@ -469,29 +469,42 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units:
+  /management/v1/deployment/units/{unitId}/{unitVersion}:
     post:
       tags:
       - deployment
-      summary: Deploy unit REST method.
-      description: Deploys provided unit to the cluster.
-      operationId: deployUnit
+      summary: Deploy unit to specified nodes REST method.
+      description: Deploys provided unit to the cluster with specified initial nodes.
+      operationId: deployUnitToNodes
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The ID of the deployment unit.
+      - name: unitVersion
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The version of the deployment unit.
+      - name: initialNodes
+        in: query
+        required: true
+        schema:
+          type: array
+          description: List of node identifiers to deploy to.
+          items:
+            type: string
       requestBody:
         content:
           multipart/form-data:
             schema:
               required:
               - unitContent
-              - unitId
-              - unitVersion
               type: object
               properties:
-                unitId:
-                  type: string
-                  description: The ID of the deployment unit.
-                unitVersion:
-                  type: string
-                  description: The version of the deployment unit.
                 unitContent:
                   type: array
                   description: The code to deploy.
@@ -518,7 +531,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units/{unitId}/{unitVersion}:
     delete:
       tags:
       - deployment
@@ -547,6 +559,68 @@ paths:
                 type: boolean
         "404":
           description: Unit with provided identifier and version does not exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/{unitVersion}/{deployMode}:
+    post:
+      tags:
+      - deployment
+      summary: Deploy unit REST method.
+      description: Deploys provided unit to the cluster.
+      operationId: deployUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The ID of the deployment unit.
+      - name: unitVersion
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The version of the deployment unit.
+      - name: deployMode
+        in: path
+        required: true
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/deployMode'
+          - type: object
+            description: ALL or MAJORITY.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - unitContent
+              type: object
+              properties:
+                unitContent:
+                  type: array
+                  description: The code to deploy.
+                  items:
+                    type: string
+                    format: binary
+        required: true
+      responses:
+        "200":
+          description: Unit deployed successfully.
+          content:
+            application/json:
+              schema:
+                type: boolean
+        "409":
+          description: Unit with same identifier and version is already deployed.
           content:
             application/problem+json:
               schema:
@@ -930,3 +1004,9 @@ components:
       description: Unit status.
     Void:
       type: object
+    deployMode:
+      type: string
+      description: Initial set of nodes to deploy.
+      enum:
+      - MAJORITY
+      - ALL

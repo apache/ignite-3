@@ -36,6 +36,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
+import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
@@ -53,10 +54,29 @@ public class DeploymentManagementController implements DeploymentCodeApi {
     }
 
     @Override
-    public CompletableFuture<Boolean> deploy(String unitId, String unitVersion, Publisher<CompletedFileUpload> unitContent) {
+    public CompletableFuture<Boolean> deploy(
+            String unitId,
+            String unitVersion,
+            Publisher<CompletedFileUpload> unitContent,
+            InitialDeployMode deployMode
+    ) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit,
+                fromInitialDeployMode(deployMode)));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> deploy(
+            String unitId,
+            String unitVersion,
+            Publisher<CompletedFileUpload> unitContent,
+            List<String> initialNodes
+    ) {
+        CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
+        unitContent.subscribe(new CompletedFileUploadSubscriber(result));
+        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit,
+                initialNodes));
     }
 
     @Override
@@ -165,6 +185,16 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         } else {
             EnumSet<DeploymentStatus> statusesSet = EnumSet.copyOf(statuses.get());
             return statusesSet::contains;
+        }
+    }
+
+    private static org.apache.ignite.internal.deployunit.InitialDeployMode fromInitialDeployMode(InitialDeployMode mode) {
+        switch (mode) {
+            case ALL:
+                return org.apache.ignite.internal.deployunit.InitialDeployMode.ALL;
+            case MAJORITY:
+            default:
+                return org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
         }
     }
 }

@@ -40,6 +40,8 @@ import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.DeployMode;
+import org.jetbrains.annotations.Nullable;
 
 /** Call to deploy a unit. */
 public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
@@ -74,7 +76,13 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
 
         TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
         String ver = input.version() == null ? "" : input.version();
-        Call call = api.deployUnitAsync(input.id(), files, ver, callback);
+        DeployMode deployMode = inferDeployMode(input.nodes());
+        Call call;
+        if (deployMode != null) {
+            call = api.deployUnitAsync(input.id(), files, ver, deployMode, callback);
+        } else {
+            call = api.deployUnitToNodesAsync(input.id(), files, ver, input.nodes(), callback);
+        }
 
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -105,5 +113,20 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
         }
 
         return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.clusterUrl()));
+    }
+
+    @Nullable
+    private static DeployMode inferDeployMode(List<String> params) {
+        if (params == null) {
+            return DeployMode.MAJORITY;
+        }
+        if (params.size() == 1) {
+            try {
+                return DeployMode.fromValue(params.get(0));
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 }

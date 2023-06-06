@@ -157,6 +157,98 @@ public class ItDeploymentUnitTest extends CliCommandTestInitializedIntegrationBa
     }
 
     @Test
+    @DisplayName("Should display correct status after deploy to the specified nodes")
+    void deployToNodesAndStatusCheck() {
+        // When deploy with version
+        String node = allNodeNames().get(1);
+        execute("cluster", "unit", "deploy", "test.unit.id.7", "--version", "1.0.0", "--path", testFile, "--nodes", node);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", "test.unit.id.7");
+
+            // Unit is deployed on all requested nodes
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertErrOutputIsEmpty,
+                    () -> assertOutputContains("1.0.0"),
+                    () -> assertOutputContains("DEPLOYED")
+            );
+
+            resetOutput();
+            execute("node", "unit", "list", "--node-url", "http://localhost:10301", "test.unit.id.7");
+
+            // Unit is deployed on the requested node
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertErrOutputIsEmpty,
+                    () -> assertOutputContains("1.0.0"),
+                    () -> assertOutputContains("DEPLOYED")
+            );
+
+            resetOutput();
+            execute("node", "unit", "list", "--node-url", "http://localhost:10302", "test.unit.id.7");
+
+            // Unit is not deployed on the other node
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertErrOutputIsEmpty,
+                    this::assertOutputIsEmpty
+            );
+        });
+    }
+
+    @Test
+    @DisplayName("Should display correct status on after deploy to all nodes")
+    void deployToAllAndStatusCheck() {
+        // When deploy with version
+        String id = "test.unit.id.8";
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", testFile, "--nodes", "ALL");
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
+
+        await().untilAsserted(() -> {
+            resetOutput();
+            execute("cluster", "unit", "list", id);
+
+            // Unit is deployed on all requested nodes
+            assertAll(
+                    this::assertExitCodeIsZero,
+                    this::assertErrOutputIsEmpty,
+                    () -> assertOutputContains("1.0.0"),
+                    () -> assertOutputContains("DEPLOYED")
+            );
+
+            for (int i = 0; i < CLUSTER_NODES.size(); i++) {
+                resetOutput();
+
+                String nodeUrl = "http://localhost:" + (10300 + i);
+                execute("node", "unit", "list", "--node-url", nodeUrl, id);
+
+                // Unit is deployed on the node
+                assertAll(
+                        this::assertExitCodeIsZero,
+                        this::assertErrOutputIsEmpty,
+                        () -> assertOutputContains("1.0.0"),
+                        () -> assertOutputContains("DEPLOYED")
+                );
+            }
+        });
+    }
+
+    @Test
     @DisplayName("Should display correct status with filters after deploy")
     void deployUnitsAndStatusCheck() {
         // When deploy with version
