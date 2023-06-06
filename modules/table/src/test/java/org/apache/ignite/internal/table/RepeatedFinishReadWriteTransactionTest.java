@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -65,7 +66,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
 
-        tx.enlist(partId, new IgniteBiTuple<>(clusterNode, 1L));
+        tx.enlist(partId, new TestReplicaMetaImpl(clusterNode.name(), new HybridTimestamp(1L, 0), HybridTimestamp.MAX_VALUE));
 
         tx.assignCommitPartition(partId);
 
@@ -111,7 +112,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
 
-        tx.enlist(partId, new IgniteBiTuple<>(clusterNode, 1L));
+        tx.enlist(partId, new TestReplicaMetaImpl(clusterNode.name(), new HybridTimestamp(1L, 0), HybridTimestamp.MAX_VALUE));
 
         tx.assignCommitPartition(partId);
 
@@ -157,7 +158,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
 
-        tx.enlist(partId, new IgniteBiTuple<>(null, null));
+        tx.enlist(partId, new TestReplicaMetaImpl(null, null, null));
 
         tx.assignCommitPartition(partId);
 
@@ -192,7 +193,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
 
-        tx.enlist(partId, new IgniteBiTuple<>(null, null));
+        tx.enlist(partId, new TestReplicaMetaImpl(null, null, null));
 
         tx.assignCommitPartition(partId);
 
@@ -252,8 +253,13 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public CompletableFuture<Void> finish(TablePartitionId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
-                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups, UUID txId) {
+        public CompletableFuture<Void> finish(
+                TablePartitionId commitPartition,
+                String recipientNode,
+                Long enlistmentConsistencyToken,
+                boolean commit,
+                Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+                UUID txId) {
             txFinishStartedLatch.countDown();
 
             try {
@@ -266,8 +272,11 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public CompletableFuture<Void> cleanup(ClusterNode recipientNode,
-                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds, UUID txId, boolean commit,
+        public CompletableFuture<Void> cleanup(
+                String recipientNode,
+                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+                UUID txId,
+                boolean commit,
                 @Nullable HybridTimestamp commitTimestamp) {
             return null;
         }
