@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -99,7 +99,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             SchemaManager schemaManager,
             ReplicaService replicaService,
             HybridClock clock,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
