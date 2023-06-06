@@ -44,9 +44,6 @@ public:
     struct default_value
     {
         /** Default value for Driver attribute. */
-        static const protocol_version protocol_version;
-
-        /** Default value for Driver attribute. */
         static const std::string driver;
 
         /** Default value for address attribute. */

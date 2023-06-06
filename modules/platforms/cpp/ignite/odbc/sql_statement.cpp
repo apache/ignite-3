@@ -627,6 +627,10 @@ void sql_statement::execute_get_columns_meta_query(const std::string& schema,
 sql_result sql_statement::internal_execute_get_columns_meta_query(const std::string& schema,
     const std::string& table, const std::string& column)
 {
+    UNUSED_VALUE schema;
+    UNUSED_VALUE table;
+    UNUSED_VALUE column;
+
     if (m_current_query)
         m_current_query->close();
 
@@ -645,6 +649,11 @@ void sql_statement::execute_get_tables_meta_query(const std::string& catalog,
 sql_result sql_statement::internal_execute_get_tables_meta_query(const std::string& catalog,
     const std::string& schema, const std::string& table, const std::string& table_type)
 {
+    UNUSED_VALUE catalog;
+    UNUSED_VALUE schema;
+    UNUSED_VALUE table;
+    UNUSED_VALUE table_type;
+
     if (m_current_query)
         m_current_query->close();
 
@@ -665,6 +674,13 @@ sql_result sql_statement::internal_execute_get_foreign_keys_query(const std::str
     const std::string& primary_schema, const std::string& primary_table, const std::string& foreign_catalog,
     const std::string& foreign_schema, const std::string& foreign_table)
 {
+    UNUSED_VALUE primary_catalog;
+    UNUSED_VALUE primary_schema;
+    UNUSED_VALUE primary_table;
+    UNUSED_VALUE foreign_catalog;
+    UNUSED_VALUE foreign_schema;
+    UNUSED_VALUE foreign_table;
+
     if (m_current_query)
         m_current_query->close();
 
@@ -682,6 +698,10 @@ void sql_statement::execute_get_primary_keys_query(const std::string& catalog, c
 sql_result sql_statement::internal_execute_get_primary_keys_query(const std::string& catalog, const std::string& schema,
     const std::string& table)
 {
+    UNUSED_VALUE catalog;
+    UNUSED_VALUE schema;
+    UNUSED_VALUE table;
+
     if (m_current_query)
         m_current_query->close();
 
@@ -700,6 +720,12 @@ void sql_statement::execute_special_columns_query(uint16_t type, const std::stri
 sql_result sql_statement::internal_execute_special_columns_query(uint16_t type, const std::string& catalog,
     const std::string& schema, const std::string& table, uint16_t scope, uint16_t nullable)
 {
+    UNUSED_VALUE catalog;
+    UNUSED_VALUE schema;
+    UNUSED_VALUE table;
+    UNUSED_VALUE scope;
+    UNUSED_VALUE nullable;
+
     if (type != SQL_BEST_ROWID && type != SQL_ROWVER)
     {
         add_status_record(sql_state::SHY097_COLUMN_TYPE_OUT_OF_RANGE, "An invalid IdentifierType value was specified.");
@@ -1113,7 +1139,7 @@ sql_result sql_statement::internal_describe_param(uint16_t param_num, int16_t* d
         return sql_result::AI_ERROR;
     }
 
-    auto type = m_parameters.get_param_type(param_num, ignite_type::UNDEFINED);
+    auto type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
 
     LOG_MSG("Type: " << type);
 
@@ -1124,7 +1150,7 @@ sql_result sql_statement::internal_describe_param(uint16_t param_num, int16_t* d
         if (res != sql_result::AI_SUCCESS)
             return res;
 
-        type = m_parameters.get_param_type(param_num, ignite_type::UNDEFINED);
+        type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
     }
 
     if (data_type)

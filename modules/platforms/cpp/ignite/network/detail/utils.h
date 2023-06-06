@@ -19,6 +19,7 @@
 
 #include <ignite/common/ignite_error.h>
 
+#include <algorithm>
 #include <sstream>
 #include <string>
 #include <string_view>

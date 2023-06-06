@@ -18,6 +18,8 @@
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
 
+#include <cstring>
+
 namespace ignite {
 
 size_t copy_string_to_buffer(const std::string& str, char* buf, std::size_t buffer_len)
