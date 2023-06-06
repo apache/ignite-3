@@ -188,11 +188,4 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     protected DataTypeTestSpec<VarBinary> getTypeSpec() {
         return DataTypeTestSpecs.VARBINARY_TYPE;
     }
-
-    /** {@inheritDoc} **/
-    @Override
-    protected Object getInvalidValueForTypeOf() {
-        // INT can not be converted to VARBINARY according to SQL standard.
-        return 4;
-    }
 }
