@@ -166,7 +166,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
      */
     private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
-        int maxAttempts = 5;
+        // The following allows to retry for up to 16 seconds (we need so much time to account
+        // for a node restart).
+        int maxAttempts = 8;
         int sleepMillis = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -193,7 +195,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 fail("Interrupted while waiting for next attempt");
             }
 
-            sleepMillis = sleepMillis * 2;
+            //noinspection NumericCastThatLosesPrecision
+            sleepMillis = (int) (sleepMillis * 1.5f);
         }
 
         throw new AssertionError("Should not reach here");
@@ -353,6 +356,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private void knockoutNode(int nodeIndex) {
         cluster.stopNode(nodeIndex);
+
+        LOG.info("Node {} knocked out", nodeIndex);
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
