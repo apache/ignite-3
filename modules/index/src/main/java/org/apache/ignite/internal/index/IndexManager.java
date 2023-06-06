@@ -77,7 +77,6 @@ import org.jetbrains.annotations.Nullable;
  * as well as managing indexes' lifecycle.
  */
 // TODO: IGNITE-19082 Delete this class
-// TODO: IGNITE-19646 избавиться от конфигурации таблицы и индексов
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
@@ -330,7 +329,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param tableName Table name.
      * @return List of index configuration views.
      */
-    // TODO: IGNITE-19646 вот тут наверное тоже надо разобраться
     public List<TableIndexView> indexConfigurations(String tableName) {
         List<TableIndexView> res = new ArrayList<>();
         Integer targetTableId = null;

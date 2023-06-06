@@ -144,7 +144,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
     public BinaryTupleSchema binaryTupleSchema() {
         return binaryTupleSchema;
     }
-    
+
     private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index

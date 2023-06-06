@@ -791,7 +791,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     private static @Nullable TableView findTableView(TablesView tablesView, int tableId) {
         return tablesView.tables().stream()
-                .filter(tableIndexView -> tableId == tableIndexView.id())
+                .filter(tableView -> tableId == tableView.id())
                 .findFirst()
                 .orElse(null);
     }
