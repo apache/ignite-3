@@ -274,13 +274,23 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
 
         checkQuery("SELECT typeof(?)").withParams(value).returns(typeName).check();
         checkQuery("SELECT typeof(CAST(? as <type>))").withParams(value).returns(typeName).check();
-
-        // https://issues.apache.org/jira/browse/IGNITE-18761
-        // TypeOf can short-circuit only when its argument is a constant expression.
-        // assertThrows(RuntimeException.class, () -> {
-        //   checkQuery("SELECT typeof(CAST('%s' as <type>))").returns(typeSpec.typeName()).check();
-        // });
     }
+
+    /**
+     * {@code TYPE_OF} function with invalid input.
+     */
+    @Test
+    public void testTypeOfOnInvalidValue() {
+        String typeName = testTypeSpec.typeName();
+        Object invalidInput = getInvalidValueForTypeOf();
+
+         assertThrows(RuntimeException.class, () -> {
+           checkQuery("SELECT typeof(CAST(? as <type>))").withParams(invalidInput).returns(typeName).check();
+         });
+    }
+
+    /** Returns invalid value that is used in {@link #testTypeOfOnInvalidValue}.*/
+    protected abstract Object getInvalidValueForTypeOf();
 
     /** Dynamic parameter. **/
     @Test

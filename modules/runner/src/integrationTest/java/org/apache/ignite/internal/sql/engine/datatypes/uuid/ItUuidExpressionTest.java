@@ -51,4 +51,11 @@ public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
     protected DataTypeTestSpec<UUID> getTypeSpec() {
         return DataTypeTestSpecs.UUID_TYPE;
     }
+
+    /** {@inheritDoc} **/
+    @Override
+    protected Object getInvalidValueForTypeOf() {
+        // INT can not be converted to UUID
+        return 4;
+    }
 }
