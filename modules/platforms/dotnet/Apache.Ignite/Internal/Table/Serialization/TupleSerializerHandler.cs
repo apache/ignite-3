@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System;
     using Ignite.Sql;
     using Ignite.Table;
+    using NodaTime;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -113,21 +114,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ColumnType.Int16 => HashUtils.Hash32((short)val, hash),
                     ColumnType.Int32 => HashUtils.Hash32((int)val, hash),
                     ColumnType.Int64 => HashUtils.Hash32((long)val, hash),
-                    ColumnType.Float => expr,
-                    ColumnType.Double => expr,
-                    ColumnType.Decimal => expr,
-                    ColumnType.Date => expr,
-                    ColumnType.Time => expr,
-                    ColumnType.Datetime => expr,
-                    ColumnType.Timestamp => expr,
-                    ColumnType.Uuid => expr,
-                    ColumnType.Bitmask => expr,
-                    ColumnType.String => expr,
-                    ColumnType.ByteArray => expr,
-                    ColumnType.Period => expr,
-                    ColumnType.Duration => expr,
-                    ColumnType.Number => expr,
-                    _ => throw new ArgumentOutOfRangeException()
+                    ColumnType.Float => HashUtils.Hash32((float)val, hash),
+                    ColumnType.Double => HashUtils.Hash32((double)val, hash),
+                    ColumnType.Decimal => HashUtils.Hash32((decimal)val, hash), // TODO see BinaryTupleBuilder - reuse decimal logic
+                    ColumnType.Date => HashUtils.Hash32((LocalDate)val, hash),
+                    ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
+                    ColumnType.Datetime => HashUtils.Hash32((float)val, hash), // TODO
+                    ColumnType.Timestamp => HashUtils.Hash32((float)val, hash), // TODO
+                    ColumnType.Uuid => HashUtils.Hash32((float)val, hash),// TODO
+                    ColumnType.Bitmask => HashUtils.Hash32((float)val, hash),// TODO
+                    ColumnType.String => HashUtils.Hash32((float)val, hash),// TODO
+                    ColumnType.ByteArray => HashUtils.Hash32((float)val, hash),// TODO
+                    ColumnType.Period => HashUtils.Hash32((float)val, hash),// TODO
+                    ColumnType.Duration => HashUtils.Hash32((float)val, hash),// TODO
+                    ColumnType.Number => HashUtils.Hash32((float)val, hash),// TODO
+                    _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown column type.")
                 };
             }
 
