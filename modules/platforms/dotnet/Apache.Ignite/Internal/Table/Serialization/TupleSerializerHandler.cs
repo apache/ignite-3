@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Collections;
+    using System.Numerics;
     using Ignite.Sql;
     using Ignite.Table;
     using NodaTime;
@@ -119,16 +121,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ColumnType.Decimal => HashUtils.Hash32((decimal)val, hash), // TODO see BinaryTupleBuilder - reuse decimal logic
                     ColumnType.Date => HashUtils.Hash32((LocalDate)val, hash),
                     ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
-                    ColumnType.Datetime => HashUtils.Hash32((float)val, hash), // TODO
-                    ColumnType.Timestamp => HashUtils.Hash32((float)val, hash), // TODO
-                    ColumnType.Uuid => HashUtils.Hash32((float)val, hash),// TODO
-                    ColumnType.Bitmask => HashUtils.Hash32((float)val, hash),// TODO
-                    ColumnType.String => HashUtils.Hash32((float)val, hash),// TODO
-                    ColumnType.ByteArray => HashUtils.Hash32((float)val, hash),// TODO
-                    ColumnType.Period => HashUtils.Hash32((float)val, hash),// TODO
-                    ColumnType.Duration => HashUtils.Hash32((float)val, hash),// TODO
-                    ColumnType.Number => HashUtils.Hash32((float)val, hash),// TODO
-                    _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown column type.")
+                    ColumnType.Datetime => HashUtils.Hash32((LocalDateTime)val, col.Precision, hash),
+                    ColumnType.Timestamp => HashUtils.Hash32((Instant)val, col.Precision, hash), // TODO
+                    ColumnType.Uuid => HashUtils.Hash32((Guid)val, hash),
+                    ColumnType.Bitmask => HashUtils.Hash32((BitArray)val, hash),
+                    ColumnType.String => HashUtils.Hash32((string)val, hash),
+                    ColumnType.ByteArray => HashUtils.Hash32((byte[])val, hash),
+                    ColumnType.Number => HashUtils.Hash32((BigInteger)val, hash),
+                    ColumnType.Period or ColumnType.Duration => throw new NotSupportedException("Period and Duration hashing is not supported."),
+                    _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown column type")
                 };
             }
 
