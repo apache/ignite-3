@@ -168,7 +168,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private static <T> T withRetry(Supplier<T> action, Predicate<RuntimeException> shouldStop) {
         // The following allows to retry for up to 16 seconds (we need so much time to account
         // for a node restart).
-        int maxAttempts = 8;
+        int maxAttempts = 10;
+        float backoffFactor = 1.3f;
         int sleepMillis = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -196,7 +197,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             }
 
             //noinspection NumericCastThatLosesPrecision
-            sleepMillis = (int) (sleepMillis * 1.5f);
+            sleepMillis = (int) (sleepMillis * backoffFactor);
         }
 
         throw new AssertionError("Should not reach here");
