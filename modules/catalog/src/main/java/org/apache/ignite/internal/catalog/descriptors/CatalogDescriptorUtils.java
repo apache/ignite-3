@@ -157,10 +157,10 @@ public class CatalogDescriptorUtils {
                 config.name(),
                 nativeType.spec().asColumnType(),
                 config.nullable(),
-                toDefaultValue(nativeType, config.defaultValueProvider()),
-                typeConfig.length(),
                 typeConfig.precision(),
-                typeConfig.scale()
+                typeConfig.scale(),
+                typeConfig.length(),
+                toDefaultValue(nativeType, config.defaultValueProvider())
         );
     }
 
