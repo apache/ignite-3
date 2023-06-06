@@ -152,9 +152,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SchemaPlus schema(@Nullable String schema, long ts) {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
-        // stub for waiting pk indexes, more clear place is IgniteSchema
-        CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
-
         return getSchemaOrDefault(schema, schemaPlus);
     }
 
@@ -165,6 +162,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
+            // stub for waiting pk indexes, more clear place is IgniteSchema
+            CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
+
             if (ver == IgniteSchema.INITIAL_VERSION) {
                 return completedFuture(calciteSchemaVv.latest());
             }
