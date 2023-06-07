@@ -344,8 +344,8 @@ namespace Apache.Ignite.Internal.Table
                     using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, PreferredNode.FromName(preferredNode)).ConfigureAwait(false);
                 },
                 writer: _ser.Handler,
-                schemaProvider: null!,
-                partitionAssignmentProvider: null!,
+                schemaProvider: () => _table.GetLatestSchemaAsync(),
+                partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default).ConfigureAwait(false);
         }
 

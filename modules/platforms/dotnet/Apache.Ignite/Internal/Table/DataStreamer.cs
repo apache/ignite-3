@@ -50,7 +50,7 @@ internal static class DataStreamer
         Func<IList<T>, string, Task> sender,
         IRecordSerializerHandler<T> writer,
         Func<Task<Schema>> schemaProvider,
-        Func<ValueTask<string[]>> partitionAssignmentProvider,
+        Func<ValueTask<string[]?>> partitionAssignmentProvider,
         DataStreamerOptions options)
     {
         IgniteArgumentCheck.NotNull(data);
@@ -100,7 +100,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[] partitionAssignment)
+        (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[]? partitionAssignment)
         {
             // TODO: Dispose.
             var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumnCount);
@@ -116,7 +116,9 @@ internal static class DataStreamer
             writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetUnsafeRef);
 
             var hash = tupleBuilder.Hash;
-            var partition = partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
+            var partition = partitionAssignment == null
+                ? string.Empty // Default connection.
+                : partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
 
             if (!batches.TryGetValue(partition, out var batch))
             {

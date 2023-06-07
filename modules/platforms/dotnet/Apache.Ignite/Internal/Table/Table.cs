@@ -205,24 +205,11 @@ namespace Apache.Ignite.Internal.Table
             return PreferredNode.FromId(nodeId);
         }
 
-        private Task<Schema> GetCachedSchemaAsync(int version)
-        {
-            var task = GetOrAdd();
-
-            if (!task.IsFaulted)
-            {
-                return task;
-            }
-
-            // Do not return failed task. Remove it from the cache and try again.
-            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
-
-            return GetOrAdd();
-
-            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
-        }
-
-        private async ValueTask<string[]?> GetPartitionAssignmentAsync()
+        /// <summary>
+        /// Gets the partition assignment.
+        /// </summary>
+        /// <returns>Partition assignment.</returns>
+        internal async ValueTask<string[]?> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;
@@ -256,6 +243,23 @@ namespace Apache.Ignite.Internal.Table
             {
                 _partitionAssignmentSemaphore.Release();
             }
+        }
+
+        private Task<Schema> GetCachedSchemaAsync(int version)
+        {
+            var task = GetOrAdd();
+
+            if (!task.IsFaulted)
+            {
+                return task;
+            }
+
+            // Do not return failed task. Remove it from the cache and try again.
+            _schemas.TryRemove(new KeyValuePair<int, Task<Schema>>(version, task));
+
+            return GetOrAdd();
+
+            Task<Schema> GetOrAdd() => _schemas.GetOrAdd(version, static (ver, tbl) => tbl.LoadSchemaAsync(ver), this);
         }
 
         /// <summary>
