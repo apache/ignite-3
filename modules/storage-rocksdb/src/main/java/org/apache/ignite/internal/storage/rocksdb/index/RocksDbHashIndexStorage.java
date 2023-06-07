@@ -108,7 +108,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
             byte[] rangeEnd = incrementPrefix(rangeStart);
 
-            return new UpToDatePeekCursor(rangeEnd, indexCf, (Function<ByteBuffer, RowId>) byteBuffer -> {
+            return new UpToDatePeekCursor<>(rangeEnd, indexCf, (Function<ByteBuffer, RowId>) byteBuffer -> {
                 // RowId UUID is located at the last 16 bytes of the key
                 long mostSignificantBits = byteBuffer.getLong(rangeStart.length);
                 long leastSignificantBits = byteBuffer.getLong(rangeStart.length + Long.BYTES);

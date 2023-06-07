@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
-import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -205,40 +203,6 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     @Override
     public void closeStructures() {
         sortedIndexTree.close();
-    }
-
-    /**
-     * Returns a new cursor that converts elements to another type, and also throws {@link StorageClosedException} on
-     * {@link Cursor#hasNext()} and {@link Cursor#next()} when the sorted index storage is {@link #close()}.
-     *
-     * @param cursor Cursor.
-     * @param mapper Conversion function.
-     */
-    private <T, R> Cursor<R> convertCursor(Cursor<T> cursor, Function<T, R> mapper) {
-        return new Cursor<>() {
-            @Override
-            public void close() {
-                cursor.close();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
-                    return cursor.hasNext();
-                });
-            }
-
-            @Override
-            public R next() {
-                return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
-                    return mapper.apply(cursor.next());
-                });
-            }
-        };
     }
 
     /**
