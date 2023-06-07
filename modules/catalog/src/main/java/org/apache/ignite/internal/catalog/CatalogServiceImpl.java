@@ -593,8 +593,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         int newVersion = catalog.version() + 1;
+        long activationTimestamp = activationTimestamp();
 
-        return updateLog.append(new VersionedUpdate(newVersion, updates))
+        return updateLog.append(new VersionedUpdate(newVersion, activationTimestamp, updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {
@@ -609,6 +610,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         @Override
         public void handle(VersionedUpdate update) {
             int version = update.version();
+            long activationTimestamp = update.activationTimestamp();
             Catalog catalog = catalogByVer.get(version - 1);
 
             assert catalog != null;
@@ -622,7 +624,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 if (entry instanceof NewTableEntry) {
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -778,7 +780,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp(),
                             catalog.objectIdGenState(),
                             new SchemaDescriptor(
                                     schema.id(),
@@ -814,13 +816,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             registerCatalog(catalog);
 
             CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
-                    .thenRun(() -> versionTracker.update(version, null))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to apply catalog update.", err);
-                        } else {
-                            versionTracker.update(version, null);
+                            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
                         }
+
+                        versionTracker.update(version, null);
                     });
         }
     }

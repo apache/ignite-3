@@ -1052,6 +1052,7 @@ public class CatalogServiceSelfTest {
 
             VersionedUpdate update = new VersionedUpdate(
                     updateFromInvocation.version(),
+                    updateFromInvocation.activationTimestamp(),
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 
