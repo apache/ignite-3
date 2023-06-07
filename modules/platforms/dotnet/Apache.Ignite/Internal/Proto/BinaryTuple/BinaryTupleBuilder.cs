@@ -573,21 +573,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="scale">Decimal scale from schema.</param>
         public void AppendDecimal(decimal value, int scale)
         {
-            if (value != decimal.Zero)
-            {
-                var (unscaledValue, valueScale) = DeconstructDecimal(value);
-
-                PutDecimal(scale, unscaledValue, valueScale);
-            }
-            else
-            {
-                if (ShouldHash())
-                {
-                    _hash = HashUtils.Hash32(stackalloc byte[1] { 0 }, _hash);
-                }
-            }
-
-            OnWrite();
+            AppendNumber(DecimalToUnscaledBigInteger(value, scale));
         }
 
         /// <summary>
@@ -1159,36 +1145,45 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return (sign < 0 ? -unscaled : unscaled, scale);
         }
 
+        private static BigInteger DecimalToUnscaledBigInteger(decimal value, int scale)
+        {
+            if (value == decimal.Zero)
+            {
+                return BigInteger.Zero;
+            }
+
+            Span<int> bits = stackalloc int[4];
+            decimal.GetBits(value, bits);
+
+            var valueScale = (bits[3] & 0x00FF0000) >> 16;
+            var sign = bits[3] >> 31;
+
+            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
+            var unscaled = new BigInteger(bytes, true);
+
+            if (sign < 0)
+            {
+                unscaled = -unscaled;
+            }
+
+            if (scale > valueScale)
+            {
+                unscaled *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
+            }
+            else if (scale < valueScale)
+            {
+                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+            }
+
+            return unscaled;
+        }
+
         private static int GetDecimalScale(decimal value)
         {
             Span<int> bits = stackalloc int[4];
             decimal.GetBits(value, bits);
 
             return (bits[3] & 0x00FF0000) >> 16;
-        }
-
-        private void PutDecimal(int scale, BigInteger unscaledValue, int valueScale)
-        {
-            if (scale > valueScale)
-            {
-                unscaledValue *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaledValue /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
-            }
-
-            var size = unscaledValue.GetByteCount();
-            var destination = GetSpan(size);
-            var success = unscaledValue.TryWriteBytes(destination, out int written, isBigEndian: true);
-
-            if (ShouldHash())
-            {
-                _hash = HashUtils.Hash32(destination[..written], _hash);
-            }
-
-            Debug.Assert(success, "success");
-            Debug.Assert(written == size, "written == size");
         }
 
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
