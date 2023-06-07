@@ -103,7 +103,7 @@ internal static class DataStreamer
         (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[]? partitionAssignment)
         {
             // TODO: Dispose.
-            var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumnCount);
+            var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count);
 
             // TODO: Entire batch must use the same schema.
             // Should we fix the schema for the entire streamer? Should be possible.
