@@ -77,11 +77,10 @@ public class JobClassLoaderFactory {
                 }).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures).thenApply(v -> {
-                            return Stream.of(unitUrls)
-                                    .flatMap(Function.identity())
-                                    .toArray(URL[]::new);
-                        }
-                )
+            return Stream.of(unitUrls)
+                    .flatMap(Function.identity())
+                    .toArray(URL[]::new);
+        })
                 .thenApply(it -> new JobClassLoader(it, getClass().getClassLoader()))
                 .whenComplete((cl, err) -> {
                     if (err != null) {
