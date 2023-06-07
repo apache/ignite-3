@@ -152,11 +152,11 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
 
     /**
      * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
+     * Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
      *
      * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
      */
     public boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, RelDataType toType, RelDataType fromType) {
-        // Types T1 and T2 have compatible type families if their types are assignable.
 
         // Same types are always compatible.
         if (SqlTypeUtil.equalSansNullability(typeFactory, toType, fromType)) {
