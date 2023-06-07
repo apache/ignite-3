@@ -31,6 +31,11 @@ public interface SqlSchemaManager {
     SchemaPlus schema(@Nullable String schema);
 
     /**
+     * Returns schema with given name and by the given version, if name is not specified, returns default schema of the given version.
+     */
+    SchemaPlus schema(@Nullable String name, int version);
+
+    /**
      * Returns a table by given id.
      *
      * @param id An id of required table.
@@ -43,4 +48,9 @@ public interface SqlSchemaManager {
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
      */
     CompletableFuture<?> actualSchemaAsync(long ver);
+
+    /**
+     * Returns a required schema if specified, or default schema otherwise.
+     */
+    SchemaPlus activeSchema(@Nullable String name, long timestamp);
 }
