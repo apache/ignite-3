@@ -326,8 +326,6 @@ public class MvPartitionStoragesTest {
 
         assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
                 "Storage in the process of starting a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0),
-                "Storage in the process of starting a rebalance");
         assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
                 "Storage in the process of starting a rebalance");
 
@@ -649,6 +647,42 @@ public class MvPartitionStoragesTest {
         assertThat(finishRebalance5StorageFuture, willCompleteSuccessfully());
 
         assertThat(allForCloseOrDestroyFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testAbortRebalanceBeforeFinishStartRebalance() {
+        assertThat(createMvStorage(0), willCompleteSuccessfully());
+
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> startRebalanceFuture = mvPartitionStorages.startRebalance(0, mvPartitionStorage -> rebalanceFuture);
+
+        CompletableFuture<Void> startAbortRebalanceFuture = new CompletableFuture<>();
+        CompletableFuture<Void> finishAbortRebalanceFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> abortRebalanceFuture = mvPartitionStorages.abortRebalance(0, mvPartitionStorage -> {
+            startAbortRebalanceFuture.complete(null);
+
+            return finishAbortRebalanceFuture;
+        });
+
+        // Make sure that the abortion of the rebalance does not start until the start of the rebalance is over.
+        assertThat(startAbortRebalanceFuture, willTimeoutFast());
+
+        // You can't abort rebalancing a second time.
+        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Rebalance abort is already planned");
+
+        rebalanceFuture.complete(null);
+
+        // Let's make sure that the rebalancing abortion will start only after the rebalancing start is completed.
+        assertThat(startRebalanceFuture, willCompleteSuccessfully());
+        assertThat(startAbortRebalanceFuture, willCompleteSuccessfully());
+        assertThat(abortRebalanceFuture, willTimeoutFast());
+
+        // Let's finish the rebalancing abortion.
+        finishAbortRebalanceFuture.complete(null);
+
+        assertThat(abortRebalanceFuture, willCompleteSuccessfully());
     }
 
     private MvPartitionStorage getMvStorage(int partitionId) {
