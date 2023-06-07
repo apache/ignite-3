@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Proto;
 
 using System;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Numerics;
 using NodaTime;
 using Table;
@@ -126,6 +127,24 @@ internal static class HashUtils
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
     public static int Hash32(LocalDateTime data, int precision, int seed) => Hash32(data.TimeOfDay, precision, Hash32(data.Date, seed));
+
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(BigInteger data, int seed)
+    {
+        var size = data.GetByteCount();
+        Span<byte> destination = stackalloc byte[size];
+        var success = data.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+        Debug.Assert(success, "success");
+        Debug.Assert(written == size, "written == size");
+
+        return Hash32(destination, seed);
+    }
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
