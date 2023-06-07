@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -332,11 +333,14 @@ public class LeaseUpdater {
                     LOG.info("qqq Leases count=" + renewedLeasesList.size() + ", size=" + renewedValue.length);
                 }
 
+                long start = System.currentTimeMillis();
                 msManager.invoke(
                         or(notExists(leasesKey), value(leasesKey).eq(collectionToBytes(leasesCurrent, Lease::bytes))),
                         put(leasesKey, renewedValue),
                         noop()
                 );
+                long duration = System.currentTimeMillis() - start;
+                LOG.info("qqq invoke call duration: " + duration + ", leases count=" + renewedLeasesList.size());
 
                 try {
                     Thread.sleep(UPDATE_LEASE_MS);

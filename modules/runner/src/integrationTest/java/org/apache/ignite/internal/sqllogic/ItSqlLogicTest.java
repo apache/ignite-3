@@ -141,7 +141,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", nodes = 1)
 public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -204,23 +204,25 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     }
 
     private static final int COLUMNS_COUNT = 2;
-    private static final int TABLES_COUNT = 1000;
-    private static final int SLEEP = 30;
+    private static final int TABLES_COUNT = 200;
+    private static final int SLEEP = 10_000;
 
-    // @Test
+    @Test
     public void createTables() {
         System.out.println("Test started");
         Ignite ignite = CLUSTER_NODES.get(0);
-        for (int i = 0; i < TABLES_COUNT; i++) {
-            String createTableQuery = createTableQuery("table_" + i, COLUMNS_COUNT);
-            String selectQuery = "select * from table_" + i;
-            long timestampBefore = System.currentTimeMillis();
-            try (Session session = ignite.sql().createSession()) {
-                session.execute(null, createTableQuery);
-                session.execute(null, selectQuery);
+        for (int j = 0; j < 1000; j++) {
+            for (int i = 0; i < TABLES_COUNT; i++) {
+                String createTableQuery = createTableQuery("table_" + i + "_" + j, COLUMNS_COUNT);
+                String selectQuery = "select * from table_" + i + "_" + j;
+                long timestampBefore = System.currentTimeMillis();
+                try (Session session = ignite.sql().createSession()) {
+                    session.execute(null, createTableQuery);
+                    //session.execute(null, selectQuery);
+                }
+                long timestampAfter = System.currentTimeMillis();
+                System.out.println("Create table " + i + "_" + j + " took " + (timestampAfter - timestampBefore) + " ms");
             }
-            long timestampAfter = System.currentTimeMillis();
-            System.out.println("Create table " + i + " took " + (timestampAfter - timestampBefore) + " ms");
             sleep();
         }
     }

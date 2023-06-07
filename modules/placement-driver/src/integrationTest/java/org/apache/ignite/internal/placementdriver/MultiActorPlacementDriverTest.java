@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.Closeable;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -65,6 +67,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -85,7 +89,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There are tests of muti-nodes for placement driver.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     public static final int BASE_PORT = 1234;
 
@@ -121,8 +125,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
+    /** Work directory. */
+    protected Path workDir;
+
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) throws Exception {
+    public void beforeTest(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         this.placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
         this.nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
@@ -134,7 +141,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         List<LogicalTopologyServiceTestImpl> logicalTopManagers = new ArrayList<>();
 
-        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers);
+        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers, workDir);
 
         for (String nodeName : nodeNames) {
             if (!placementDriverNodeNames.contains(nodeName)) {
@@ -233,7 +240,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
-            List<LogicalTopologyServiceTestImpl> logicalTopManagers
+            List<LogicalTopologyServiceTestImpl> logicalTopManagers,
+            Path workDir
     ) throws Exception {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
@@ -268,7 +276,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     eventsClientListener
             );
 
-            var storage = new SimpleInMemoryKeyValueStorage(nodeName);
+            var storage = new RocksDbKeyValueStorage(nodeName, workDir.resolve(nodeName + "-ms"));
 
             var metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -334,6 +342,27 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
+    }
+
+    @Test
+    public void testManyLeases() throws Exception {
+        var acceptedNodeRef = new AtomicReference<String>();
+
+        leaseGrantHandler = (msg, from, to) -> {
+            acceptedNodeRef.compareAndSet(null, to);
+
+            return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                    .accepted(true)
+                    .build();
+        };
+
+        while (true) {
+            for (int i = 0; i < 500; i++) {
+                createTableAssignment();
+            }
+            log.info("qqq created more tables, last table id: " + nextTableId.get());
+            Thread.sleep(10000);
+        }
     }
 
     @Test
@@ -580,7 +609,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         int zoneId = createZone();
 
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-            tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
+            tableViewTableChangeNamedListChange.create("test-table-" + tableId, tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
                 extConfCh.changeId(tableId);
                 extConfCh.changeZoneId(zoneId);
@@ -602,6 +631,10 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @return Id of created distribution zone.
      */
     private int createZone() {
+        if (dstZnsCfg.distributionZones().get("zone1") != null) {
+            return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
+        }
+
         dstZnsCfg.distributionZones().change(zones -> {
             zones.create("zone1", ch -> {
                 ch.changePartitions(1);
