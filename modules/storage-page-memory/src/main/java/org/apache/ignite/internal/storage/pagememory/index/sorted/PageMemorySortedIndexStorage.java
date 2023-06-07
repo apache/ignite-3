@@ -48,7 +48,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of Sorted index storage using Page Memory.
  */
-public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow> implements SortedIndexStorage {
+public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow>
+        implements SortedIndexStorage {
     private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
 
     /** Index descriptor. */
