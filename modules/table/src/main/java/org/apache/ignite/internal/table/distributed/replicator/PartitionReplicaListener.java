@@ -22,7 +22,9 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -58,6 +60,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
@@ -78,6 +81,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -2432,11 +2436,20 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
                 inBusyLock(() -> {
-                    TableIndexView tableIndexView = ctx.newValue();
+                    TableIndexView indexView = ctx.newValue();
 
-                    if (tableId() == tableIndexView.tableId()) {
-                        startBuildIndex(createIndexDescriptor(ctx.newValue(TablesView.class), tableIndexView.id()));
+                    if (tableId() != indexView.tableId()) {
+                        return;
                     }
+
+                    TableView tableView = findTableView(ctx.newValue(TablesView.class), tableId());
+
+                    assert tableView != null : tableId();
+
+                    TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                    org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+
+                    startBuildIndex(IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
                 });
 
                 return completedFuture(null);
@@ -2517,8 +2530,19 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Let's try to build an index for the previously created indexes for the table.
         TablesView tablesView = mvTableStorage.tablesConfiguration().value();
 
-        for (int indexId : collectIndexIds(tablesView)) {
-            startBuildIndex(createIndexDescriptor(tablesView, indexId));
+        for (TableIndexView indexView : tablesView.indexes()) {
+            if (indexView.tableId() != tableId()) {
+                continue;
+            }
+
+            TableView tableView = findTableView(tablesView, tableId());
+
+            assert tableView != null : tableId();
+
+            TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+
+            startBuildIndex(IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
         }
     }
 
