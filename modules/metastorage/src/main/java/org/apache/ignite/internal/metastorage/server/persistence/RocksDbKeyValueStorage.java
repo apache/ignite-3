@@ -116,7 +116,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
     /** Revision key. */
-    private static final byte[] REVISION_KEY = keyToRocksKey(
+    protected static final byte[] REVISION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_REVISION_KEY".getBytes(StandardCharsets.UTF_8)
     );
@@ -214,6 +214,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
     public RocksDbKeyValueStorage(String nodeName, Path dbPath) {
@@ -228,7 +229,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void start() {
         try {
             // Delete existing data, relying on the raft's snapshot and log playback
-            recreateDb();
+            destroyRocksDb();
+
+            createDb();
         } catch (RocksDBException e) {
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         }
@@ -258,9 +261,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         );
     }
 
-    private void recreateDb() throws RocksDBException {
-        destroyRocksDb();
-
+    protected void createDb() throws RocksDBException {
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
         assert descriptors.size() == 4;
@@ -324,7 +325,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
             IgniteUtils.closeAll(db, options);
 
-            recreateDb();
+            destroyRocksDb();
+
+            createDb();
 
             snapshotManager.restoreSnapshot(path);
 
@@ -1463,6 +1466,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @TestOnly
     public Path getDbPath() {
         return dbPath;
+    }
+
+    @TestOnly
+    public ColumnFamily getData() {
+        return data;
+    }
+
+    @TestOnly
+    protected void setRev(long revision) {
+        rev = revision;
     }
 
     private static class UpdatedEntries {
