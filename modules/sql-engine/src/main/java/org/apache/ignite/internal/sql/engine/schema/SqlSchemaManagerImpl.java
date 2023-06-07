@@ -32,7 +32,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -155,7 +154,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
-        return getSchemaOrDefault(schema, schemaPlus);
+        return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
     }
 
     /** {@inheritDoc} */
@@ -187,12 +186,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /** Return appropriate schema. */
-    public static @Nullable SchemaPlus getSchemaOrDefault(@Nullable String schema, SchemaPlus schemaPlus) {
-        Objects.requireNonNull(schemaPlus, "schemaPlus");
-        return schemaPlus.getSubSchema(Objects.requireNonNullElse(schema, DEFAULT_SCHEMA_NAME));
     }
 
     /** {@inheritDoc} */
