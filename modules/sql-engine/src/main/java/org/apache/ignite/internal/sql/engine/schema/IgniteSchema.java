@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * Ignite schema.
  */
 public class IgniteSchema extends AbstractSchema {
-    public static final long INITIAL_VERSION = -1;
+    static final long INITIAL_VERSION = -1;
 
     private final String schemaName;
 

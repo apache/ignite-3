@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -149,12 +150,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
-        SchemaPlus schemaPlus = calciteSchemaVv.latest();
-
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
 
-        return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
+        SchemaPlus schemaPlus = calciteSchemaVv.latest();
+
+        return getSchemaOrDefault(schema, schemaPlus);
     }
 
     /** {@inheritDoc} */
@@ -171,7 +172,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
         try {
             if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(null);
+                return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;
@@ -186,6 +187,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** Return appropriate schema. */
+    public static @Nullable SchemaPlus getSchemaOrDefault(@Nullable String schema, SchemaPlus schemaPlus) {
+        Objects.requireNonNull(schemaPlus, "schemaPlus");
+        return schemaPlus.getSubSchema(Objects.requireNonNullElse(schema, DEFAULT_SCHEMA_NAME));
     }
 
     /** {@inheritDoc} */
