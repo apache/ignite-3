@@ -80,7 +80,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<SchemaPlus> actualSchemaAsync(long ver) {
+    public CompletableFuture<?> actualSchemaAsync(long ver) {
         return CompletableFuture.completedFuture(root);
     }
 
