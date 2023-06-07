@@ -84,7 +84,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public int GetColocationHash(IIgniteTuple record, Schema schema)
         {
-            // _hash = HashUtils.Hash32((sbyte)0, _hash);
             var hash = 0;
 
             for (int index = 0; index < schema.KeyColumnCount; index++)
@@ -123,9 +122,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
                     ColumnType.Datetime => HashUtils.Hash32((LocalDateTime)val, col.Precision, hash),
                     ColumnType.Timestamp => HashUtils.Hash32((Instant)val, col.Precision, hash),
-                    ColumnType.Uuid => HashUtils.Hash32((Guid)val, hash),
-                    ColumnType.Bitmask => HashUtils.Hash32((BitArray)val, hash),
-                    ColumnType.String => HashUtils.Hash32((string)val, hash),
+                    ColumnType.Uuid => 0, // TODO
+                    ColumnType.Bitmask => 1, // TODO
+                    ColumnType.String => 2, // TODO
                     ColumnType.ByteArray => HashUtils.Hash32((byte[])val, hash),
                     ColumnType.Number => HashUtils.Hash32((BigInteger)val, hash),
                     ColumnType.Period or ColumnType.Duration => throw new NotSupportedException("Period and Duration hashing is not supported."),
