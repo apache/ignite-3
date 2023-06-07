@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toHashIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;

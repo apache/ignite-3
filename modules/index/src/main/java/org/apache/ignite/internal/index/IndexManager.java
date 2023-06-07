@@ -22,8 +22,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.index.IndexUtils.toEventIndexDescriptor;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.create;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
@@ -70,7 +70,6 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -337,7 +336,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         for (TableIndexView cfg : tablesCfg.indexes().value()) {
             if (targetTableId == null) {
-                TableView tbl = findTableView(cfg.tableId(), tablesView);
+                TableView tbl = findTableView(tablesView, cfg.tableId());
 
                 if (tbl == null || !tableName.equals(tbl.name())) {
                     continue;
@@ -352,16 +351,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         return res;
-    }
-
-    private static @Nullable TableView findTableView(int tableId, NamedListView<TableView> tablesView) {
-        for (TableView tableView : tablesView) {
-            if (tableView.id() == tableId) {
-                return tableView;
-            }
-        }
-
-        return null;
     }
 
     private void validateName(String indexName) {
@@ -438,7 +427,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         try {
             TablesView tablesView = evt.newValue(TablesView.class);
 
-            TableView tableView = findTableView(tableId, (NamedListView<TableView>) tablesView.tables());
+            TableView tableView = findTableView(tablesView.tables(), tableId);
+
+            assert tableView != null : "tableId=" + tableId + ", indexId=" + indexConfig.id();
 
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
             org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexConfig);
@@ -462,7 +453,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(catalogIndexDescriptor);
 
-        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = createIndexDescriptor(
+        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = create(
                 catalogTableDescriptor,
                 catalogIndexDescriptor
         );
@@ -607,5 +598,55 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
             return failedFuture(new IllegalStateException("Should not be called"));
         }
+    }
+
+    /**
+     * Converts a catalog index descriptor to an event index descriptor.
+     *
+     * @param descriptor Catalog index descriptor.
+     */
+    static IndexDescriptor toEventIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.IndexDescriptor descriptor) {
+        if (descriptor instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {
+            return toEventHashIndexDescriptor(((org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) descriptor));
+        }
+
+        if (descriptor instanceof org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) {
+            return toEventSortedIndexDescriptor(((org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) descriptor));
+        }
+
+        throw new IllegalArgumentException("Unknown index type: " + descriptor);
+    }
+
+    /**
+     * Converts a catalog hash index descriptor to an event hash index descriptor.
+     *
+     * @param descriptor Catalog hash index descriptor.
+     */
+    static IndexDescriptor toEventHashIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor descriptor) {
+        return new IndexDescriptor(descriptor.name(), descriptor.columns());
+    }
+
+    /**
+     * Converts a catalog sorted index descriptor to an event sorted index descriptor.
+     *
+     * @param descriptor Catalog sorted index descriptor.
+     */
+    static SortedIndexDescriptor toEventSortedIndexDescriptor(
+            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor descriptor
+    ) {
+        List<String> columns = new ArrayList<>(descriptor.columns().size());
+        List<ColumnCollation> collations = new ArrayList<>(descriptor.columns().size());
+
+        for (org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor column : descriptor.columns()) {
+            columns.add(column.name());
+
+            collations.add(toEventCollation(column.collation()));
+        }
+
+        return new SortedIndexDescriptor(descriptor.name(), columns, collations);
+    }
+
+    private static ColumnCollation toEventCollation(org.apache.ignite.internal.catalog.descriptors.ColumnCollation collation) {
+        return ColumnCollation.get(collation.asc(), collation.nullsFirst());
     }
 }

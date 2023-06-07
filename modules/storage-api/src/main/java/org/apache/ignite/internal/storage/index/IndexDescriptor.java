@@ -60,7 +60,7 @@ public interface IndexDescriptor {
      * @param table Catalog table descriptor.
      * @param index Catalog index descriptor.
      */
-    static IndexDescriptor createIndexDescriptor(
+    static IndexDescriptor create(
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.IndexDescriptor index
     ) {

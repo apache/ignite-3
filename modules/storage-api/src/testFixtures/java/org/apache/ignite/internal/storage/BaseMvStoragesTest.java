@@ -37,9 +37,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -256,19 +253,5 @@ public abstract class BaseMvStoragesTest {
         assertThat(createMvPartitionStorageFuture, willCompleteSuccessfully());
 
         return createMvPartitionStorageFuture.join();
-    }
-
-    protected static @Nullable TableView findTableView(TablesView tablesView, int tableId) {
-        return tablesView.tables().stream()
-                .filter(tableView -> tableId == tableView.id())
-                .findFirst()
-                .orElse(null);
-    }
-
-    protected static @Nullable TableIndexView findIndexView(TablesView tablesView, int indexId) {
-        return tablesView.indexes().stream()
-                .filter(indexView -> indexId == indexView.id())
-                .findFirst()
-                .orElse(null);
     }
 }

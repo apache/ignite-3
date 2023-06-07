@@ -24,7 +24,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.storage.index.IndexDescriptor.create;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -2441,14 +2442,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return;
                     }
 
-                    TableView tableView = findTableView(tableId(), ctx.newValue(TablesView.class));
+                    TableView tableView = findTableView(ctx.newValue(TablesView.class), tableId());
 
                     assert tableView != null : tableId();
 
                     org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
                     org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-                    startBuildIndex(createIndexDescriptor(catalogTableDescriptor, catalogIndexDescriptor));
+                    startBuildIndex(create(catalogTableDescriptor, catalogIndexDescriptor));
                 });
 
                 return completedFuture(null);
@@ -2534,14 +2535,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 continue;
             }
 
-            TableView tableView = findTableView(tableId(), tablesView);
+            TableView tableView = findTableView(tablesView, tableId());
 
             assert tableView != null : tableId();
 
             org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
             org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-            startBuildIndex(createIndexDescriptor(catalogTableDescriptor, catalogIndexDescriptor));
+            startBuildIndex(create(catalogTableDescriptor, catalogIndexDescriptor));
         }
     }
 
@@ -2553,12 +2554,5 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         indexBuilder.stopBuildIndexes(tableId(), partId());
-    }
-
-    private static @Nullable TableView findTableView(int tableId, TablesView tablesView) {
-        return tablesView.tables().stream()
-                .filter(tableView -> tableId == tableView.id())
-                .findFirst()
-                .orElse(null);
     }
 }

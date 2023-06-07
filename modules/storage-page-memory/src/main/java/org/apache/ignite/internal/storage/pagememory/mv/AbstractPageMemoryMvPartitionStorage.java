@@ -19,6 +19,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -1019,19 +1021,5 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return sortedIndexes.get(indexId);
         });
-    }
-
-    private static @Nullable TableIndexView findIndexView(TablesView tablesView, int indexId) {
-        return tablesView.indexes().stream()
-                .filter(tableIndexView -> indexId == tableIndexView.id())
-                .findFirst()
-                .orElse(null);
-    }
-
-    private static @Nullable TableView findTableView(TablesView tablesView, int tableId) {
-        return tablesView.tables().stream()
-                .filter(tableView -> tableId == tableView.id())
-                .findFirst()
-                .orElse(null);
     }
 }
