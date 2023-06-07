@@ -121,12 +121,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
                     ColumnType.Datetime => HashUtils.Hash32((LocalDateTime)val, col.Precision, hash),
                     ColumnType.Timestamp => HashUtils.Hash32((Instant)val, col.Precision, hash),
-                    ColumnType.Uuid => 0, // TODO
+                    ColumnType.Uuid => HashUtils.Hash32((Guid)val, hash),
                     ColumnType.Bitmask => 1, // TODO
                     ColumnType.String => 2, // TODO
                     ColumnType.ByteArray => HashUtils.Hash32((byte[])val, hash),
                     ColumnType.Number => HashUtils.Hash32((BigInteger)val, hash),
-                    ColumnType.Period or ColumnType.Duration => throw new NotSupportedException("Period and Duration hashing is not supported."),
+                    ColumnType.Period or ColumnType.Duration => throw new NotSupportedException(
+                        "Period and Duration hashing is not supported."),
                     _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown column type")
                 };
             }

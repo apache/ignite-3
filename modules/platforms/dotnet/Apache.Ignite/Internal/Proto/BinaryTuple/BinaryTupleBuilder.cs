@@ -481,8 +481,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 if (ShouldHash())
                 {
-                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[..8]), _hash);
-                    _hash = HashUtils.Hash32(BinaryPrimitives.ReadInt64LittleEndian(span[8..]), _hash);
+                    var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
+                    var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
+
+                    _hash = HashUtils.Hash32(hi, HashUtils.Hash32(lo, _hash));
                 }
             }
             else

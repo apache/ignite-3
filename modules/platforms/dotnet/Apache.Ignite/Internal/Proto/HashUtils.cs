@@ -160,6 +160,28 @@ internal static class HashUtils
         return Hash32((long)nanos, Hash32(seconds, seed));
     }
 
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Guid data, int seed)
+    {
+        if (data == default)
+        {
+            return Hash32(0L, Hash32(0L, seed));
+        }
+
+        Span<byte> span = stackalloc byte[16];
+        UuidSerializer.Write(data, span);
+
+        var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
+        var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
+
+        return Hash32(hi, Hash32(lo, seed));
+    }
+
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
         var hash64 = Hash64Internal(data, seed, byteCount);
