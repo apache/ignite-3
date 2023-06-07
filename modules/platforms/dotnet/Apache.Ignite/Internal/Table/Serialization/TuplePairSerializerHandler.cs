@@ -84,4 +84,10 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             }
         }
     }
+
+    /// <inheritdoc/>
+    public int GetColocationHash(KvPair<IIgniteTuple, IIgniteTuple> record, Schema schema)
+    {
+        throw new NotImplementedException();
+    }
 }
