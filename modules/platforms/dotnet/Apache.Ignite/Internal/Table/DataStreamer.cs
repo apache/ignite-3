@@ -101,7 +101,7 @@ internal static class DataStreamer
 
         (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[]? partitionAssignment)
         {
-            var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count);
+            var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
 
             try
             {
