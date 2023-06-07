@@ -70,6 +70,14 @@ namespace Apache.Ignite.Internal.Buffers
         private int FreeCapacity => _buffer.Length - _index;
 
         /// <summary>
+        /// Clears the buffer.
+        /// </summary>
+        public void Clear()
+        {
+            _index = _prefixSize;
+        }
+
+        /// <summary>
         /// Gets the written memory, including prefix, if any.
         /// </summary>
         /// <returns>Written array.</returns>

@@ -25,6 +25,7 @@ using Buffers;
 using Common;
 using Ignite.Table;
 using Proto;
+using Proto.BinaryTuple;
 
 /// <summary>
 /// Data streamer.
@@ -32,21 +33,31 @@ using Proto;
 internal static class DataStreamer
 {
     /// <summary>
+    /// Write action delegate.
+    /// </summary>
+    /// <param name="item">Item.</param>
+    /// <param name="builder">Builder.</param>
+    /// <typeparam name="T">Item type.</typeparam>
+    public delegate void WriteAction<in T>(T item, ref BinaryTupleBuilder builder);
+
+    /// <summary>
     /// Streams the data.
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="sender">Batch sender.</param>
-    /// <param name="partitioner">Partitioner.</param>
+    /// <param name="writer">Item writer.</param>
+    /// <param name="schemaProvider">Schema provider.</param>
+    /// <param name="partitionAssignmentProvider">Partitioner.</param>
     /// <param name="options">Options.</param>
     /// <typeparam name="T">Element type.</typeparam>
-    /// <typeparam name="TPartition">Partition type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    internal static async Task StreamDataAsync<T, TPartition>(
+    internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<IList<T>, TPartition, Task> sender,
-        Func<T, ValueTask<TPartition>> partitioner,
+        Func<IList<T>, string, Task> sender,
+        WriteAction<T> writer,
+        Func<Task<Schema>> schemaProvider,
+        Func<ValueTask<string[]>> partitionAssignmentProvider,
         DataStreamerOptions options)
-        where TPartition : notnull
     {
         IgniteArgumentCheck.NotNull(data);
 
@@ -55,25 +66,17 @@ internal static class DataStreamer
             options.PerNodeParallelOperations > 0,
             $"{nameof(options.PerNodeParallelOperations)} should be positive.");
 
-        var batches = new Dictionary<TPartition, Batch<T>>();
+        var batches = new Dictionary<string, Batch<T>>();
 
         try
         {
             await foreach (var item in data)
             {
-                var partition = await partitioner(item).ConfigureAwait(false);
+                // TODO: Don't call schemaProvider/partitionAssignmentProvider for each item.
+                var schema = await schemaProvider().ConfigureAwait(false);
+                var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
 
-                if (!batches.TryGetValue(partition, out var batch))
-                {
-                    batch = new Batch<T>
-                    {
-                        // TODO: Pooled buffers.
-                        Items = new List<T>(options.BatchSize),
-                        Buffer = ProtoCommon.GetMessageWriter()
-                    };
-
-                    batches.Add(partition, batch);
-                }
+                var (batch, partition) = AddItem(item, schema, partitionAssignment);
 
                 batch.Items.Add(item);
 
@@ -83,6 +86,7 @@ internal static class DataStreamer
                     await sender(batch.Items, partition).ConfigureAwait(false);
 
                     batch.Items.Clear();
+                    batch.Buffer.Clear();
                 }
             }
 
@@ -101,6 +105,33 @@ internal static class DataStreamer
                 batch.Buffer.Dispose();
             }
         }
+
+        (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[] partitionAssignment)
+        {
+            // TODO: Dispose.
+            var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumnCount);
+            writer(item, ref tupleBuilder);
+            var hash = tupleBuilder.Hash;
+            var partition = partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
+
+            if (!batches.TryGetValue(partition, out var batch))
+            {
+                batch = new Batch<T>
+                {
+                    Items = new List<T>(options.BatchSize), // TODO: Pooled buffers.
+                    Buffer = ProtoCommon.GetMessageWriter(),
+                    Schema = schema
+                };
+
+                // TODO: Write buffer header (schema, count placeholder).
+                batches.Add(partition, batch);
+            }
+
+            // TODO: Write to buffer from tupleBuilder.
+            batch.Items.Add(item);
+
+            return (batch, partition);
+        }
     }
 
     [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Private class.")]
@@ -108,8 +139,10 @@ internal static class DataStreamer
     [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Private class.")]
     private sealed class Batch<T>
     {
-        public List<T> Items = null!;
+        public List<T> Items { get; init; } = null!;
 
-        public PooledArrayBuffer Buffer = null!;
+        public PooledArrayBuffer Buffer { get; init; } = null!;
+
+        public Schema Schema { get; init; } = null!;
     }
 }
