@@ -255,6 +255,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
+        // TODO: Test IRecordSerializerHandler.GetColocationHash here as well.
         var (bytes, clientHash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
         var clientHash2 = WriteAsIgniteTuple(keys, timePrecision, timestampPrecision);
 
