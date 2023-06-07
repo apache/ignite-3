@@ -337,7 +337,7 @@ namespace Apache.Ignite.Internal.Table
                     using var enumerator = batch.GetEnumerator();
                     enumerator.MoveNext();
 
-                    // TODO: Use cached serialized data? Not sure, might be easier to compute hash for key part only?
+                    // TODO: Use cached serialized buffer.
                     _ser.WriteMultiple(writer, tx: null, schema, enumerator, skipHash: true);
 
                     // TODO: Override retry policy with streamer-specific one.
