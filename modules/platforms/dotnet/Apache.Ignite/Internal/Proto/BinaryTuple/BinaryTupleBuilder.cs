@@ -22,7 +22,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Collections;
     using System.Diagnostics;
     using System.Numerics;
-    using System.Runtime.InteropServices;
     using Buffers;
     using Ignite.Sql;
     using NodaTime;

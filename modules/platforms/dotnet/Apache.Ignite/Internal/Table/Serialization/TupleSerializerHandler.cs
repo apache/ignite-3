@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
-    using System.Collections;
     using System.Numerics;
     using Ignite.Sql;
     using Ignite.Table;
