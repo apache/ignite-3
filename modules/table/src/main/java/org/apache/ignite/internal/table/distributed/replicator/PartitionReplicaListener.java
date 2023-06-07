@@ -25,7 +25,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.create;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -61,6 +60,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
@@ -2446,10 +2446,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     assert tableView != null : tableId();
 
-                    org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                    TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
                     org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-                    startBuildIndex(create(catalogTableDescriptor, catalogIndexDescriptor));
+                    startBuildIndex(IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
                 });
 
                 return completedFuture(null);
@@ -2539,10 +2539,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             assert tableView != null : tableId();
 
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+            TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
             org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-            startBuildIndex(create(catalogTableDescriptor, catalogIndexDescriptor));
+            startBuildIndex(IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
         }
     }
 

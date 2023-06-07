@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
 
 /**
@@ -61,7 +62,7 @@ public interface IndexDescriptor {
      * @param index Catalog index descriptor.
      */
     static IndexDescriptor create(
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
+            TableDescriptor table,
             org.apache.ignite.internal.catalog.descriptors.IndexDescriptor index
     ) {
         if (index instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {

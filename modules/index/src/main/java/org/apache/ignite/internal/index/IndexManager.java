@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.create;
 import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
@@ -37,6 +36,8 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -431,10 +432,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             assert tableView != null : "tableId=" + tableId + ", indexId=" + indexConfig.id();
 
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexConfig);
+            TableDescriptor tableDescriptor = toTableDescriptor(tableView);
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor indexDescriptor = toIndexDescriptor(indexConfig);
 
-            return createIndexLocally(evt.storageRevision(), catalogTableDescriptor, catalogIndexDescriptor);
+            return createIndexLocally(evt.storageRevision(), tableDescriptor, indexDescriptor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -442,21 +443,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<?> createIndexLocally(
             long causalityToken,
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor catalogTableDescriptor,
-            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor
+            TableDescriptor tableDescriptor,
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor indexDescriptor
     ) {
-        int tableId = catalogTableDescriptor.id();
-        int indexId = catalogIndexDescriptor.id();
+        int tableId = tableDescriptor.id();
+        int indexId = indexDescriptor.id();
 
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
-                catalogIndexDescriptor.name(), indexId, tableId, causalityToken);
+                indexDescriptor.name(), indexId, tableId, causalityToken);
 
-        IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(catalogIndexDescriptor);
+        IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(indexDescriptor);
 
-        org.apache.ignite.internal.storage.index.IndexDescriptor storageIndexDescriptor = create(
-                catalogTableDescriptor,
-                catalogIndexDescriptor
-        );
+        var storageIndexDescriptor = org.apache.ignite.internal.storage.index.IndexDescriptor.create(tableDescriptor, indexDescriptor);
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
@@ -477,7 +475,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         tableRowConverter::convert
                 );
             } else {
-                boolean unique = catalogIndexDescriptor.unique();
+                boolean unique = indexDescriptor.unique();
 
                 table.registerHashIndex(
                         (HashIndexDescriptor) storageIndexDescriptor,
@@ -605,7 +603,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param descriptor Catalog index descriptor.
      */
-    static IndexDescriptor toEventIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.IndexDescriptor descriptor) {
+    private static IndexDescriptor toEventIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.IndexDescriptor descriptor) {
         if (descriptor instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {
             return toEventHashIndexDescriptor(((org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) descriptor));
         }
@@ -622,7 +620,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param descriptor Catalog hash index descriptor.
      */
-    static IndexDescriptor toEventHashIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor descriptor) {
+    private static IndexDescriptor toEventHashIndexDescriptor(
+            org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor descriptor
+    ) {
         return new IndexDescriptor(descriptor.name(), descriptor.columns());
     }
 
@@ -631,13 +631,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param descriptor Catalog sorted index descriptor.
      */
-    static SortedIndexDescriptor toEventSortedIndexDescriptor(
+    private static SortedIndexDescriptor toEventSortedIndexDescriptor(
             org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor descriptor
     ) {
         List<String> columns = new ArrayList<>(descriptor.columns().size());
         List<ColumnCollation> collations = new ArrayList<>(descriptor.columns().size());
 
-        for (org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor column : descriptor.columns()) {
+        for (IndexColumnDescriptor column : descriptor.columns()) {
             columns.add(column.name());
 
             collations.add(toEventCollation(column.collation()));

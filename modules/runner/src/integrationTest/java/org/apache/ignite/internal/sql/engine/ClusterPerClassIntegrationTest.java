@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.create;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -526,7 +525,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(
                         partitionId,
-                        create(catalogTableDescriptor, catalogIndexDescriptor)
+                        org.apache.ignite.internal.storage.index.IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
                 );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
