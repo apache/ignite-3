@@ -28,7 +28,6 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Transactions;
     using Linq;
     using Proto;
-    using Proto.BinaryTuple;
     using Serialization;
     using Sql;
     using Transactions;
@@ -459,22 +458,6 @@ namespace Apache.Ignite.Internal.Table
             var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
             return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
-        }
-
-        private async ValueTask<PreferredNode> GetPreferredNode(T record)
-        {
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-
-            // TODO: Cache resulting serialized row? We'll have to write to a separate buffer, which will cause a lot of allocations?
-            // Should this buffer come from the pool? Probably yes.
-            using var writer = ProtoCommon.GetMessageWriter();
-
-            // TODO: A lot of overhead below for table id, tuple builder, etc.
-            // Should we have dedicated logic to compute hash without serializing the whole row?
-            var colocationHash = _ser.Write(writer, null, schema, record, keyOnly: true);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
-
-            return preferredNode;
         }
     }
 }

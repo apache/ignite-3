@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
@@ -109,7 +110,10 @@ internal static class DataStreamer
             // writer(item, schema, ref tupleBuilder);
             var columnCount = schema.Columns.Count;
             Span<byte> noValueSet = stackalloc byte[columnCount];
-            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSet);
+
+            // TODO: ???
+            Span<byte> noValueSetUnsafeRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
+            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetUnsafeRef);
 
             var hash = tupleBuilder.Hash;
             var partition = partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
