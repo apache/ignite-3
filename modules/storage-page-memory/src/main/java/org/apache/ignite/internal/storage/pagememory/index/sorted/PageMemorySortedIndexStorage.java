@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.nio.ByteBuffer;
-import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -50,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of Sorted index storage using Page Memory.
  */
-public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage implements SortedIndexStorage {
+public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow> implements SortedIndexStorage {
     private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
 
     /** Index descriptor. */
@@ -91,15 +91,19 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            try {
-                SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
+            SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
-                SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
+            return new ScanCursor<RowId>(lowerBound, sortedIndexTree) {
+                @Override
+                protected RowId map(SortedIndexRow value) {
+                    return value.rowId();
+                }
 
-                return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to create scan cursor", e);
-            }
+                @Override
+                protected boolean halt(SortedIndexRow value) {
+                    return !Objects.equals(value.indexColumns().valueBuffer(), key.byteBuffer());
+                }
+            };
         });
     }
 
@@ -154,7 +158,20 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
-            return new ScanCursor(lower, upper);
+            return new ScanCursor<IndexRow>(lower, sortedIndexTree) {
+                @Override
+                public IndexRow map(SortedIndexRow value) {
+                    return toIndexRowImpl(value);
+                }
+
+                @Override
+                protected boolean halt(SortedIndexRow value) {
+                    return upper != null && 0 <= sortedIndexTree.getBinaryTupleComparator().compare(
+                            value.indexColumns().valueBuffer(),
+                            upper.indexColumns().valueBuffer()
+                    );
+                }
+            };
         });
     }
 
@@ -222,116 +239,6 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 });
             }
         };
-    }
-
-    /** Constant that represents the absence of value in {@link ScanCursor}. */
-    private static final SortedIndexRow NO_INDEX_ROW = new SortedIndexRow(null, null);
-
-    private class ScanCursor implements PeekCursor<IndexRow> {
-        @Nullable
-        private Boolean hasNext;
-
-        @Nullable
-        private final SortedIndexRowKey lower;
-
-        @Nullable
-        private final SortedIndexRowKey upper;
-
-        @Nullable
-        private SortedIndexRow treeRow;
-
-        @Nullable
-        private SortedIndexRow peekedRow = NO_INDEX_ROW;
-
-        private ScanCursor(@Nullable SortedIndexRowKey lower, @Nullable SortedIndexRowKey upper) {
-            this.lower = lower;
-            this.upper = upper;
-        }
-
-        @Override
-        public void close() {
-            // No-op.
-        }
-
-        @Override
-        public boolean hasNext() {
-            return busy(() -> {
-                try {
-                    return advanceIfNeeded();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error while advancing the cursor", e);
-                }
-            });
-        }
-
-        @Override
-        public IndexRow next() {
-            return busy(() -> {
-                try {
-                    if (!advanceIfNeeded()) {
-                        throw new NoSuchElementException();
-                    }
-
-                    this.hasNext = null;
-
-                    return toIndexRowImpl(treeRow);
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error while advancing the cursor", e);
-                }
-            });
-        }
-
-        @Override
-        public @Nullable IndexRow peek() {
-            return busy(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
-                try {
-                    return toIndexRowImpl(peekBusy());
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error when peeking next element", e);
-                }
-            });
-        }
-
-        private @Nullable SortedIndexRow peekBusy() throws IgniteInternalCheckedException {
-            if (hasNext != null) {
-                return treeRow;
-            }
-
-            if (treeRow == null) {
-                peekedRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
-            } else {
-                peekedRow = sortedIndexTree.findNext(treeRow, false);
-            }
-
-            if (peekedRow == null || (upper != null && compareRows(peekedRow, upper) >= 0)) {
-                peekedRow = null;
-            }
-
-            return peekedRow;
-        }
-
-        private boolean advanceIfNeeded() throws IgniteInternalCheckedException {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
-
-            if (hasNext != null) {
-                return hasNext;
-            }
-
-            treeRow = (peekedRow == NO_INDEX_ROW) ? peekBusy() : peekedRow;
-            peekedRow = NO_INDEX_ROW;
-
-            hasNext = treeRow != null;
-            return hasNext;
-        }
-
-        private int compareRows(SortedIndexRowKey key1, SortedIndexRowKey key2) {
-            return sortedIndexTree.getBinaryTupleComparator().compare(
-                    key1.indexColumns().valueBuffer(),
-                    key2.indexColumns().valueBuffer()
-            );
-        }
     }
 
     /**

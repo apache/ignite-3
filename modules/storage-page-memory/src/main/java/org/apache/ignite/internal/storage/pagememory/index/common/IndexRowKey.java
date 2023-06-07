@@ -15,28 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.sorted;
+package org.apache.ignite.internal.storage.pagememory.index.common;
 
-import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 
 /**
- * Key to search for a {@link SortedIndexRow} in the {@link SortedIndexTree}.
+ * Common interface for search keys in index trees.
  */
-public class SortedIndexRowKey implements IndexRowKey {
-    private final IndexColumns indexColumns;
-
+@FunctionalInterface
+public interface IndexRowKey {
     /**
-     * Constructor.
-     *
-     * @param indexColumns Index columns.
+     * Returns an indexed columns value.
      */
-    SortedIndexRowKey(IndexColumns indexColumns) {
-        this.indexColumns = indexColumns;
-    }
-
-    @Override
-    public IndexColumns indexColumns() {
-        return indexColumns;
-    }
+    IndexColumns indexColumns();
 }

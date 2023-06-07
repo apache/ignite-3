@@ -17,22 +17,35 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -201,4 +214,125 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * @throws RocksDBException If failed to delete data.
      */
     abstract void destroyData(WriteBatch writeBatch) throws RocksDBException;
+
+    /**
+     * Cursor that always return up-to-date next element.
+     */
+    protected final class UpToDatePeekCursor<T> implements PeekCursor<T> {
+        private final Slice upperBoundSlice;
+        private final byte[] lowerBound;
+
+        private final ReadOptions options;
+        private final RocksIterator it;
+        private final Function<ByteBuffer, T> mapper;
+
+        @Nullable
+        private Boolean hasNext;
+
+        private byte @Nullable [] key;
+
+        private byte @Nullable [] peekedKey = BYTE_EMPTY_ARRAY;
+
+        UpToDatePeekCursor(byte[] upperBound, ColumnFamily indexCf, Function<ByteBuffer, T> mapper, byte[] lowerBound) {
+            this.lowerBound = lowerBound;
+            upperBoundSlice = new Slice(upperBound);
+            options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
+            it = indexCf.newIterator(options);
+
+            this.mapper = mapper;
+        }
+
+        @Override
+        public void close() {
+            try {
+                closeAll(it, options, upperBoundSlice);
+            } catch (Exception e) {
+                throw new StorageException("Error closing cursor", e);
+            }
+        }
+
+        @Override
+        public boolean hasNext() {
+            return busy(this::advanceIfNeeded);
+        }
+
+        @Override
+        public T next() {
+            return busy(() -> {
+                if (!advanceIfNeeded()) {
+                    throw new NoSuchElementException();
+                }
+
+                this.hasNext = null;
+
+                return mapper.apply(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
+            });
+        }
+
+        @Override
+        public @Nullable T peek() {
+            return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
+
+                byte[] res = peek0();
+
+                if (res == null) {
+                    return null;
+                } else {
+                    return mapper.apply(ByteBuffer.wrap(res).order(KEY_BYTE_ORDER));
+                }
+            });
+        }
+
+        private byte @Nullable [] peek0() {
+            if (hasNext != null) {
+                return key;
+            }
+
+            refreshAndPrepareRocksIterator();
+
+            if (!it.isValid()) {
+                RocksUtils.checkIterator(it);
+
+                peekedKey = null;
+            } else {
+                peekedKey = it.key();
+            }
+
+            return peekedKey;
+        }
+
+        private boolean advanceIfNeeded() throws StorageException {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
+
+            //noinspection ArrayEquality
+            key = (peekedKey == BYTE_EMPTY_ARRAY) ? peek0() : peekedKey;
+            peekedKey = BYTE_EMPTY_ARRAY;
+
+            hasNext = key != null;
+            return hasNext;
+        }
+
+        private void refreshAndPrepareRocksIterator() {
+            try {
+                it.refresh();
+            } catch (RocksDBException e) {
+                throw new StorageException("Error refreshing an iterator", e);
+            }
+
+            if (key == null) {
+                it.seek(lowerBound);
+            } else {
+                it.seekForPrev(key);
+
+                if (it.isValid()) {
+                    it.next();
+                } else {
+                    RocksUtils.checkIterator(it);
+
+                    it.seek(lowerBound);
+                }
+            }
+        }
+    }
 }
