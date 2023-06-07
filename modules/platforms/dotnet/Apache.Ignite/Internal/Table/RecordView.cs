@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Transactions;
     using Linq;
     using Proto;
+    using Proto.BinaryTuple;
     using Serialization;
     using Sql;
     using Transactions;
@@ -341,9 +342,11 @@ namespace Apache.Ignite.Internal.Table
                     _ser.WriteMultiple(writer, tx: null, schema, enumerator, skipHash: true);
 
                     // TODO: Override retry policy with streamer-specific one.
-                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, preferredNode).ConfigureAwait(false);
+                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, PreferredNode.FromName(preferredNode)).ConfigureAwait(false);
                 },
-                partitioner: item => GetPreferredNode(item),
+                writer: _ser.Handler,
+                schemaProvider: null!,
+                partitionAssignmentProvider: null!,
                 options ?? DataStreamerOptions.Default).ConfigureAwait(false);
         }
 

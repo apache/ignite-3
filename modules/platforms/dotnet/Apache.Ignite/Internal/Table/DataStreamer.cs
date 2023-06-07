@@ -26,20 +26,13 @@ using Common;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
+using Serialization;
 
 /// <summary>
 /// Data streamer.
 /// </summary>
 internal static class DataStreamer
 {
-    /// <summary>
-    /// Write action delegate.
-    /// </summary>
-    /// <param name="item">Item.</param>
-    /// <param name="builder">Builder.</param>
-    /// <typeparam name="T">Item type.</typeparam>
-    public delegate void WriteAction<in T>(T item, ref BinaryTupleBuilder builder);
-
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -54,7 +47,7 @@ internal static class DataStreamer
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
         Func<IList<T>, string, Task> sender,
-        WriteAction<T> writer,
+        IRecordSerializerHandler<T> writer,
         Func<Task<Schema>> schemaProvider,
         Func<ValueTask<string[]>> partitionAssignmentProvider,
         DataStreamerOptions options)
@@ -110,7 +103,14 @@ internal static class DataStreamer
         {
             // TODO: Dispose.
             var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumnCount);
-            writer(item, ref tupleBuilder);
+
+            // TODO: Entire batch must use the same schema.
+            // Should we fix the schema for the entire streamer? Should be possible.
+            // writer(item, schema, ref tupleBuilder);
+            var columnCount = schema.Columns.Count;
+            Span<byte> noValueSet = stackalloc byte[columnCount];
+            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSet);
+
             var hash = tupleBuilder.Hash;
             var partition = partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
 
