@@ -66,7 +66,6 @@ internal static class DataStreamer
         {
             await foreach (var item in data)
             {
-                // TODO: Don't call schemaProvider/partitionAssignmentProvider for each item.
                 var schema = await schemaProvider().ConfigureAwait(false);
                 var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
 
@@ -102,41 +101,53 @@ internal static class DataStreamer
 
         (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[]? partitionAssignment)
         {
-            // TODO: Dispose.
             var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count);
 
-            // TODO: Entire batch must use the same schema.
-            // Should we fix the schema for the entire streamer? Should be possible.
-            // writer(item, schema, ref tupleBuilder);
-            var columnCount = schema.Columns.Count;
-            Span<byte> noValueSet = stackalloc byte[columnCount];
-
-            // TODO: ???
-            Span<byte> noValueSetUnsafeRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
-            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetUnsafeRef);
-
-            var hash = tupleBuilder.Hash;
-            var partition = partitionAssignment == null
-                ? string.Empty // Default connection.
-                : partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
-
-            if (!batches.TryGetValue(partition, out var batch))
+            try
             {
-                batch = new Batch<T>
+                var columnCount = schema.Columns.Count;
+                Span<byte> noValueSet = stackalloc byte[columnCount];
+
+                // TODO: ???
+                Span<byte> noValueSetUnsafeRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
+                writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetUnsafeRef);
+
+                var hash = tupleBuilder.Hash;
+                var partition = partitionAssignment == null
+                    ? string.Empty // Default connection.
+                    : partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
+
+                if (!batches.TryGetValue(partition, out var batch))
                 {
-                    Items = new List<T>(options.BatchSize), // TODO: Pooled buffers.
-                    Buffer = ProtoCommon.GetMessageWriter(),
-                    Schema = schema
-                };
+                    batch = new Batch<T>
+                    {
+                        Items = new List<T>(options.BatchSize), // TODO: Pooled buffers.
+                        Buffer = ProtoCommon.GetMessageWriter(),
+                        Schema = schema
+                    };
 
-                // TODO: Write buffer header (schema, count placeholder).
-                batches.Add(partition, batch);
+                    // TODO: Write buffer header: tableId, tx, schemaVer, count.
+                    batches.Add(partition, batch);
+                }
+
+                batch.Items.Add(item);
+
+                noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
+                batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+
+                if (batch.Schema != schema)
+                {
+                    // TODO: Support schema change during streaming? Separate ticket?
+                    // We should re-serialize the buffer in this case.
+                    throw new NotSupportedException("Schema change is not supported.");
+                }
+
+                return (batch, partition);
             }
-
-            // TODO: Write to buffer from tupleBuilder.
-            batch.Items.Add(item);
-
-            return (batch, partition);
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
         }
     }
 
