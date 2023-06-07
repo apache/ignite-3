@@ -328,7 +328,7 @@ namespace Apache.Ignite.Internal.Table
         {
             await DataStreamer.StreamDataAsync(
                 data,
-                async (batch, preferredNode) =>
+                sender: async (batch, preferredNode) =>
                 {
                     IgniteArgumentCheck.NotNull((IEnumerable<T>)batch, nameof(batch));
 
@@ -343,7 +343,7 @@ namespace Apache.Ignite.Internal.Table
                     // TODO: Override retry policy with streamer-specific one.
                     using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, preferredNode).ConfigureAwait(false);
                 },
-                item => GetPreferredNode(item),
+                partitioner: item => GetPreferredNode(item),
                 options ?? DataStreamerOptions.Default).ConfigureAwait(false);
         }
 

@@ -21,8 +21,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using Buffers;
 using Common;
 using Ignite.Table;
+using Proto;
 
 /// <summary>
 /// Data streamer.
@@ -53,40 +55,50 @@ internal static class DataStreamer
             options.PerNodeParallelOperations > 0,
             $"{nameof(options.PerNodeParallelOperations)} should be positive.");
 
-        // TODO: Validate options?
         var batches = new Dictionary<TPartition, Batch<T>>();
 
-        await foreach (var item in data)
+        try
         {
-            var partition = await partitioner(item).ConfigureAwait(false);
-
-            if (!batches.TryGetValue(partition, out var batch))
+            await foreach (var item in data)
             {
-                batch = new Batch<T>
-                {
-                    // TODO: Pooled buffers.
-                    Buf = new List<T>(options.BatchSize)
-                };
+                var partition = await partitioner(item).ConfigureAwait(false);
 
-                batches.Add(partition, batch);
+                if (!batches.TryGetValue(partition, out var batch))
+                {
+                    batch = new Batch<T>
+                    {
+                        // TODO: Pooled buffers.
+                        Items = new List<T>(options.BatchSize),
+                        Buffer = ProtoCommon.GetMessageWriter()
+                    };
+
+                    batches.Add(partition, batch);
+                }
+
+                batch.Items.Add(item);
+
+                if (batch.Items.Count >= options.BatchSize)
+                {
+                    // TODO: Allow adding items to another buffer while sending previous.
+                    await sender(batch.Items, partition).ConfigureAwait(false);
+
+                    batch.Items.Clear();
+                }
             }
 
-            batch.Buf.Add(item);
-
-            if (batch.Buf.Count >= options.BatchSize)
+            foreach (var (partition, batch) in batches)
             {
-                // TODO: Allow adding items to another buffer while sending previous.
-                await sender(batch.Buf, partition).ConfigureAwait(false);
-
-                batch.Buf.Clear();
+                if (batch.Items.Count > 0)
+                {
+                    await sender(batch.Items, partition).ConfigureAwait(false);
+                }
             }
         }
-
-        foreach (var (partition, batch) in batches)
+        finally
         {
-            if (batch.Buf.Count > 0)
+            foreach (var batch in batches.Values)
             {
-                await sender(batch.Buf, partition).ConfigureAwait(false);
+                batch.Buffer.Dispose();
             }
         }
     }
@@ -94,8 +106,10 @@ internal static class DataStreamer
     [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Private class.")]
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private class.")]
     [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Private class.")]
-    private class Batch<T>
+    private sealed class Batch<T>
     {
-        public List<T> Buf = null!;
+        public List<T> Items = null!;
+
+        public PooledArrayBuffer Buffer = null!;
     }
 }
