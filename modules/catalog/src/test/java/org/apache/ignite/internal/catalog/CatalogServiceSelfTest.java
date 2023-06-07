@@ -38,11 +38,18 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -85,9 +92,14 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
+import org.hamcrest.TypeSafeMatcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -491,6 +503,390 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
     }
 
+    /**
+     * Checks for possible changes to the default value of a column descriptor.
+     *
+     * <p>Set/drop default value allowed for any column.
+     */
+    @Test
+    public void testAlterColumnDefault() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NULL-> NULL : No-op.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NULL -> 1 : Ok.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(1)),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // 1 -> 1 : No-op.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(1)),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 1 -> 2 : Ok.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(2)),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // 2 -> NULL : Ok.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
+                willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+    }
+
+    /**
+     * Checks for possible changes of the nullable flag of a column descriptor.
+     *
+     * <ul>
+     *  <li>{@code DROP NOT NULL} is allowed on any non-PK column.
+     *  <li>{@code SET NOT NULL} is forbidden.
+     * </ul>
+     */
+    @Test
+    public void testAlterColumnNotNull() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NULLABLE -> NULLABLE : No-op.
+        // NOT NULL -> NOT NULL : No-op.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, false, null), willBe((Object) null));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, true, null), willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // NOT NULL -> NULlABLE : Ok.
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, false, null), willBe((Object) null));
+        assertNotNull(service.schema(++schemaVer));
+
+        // DROP NOT NULL for PK : Error.
+        assertThat(changeColumn(TABLE_NAME, "ID", null, false, null),
+                willThrowFast(SqlException.class, "Cannot change NOT NULL for the primary key column 'ID'."));
+
+        // NULlABLE -> NOT NULL : Error.
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, true, null),
+                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'."));
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, true, null),
+                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL_NOT_NULL'."));
+
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    /**
+     * Checks for possible changes of the precision of a column descriptor.
+     *
+     * <ul>
+     *  <li>Increasing precision is allowed for non-PK {@link ColumnType#DECIMAL} column.</li>
+     *  <li>Decreasing precision is forbidden.</li>
+     * </ul>
+     */
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"DECIMAL"}, mode = Mode.INCLUDE)
+    public void testAlterColumnTypePrecision(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // ANY-> UNDEFINED PRECISION : No-op.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // UNDEFINED PRECISION -> 10 : Ok.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
+                willBe((Object) null)
+        );
+        assertNotNull(service.schema(++schemaVer));
+
+        // 10 -> 11 : Ok.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null, null), null, null),
+                willBe((Object) null)
+        );
+
+        SchemaDescriptor schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+
+        TableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
+
+        assertNotSame(desc.length(), desc.precision());
+        assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
+
+        // 11 -> 10 : Error.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot decrease precision to 10 for column '" + col.name() + "'.")
+        );
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL"}, mode = Mode.EXCLUDE)
+    public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
+        ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(10).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 10, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 10, null, null), null, null),
+                willBe((Object) null));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 9, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 11, null, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    /**
+     * Checks for possible changes of the length of a column descriptor.
+     *
+     * <ul>
+     *  <li>Increasing length is allowed for non-PK {@link ColumnType#STRING} and {@link ColumnType#BYTE_ARRAY} column.</li>
+     *  <li>Decreasing length is forbidden.</li>
+     * </ul>
+     */
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
+    public void testAlterColumnTypeLength(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // ANY-> UNDEFINED LENGTH : No-op.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // UNDEFINED LENGTH -> 10 : Ok.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
+                willBe((Object) null)
+        );
+        assertNotNull(service.schema(++schemaVer));
+
+        // 10 -> 11 : Ok.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 11, null), null, null),
+                willBe((Object) null)
+        );
+
+        SchemaDescriptor schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+
+        TableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
+
+        assertNotSame(desc.length(), desc.precision());
+        assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
+
+        // 11 -> 10 : Error.
+        assertThat(
+                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
+                willThrowFast(SqlException.class, "Cannot decrease length to 10 for column '" + col.name() + "'.")
+        );
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"NULL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
+    public void testAlterColumnTypeAnyLengthChangeIsRejected(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
+        ColumnParams colWithLength = ColumnParams.builder().name("COL_PRECISION").type(type).length(10).build();
+
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithLength))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change length for column '" + col.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
+                willBe((Object) null));
+
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 9, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change length for column '" + colWithLength.name() + "'"));
+
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 11, null), null, null),
+                willThrowFast(SqlException.class, "Cannot change length for column '" + colWithLength.name() + "'"));
+
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
+        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
+        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).scale(3).build();
+        assertThat(service.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        // ANY-> UNDEFINED SCALE : No-op.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type()), null, null),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 3 -> 3 : No-op.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 3), null, null),
+                willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 3 -> 4 : Error.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 4), null, null),
+                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
+        assertNull(service.schema(schemaVer + 1));
+
+        // 3 -> 2 : Error.
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 2), null, null),
+                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    /**
+     * Checks for possible changes of the type of a column descriptor.
+     *
+     * <p>The following transitions are allowed for non-PK columns:
+     * <ul>
+     *     <li>INT8 -> INT16 -> INT32 -> INT64</li>
+     *     <li>FLOAT -> DOUBLE</li>
+     * </ul>
+     * All other transitions are forbidden.
+     */
+    @ParameterizedTest(name = "set data type {0}")
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testAlterColumnType(ColumnType target) {
+        EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
+        types.remove(ColumnType.NULL);
+
+        List<ColumnParams> testColumns = types.stream()
+                .map(t -> ColumnParams.builder().name("COL_" + t).type(t).build())
+                .collect(Collectors.toList());
+
+        List<ColumnParams> tableColumns = new ArrayList<>(List.of(ColumnParams.builder().name("ID").type(ColumnType.INT32).build()));
+        tableColumns.addAll(testColumns);
+
+        CreateTableParams createTableParams = simpleTable(TABLE_NAME, tableColumns);
+
+        assertThat(service.createTable(createTableParams), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        for (ColumnParams col : testColumns) {
+            TypeSafeMatcher<CompletableFuture<?>> matcher;
+            boolean sameType = col.type() == target;
+
+            if (sameType || CatalogUtils.isSupportedColumnTypeChange(col.type(), target)) {
+                matcher = willBe((Object) null);
+                schemaVer += sameType ? 0 : 1;
+            } else {
+                matcher = willThrowFast(SqlException.class,
+                        "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
+            }
+
+            TestColumnTypeParams tyoeParams = new TestColumnTypeParams(target);
+
+            assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), tyoeParams, null, null), matcher);
+            assertNotNull(service.schema(schemaVer));
+            assertNull(service.schema(schemaVer + 1));
+        }
+    }
+
+    @Test
+    public void testAlterColumnTypeRejectedForPrimaryKey() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        assertThat(changeColumn(TABLE_NAME, "ID", new TestColumnTypeParams(ColumnType.INT64), null, null),
+                willThrowFast(SqlException.class, "Cannot change data type for primary key column 'ID'."));
+    }
+
+    /**
+     * Ensures that the compound change command {@code SET DATA TYPE BIGINT NULL DEFAULT NULL}
+     * will change the type, drop NOT NULL and the default value at the same time.
+     */
+    @Test
+    public void testAlterColumnMultipleChanges() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        int schemaVer = 1;
+        assertNotNull(service.schema(schemaVer));
+        assertNull(service.schema(schemaVer + 1));
+
+        Supplier<DefaultValue> dflt = () -> DefaultValue.constant(null);
+        boolean notNull = false;
+        TestColumnTypeParams typeParams = new TestColumnTypeParams(ColumnType.INT64);
+
+        // Ensures that 3 different actions applied.
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
+
+        SchemaDescriptor schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+
+        TableColumnDescriptor desc = schema.table(TABLE_NAME).column("VAL_NOT_NULL");
+        assertEquals(DefaultValue.constant(null), desc.defaultValue());
+        assertTrue(desc.nullable());
+        assertEquals(ColumnType.INT64, desc.type());
+
+        // Ensures that only one of three actions applied.
+        dflt = () -> DefaultValue.constant(2);
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
+
+        schema = service.schema(++schemaVer);
+        assertNotNull(schema);
+        assertEquals(DefaultValue.constant(2), schema.table(TABLE_NAME).column("VAL_NOT_NULL").defaultValue());
+
+        // Ensures that no action will be applied.
+        assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
+        assertNull(service.schema(schemaVer + 1));
+    }
+
+    @Test
+    public void testAlterColumnForNonExistingTableRejected() {
+        assertNotNull(service.schema(0));
+        assertNull(service.schema(1));
+
+        assertThat(changeColumn(TABLE_NAME, "ID", null, null, null), willThrowFast(TableNotFoundException.class));
+
+        assertNotNull(service.schema(0));
+        assertNull(service.schema(1));
+    }
+
     @Test
     public void testDropTableWithIndex() throws InterruptedException {
         CreateHashIndexParams params = CreateHashIndexParams.builder()
@@ -824,16 +1220,61 @@ public class CatalogServiceSelfTest {
         verifyNoMoreInteractions(eventListener);
     }
 
+    private CompletableFuture<Void> changeColumn(
+            String tab,
+            String col,
+            @Nullable TestColumnTypeParams typeParams,
+            @Nullable Boolean notNull,
+            @Nullable Supplier<DefaultValue> dflt
+    ) {
+        Builder builder = AlterColumnParams.builder()
+                .tableName(tab)
+                .columnName(col)
+                .notNull(notNull);
+
+        if (dflt != null) {
+            builder.defaultValueResolver(ignore -> dflt.get());
+        }
+
+        if (typeParams != null) {
+            builder.type(typeParams.type);
+
+            if (typeParams.precision != null) {
+                builder.precision(typeParams.precision);
+            }
+
+            if (typeParams.length != null) {
+                builder.length(typeParams.length);
+            }
+
+            if (typeParams.scale != null) {
+                builder.scale(typeParams.scale);
+            }
+        }
+
+        return service.alterColumn(builder.build());
+    }
+
     private static CreateTableParams simpleTable(String name) {
+        List<ColumnParams> cols = List.of(
+                ColumnParams.builder().name("ID").type(ColumnType.INT32).build(),
+                ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).defaultValue(DefaultValue.constant(null)).build(),
+                ColumnParams.builder().name("VAL_NOT_NULL").type(ColumnType.INT32).defaultValue(DefaultValue.constant(1)).build(),
+                ColumnParams.builder().name("DEC").type(ColumnType.DECIMAL).nullable(true).build(),
+                ColumnParams.builder().name("STR").type(ColumnType.STRING).nullable(true).build(),
+                ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()
+        );
+
+        return simpleTable(name, cols);
+    }
+
+    private static CreateTableParams simpleTable(String name, List<ColumnParams> cols) {
         return CreateTableParams.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(name)
                 .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("ID").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of("ID"))
+                .columns(cols)
+                .primaryKeyColumns(List.of(cols.get(0).name()))
                 .build();
     }
 
@@ -845,5 +1286,23 @@ public class CatalogServiceSelfTest {
                 .columns(List.of("VAL"))
                 .collations(List.of(ColumnCollation.ASC_NULLS_LAST))
                 .build();
+    }
+
+    private static class TestColumnTypeParams {
+        private final ColumnType type;
+        private final Integer precision;
+        private final Integer length;
+        private final Integer scale;
+
+        private TestColumnTypeParams(ColumnType type) {
+            this(type, null, null, null);
+        }
+
+        private TestColumnTypeParams(ColumnType type, @Nullable Integer precision, @Nullable Integer length, @Nullable Integer scale) {
+            this.type = type;
+            this.precision = precision;
+            this.length = length;
+            this.scale = scale;
+        }
     }
 }
