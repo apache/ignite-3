@@ -1178,13 +1178,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private (long Seconds, int Nanos) PutTimestamp(Instant value, int precision)
         {
-            // Logic taken from
-            // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
-            // (Apache License).
-            // See discussion: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
-            long seconds = value.ToUnixTimeSeconds();
-            Duration remainder = value - Instant.FromUnixTimeSeconds(seconds);
-            int nanos = TemporalTypes.NormalizeNanos((int)remainder.NanosecondOfDay, precision);
+            var (seconds, nanos) = value.ToSecondsAndNanos(precision);
 
             PutLong(seconds);
 

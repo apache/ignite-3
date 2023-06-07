@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Numerics;
     using System.Runtime.InteropServices;
     using NodaTime;
+    using Table;
 
     /// <summary>
     /// Common binary tuple constants and utils.
