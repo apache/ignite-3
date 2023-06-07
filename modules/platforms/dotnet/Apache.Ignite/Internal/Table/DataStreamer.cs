@@ -106,7 +106,7 @@ internal static class DataStreamer
             try
             {
                 var columnCount = schema.Columns.Count;
-                Span<byte> noValueSet = stackalloc byte[columnCount];
+                Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
 
                 // TODO: ???
                 Span<byte> noValueSetUnsafeRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
