@@ -28,8 +28,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -39,7 +37,6 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
@@ -48,11 +45,6 @@ import org.apache.ignite.lang.IgniteException;
  */
 public class JobClassLoaderFactory {
     private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
-
-    /**
-     * The executor service.
-     */
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(new NamedThreadFactory("job-class-loader-factory", LOG));
 
     /**
      * The deployer service.
@@ -77,21 +69,20 @@ public class JobClassLoaderFactory {
     public CompletableFuture<JobClassLoader> createClassLoader(List<DeploymentUnit> units) {
         Stream<URL>[] unitUrls = new Stream[units.size()];
 
-        // writing and reading to/from unitUrls array must be done in the same thread to avoid concurrency issues.
         CompletableFuture[] futures = IntStream.range(0, units.size())
                 .mapToObj(id -> {
                     return constructPath(units.get(id))
-                            .thenApplyAsync(JobClassLoaderFactory::collectClasspath, executor)
-                            .thenAcceptAsync(stream -> unitUrls[id] = stream, executor);
+                            .thenApply(JobClassLoaderFactory::collectClasspath)
+                            .thenAccept(stream -> unitUrls[id] = stream);
                 }).toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(futures).thenApplyAsync(v ->  {
-                    return Stream.of(unitUrls)
-                            .flatMap(Function.identity())
-                            .toArray(URL[]::new);
-                }, executor
+        return CompletableFuture.allOf(futures).thenApply(v -> {
+                            return Stream.of(unitUrls)
+                                    .flatMap(Function.identity())
+                                    .toArray(URL[]::new);
+                        }
                 )
-                .thenApplyAsync(it -> new JobClassLoader(it, getClass().getClassLoader()), executor)
+                .thenApply(it -> new JobClassLoader(it, getClass().getClassLoader()))
                 .whenComplete((cl, err) -> {
                     if (err != null) {
                         LOG.error("Failed to create class loader", err);
