@@ -17,17 +17,24 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor9;
+import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
@@ -38,6 +45,9 @@ import org.apache.ignite.network.annotations.Marshallable;
  * {@code Marshallable} only if it is not supported by the Direct Marshaller natively.
  */
 public class MarshallableTypesBlackList {
+    /** Name of the file containing a newline-separated list of blacklisted class names. */
+    private static final String BLACKLIST_FILE_NAME = "marshallable.blacklist";
+
     /** Types supported by the Direct Marshaller. */
     public static final List<Class<?>> NATIVE_TYPES = List.of(
             // Primitive type wrappers
@@ -79,10 +89,35 @@ public class MarshallableTypesBlackList {
     private static class TypeVisitor extends SimpleTypeVisitor9<Boolean, Void> {
         private final TypeUtils typeUtils;
 
+        private final List<Class<?>> resourcesBlacklist;
+
         TypeVisitor(TypeUtils typeUtils) {
             super(false);
 
             this.typeUtils = typeUtils;
+            this.resourcesBlacklist = readBlacklistFromResources();
+        }
+
+        private List<Class<?>> readBlacklistFromResources() {
+            try (
+                    InputStream is = getClass().getClassLoader().getResourceAsStream(BLACKLIST_FILE_NAME);
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is))
+            ) {
+                return reader.lines()
+                        .map(className -> {
+                            // Try to load the class from the resource file. It may not exist in the current compilation unit,
+                            // in which case we simply ignore it.
+                            try {
+                                return Class.forName(className, false, getClass().getClassLoader());
+                            } catch (ClassNotFoundException e) {
+                                return null;
+                            }
+                        })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+            } catch (IOException e) {
+                throw new ProcessingException("Unable to read " + BLACKLIST_FILE_NAME, e);
+            }
         }
 
         @Override
@@ -97,11 +132,17 @@ public class MarshallableTypesBlackList {
                 return t.getTypeArguments().stream().anyMatch(this::visit);
             }
 
-            return !isSameType(NATIVE_TYPES, t) && !typeUtils.isSubType(t, NetworkMessage.class);
+            return !isSameType(NATIVE_TYPES, t)
+                    && !typeUtils.isSubType(t, NetworkMessage.class)
+                    && !isSubType(resourcesBlacklist, t);
         }
 
         private boolean isSameType(List<Class<?>> types, DeclaredType type) {
             return types.stream().anyMatch(cls -> typeUtils.isSameType(type, cls));
+        }
+
+        private boolean isSubType(List<Class<?>> types, DeclaredType type) {
+            return types.stream().anyMatch(cls -> typeUtils.isSubType(type, cls));
         }
     }
 }

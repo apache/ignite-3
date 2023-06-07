@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -26,11 +27,17 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
 public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
-    @Marshallable
-    HybridTimestamp leaseStartTime();
+    long leaseStartTimeLong();
 
-    @Marshallable
-    HybridTimestamp leaseExpirationTime();
+    default HybridTimestamp leaseStartTime() {
+        return hybridTimestamp(leaseStartTimeLong());
+    }
+
+    long leaseExpirationTimeLong();
+
+    default HybridTimestamp leaseExpirationTime() {
+        return hybridTimestamp(leaseExpirationTimeLong());
+    }
 
     boolean force();
 }

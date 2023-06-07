@@ -107,6 +107,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
@@ -433,7 +434,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (request.exactKey() != null) {
-                assert request.lowerBound() == null && request.upperBound() == null : "Index lookup doesn't allow bounds.";
+                assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage));
             }
@@ -667,7 +668,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (request.exactKey() != null) {
-                assert request.lowerBound() == null && request.upperBound() == null : "Index lookup doesn't allow bounds.";
+                assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return lookupIndex(request, indexStorage.storage());
             }
@@ -730,7 +731,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(request.transactionId(), request.scanId());
 
-        BinaryTuple key = request.exactKey();
+        BinaryTuple key = request.exactKey().asBinaryTuple();
 
         Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
                 id -> indexStorage.get(key));
@@ -754,7 +755,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         Integer indexId = request.indexToUse();
 
-        BinaryTuple exactKey = request.exactKey();
+        BinaryTuple exactKey = request.exactKey().asBinaryTuple();
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
@@ -791,8 +792,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         Integer indexId = request.indexToUse();
 
-        BinaryTuplePrefix lowerBound = request.lowerBound();
-        BinaryTuplePrefix upperBound = request.upperBound();
+        BinaryTupleMessage lowerBoundMessage = request.lowerBoundPrefix();
+        BinaryTupleMessage upperBoundMessage = request.upperBoundPrefix();
+
+        BinaryTuplePrefix lowerBound = lowerBoundMessage == null ? null : lowerBoundMessage.asBinaryTuplePrefix();
+        BinaryTuplePrefix upperBound = upperBoundMessage == null ? null : upperBoundMessage.asBinaryTuplePrefix();
 
         int flags = request.flags();
 
@@ -858,8 +862,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        BinaryTuplePrefix lowerBound = request.lowerBound();
-        BinaryTuplePrefix upperBound = request.upperBound();
+        BinaryTupleMessage lowerBoundMessage = request.lowerBoundPrefix();
+        BinaryTupleMessage upperBoundMessage = request.upperBoundPrefix();
+
+        BinaryTuplePrefix lowerBound = lowerBoundMessage == null ? null : lowerBoundMessage.asBinaryTuplePrefix();
+        BinaryTuplePrefix upperBound = upperBoundMessage == null ? null : upperBoundMessage.asBinaryTuplePrefix();
 
         int flags = request.flags();
 

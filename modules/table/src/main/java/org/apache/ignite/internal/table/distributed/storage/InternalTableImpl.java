@@ -52,6 +52,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Peer;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
@@ -383,9 +385,9 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .scanId(scanId)
                 .indexToUse(indexId)
-                .exactKey(exactKey)
-                .lowerBound(lowerBound)
-                .upperBound(upperBound)
+                .exactKey(binaryTupleMessage(exactKey))
+                .lowerBoundPrefix(binaryTupleMessage(lowerBound))
+                .upperBoundPrefix(binaryTupleMessage(upperBound))
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
                 .batchSize(batchSize);
@@ -405,6 +407,17 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return postEnlist(fut, false, tx);
+    }
+
+    private @Nullable BinaryTupleMessage binaryTupleMessage(@Nullable BinaryTupleReader binaryTuple) {
+        if (binaryTuple == null) {
+            return null;
+        }
+
+        return tableMessagesFactory.binaryTupleMessage()
+                .tuple(binaryTuple.byteBuffer())
+                .elementCount(binaryTuple.elementCount())
+                .build();
     }
 
     /**
@@ -537,7 +550,7 @@ public class InternalTableImpl implements InternalTable {
                 .groupId(partGroupId)
                 .binaryRow(keyRow)
                 .requestType(RequestType.RO_GET)
-                .readTimestamp(readTimestamp)
+                .readTimestampLong(readTimestamp.longValue())
                 .build()
         );
     }
@@ -591,7 +604,7 @@ public class InternalTableImpl implements InternalTable {
                     .groupId(partGroupId)
                     .binaryRows(partToRows.getValue())
                     .requestType(RequestType.RO_GET_ALL)
-                    .readTimestamp(readTimestamp)
+                    .readTimestampLong(readTimestamp.longValue())
                     .build()
             );
 
@@ -897,15 +910,15 @@ public class InternalTableImpl implements InternalTable {
 
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
                             .groupId(partGroupId)
-                            .readTimestamp(readTimestamp)
+                            .readTimestampLong(readTimestamp.longValue())
                             // TODO: IGNITE-17666 Close cursor tx finish.
                             .transactionId(txId)
                             .scanId(scanId)
                             .batchSize(batchSize)
                             .indexToUse(indexId)
-                            .exactKey(exactKey)
-                            .lowerBound(lowerBound)
-                            .upperBound(upperBound)
+                            .exactKey(binaryTupleMessage(exactKey))
+                            .lowerBoundPrefix(binaryTupleMessage(lowerBound))
+                            .upperBoundPrefix(binaryTupleMessage(upperBound))
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .build();
@@ -1010,9 +1023,9 @@ public class InternalTableImpl implements InternalTable {
                             .transactionId(txId)
                             .scanId(scanId)
                             .indexToUse(indexId)
-                            .exactKey(exactKey)
-                            .lowerBound(lowerBound)
-                            .upperBound(upperBound)
+                            .exactKey(binaryTupleMessage(exactKey))
+                            .lowerBoundPrefix(binaryTupleMessage(lowerBound))
+                            .upperBoundPrefix(binaryTupleMessage(upperBound))
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
