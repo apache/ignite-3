@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table column descriptor.
@@ -33,9 +34,9 @@ public class TableColumnDescriptor implements Serializable {
     private final ColumnType type;
     private final boolean nullable;
     /** Max length constraint. */
-    private int length;
-    private int precision;
-    private int scale;
+    private final int length;
+    private final int precision;
+    private final int scale;
     private final DefaultValue defaultValue;
 
     /**
@@ -45,10 +46,14 @@ public class TableColumnDescriptor implements Serializable {
      * @param type Column type.
      * @param nullable Nullability flag.
      */
-    public TableColumnDescriptor(String name, ColumnType type, boolean nullable, DefaultValue defaultValue) {
+    public TableColumnDescriptor(String name, ColumnType type, boolean nullable,
+            int precision, int scale, int length, @Nullable DefaultValue defaultValue) {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type);
         this.nullable = nullable;
+        this.precision = precision;
+        this.scale = scale;
+        this.length = length;
         this.defaultValue = defaultValue;
     }
 
@@ -76,6 +81,7 @@ public class TableColumnDescriptor implements Serializable {
         return length;
     }
 
+    @Nullable
     public DefaultValue defaultValue() {
         return defaultValue;
     }

@@ -83,6 +83,13 @@ public class ColumnParams {
         return null;
     }
 
+    /**
+     * Get column's length.
+     */
+    public Integer length() {
+        return null;
+    }
+
     /** Parameters builder. */
     public static class Builder {
         private ColumnParams params;
