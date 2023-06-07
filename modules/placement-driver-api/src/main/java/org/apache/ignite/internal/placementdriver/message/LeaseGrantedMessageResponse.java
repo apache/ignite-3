@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Response for lease granted message.
  */
 @Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE_RESPONSE)
-public interface LeaseGrantedMessageResponse extends PlacementDriverReplicaMessage {
+public interface LeaseGrantedMessageResponse extends PlacementDriverMessage {
     boolean accepted();
 
     @Nullable

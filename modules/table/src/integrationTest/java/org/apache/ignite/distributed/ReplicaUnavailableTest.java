@@ -55,6 +55,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -135,6 +136,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
                 .binaryRow(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
@@ -175,6 +178,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
                 .binaryRow(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)

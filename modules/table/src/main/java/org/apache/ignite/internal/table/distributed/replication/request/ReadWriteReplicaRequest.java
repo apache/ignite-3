@@ -26,7 +26,6 @@ import org.jetbrains.annotations.Nullable;
  * Read-write replica request.
  */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
-    @Nullable
     UUID transactionId();
 
     /**
@@ -35,7 +34,6 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
      *
      * @return Raft term.
      */
-    // TODO: IGNITE-19457 Maybe not nullable.
     @Deprecated
     @Nullable
     Long term();
