@@ -122,7 +122,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ColumnType.Date => HashUtils.Hash32((LocalDate)val, hash),
                     ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
                     ColumnType.Datetime => HashUtils.Hash32((LocalDateTime)val, col.Precision, hash),
-                    ColumnType.Timestamp => HashUtils.Hash32((Instant)val, col.Precision, hash), // TODO
+                    ColumnType.Timestamp => HashUtils.Hash32((Instant)val, col.Precision, hash),
                     ColumnType.Uuid => HashUtils.Hash32((Guid)val, hash),
                     ColumnType.Bitmask => HashUtils.Hash32((BitArray)val, hash),
                     ColumnType.String => HashUtils.Hash32((string)val, hash),

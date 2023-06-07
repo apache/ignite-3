@@ -146,6 +146,20 @@ internal static class HashUtils
         return Hash32(destination, seed);
     }
 
+    /// <summary>
+    /// Generates 32-bit hash.
+    /// </summary>
+    /// <param name="data">Input data.</param>
+    /// <param name="precision">Precision.</param>
+    /// <param name="seed">Current hash.</param>
+    /// <returns>Resulting hash.</returns>
+    public static int Hash32(Instant data, int precision, int seed)
+    {
+        var (seconds, nanos) = data.ToSecondsAndNanos(precision);
+
+        return Hash32((long)nanos, Hash32(seconds, seed));
+    }
+
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
         var hash64 = Hash64Internal(data, seed, byteCount);
