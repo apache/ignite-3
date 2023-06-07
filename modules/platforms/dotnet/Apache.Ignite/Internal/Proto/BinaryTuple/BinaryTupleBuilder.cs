@@ -571,10 +571,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimal(decimal value, int scale)
-        {
-            AppendNumber(DecimalToUnscaledBigInteger(value, scale));
-        }
+        public void AppendDecimal(decimal value, int scale) =>
+            AppendNumber(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale));
 
         /// <summary>
         /// Appends a decimal.
@@ -1129,53 +1127,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void Dispose()
         {
             _buffer.Dispose();
-        }
-
-        private static (BigInteger Unscaled, int Scale) DeconstructDecimal(decimal value)
-        {
-            Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-
-            var scale = (bits[3] & 0x00FF0000) >> 16;
-            var sign = bits[3] >> 31;
-
-            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
-            var unscaled = new BigInteger(bytes, true);
-
-            return (sign < 0 ? -unscaled : unscaled, scale);
-        }
-
-        private static BigInteger DecimalToUnscaledBigInteger(decimal value, int scale)
-        {
-            if (value == decimal.Zero)
-            {
-                return BigInteger.Zero;
-            }
-
-            Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-
-            var valueScale = (bits[3] & 0x00FF0000) >> 16;
-            var sign = bits[3] >> 31;
-
-            var bytes = MemoryMarshal.Cast<int, byte>(bits[..3]);
-            var unscaled = new BigInteger(bytes, true);
-
-            if (sign < 0)
-            {
-                unscaled = -unscaled;
-            }
-
-            if (scale > valueScale)
-            {
-                unscaled *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
-            }
-
-            return unscaled;
         }
 
         private static int GetDecimalScale(decimal value)

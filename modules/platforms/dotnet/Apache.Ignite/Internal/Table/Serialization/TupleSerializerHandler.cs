@@ -118,7 +118,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     ColumnType.Int64 => HashUtils.Hash32((long)val, hash),
                     ColumnType.Float => HashUtils.Hash32((float)val, hash),
                     ColumnType.Double => HashUtils.Hash32((double)val, hash),
-                    ColumnType.Decimal => HashUtils.Hash32((decimal)val, hash), // TODO see BinaryTupleBuilder - reuse decimal logic
+                    ColumnType.Decimal => HashUtils.Hash32(BinaryTupleCommon.DecimalToUnscaledBigInteger((decimal)val, col.Scale), hash),
                     ColumnType.Date => HashUtils.Hash32((LocalDate)val, hash),
                     ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
                     ColumnType.Datetime => HashUtils.Hash32((LocalDateTime)val, col.Precision, hash),
