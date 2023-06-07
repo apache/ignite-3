@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -96,6 +95,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
@@ -428,9 +428,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
                     if (schema == null) {
-                        return CompletableFuture.failedFuture(
-                                new IgniteInternalException(SCHEMA_NOT_FOUND_ERR,
-                                        format("Schema not found [schemaName={}]", schemaName)));
+                        return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
                     }
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
