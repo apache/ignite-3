@@ -109,6 +109,7 @@ abstract class StorageOperation {
      * Storage rebalancing start operation.
      */
     static class StartRebalanceStorageOperation extends StorageOperation {
+        /** Used if the rebalance abortion was called before the rebalance start was completed. */
         private final AtomicReference<AbortRebalanceStorageOperation> abortRebalanceOperation = new AtomicReference<>();
 
         private final CompletableFuture<Void> startRebalanceFuture = new CompletableFuture<>();
@@ -117,14 +118,14 @@ abstract class StorageOperation {
          * Attempts to set the abort rebalance operation.
          *
          * @param abortRebalanceOperation Abort rebalance operation.
-         * @return {@code True} if the operation was set by current method invocation, {@code false} if by another method invocation.
+         * @return {@code true} if the operation was set by the current method invocation, {@code false} if by another method invocation.
          */
         boolean setAbortOperation(AbortRebalanceStorageOperation abortRebalanceOperation) {
             return this.abortRebalanceOperation.compareAndSet(null, abortRebalanceOperation);
         }
 
         /**
-         * Returns {@link #setAbortOperation(AbortRebalanceStorageOperation) set} a abort rebalance operation.
+         * Returns the {@link #setAbortOperation(AbortRebalanceStorageOperation) set} a abort rebalance operation.
          */
         @Nullable AbortRebalanceStorageOperation getAbortRebalanceOperation() {
             return abortRebalanceOperation.get();

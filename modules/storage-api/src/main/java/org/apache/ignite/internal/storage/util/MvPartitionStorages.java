@@ -130,7 +130,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         }).whenComplete((storage, throwable) -> operationByPartitionId.compute(partitionId, (partId, operation) -> {
             assert operation instanceof CreateStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-            return completeOperation(operation);
+            return nextOperationIfAvailable(operation);
         }));
     }
 
@@ -161,7 +161,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                        return completeOperation(operation);
+                        return nextOperationIfAvailable(operation);
                     });
 
                     if (throwable == null) {
@@ -199,7 +199,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof CleanupStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
+                            return nextOperationIfAvailable(operation);
                         })
                 );
     }
@@ -244,7 +244,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof StartRebalanceStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                        return completeOperation(operation);
+                        return nextOperationIfAvailable(operation);
                     });
 
                     // Even if an error occurs, we must be able to abort the rebalance, so we do not report the error.
@@ -299,7 +299,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof AbortRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
+                            return nextOperationIfAvailable(operation);
                         })
                 );
     }
@@ -341,7 +341,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof FinishRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
+                            return nextOperationIfAvailable(operation);
                         })
                 );
     }
@@ -423,7 +423,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         return "Storage in the process of rebalance: [" + createStorageInfo(partitionId) + ']';
     }
 
-    private static @Nullable StorageOperation completeOperation(StorageOperation operation) {
+    private static @Nullable StorageOperation nextOperationIfAvailable(StorageOperation operation) {
         operation.operationFuture().complete(null);
 
         if (operation.isFinalOperation()) {
