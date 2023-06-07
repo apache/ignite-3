@@ -18,11 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
-    using System.Numerics;
-    using Ignite.Sql;
     using Ignite.Table;
-    using NodaTime;
-    using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
 
@@ -78,61 +74,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     tupleBuilder.AppendNoValue(noValueSet);
                 }
             }
-        }
-
-        /// <inheritdoc/>
-        public int GetColocationHash(IIgniteTuple record, Schema schema)
-        {
-            var hash = 0;
-
-            for (int index = 0; index < schema.KeyColumnCount; index++)
-            {
-                if (!schema.IsHashedColumnIndex(index))
-                {
-                    continue;
-                }
-
-                var col = schema.Columns[index];
-                var colIdx = record.GetOrdinal(col.Name);
-
-                if (colIdx < 0)
-                {
-                    throw new InvalidOperationException($"Key column '{col.Name}' is missing in the tuple.");
-                }
-
-                object? val = record[colIdx];
-
-                if (val == null)
-                {
-                    throw new InvalidOperationException($"Key column '{col.Name}' is null.");
-                }
-
-                hash = col.Type switch
-                {
-                    ColumnType.Boolean => HashUtils.Hash32((bool)val ? (sbyte)1 : (sbyte)0, hash),
-                    ColumnType.Int8 => HashUtils.Hash32((sbyte)val, hash),
-                    ColumnType.Int16 => HashUtils.Hash32((short)val, hash),
-                    ColumnType.Int32 => HashUtils.Hash32((int)val, hash),
-                    ColumnType.Int64 => HashUtils.Hash32((long)val, hash),
-                    ColumnType.Float => HashUtils.Hash32((float)val, hash),
-                    ColumnType.Double => HashUtils.Hash32((double)val, hash),
-                    ColumnType.Decimal => HashUtils.Hash32(BinaryTupleCommon.DecimalToUnscaledBigInteger((decimal)val, col.Scale), hash),
-                    ColumnType.Date => HashUtils.Hash32((LocalDate)val, hash),
-                    ColumnType.Time => HashUtils.Hash32((LocalTime)val, col.Precision, hash),
-                    ColumnType.Datetime => HashUtils.Hash32((LocalDateTime)val, col.Precision, hash),
-                    ColumnType.Timestamp => HashUtils.Hash32((Instant)val, col.Precision, hash),
-                    ColumnType.Uuid => HashUtils.Hash32((Guid)val, hash),
-                    ColumnType.Bitmask => 1, // TODO
-                    ColumnType.String => 2, // TODO
-                    ColumnType.ByteArray => HashUtils.Hash32((byte[])val, hash),
-                    ColumnType.Number => HashUtils.Hash32((BigInteger)val, hash),
-                    ColumnType.Period or ColumnType.Duration => throw new NotSupportedException(
-                        "Period and Duration hashing is not supported."),
-                    _ => throw new ArgumentOutOfRangeException(nameof(col.Type), col.Type, "Unknown column type")
-                };
-            }
-
-            return hash;
         }
     }
 }

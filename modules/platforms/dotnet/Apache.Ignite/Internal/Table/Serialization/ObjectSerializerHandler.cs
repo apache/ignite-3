@@ -74,12 +74,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             writeDelegate(ref tupleBuilder, noValueSet, record);
         }
 
-        /// <inheritdoc/>
-        public int GetColocationHash(T record, Schema schema)
-        {
-            throw new NotImplementedException();
-        }
-
         private static WriteDelegate<T> EmitWriter(Schema schema, int count)
         {
             var type = typeof(T);

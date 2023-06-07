@@ -82,13 +82,5 @@ namespace Apache.Ignite.Internal.Table.Serialization
             Schema schema,
             int columnCount,
             Span<byte> noValueSet);
-
-        /// <summary>
-        /// Gets the colocation hash of the specified record, according to key columns from the schema.
-        /// </summary>
-        /// <param name="record">Record.</param>
-        /// <param name="schema">Schema.</param>
-        /// <returns>Key colocation hash.</returns>
-        int GetColocationHash(T record, Schema schema);
     }
 }

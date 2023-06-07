@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Proto;
 
 using System;
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Numerics;
 using NodaTime;
 using Table;
@@ -127,60 +126,6 @@ internal static class HashUtils
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
     public static int Hash32(LocalDateTime data, int precision, int seed) => Hash32(data.TimeOfDay, precision, Hash32(data.Date, seed));
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(BigInteger data, int seed)
-    {
-        var size = data.GetByteCount();
-        Span<byte> destination = stackalloc byte[size];
-        var success = data.TryWriteBytes(destination, out int written, isBigEndian: true);
-
-        Debug.Assert(success, "success");
-        Debug.Assert(written == size, "written == size");
-
-        return Hash32(destination, seed);
-    }
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="precision">Precision.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(Instant data, int precision, int seed)
-    {
-        var (seconds, nanos) = data.ToSecondsAndNanos(precision);
-
-        return Hash32((long)nanos, Hash32(seconds, seed));
-    }
-
-    /// <summary>
-    /// Generates 32-bit hash.
-    /// </summary>
-    /// <param name="data">Input data.</param>
-    /// <param name="seed">Current hash.</param>
-    /// <returns>Resulting hash.</returns>
-    public static int Hash32(Guid data, int seed)
-    {
-        if (data == default)
-        {
-            return Hash32(0L, Hash32(0L, seed));
-        }
-
-        Span<byte> span = stackalloc byte[16];
-        UuidSerializer.Write(data, span);
-
-        var lo = BinaryPrimitives.ReadInt64LittleEndian(span[..8]);
-        var hi = BinaryPrimitives.ReadInt64LittleEndian(span[8..]);
-
-        return Hash32(hi, Hash32(lo, seed));
-    }
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {
