@@ -73,16 +73,16 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
      * @param deploymentUnit Unit content.
-     * @param initialNodes List of nodes to deploy to initially.
+     * @param nodes List of nodes to deploy to initially.
      * @return Future with success or not result.
      */
     default CompletableFuture<Boolean> deployAsync(
             String id,
             Version version,
             DeploymentUnit deploymentUnit,
-            List<String> initialNodes
+            List<String> nodes
     ) {
-        return deployAsync(id, version, false, deploymentUnit, initialNodes);
+        return deployAsync(id, version, false, deploymentUnit, nodes);
     }
 
     /**
@@ -93,7 +93,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param version Unit version.
      * @param force Force redeploy if unit with provided id and version exists.
      * @param deploymentUnit Unit content.
-     * @param initialNodes List of nodes to deploy to initially.
+     * @param nodes List of nodes to deploy to initially.
      * @return Future with success or not result.
      */
     CompletableFuture<Boolean> deployAsync(
@@ -101,7 +101,7 @@ public interface IgniteDeployment extends IgniteComponent {
             Version version,
             boolean force,
             DeploymentUnit deploymentUnit,
-            List<String> initialNodes
+            List<String> nodes
     );
 
     /**

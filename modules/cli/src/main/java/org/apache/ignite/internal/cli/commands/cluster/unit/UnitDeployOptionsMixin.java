@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NODES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NODES_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NODES_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_SHORT;
@@ -65,7 +64,7 @@ class UnitDeployOptionsMixin {
     }
 
     /** Initial set of nodes. */
-    @Option(names = {UNIT_NODES_OPTION, UNIT_NODES_OPTION_SHORT}, description = UNIT_NODES_OPTION_DESC, split = ",",
+    @Option(names = UNIT_NODES_OPTION, description = UNIT_NODES_OPTION_DESC, split = ",",
             completionCandidates = UnitNodesCompletionCandidates.class
     )
     private List<String> nodes;

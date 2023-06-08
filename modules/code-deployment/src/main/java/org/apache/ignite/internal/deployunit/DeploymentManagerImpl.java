@@ -181,16 +181,16 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Version version,
             boolean force,
             DeploymentUnit deploymentUnit,
-            List<String> initialNodes
+            List<String> nodes
     ) {
         checkId(id);
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        return extractNodes(initialNodes)
+        return extractNodes(nodes)
                 .thenCompose(nodesToDeploy ->
                         doDeploy(id, version, force, deploymentUnit, nodesToDeploy,
-                                undeployed -> deployAsync(id, version, deploymentUnit, initialNodes)
+                                undeployed -> deployAsync(id, version, deploymentUnit, nodes)
                         )
                 );
     }
@@ -432,7 +432,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         }
     }
 
-    private CompletableFuture<Set<String>> extractNodes(List<String> initialNodes) {
+    private CompletableFuture<Set<String>> extractNodes(List<String> nodes) {
         return cmgManager.cmgNodes()
                 .thenCompose(cmg -> cmgManager.logicalTopology()
                         .thenApply(snapshot -> snapshot.nodes().stream()
@@ -440,13 +440,13 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 .collect(Collectors.toUnmodifiableSet()))
                         .thenApply(allNodes -> {
                             Set<String> result = new HashSet<>(cmg);
-                            for (String initialNode : initialNodes) {
-                                if (!allNodes.contains(initialNode)) {
+                            for (String node : nodes) {
+                                if (!allNodes.contains(node)) {
                                     throw new InvalidNodesArgumentException(
-                                            "Node \"" + initialNode + "\" is not present in the logical topology"
+                                            "Node \"" + node + "\" is not present in the logical topology"
                                     );
                                 }
-                                result.add(initialNode);
+                                result.add(node);
                             }
                             return result;
                         })
