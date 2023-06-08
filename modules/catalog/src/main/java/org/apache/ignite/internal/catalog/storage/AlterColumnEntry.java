@@ -15,52 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.catalog.storage;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Index descriptor base class.
+ * Describes a column replacement.
  */
-public abstract class IndexDescriptor extends ObjectDescriptor {
-    private static final long serialVersionUID = -8045949593661301287L;
+public class AlterColumnEntry implements UpdateEntry {
+    private static final long serialVersionUID = -4552940987881338656L;
 
-    /** Table id. */
     private final int tableId;
 
-    /** Unique constraint flag. */
-    private final boolean unique;
+    private final CatalogTableColumnDescriptor column;
 
-    /** Write only flag. {@code True} when index is building. */
-    private boolean writeOnly;
-
-    IndexDescriptor(int id, String name, int tableId, boolean unique) {
-        super(id, Type.INDEX, name);
+    /**
+     * Constructs the object.
+     *
+     * @param tableId An id the table to be modified.
+     * @param column A modified descriptor of the column to be replaced.
+     */
+    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
         this.tableId = tableId;
-        this.unique = unique;
+        this.column = column;
     }
 
-    /** Gets table id. */
+    /** Returns an id the table to be modified. */
     public int tableId() {
         return tableId;
     }
 
-    /** Gets index unique flag. */
-    public boolean unique() {
-        return unique;
+    /** Returns a descriptor for the column to be replaced. */
+    public CatalogTableColumnDescriptor descriptor() {
+        return column;
     }
-
-    public boolean writeOnly() {
-        return writeOnly;
-    }
-
-    /**
-     * Checks if a column with given name is indexed.
-     *
-     * @param columnName Column name to check.
-     * @return {@code true} if index contains the column, {@code false} otherwise.
-     */
-    public abstract boolean hasColumn(String columnName);
 
     /** {@inheritDoc} */
     @Override

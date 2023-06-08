@@ -109,6 +109,35 @@ abstract class StorageOperation {
      * Storage rebalancing start operation.
      */
     static class StartRebalanceStorageOperation extends StorageOperation {
+        /** Used if the rebalance abortion was called before the rebalance start was completed. */
+        private final AtomicReference<AbortRebalanceStorageOperation> abortRebalanceOperation = new AtomicReference<>();
+
+        private final CompletableFuture<Void> startRebalanceFuture = new CompletableFuture<>();
+
+        /**
+         * Attempts to set the abort rebalance operation.
+         *
+         * @param abortRebalanceOperation Abort rebalance operation.
+         * @return {@code true} if the operation was set by the current method invocation, {@code false} if by another method invocation.
+         */
+        boolean setAbortOperation(AbortRebalanceStorageOperation abortRebalanceOperation) {
+            return this.abortRebalanceOperation.compareAndSet(null, abortRebalanceOperation);
+        }
+
+        /**
+         * Returns the {@link #setAbortOperation(AbortRebalanceStorageOperation) set} a abort rebalance operation.
+         */
+        @Nullable AbortRebalanceStorageOperation getAbortRebalanceOperation() {
+            return abortRebalanceOperation.get();
+        }
+
+        /**
+         * Returns the start rebalance future.
+         */
+        CompletableFuture<Void> getStartRebalanceFuture() {
+            return startRebalanceFuture;
+        }
+
         @Override
         String inProcessErrorMessage(String storageInfo) {
             return "Storage in the process of starting a rebalance: [" + storageInfo + ']';

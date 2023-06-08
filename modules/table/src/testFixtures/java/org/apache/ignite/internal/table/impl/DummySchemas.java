@@ -22,7 +22,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -55,7 +55,7 @@ public class DummySchemas implements Schemas {
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
 
-        List<TableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
+        List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {
                     Column column = schemaDescriptor.column(colName);
 

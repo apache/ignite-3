@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.storage.index.IndexDescriptor.createIndexDescriptor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -48,18 +49,23 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -512,11 +518,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                TablesView tablesView = getTablesConfiguration(clusterNode).value();
+                TableView tableView = getTableConfiguration(clusterNode, tableName).value();
+                TableIndexView indexView = getIndexConfiguration(clusterNode, indexName).value();
 
-                int indexId = tablesView.indexes().get(indexName.toUpperCase()).id();
+                CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, createIndexDescriptor(tablesView, indexId));
+                IndexStorage index = internalTable.storage().getOrCreateIndex(
+                        partitionId,
+                        StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
+                );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
 
@@ -573,5 +584,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         TableIndexConfiguration indexConfig = getIndexConfiguration(node, indexName);
 
         return indexConfig == null ? null : indexConfig.id().value();
+    }
+
+    /**
+     * Returns table configuration of the given table at the given node, or {@code null} if no such table exists.
+     *
+     * @param node Node.
+     * @param tableName Table name.
+     * @return Table configuration.
+     */
+    private static @Nullable TableConfiguration getTableConfiguration(Ignite node, String tableName) {
+        return getTablesConfiguration(node).tables().get(tableName.toUpperCase());
     }
 }

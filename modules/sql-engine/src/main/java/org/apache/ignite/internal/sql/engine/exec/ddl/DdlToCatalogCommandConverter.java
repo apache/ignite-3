@@ -19,7 +19,10 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -29,7 +32,8 @@ import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
@@ -68,6 +72,35 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
+    static AlterColumnParams convert(AlterColumnCommand cmd) {
+        AlterColumnParams.Builder builder = AlterColumnParams.builder()
+                .schemaName(cmd.schemaName())
+                .tableName(cmd.tableName())
+                .columnName(cmd.columnName())
+                .notNull(cmd.notNull())
+                .defaultValueResolver(cmd.defaultValueResolver());
+
+        RelDataType type = cmd.type();
+
+        if (type != null) {
+            builder.type(TypeUtils.columnType(type));
+
+            if (type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED) {
+                if (type.getSqlTypeName() == SqlTypeName.VARCHAR || type.getSqlTypeName() == SqlTypeName.VARBINARY) {
+                    builder.length(type.getPrecision());
+                } else {
+                    builder.precision(type.getPrecision());
+                }
+            }
+
+            if (type.getScale() != RelDataType.SCALE_NOT_SPECIFIED) {
+                builder.scale(type.getScale());
+            }
+        }
+
+        return builder.build();
+    }
+
     static AlterTableAddColumnParams convert(AlterTableAddCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
@@ -103,7 +136,7 @@ class DdlToCatalogCommandConverter {
 
                         .build();
             case SORTED:
-                List<ColumnCollation> collations = cmd.collations().stream()
+                List<CatalogColumnCollation> collations = cmd.collations().stream()
                         .map(DdlToCatalogCommandConverter::convert)
                         .collect(Collectors.toList());
 
@@ -150,7 +183,7 @@ class DdlToCatalogCommandConverter {
         }
     }
 
-    private static ColumnCollation convert(IgniteIndex.Collation collation) {
-        return ColumnCollation.get(collation.asc, collation.nullsFirst);
+    private static CatalogColumnCollation convert(IgniteIndex.Collation collation) {
+        return CatalogColumnCollation.get(collation.asc, collation.nullsFirst);
     }
 }

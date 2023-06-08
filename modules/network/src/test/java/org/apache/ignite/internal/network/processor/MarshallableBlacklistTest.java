@@ -27,11 +27,14 @@ import com.google.testing.compile.Compiler;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 import javax.tools.JavaFileObject;
+import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.processor.messages.MarshallableTypesBlackList;
+import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -75,6 +78,7 @@ public class MarshallableBlacklistTest {
         return List.of(
                 "package org.apache.ignite.internal.network.processor;",
 
+                "import org.apache.ignite.internal.network.message.ScaleCubeMessage;",
                 "import org.apache.ignite.network.NetworkMessage;",
                 "import org.apache.ignite.network.annotations.Transferable;",
                 "import org.apache.ignite.network.annotations.Marshallable;",
@@ -102,7 +106,7 @@ public class MarshallableBlacklistTest {
         Compilation compilation = compile(marshallableFieldSourceCode(type));
 
         assertThat(compilation).hadErrorContaining(
-                "\"foo\" field is marked as @Marshallable but this type is supported by native serialization"
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
         );
     }
 
@@ -112,7 +116,7 @@ public class MarshallableBlacklistTest {
         Compilation compilation = compile(marshallableArraySourceCode(type));
 
         assertThat(compilation).hadErrorContaining(
-                "\"foo\" field is marked as @Marshallable but this type is supported by native serialization"
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
         );
     }
 
@@ -122,7 +126,7 @@ public class MarshallableBlacklistTest {
         Compilation compilation = compile(marshallableCollectionSourceCode(collectionType, type));
 
         assertThat(compilation).hadErrorContaining(
-                "\"foo\" field is marked as @Marshallable but this type is supported by native serialization"
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
         );
     }
 
@@ -145,7 +149,7 @@ public class MarshallableBlacklistTest {
         Compilation compilation = compile(marshallableMapSourceCode(Integer.class, String.class));
 
         assertThat(compilation).hadErrorContaining(
-                "\"foo\" field is marked as @Marshallable but this type is supported by native serialization"
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
         );
     }
 
@@ -154,7 +158,7 @@ public class MarshallableBlacklistTest {
         Compilation compilation = compile(marshallableNestedMapSourceCode(Integer.class, String.class));
 
         assertThat(compilation).hadErrorContaining(
-                "\"foo\" field is marked as @Marshallable but this type is supported by native serialization"
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
         );
     }
 
@@ -163,6 +167,28 @@ public class MarshallableBlacklistTest {
         Compilation compilation = compile(marshallableNestedMapSourceCode(Integer.class, Lock.class));
 
         assertThat(compilation).succeededWithoutWarnings();
+    }
+
+    /**
+     * Tests that compilation fails if message's field is both {@link NetworkMessage} and marked
+     * as {@link org.apache.ignite.network.annotations.Marshallable}.
+     */
+    @Test
+    void testMessageWithMarshallableMessage() {
+        Compilation compilation = compile(marshallableFieldSourceCode(ScaleCubeMessage.class));
+
+        assertThat(compilation).hadErrorContaining(
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
+        );
+    }
+
+    @Test
+    void testMessageWithBlockedByFileType() {
+        Compilation compilation = compile(marshallableFieldSourceCode(Random.class));
+
+        assertThat(compilation).hadErrorContaining(
+                "\"foo\" field is marked as @Marshallable but this type is either directly supported by native serialization"
+        );
     }
 
     private Compilation compile(List<String> code) {

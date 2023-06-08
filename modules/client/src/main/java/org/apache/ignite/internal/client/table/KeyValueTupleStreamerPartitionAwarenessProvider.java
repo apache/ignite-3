@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.internal.client.table;
 
-import org.apache.ignite.internal.network.message.ScaleCubeMessage;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.Map.Entry;
+import org.apache.ignite.table.Tuple;
 
-@Transferable(1)
-public interface MessageWithMarshallableNetworkMessageField extends NetworkMessage {
-    @Marshallable
-    ScaleCubeMessage msgField();
+/**
+ * Partition awareness provider for data streamer.
+ */
+class KeyValueTupleStreamerPartitionAwarenessProvider extends AbstractStreamerPartitionAwarenessProvider<Entry<Tuple, Tuple>> {
+    KeyValueTupleStreamerPartitionAwarenessProvider(ClientTable tbl) {
+        super(tbl);
+    }
+
+    @Override
+    int colocationHash(ClientSchema schema, Entry<Tuple, Tuple> item) {
+        return ClientTupleSerializer.getColocationHash(schema, item.getKey());
+    }
 }

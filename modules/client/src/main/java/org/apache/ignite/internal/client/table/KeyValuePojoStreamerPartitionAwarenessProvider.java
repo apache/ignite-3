@@ -15,38 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.client.table;
 
-import java.io.Serializable;
-import java.util.Objects;
-import org.apache.ignite.internal.tostring.S;
+import java.util.Map.Entry;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * Indexed column descriptor.
+ * Partition awareness provider for data streamer.
  */
-public class IndexColumnDescriptor implements Serializable {
-    private static final long serialVersionUID = 5750677168056750717L;
+class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractStreamerPartitionAwarenessProvider<Entry<K, V>> {
+    private final Mapper<K> mapper;
 
-    private final String name;
+    KeyValuePojoStreamerPartitionAwarenessProvider(ClientTable tbl, Mapper<K> mapper) {
+        super(tbl);
 
-    private final ColumnCollation collation;
-
-    public IndexColumnDescriptor(String name, ColumnCollation collation) {
-        this.name = name;
-        this.collation = Objects.requireNonNull(collation, "collation");
+        this.mapper = mapper;
     }
 
-    public String name() {
-        return name;
-    }
-
-    public ColumnCollation collation() {
-        return collation;
-    }
-
-    /** {@inheritDoc} */
     @Override
-    public String toString() {
-        return S.toString(this);
+    int colocationHash(ClientSchema schema, Entry<K, V> item) {
+        return ClientTupleSerializer.getColocationHash(schema, mapper, item.getKey());
     }
 }

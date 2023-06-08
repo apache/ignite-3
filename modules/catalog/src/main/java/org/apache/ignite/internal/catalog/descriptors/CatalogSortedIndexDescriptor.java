@@ -25,10 +25,10 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Sorted index descriptor.
  */
-public class SortedIndexDescriptor extends IndexDescriptor {
+public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private static final long serialVersionUID = 2085714310150728611L;
 
-    private final List<IndexColumnDescriptor> columns;
+    private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
      * Constructs a sorted description.
@@ -40,20 +40,20 @@ public class SortedIndexDescriptor extends IndexDescriptor {
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
-    public SortedIndexDescriptor(int id, String name, int tableId, boolean unique, List<IndexColumnDescriptor> columns) {
+    public CatalogSortedIndexDescriptor(int id, String name, int tableId, boolean unique, List<CatalogIndexColumnDescriptor> columns) {
         super(id, name, tableId, unique);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
 
-    public List<IndexColumnDescriptor> columns() {
+    public List<CatalogIndexColumnDescriptor> columns() {
         return columns;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasColumn(String columnName) {
-        return columns.stream().map(IndexColumnDescriptor::name).anyMatch(columnName::equals);
+        return columns.stream().map(CatalogIndexColumnDescriptor::name).anyMatch(columnName::equals);
     }
 
     /** {@inheritDoc} */

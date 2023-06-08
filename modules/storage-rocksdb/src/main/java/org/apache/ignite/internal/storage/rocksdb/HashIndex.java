@@ -21,8 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -35,13 +35,13 @@ import org.rocksdb.WriteBatch;
 class HashIndex {
     private final ColumnFamily indexCf;
 
-    private final HashIndexDescriptor descriptor;
+    private final StorageHashIndexDescriptor descriptor;
 
     private final ConcurrentMap<Integer, RocksDbHashIndexStorage> storages = new ConcurrentHashMap<>();
 
     private final RocksDbMetaStorage indexMetaStorage;
 
-    HashIndex(ColumnFamily indexCf, HashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
+    HashIndex(ColumnFamily indexCf, StorageHashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
         this.indexCf = indexCf;
         this.descriptor = descriptor;
         this.indexMetaStorage = indexMetaStorage;

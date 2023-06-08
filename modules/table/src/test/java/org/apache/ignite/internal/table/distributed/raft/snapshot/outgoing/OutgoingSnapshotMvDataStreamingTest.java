@@ -139,6 +139,7 @@ class OutgoingSnapshotMvDataStreamingTest {
     @Nullable
     private SnapshotMvDataResponse getNullableMvDataResponse(long batchSizeHint) {
         SnapshotMvDataRequest request = messagesFactory.snapshotMvDataRequest()
+                .id(snapshot.id())
                 .batchSizeHint(batchSizeHint)
                 .build();
 
