@@ -330,18 +330,9 @@ namespace Apache.Ignite.Internal.Table
                 data,
                 sender: async (batch, preferredNode) =>
                 {
-                    IgniteArgumentCheck.NotNull((IEnumerable<T>)batch, nameof(batch));
-
-                    var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-                    using var writer = ProtoCommon.GetMessageWriter();
-                    using var enumerator = batch.GetEnumerator();
-                    enumerator.MoveNext();
-
-                    // TODO: Use cached serialized buffer.
-                    _ser.WriteMultiple(writer, tx: null, schema, enumerator, skipHash: true);
-
                     // TODO: Override retry policy with streamer-specific one.
-                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, writer, PreferredNode.FromName(preferredNode)).ConfigureAwait(false);
+                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, batch, PreferredNode.FromName(preferredNode))
+                        .ConfigureAwait(false);
                 },
                 writer: _ser.Handler,
                 schemaProvider: () => _table.GetLatestSchemaAsync(),

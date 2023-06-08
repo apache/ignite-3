@@ -215,10 +215,14 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="val">Value.</param>
         /// <param name="pos">Position.</param>
-        public void WriteInt(int val, int pos)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
-        }
+        public void WriteInt(int val, int pos) => BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
+
+        /// <summary>
+        /// Writes an int at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteIntBigEndian(int val, int pos) => BinaryPrimitives.WriteInt32BigEndian(_buffer.AsSpan(pos + _prefixSize), val);
 
         /// <summary>
         /// Writes a long at current position.

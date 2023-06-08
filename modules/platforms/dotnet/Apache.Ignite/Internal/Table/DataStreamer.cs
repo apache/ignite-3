@@ -26,6 +26,7 @@ using Common;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
+using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -46,7 +47,7 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<Batch, string, Task> sender,
+        Func<PooledArrayBuffer, string, Task> sender,
         IRecordSerializerHandler<T> writer,
         Func<Task<Schema>> schemaProvider,
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
@@ -73,7 +74,7 @@ internal static class DataStreamer
                 if (batch.Count >= options.BatchSize)
                 {
                     // TODO: Allow adding items to another buffer while sending previous.
-                    await sender(batch, partition).ConfigureAwait(false);
+                    await SendAsync(batch, partition).ConfigureAwait(false);
 
                     batch.Count = 0;
                     batch.Buffer.Clear();
@@ -84,7 +85,7 @@ internal static class DataStreamer
             {
                 if (batch.Count > 0)
                 {
-                    await sender(batch, partition).ConfigureAwait(false);
+                    await SendAsync(batch, partition).ConfigureAwait(false);
                 }
             }
         }
@@ -167,13 +168,19 @@ internal static class DataStreamer
 
             return batch;
         }
+
+        async Task SendAsync(Batch batch, string partition)
+        {
+            var buf = batch.Buffer;
+            buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
+            buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
+
+            await sender(buf, partition).ConfigureAwait(false);
+        }
     }
 
-    public sealed record Batch(PooledArrayBuffer Buffer, Schema Schema, int CountPos)
+    private sealed record Batch(PooledArrayBuffer Buffer, Schema Schema, int CountPos)
     {
-        /// <summary>
-        /// Gets or sets batch item count.
-        /// </summary>
         public int Count { get; set; }
     }
 }
