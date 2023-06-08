@@ -22,7 +22,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Index descriptor base class.
  */
-public abstract class IndexDescriptor extends ObjectDescriptor {
+public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -8045949593661301287L;
 
     /** Table id. */
@@ -34,7 +34,7 @@ public abstract class IndexDescriptor extends ObjectDescriptor {
     /** Write only flag. {@code True} when index is building. */
     private boolean writeOnly;
 
-    IndexDescriptor(int id, String name, int tableId, boolean unique) {
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique) {
         super(id, Type.INDEX, name);
         this.tableId = tableId;
         this.unique = unique;

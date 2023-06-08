@@ -70,7 +70,7 @@ import org.junit.jupiter.api.Test;
  * @param <S> Type of specific index implementation.
  * @param <D> Type of index descriptor for that specific implementation.
  */
-public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends IndexDescriptor> {
+public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> {
     private static final IgniteLogger log = Loggers.forClass(AbstractIndexStorageTest.class);
 
     /** Definitions of all supported column types. */

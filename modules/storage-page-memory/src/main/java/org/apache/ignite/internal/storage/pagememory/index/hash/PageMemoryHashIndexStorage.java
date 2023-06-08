@@ -27,9 +27,9 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
@@ -45,7 +45,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
     private static final IgniteLogger LOG = Loggers.forClass(PageMemoryHashIndexStorage.class);
 
     /** Index descriptor. */
-    private final HashIndexDescriptor descriptor;
+    private final StorageHashIndexDescriptor descriptor;
 
     /** Hash index tree instance. */
     private volatile HashIndexTree hashIndexTree;
@@ -61,7 +61,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
      */
     public PageMemoryHashIndexStorage(
             IndexMeta indexMeta,
-            HashIndexDescriptor descriptor,
+            StorageHashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             HashIndexTree hashIndexTree,
             IndexMetaTree indexMetaTree
@@ -73,7 +73,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage i
     }
 
     @Override
-    public HashIndexDescriptor indexDescriptor() {
+    public StorageHashIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 

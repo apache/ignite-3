@@ -30,13 +30,13 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,11 +86,11 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @return Index Storage.
      * @throws StorageException If the given partition does not exist, or if the given index does not exist.
      */
-    default IndexStorage getOrCreateIndex(int partitionId, IndexDescriptor indexDescriptor) {
-        if (indexDescriptor instanceof HashIndexDescriptor) {
-            return getOrCreateHashIndex(partitionId, (HashIndexDescriptor) indexDescriptor);
-        } else if (indexDescriptor instanceof SortedIndexDescriptor) {
-            return getOrCreateSortedIndex(partitionId, (SortedIndexDescriptor) indexDescriptor);
+    default IndexStorage getOrCreateIndex(int partitionId, StorageIndexDescriptor indexDescriptor) {
+        if (indexDescriptor instanceof StorageHashIndexDescriptor) {
+            return getOrCreateHashIndex(partitionId, (StorageHashIndexDescriptor) indexDescriptor);
+        } else if (indexDescriptor instanceof StorageSortedIndexDescriptor) {
+            return getOrCreateSortedIndex(partitionId, (StorageSortedIndexDescriptor) indexDescriptor);
         } else {
             throw new StorageException("Unknown index type: " + indexDescriptor);
         }
@@ -105,7 +105,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
      *         a sorted index.
      */
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, SortedIndexDescriptor indexDescriptor);
+    SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor);
 
     /**
      * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
@@ -116,7 +116,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
      *         hash index.
      */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor indexDescriptor);
+    HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
 
     /**
      * Destroys the index under the given name and all data in it.

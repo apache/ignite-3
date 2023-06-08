@@ -33,11 +33,11 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
@@ -64,11 +64,11 @@ public class TestMvTableStorage implements MvTableStorage {
      * Class for storing Sorted Indices for a particular partition.
      */
     private static class SortedIndices {
-        private final SortedIndexDescriptor descriptor;
+        private final StorageSortedIndexDescriptor descriptor;
 
         final Map<Integer, TestSortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
-        SortedIndices(SortedIndexDescriptor descriptor) {
+        SortedIndices(StorageSortedIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
@@ -81,11 +81,11 @@ public class TestMvTableStorage implements MvTableStorage {
      * Class for storing Hash Indices for a particular partition.
      */
     private static class HashIndices {
-        private final HashIndexDescriptor descriptor;
+        private final StorageHashIndexDescriptor descriptor;
 
         final Map<Integer, TestHashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
-        HashIndices(HashIndexDescriptor descriptor) {
+        HashIndices(StorageHashIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
@@ -142,7 +142,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, SortedIndexDescriptor indexDescriptor) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
         if (mvPartitionStorage == null) {
@@ -158,7 +158,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor indexDescriptor) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
         if (mvPartitionStorage == null) {

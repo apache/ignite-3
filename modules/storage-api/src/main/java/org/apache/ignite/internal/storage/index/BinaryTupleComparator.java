@@ -29,7 +29,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.InternalTuple;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -39,12 +39,12 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedInde
  * Otherwise comparison result is determined by the first non-matching column.
  */
 public class BinaryTupleComparator implements Comparator<ByteBuffer> {
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     /**
      * Creates a comparator for a Sorted Index identified by the given descriptor.
      */
-    public BinaryTupleComparator(SortedIndexDescriptor descriptor) {
+    public BinaryTupleComparator(StorageSortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
@@ -66,7 +66,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         assert columnsToCompare <= descriptor.columns().size();
 
         for (int i = 0; i < columnsToCompare; i++) {
-            SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
+            StorageSortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
 
             int compare = compareField(tuple1, tuple2, i);
 
@@ -103,7 +103,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             return -1;
         }
 
-        SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);
+        StorageSortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);
 
         NativeTypeSpec typeSpec = columnDescriptor.type().spec();
 

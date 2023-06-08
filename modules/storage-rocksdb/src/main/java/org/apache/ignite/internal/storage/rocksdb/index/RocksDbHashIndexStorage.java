@@ -33,9 +33,9 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -66,7 +66,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     /** Length of the fixed part of the key: Index ID + Partition ID + Hash. */
     public static final int FIXED_PREFIX_LENGTH = INDEX_ID_SIZE + PARTITION_ID_SIZE + Integer.BYTES;
 
-    private final HashIndexDescriptor descriptor;
+    private final StorageHashIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
 
@@ -82,7 +82,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbHashIndexStorage(
-            HashIndexDescriptor descriptor,
+            StorageHashIndexDescriptor descriptor,
             ColumnFamily indexCf,
             PartitionDataHelper helper,
             RocksDbMetaStorage indexMetaStorage
@@ -100,7 +100,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     }
 
     @Override
-    public HashIndexDescriptor indexDescriptor() {
+    public StorageHashIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 
