@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * CacheKey.
@@ -36,7 +35,8 @@ public class CacheKey {
 
     /**
      * Constructor.
-     *  @param schemaName Schema name.
+     *
+     * @param schemaName Schema name.
      * @param query      Query string.
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */

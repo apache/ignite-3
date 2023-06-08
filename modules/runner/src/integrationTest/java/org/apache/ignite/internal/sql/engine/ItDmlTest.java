@@ -26,9 +26,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -611,6 +616,36 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(3, 2)
                 .returns(4, 4)
                 .returns(5, 2)
+                .check();
+    }
+
+    @Test
+    public void testMultithreadedMerge() throws Exception {
+        //        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+        //        sql("DROP TABLE IF EXISTS test1 ");
+        sql("CREATE TABLE test1 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
+
+        AtomicInteger cntr = new AtomicInteger();
+        final int step = 10;
+        int threads = 2;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+
+        CompletableFuture<Long> fut = IgniteTestUtils.runMultiThreadedAsync(() -> {
+            int start = cntr.getAndAdd(step);
+
+            barrier.await();
+
+            for (int i = start; i < start + step; i++) {
+                sql("INSERT INTO test1 VALUES (?, ?, ?, ?, ?)", i * 111, i * 111, i, i * 100, String.valueOf(i));
+            }
+
+            return step;
+        }, threads, "insert");
+
+        fut.get(60, TimeUnit.SECONDS);
+
+        assertQuery("SELECT count(*) FROM test1")
+                .returns((long) step * threads)
                 .check();
     }
 }

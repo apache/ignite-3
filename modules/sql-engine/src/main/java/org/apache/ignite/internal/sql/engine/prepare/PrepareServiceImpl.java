@@ -194,7 +194,7 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        CompletableFuture<MultiStepQueryPlan> planFut = CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -211,12 +211,10 @@ public class PrepareServiceImpl implements PrepareService {
 
             return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
         }, planningPool);
-
-        return planFut.thenApply(QueryPlan::copy);
     }
 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        CompletableFuture<MultiStepDmlPlan> planFut = CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -232,8 +230,6 @@ public class PrepareServiceImpl implements PrepareService {
 
             return new MultiStepDmlPlan(template);
         }, planningPool);
-
-        return planFut.thenApply(QueryPlan::copy);
     }
 
     private ResultSetMetadata resultSetMetadata(

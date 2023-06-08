@@ -458,11 +458,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                         SqlQueryType queryType = Commons.getQueryType(sqlNode);
 
+                        boolean cachedQuery = queryType == QUERY || queryType == DML;
+
                         CompletableFuture<QueryPlan> planFut0 = prepareSvc.prepareAsync(sqlNode, ctx);
 
-                        planWithCtxFutRef.set(planFut0.thenApply(plan -> new Pair<>(plan, ctx)));
+                        planWithCtxFutRef.set(planFut0.thenApply(plan -> new Pair<>(cachedQuery ? plan.copy() : plan, ctx)));
 
-                        return queryType == QUERY || queryType == DML ? planFut0 : null;
+                        return cachedQuery ? planFut0 : null;
                     });
 
                     CompletableFuture<Pair<QueryPlan, BaseQueryContext>> resFut = planWithCtxFutRef.get();
@@ -473,7 +475,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         resFut = planFut.thenApply(plan -> {
                             tx.set(implicitTxRequired ? txManager.begin(plan.type() != DML) : outerTx);
 
-                            return new Pair<>(plan, ctxBuilder.frameworkConfig(buildConfig(schemaName)).build());
+                            return new Pair<>(plan.copy(), ctxBuilder.frameworkConfig(buildConfig(schemaName)).build());
                         });
                     }
 
