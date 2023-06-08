@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.row.InternalTuple;
@@ -27,59 +26,23 @@ import org.apache.ignite.internal.schema.row.InternalTuple;
  * elements as objects.
  */
 public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
-    /** Tuple schema. */
-    private final BinaryTupleSchema schema;
-
     /**
      * Constructor.
      *
-     * @param schema Tuple schema.
+     * @param elementCount Number of tuple elements.
      * @param bytes Binary tuple.
      */
-    public BinaryTuple(BinaryTupleSchema schema, byte[] bytes) {
-        super(schema.elementCount(), bytes);
-        this.schema = schema;
+    public BinaryTuple(int elementCount, byte[] bytes) {
+        super(elementCount, bytes);
     }
 
     /**
      * Constructor.
      *
-     * @param schema Tuple schema.
+     * @param elementCount Number of tuple elements.
      * @param buffer Buffer with a binary tuple.
      */
-    public BinaryTuple(BinaryTupleSchema schema, ByteBuffer buffer) {
-        super(schema.elementCount(), buffer);
-        this.schema = schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int count() {
-        return elementCount();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BigDecimal decimalValue(int index) {
-        return decimalValue(index, schema.element(index).decimalScale);
-    }
-
-    /**
-     * Reads value for specified element.
-     *
-     * @param index Element index.
-     * @return Element value.
-     */
-    public Object value(int index) {
-        return schema.element(index).typeSpec.objectValue(this, index);
-    }
-
-    /**
-     * Returns the schema of this tuple.
-     *
-     * @return This tuple's schema.
-     */
-    public BinaryTupleSchema schema() {
-        return schema;
+    public BinaryTuple(int elementCount, ByteBuffer buffer) {
+        super(elementCount, buffer);
     }
 }

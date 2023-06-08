@@ -196,7 +196,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     private @Nullable IndexRowImpl toIndexRowImpl(@Nullable SortedIndexRow sortedIndexRow) {
         return sortedIndexRow == null ? null : new IndexRowImpl(
-                new BinaryTuple(descriptor.binaryTupleSchema(), sortedIndexRow.indexColumns().valueBuffer()),
+                new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), sortedIndexRow.indexColumns().valueBuffer()),
                 sortedIndexRow.rowId()
         );
     }

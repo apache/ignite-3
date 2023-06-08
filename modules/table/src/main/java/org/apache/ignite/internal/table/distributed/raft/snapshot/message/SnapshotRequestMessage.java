@@ -19,14 +19,11 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base interface for snapshot request messages.
  */
 public interface SnapshotRequestMessage extends NetworkMessage {
     /** Snapshot id. */
-    // TODO: IGNITE-19457 Maybe not nullable.
-    @Nullable
     UUID id();
 }

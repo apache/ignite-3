@@ -31,7 +31,9 @@ import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
@@ -44,11 +46,11 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -180,14 +182,7 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < values.size(); i++) {
             Column col = schema.column(i);
 
-            NativeTypeSpec type = col.type().spec();
-
-            if (type == NativeTypeSpec.BYTES) {
-                assertArrayEquals((byte[]) values.get(i), (byte[]) NativeTypeSpec.BYTES.objectValue(row, col.schemaIndex()),
-                        "Failed for column: " + col);
-            } else {
-                assertEquals(values.get(i), type.objectValue(row, col.schemaIndex()), "Failed for column: " + col);
-            }
+            assertThat("Failed for column: " + col, row.value(col.schemaIndex()), is(equalTo(values.get(i))));
         }
     }
 
@@ -253,7 +248,7 @@ public class UpgradingRowAdapterTest {
                         break;
 
                     case UUID:
-                        asm.appendUuid((java.util.UUID) vals.get(i));
+                        asm.appendUuid((UUID) vals.get(i));
                         break;
 
                     case STRING:
