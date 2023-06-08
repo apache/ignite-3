@@ -17,14 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
-
 import java.nio.file.Path;
-import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.jetbrains.annotations.TestOnly;
-import org.rocksdb.RocksDBException;
 
 /**
  * Test version of {@link RocksDbKeyValueStorage}, but behavior on a start differs. In this version, storage is not destroyed on
@@ -44,17 +39,7 @@ public class TestRocksDbKeyValueStorage extends RocksDbKeyValueStorage {
     }
 
     @Override
-    public void start() {
-        try {
-            createDb();
-
-            byte[] revision = getData().get(REVISION_KEY);
-
-            if (revision != null) {
-                setRev(bytesToLong(revision));
-            }
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
-        }
+    protected void destroyRocksDb() {
+        // We don't want to remove all data after restart, because we cannot rely on a raft's snapshot installing and log playback.
     }
 }

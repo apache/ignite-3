@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -60,11 +61,15 @@ public class TestRocksDbKeyValueStorageTest extends BasicOperationsKeyValueStora
         assertArrayEquals(key, e.key());
         assertArrayEquals(val, e.value());
 
+        long revisionBeforeRestart = testRocksDbKeyValueStorage.revision();
+
         testRocksDbKeyValueStorage.close();
 
         testRocksDbKeyValueStorage = new TestRocksDbKeyValueStorage("test", workDir.resolve("storage"));
 
         testRocksDbKeyValueStorage.start();
+
+        assertEquals(revisionBeforeRestart, testRocksDbKeyValueStorage.revision());
 
         e = testRocksDbKeyValueStorage.get(key);
 
