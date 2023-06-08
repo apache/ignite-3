@@ -236,7 +236,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         /**
          * Check whether the passed value exceeds the upper bound for the scan.
          */
-        protected abstract boolean halt(V value);
+        protected abstract boolean exceedsUpperBound(V value);
 
         @Override
         public void close() {
@@ -295,7 +295,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
                 peekedRow = indexTree.findNext(treeRow, false);
             }
 
-            if (peekedRow != null && halt(peekedRow)) {
+            if (peekedRow != null && exceedsUpperBound(peekedRow)) {
                 peekedRow = null;
             }
 

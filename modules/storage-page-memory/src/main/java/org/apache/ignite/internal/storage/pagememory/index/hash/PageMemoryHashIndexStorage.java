@@ -94,7 +94,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
                 }
 
                 @Override
-                protected boolean halt(HashIndexRow value) {
+                protected boolean exceedsUpperBound(HashIndexRow value) {
                     return !Objects.equals(value.indexColumns().valueBuffer(), key.byteBuffer());
                 }
             };

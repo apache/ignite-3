@@ -99,7 +99,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 }
 
                 @Override
-                protected boolean halt(SortedIndexRow value) {
+                protected boolean exceedsUpperBound(SortedIndexRow value) {
                     return !Objects.equals(value.indexColumns().valueBuffer(), key.byteBuffer());
                 }
             };
@@ -164,7 +164,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 }
 
                 @Override
-                protected boolean halt(SortedIndexRow value) {
+                protected boolean exceedsUpperBound(SortedIndexRow value) {
                     return upper != null && 0 <= sortedIndexTree.getBinaryTupleComparator().compare(
                             value.indexColumns().valueBuffer(),
                             upper.indexColumns().valueBuffer()
