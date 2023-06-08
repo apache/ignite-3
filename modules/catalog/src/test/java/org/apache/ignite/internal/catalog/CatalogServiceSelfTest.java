@@ -57,12 +57,12 @@ import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -157,7 +157,7 @@ public class CatalogServiceSelfTest {
         assertNull(service.table(0, System.currentTimeMillis()));
         assertNull(service.index(0, System.currentTimeMillis()));
 
-        SchemaDescriptor schema = service.schema(0);
+        CatalogSchemaDescriptor schema = service.schema(0);
         assertEquals(SCHEMA_NAME, schema.name());
 
         assertEquals(0, schema.id());
@@ -186,7 +186,7 @@ public class CatalogServiceSelfTest {
         assertThat(fut, willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.schema(0);
+        CatalogSchemaDescriptor schema = service.schema(0);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
@@ -212,7 +212,7 @@ public class CatalogServiceSelfTest {
         assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
 
         // Validate newly created table
-        TableDescriptor table = schema.table(TABLE_NAME);
+        CatalogTableDescriptor table = schema.table(TABLE_NAME);
 
         assertEquals(1L, table.id());
         assertEquals(TABLE_NAME, table.name());
@@ -260,7 +260,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropTable(dropTableParams), willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.schema(2);
+        CatalogSchemaDescriptor schema = service.schema(2);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
@@ -320,7 +320,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.addColumn(params), willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.activeSchema(beforeAddedTimestamp);
+        CatalogSchemaDescriptor schema = service.activeSchema(beforeAddedTimestamp);
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
 
@@ -332,7 +332,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema.table(TABLE_NAME));
 
         // Validate column descriptor.
-        TableColumnDescriptor column = schema.table(TABLE_NAME).column(NEW_COLUMN_NAME);
+        CatalogTableColumnDescriptor column = schema.table(TABLE_NAME).column(NEW_COLUMN_NAME);
 
         assertEquals(NEW_COLUMN_NAME, column.name());
         assertEquals(ColumnType.STRING, column.type());
@@ -364,7 +364,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(params), willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.activeSchema(beforeAddedTimestamp);
+        CatalogSchemaDescriptor schema = service.activeSchema(beforeAddedTimestamp);
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
 
@@ -425,7 +425,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(params), willThrow(SqlException.class));
 
         // Validate actual catalog
-        SchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
+        CatalogSchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
         assertEquals(2, schema.version());
@@ -451,7 +451,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.addColumn(addColumnParams), willThrow(ColumnAlreadyExistsException.class));
 
         // Validate no column added.
-        SchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
+        CatalogSchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
@@ -619,10 +619,10 @@ public class CatalogServiceSelfTest {
                 willBe((Object) null)
         );
 
-        SchemaDescriptor schema = service.schema(++schemaVer);
+        CatalogSchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
 
-        TableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
+        CatalogTableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
 
         assertNotSame(desc.length(), desc.precision());
         assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
@@ -701,10 +701,10 @@ public class CatalogServiceSelfTest {
                 willBe((Object) null)
         );
 
-        SchemaDescriptor schema = service.schema(++schemaVer);
+        CatalogSchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
 
-        TableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
+        CatalogTableColumnDescriptor desc = schema.table(TABLE_NAME).column(col.name());
 
         assertNotSame(desc.length(), desc.precision());
         assertEquals(11, col.type() == ColumnType.DECIMAL ? desc.precision() : desc.length());
@@ -855,10 +855,10 @@ public class CatalogServiceSelfTest {
         // Ensures that 3 different actions applied.
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe((Object) null));
 
-        SchemaDescriptor schema = service.schema(++schemaVer);
+        CatalogSchemaDescriptor schema = service.schema(++schemaVer);
         assertNotNull(schema);
 
-        TableColumnDescriptor desc = schema.table(TABLE_NAME).column("VAL_NOT_NULL");
+        CatalogTableColumnDescriptor desc = schema.table(TABLE_NAME).column("VAL_NOT_NULL");
         assertEquals(DefaultValue.constant(null), desc.defaultValue());
         assertTrue(desc.nullable());
         assertEquals(ColumnType.INT64, desc.type());
@@ -907,7 +907,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropTable(dropTableParams), willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.schema(2);
+        CatalogSchemaDescriptor schema = service.schema(2);
 
         assertNotNull(schema);
         assertEquals(0, schema.id());
@@ -952,7 +952,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.createIndex(params), willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.schema(1);
+        CatalogSchemaDescriptor schema = service.schema(1);
 
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
@@ -968,7 +968,7 @@ public class CatalogServiceSelfTest {
         assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
 
         // Validate newly created hash index
-        HashIndexDescriptor index = (HashIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
 
         assertEquals(2L, index.id());
         assertEquals(INDEX_NAME, index.name());
@@ -987,13 +987,13 @@ public class CatalogServiceSelfTest {
                 .tableName(TABLE_NAME)
                 .unique()
                 .columns(List.of("VAL", "ID"))
-                .collations(List.of(ColumnCollation.DESC_NULLS_FIRST, ColumnCollation.ASC_NULLS_LAST))
+                .collations(List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST))
                 .build();
 
         assertThat(service.createIndex(params), willBe((Object) null));
 
         // Validate catalog version from the past.
-        SchemaDescriptor schema = service.schema(1);
+        CatalogSchemaDescriptor schema = service.schema(1);
 
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
@@ -1009,15 +1009,15 @@ public class CatalogServiceSelfTest {
         assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
 
         // Validate newly created sorted index
-        SortedIndexDescriptor index = (SortedIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
 
         assertEquals(2L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
         assertEquals("ID", index.columns().get(1).name());
-        assertEquals(ColumnCollation.DESC_NULLS_FIRST, index.columns().get(0).collation());
-        assertEquals(ColumnCollation.ASC_NULLS_LAST, index.columns().get(1).collation());
+        assertEquals(CatalogColumnCollation.DESC_NULLS_FIRST, index.columns().get(0).collation());
+        assertEquals(CatalogColumnCollation.ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertFalse(index.writeOnly());
     }
@@ -1284,7 +1284,7 @@ public class CatalogServiceSelfTest {
                 .tableName(tableName)
                 .unique()
                 .columns(List.of("VAL"))
-                .collations(List.of(ColumnCollation.ASC_NULLS_LAST))
+                .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
                 .build();
     }
 

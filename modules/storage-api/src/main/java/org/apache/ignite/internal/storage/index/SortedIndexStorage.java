@@ -44,7 +44,7 @@ public interface SortedIndexStorage extends IndexStorage {
     /**
      * Returns the Index Descriptor of this storage.
      */
-    SortedIndexDescriptor indexDescriptor();
+    StorageSortedIndexDescriptor indexDescriptor();
 
     /**
      * Returns a range of index values between the lower bound and the upper bound.

@@ -21,6 +21,9 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.getNativeType;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.tostring.S;
 
@@ -29,11 +32,11 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see HashIndexStorage
  */
-public class HashIndexDescriptor implements IndexDescriptor {
+public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
     /**
      * Descriptor of a Hash Index column.
      */
-    public static class HashIndexColumnDescriptor implements ColumnDescriptor {
+    public static class StorageHashIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
         private final NativeType type;
@@ -47,7 +50,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
          * @param type Type of the column.
          * @param nullable Flag indicating that the column may contain {@code null}s.
          */
-        public HashIndexColumnDescriptor(String name, NativeType type, boolean nullable) {
+        public StorageHashIndexColumnDescriptor(String name, NativeType type, boolean nullable) {
             this.name = name;
             this.type = type;
             this.nullable = nullable;
@@ -76,7 +79,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
 
     private final int id;
 
-    private final List<HashIndexColumnDescriptor> columns;
+    private final List<StorageHashIndexColumnDescriptor> columns;
 
     /**
      * Constructor.
@@ -84,10 +87,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
      * @param table Catalog table descriptor.
      * @param index Catalog index descriptor.
      */
-    public HashIndexDescriptor(
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
-            org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index
-    ) {
+    public StorageHashIndexDescriptor(CatalogTableDescriptor table, CatalogHashIndexDescriptor index) {
         this(index.id(), extractIndexColumnsConfiguration(table, index));
     }
 
@@ -97,7 +97,7 @@ public class HashIndexDescriptor implements IndexDescriptor {
      * @param indexId Index id.
      * @param columns Columns descriptors.
      */
-    public HashIndexDescriptor(int indexId, List<HashIndexColumnDescriptor> columns) {
+    public StorageHashIndexDescriptor(int indexId, List<StorageHashIndexColumnDescriptor> columns) {
         this.id = indexId;
         this.columns = columns;
     }
@@ -108,23 +108,23 @@ public class HashIndexDescriptor implements IndexDescriptor {
     }
 
     @Override
-    public List<HashIndexColumnDescriptor> columns() {
+    public List<StorageHashIndexColumnDescriptor> columns() {
         return columns;
     }
 
-    private static List<HashIndexColumnDescriptor> extractIndexColumnsConfiguration(
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
-            org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor index
+    private static List<StorageHashIndexColumnDescriptor> extractIndexColumnsConfiguration(
+            CatalogTableDescriptor table,
+            CatalogHashIndexDescriptor index
     ) {
         assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
         return index.columns().stream()
                 .map(columnName -> {
-                    org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor column = table.column(columnName);
+                    CatalogTableColumnDescriptor column = table.column(columnName);
 
                     assert column != null : columnName;
 
-                    return new HashIndexColumnDescriptor(column.name(), getNativeType(column), column.nullable());
+                    return new StorageHashIndexColumnDescriptor(column.name(), getNativeType(column), column.nullable());
                 })
                 .collect(toList());
     }

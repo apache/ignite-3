@@ -69,7 +69,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnT
 import org.apache.ignite.internal.schema.testutils.definition.index.ColumnarIndexDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
@@ -83,7 +83,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 /**
  * Base class for Sorted Index storage tests.
  */
-public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorageTest<SortedIndexStorage, SortedIndexDescriptor> {
+public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorageTest<SortedIndexStorage, StorageSortedIndexDescriptor> {
     private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
     @Override
@@ -140,12 +140,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
-                new SortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor((SortedIndexView) indexView))
+                new StorageSortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor((SortedIndexView) indexView))
         );
     }
 
     @Override
-    protected SortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
+    protected StorageSortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
         return index.indexDescriptor();
     }
 
@@ -157,7 +157,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ALL_TYPES_COLUMN_DEFINITIONS);
 
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
-                .map(SortedIndexColumnDescriptor::type)
+                .map(StorageSortedIndexColumnDescriptor::type)
                 .map(type -> SchemaTestUtils.generateRandomValue(random, type))
                 .toArray();
 

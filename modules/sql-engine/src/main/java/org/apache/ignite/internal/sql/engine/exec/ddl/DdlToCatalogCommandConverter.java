@@ -32,7 +32,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -136,7 +136,7 @@ class DdlToCatalogCommandConverter {
 
                         .build();
             case SORTED:
-                List<ColumnCollation> collations = cmd.collations().stream()
+                List<CatalogColumnCollation> collations = cmd.collations().stream()
                         .map(DdlToCatalogCommandConverter::convert)
                         .collect(Collectors.toList());
 
@@ -183,7 +183,7 @@ class DdlToCatalogCommandConverter {
         }
     }
 
-    private static ColumnCollation convert(IgniteIndex.Collation collation) {
-        return ColumnCollation.get(collation.asc, collation.nullsFirst);
+    private static CatalogColumnCollation convert(IgniteIndex.Collation collation) {
+        return CatalogColumnCollation.get(collation.asc, collation.nullsFirst);
     }
 }

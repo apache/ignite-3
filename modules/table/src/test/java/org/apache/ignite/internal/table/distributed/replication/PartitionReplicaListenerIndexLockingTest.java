@@ -59,9 +59,9 @@ import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshal
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -162,9 +162,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
                 new TestSortedIndexStorage(PART_ID,
-                        new SortedIndexDescriptor(
+                        new StorageSortedIndexDescriptor(
                                 SORTED_INDEX_ID,
-                                List.of(new SortedIndexColumnDescriptor(
+                                List.of(new StorageSortedIndexColumnDescriptor(
                                         "val", NativeTypes.INT32, false, true
                                 ))
                         )),

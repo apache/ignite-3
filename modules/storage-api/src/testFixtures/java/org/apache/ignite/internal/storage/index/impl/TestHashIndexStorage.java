@@ -29,9 +29,9 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,19 +40,19 @@ import org.jetbrains.annotations.Nullable;
 public class TestHashIndexStorage extends AbstractTestIndexStorage implements HashIndexStorage {
     private final ConcurrentMap<ByteBuffer, NavigableSet<RowId>> index = new ConcurrentHashMap<>();
 
-    private final HashIndexDescriptor descriptor;
+    private final StorageHashIndexDescriptor descriptor;
 
     /**
      * Constructor.
      */
-    public TestHashIndexStorage(int partitionId, HashIndexDescriptor descriptor) {
+    public TestHashIndexStorage(int partitionId, StorageHashIndexDescriptor descriptor) {
         super(partitionId);
 
         this.descriptor = descriptor;
     }
 
     @Override
-    public HashIndexDescriptor indexDescriptor() {
+    public StorageHashIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 

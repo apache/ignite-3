@@ -65,7 +65,7 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -93,12 +93,12 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -354,12 +354,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorageSupplier = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 pkIndexId,
-                new TestHashIndexStorage(partId, mock(HashIndexDescriptor.class)),
+                new TestHashIndexStorage(partId, mock(StorageHashIndexDescriptor.class)),
                 row2Tuple
         ));
 
-        SortedIndexStorage indexStorage = new TestSortedIndexStorage(partId, new SortedIndexDescriptor(sortedIndexId, List.of(
-                new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
+        SortedIndexStorage indexStorage = new TestSortedIndexStorage(partId, new StorageSortedIndexDescriptor(sortedIndexId, List.of(
+                new StorageSortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
         )));
 
         // 2 is the index of "intVal" in the list of all columns.
@@ -369,8 +369,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
-                new TestHashIndexStorage(partId, new HashIndexDescriptor(hashIndexId, List.of(
-                        new HashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
+                new TestHashIndexStorage(partId, new StorageHashIndexDescriptor(hashIndexId, List.of(
+                        new StorageHashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
                 ))),
                 columnsExtractor
         );
@@ -1284,15 +1284,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertThat(committed.get(), is(true));
     }
 
-    private static TableColumnDescriptor nullableColumn(String colName) {
-        return new TableColumnDescriptor(colName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
+    private static CatalogTableColumnDescriptor nullableColumn(String colName) {
+        return new CatalogTableColumnDescriptor(colName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
     }
 
-    private static TableColumnDescriptor defaultedColumn(String colName, int defaultValue) {
-        return new TableColumnDescriptor(colName, ColumnType.INT32, false, 0, 0, 0, DefaultValue.constant(defaultValue));
+    private static CatalogTableColumnDescriptor defaultedColumn(String colName, int defaultValue) {
+        return new CatalogTableColumnDescriptor(colName, ColumnType.INT32, false, 0, 0, 0, DefaultValue.constant(defaultValue));
     }
 
-    private static FullTableSchema tableSchema(int schemaVersion, List<TableColumnDescriptor> columns) {
+    private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
         return new FullTableSchema(schemaVersion, 1, columns, List.of());
     }
 
