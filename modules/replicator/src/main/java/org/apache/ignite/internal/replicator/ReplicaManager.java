@@ -403,12 +403,10 @@ public class ReplicaManager implements IgniteComponent {
                         replicaGrpId,
                         clusterNetSvc.topologyService().localMember()
                 ));
-            } else {
-                removed.whenComplete((replica, throwable) -> {
-                    if (throwable != null) {
-                        replica.shutdown();
-                    }
-                });
+            }
+
+            if (!removed.isCompletedExceptionally()) {
+                removed.join().shutdown();
             }
 
             return true;
