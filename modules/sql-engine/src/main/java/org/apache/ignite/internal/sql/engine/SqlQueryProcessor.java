@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.SqlQueryType.DML;
+import static org.apache.ignite.internal.sql.engine.SqlQueryType.QUERY;
+import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
@@ -26,13 +29,16 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_E
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -68,8 +74,10 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.CacheKey;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -177,6 +185,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
+    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -204,6 +214,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
+
+        this.planCache = Caffeine.newBuilder()
+                .maximumSize(PLAN_CACHE_SIZE)
+                .<CacheKey, CompletableFuture<QueryPlan>>build()
+                .asMap();
     }
 
     /** {@inheritDoc} */
@@ -244,7 +259,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 busyLock
         );
 
-        sqlSchemaManager.registerListener(prepareSvc);
+//        sqlSchemaManager.registerListener(prepareSvc);
+        sqlSchemaManager.registerListener(planCache::clear);
 
         this.prepareSvc = prepareSvc;
 
@@ -411,37 +427,95 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenCompose(v -> {
-                    StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
-                    SqlNode sqlNode = parseResult.statement();
-
-                    validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
-
-                    boolean rwOp = dataModificationOp(sqlNode);
+                    Class[] paramTypes = params.length == 0
+                            ? EMPTY_CLASS_ARRAY :
+                            Arrays.stream(params).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+                    var key = new CacheKey(schemaName, sql, null, paramTypes);
 
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+                    // todo synchronization
+                    CompletableFuture<QueryPlan> futPlan = planCache.get(key);
 
-                    if (schema == null) {
-                        return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+                    CompletableFuture<Pair<QueryPlan, BaseQueryContext>> futPlan0 = null;
+
+                    if (futPlan == null) {
+                        StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
+                        SqlNode sqlNode = parseResult.statement();
+
+                        validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
+
+                        boolean rwOp = dataModificationOp(sqlNode);
+
+                        tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+
+                        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+
+                        if (schema == null) {
+                            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+                        }
+
+                        BaseQueryContext ctx = BaseQueryContext.builder()
+                                .frameworkConfig(
+                                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                                .defaultSchema(schema)
+                                                .build()
+                                )
+                                .logger(LOG)
+                                .cancel(queryCancel)
+                                .parameters(params)
+                                .plannerTimeout(PLANNER_TIMEOUT)
+                                .build();
+
+                        futPlan = prepareSvc.prepareAsync(sqlNode, ctx);
+
+
+                        SqlQueryType queryType = Commons.getQueryType(sqlNode);
+
+                        if (queryType == QUERY || queryType == DML) {
+                            planCache.put(key, futPlan);
+                        }
+
+                        futPlan0 = futPlan.thenApply(plan -> {
+                            return new Pair<>(plan, ctx);
+                        });
+                    } else {
+//                        assert false;
+
+                        futPlan0 = futPlan.thenApply(plan -> {
+                            boolean rwOp = DML == plan.type();
+
+                            tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+
+                            SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+
+                            // todo
+//                            if (schema == null) {
+//                                return (CompletableFuture<Pair<QueryPlan, BaseQueryContext>>)
+//                                        CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+//                            }
+
+                            BaseQueryContext ctx = BaseQueryContext.builder()
+                                    .frameworkConfig(
+                                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                                    .defaultSchema(schema)
+                                                    .build()
+                                    )
+                                    .logger(LOG)
+                                    .cancel(queryCancel)
+                                    .parameters(params)
+                                    .plannerTimeout(PLANNER_TIMEOUT)
+                                    .build();
+
+                            return new Pair<>(plan, ctx);
+                        });
                     }
 
-                    BaseQueryContext ctx = BaseQueryContext.builder()
-                            .frameworkConfig(
-                                    Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                            .defaultSchema(schema)
-                                            .build()
-                            )
-                            .logger(LOG)
-                            .cancel(queryCancel)
-                            .parameters(params)
-                            .plannerTimeout(PLANNER_TIMEOUT)
-                            .build();
-
-                    return prepareSvc.prepareAsync(sqlNode, ctx)
-                            .thenApply(plan -> {
+                    return futPlan0
+                            .thenApply(pair -> {
+                                QueryPlan plan = pair.getKey();
+                                BaseQueryContext ctx = pair.getValue();
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 
                                 SqlQueryType queryType = plan.type();

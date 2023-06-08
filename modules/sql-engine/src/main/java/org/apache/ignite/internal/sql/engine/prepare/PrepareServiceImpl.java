@@ -218,7 +218,25 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
         var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), null, paramTypes);
 
-        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+//        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+//            IgnitePlanner planner = ctx.planner();
+//
+//            // Validate
+//            ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
+//
+//            SqlNode validatedNode = validated.sqlNode();
+//
+//            IgniteRel igniteRel = optimize(validatedNode, planner);
+//
+//            // Split query plan to query fragments.
+//            List<Fragment> fragments = new Splitter().go(igniteRel);
+//
+//            QueryTemplate template = new QueryTemplate(fragments);
+//
+//            return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
+//        }, planningPool));
+
+        CompletableFuture<MultiStepQueryPlan> planFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -234,7 +252,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             QueryTemplate template = new QueryTemplate(fragments);
 
             return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
-        }, planningPool));
+        }, planningPool);
 
         return planFut.thenApply(QueryPlan::copy);
     }
@@ -242,7 +260,24 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
         var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
 
-        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+//        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+//            IgnitePlanner planner = ctx.planner();
+//
+//            // Validate
+//            SqlNode validatedNode = planner.validate(sqlNode);
+//
+//            // Convert to Relational operators graph
+//            IgniteRel igniteRel = optimize(validatedNode, planner);
+//
+//            // Split query plan to query fragments.
+//            List<Fragment> fragments = new Splitter().go(igniteRel);
+//
+//            QueryTemplate template = new QueryTemplate(fragments);
+//
+//            return new MultiStepDmlPlan(template);
+//        }, planningPool));
+
+        CompletableFuture<MultiStepDmlPlan> planFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             // Validate
@@ -257,7 +292,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             QueryTemplate template = new QueryTemplate(fragments);
 
             return new MultiStepDmlPlan(template);
-        }, planningPool));
+        }, planningPool);
 
         return planFut.thenApply(QueryPlan::copy);
     }
