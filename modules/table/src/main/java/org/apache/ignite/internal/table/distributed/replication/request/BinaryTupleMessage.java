@@ -15,29 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Lease granted message.
+ * Message for transferring a {@link BinaryTuple} or a {@link BinaryTuplePrefix}.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
-public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
-    long leaseStartTimeLong();
+@Transferable(TableMessageGroup.BINARY_TUPLE)
+public interface BinaryTupleMessage extends NetworkMessage {
+    ByteBuffer tuple();
 
-    default HybridTimestamp leaseStartTime() {
-        return hybridTimestamp(leaseStartTimeLong());
+    int elementCount();
+
+    default BinaryTuple asBinaryTuple() {
+        return new BinaryTuple(elementCount(), tuple());
     }
 
-    long leaseExpirationTimeLong();
-
-    default HybridTimestamp leaseExpirationTime() {
-        return hybridTimestamp(leaseExpirationTimeLong());
+    default BinaryTuplePrefix asBinaryTuplePrefix() {
+        return new BinaryTuplePrefix(elementCount(), tuple());
     }
-
-    boolean force();
 }

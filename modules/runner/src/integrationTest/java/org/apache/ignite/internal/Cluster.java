@@ -140,12 +140,28 @@ public class Cluster {
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
     public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        startAndInit(nodeCount, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
+     *     with this call.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(
+            int nodeCount,
+            String nodeBootstrapConfigTemplate,
+            Consumer<InitParametersBuilder> initParametersConfigurator
+    ) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
 
         List<CompletableFuture<IgniteImpl>> futures = IntStream.range(0, nodeCount)
-                .mapToObj(this::startClusterNode)
+                .mapToObj(nodeIndex -> startNodeAsync(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
 
         List<String> metaStorageAndCmgNodeNames = Arrays.stream(cmgNodes).mapToObj(i -> testNodeName(testInfo, i)).collect(toList());
@@ -172,8 +188,8 @@ public class Cluster {
      * @param nodeIndex Index of the node to start.
      * @return Future that will be completed when the node starts.
      */
-    public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
-        return startClusterNode(nodeIndex, defaultNodeBootstrapConfigTemplate);
+    public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex) {
+        return startNodeAsync(nodeIndex, defaultNodeBootstrapConfigTemplate);
     }
 
     /**
@@ -183,7 +199,7 @@ public class Cluster {
      * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
      * @return Future that will be completed when the node starts.
      */
-    public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+    public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
         String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
@@ -255,7 +271,7 @@ public class Cluster {
         IgniteImpl newIgniteNode;
 
         try {
-            newIgniteNode = startClusterNode(index, nodeBootstrapConfigTemplate).get(20, TimeUnit.SECONDS);
+            newIgniteNode = startNodeAsync(index, nodeBootstrapConfigTemplate).get(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 

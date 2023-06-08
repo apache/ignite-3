@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.table;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Lease granted message.
+ * Represents an entity that can be used as a target for streaming data.
+ *
+ * @param <T> Entry type.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
-public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
-    long leaseStartTimeLong();
-
-    default HybridTimestamp leaseStartTime() {
-        return hybridTimestamp(leaseStartTimeLong());
-    }
-
-    long leaseExpirationTimeLong();
-
-    default HybridTimestamp leaseExpirationTime() {
-        return hybridTimestamp(leaseExpirationTimeLong());
-    }
-
-    boolean force();
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface DataStreamerTarget<T> {
+    /**
+     * Streams data into the underlying table.
+     *
+     * @param publisher Producer.
+     * @param options Options (can be null).
+     * @return Future that will be completed when the stream is finished.
+     */
+    CompletableFuture<Void> streamData(
+            Flow.Publisher<T> publisher,
+            @Nullable DataStreamerOptions options);
 }

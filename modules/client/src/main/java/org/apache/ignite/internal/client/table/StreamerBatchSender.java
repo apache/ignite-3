@@ -15,29 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Lease granted message.
+ * Streamer batch sender.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
-public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
-    long leaseStartTimeLong();
-
-    default HybridTimestamp leaseStartTime() {
-        return hybridTimestamp(leaseStartTimeLong());
-    }
-
-    long leaseExpirationTimeLong();
-
-    default HybridTimestamp leaseExpirationTime() {
-        return hybridTimestamp(leaseExpirationTimeLong());
-    }
-
-    boolean force();
+@FunctionalInterface
+interface StreamerBatchSender<T, P> {
+    /**
+     * Sends batch of items asynchronously.
+     *
+     * @param partition Partition.
+     * @param batch Batch.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch);
 }

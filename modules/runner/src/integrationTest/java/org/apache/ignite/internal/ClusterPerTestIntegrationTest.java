@@ -57,7 +57,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "  }\n"
             + "}";
 
-    /** Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection. */
+    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
@@ -72,6 +72,19 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "        failurePingRequestMembers: 1,\n"
             + "        gossipInterval: 10\n"
             + "      },\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+    /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
+    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    },\n"
+            + "    membership: {\n"
+            + "      failurePingInterval: 1000000000\n"
             + "    }\n"
             + "  }\n"
             + "}";
@@ -94,7 +107,9 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
 
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
-        cluster.startAndInit(initialNodes(), cmgMetastoreNodes());
+        if (initialNodes() > 0) {
+            cluster.startAndInit(initialNodes(), cmgMetastoreNodes());
+        }
     }
 
     /**

@@ -15,29 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Lease granted message.
+ * Partition awareness provider for data streamer.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
-public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
-    long leaseStartTimeLong();
-
-    default HybridTimestamp leaseStartTime() {
-        return hybridTimestamp(leaseStartTimeLong());
+class TupleStreamerPartitionAwarenessProvider extends AbstractStreamerPartitionAwarenessProvider<Tuple> {
+    TupleStreamerPartitionAwarenessProvider(ClientTable tbl) {
+        super(tbl);
     }
 
-    long leaseExpirationTimeLong();
-
-    default HybridTimestamp leaseExpirationTime() {
-        return hybridTimestamp(leaseExpirationTimeLong());
+    @Override
+    int colocationHash(ClientSchema schema, Tuple item) {
+        return ClientTupleSerializer.getColocationHash(schema, item);
     }
-
-    boolean force();
 }

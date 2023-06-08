@@ -15,29 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Lease granted message.
+ * Partition awareness provider for data streamer.
+ *
+ * @param <T> Item type.
+ * @param <P> Partition type.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE)
-public interface LeaseGrantedMessage extends PlacementDriverReplicaMessage {
-    long leaseStartTimeLong();
+interface StreamerPartitionAwarenessProvider<T, P> {
+    /**
+     * Returns partition for item. This partition may or may not map to one or more actual Ignite table partitions.
+     *
+     * @param item Data item.
+     * @return Partition.
+     */
+    P partition(T item);
 
-    default HybridTimestamp leaseStartTime() {
-        return hybridTimestamp(leaseStartTimeLong());
-    }
-
-    long leaseExpirationTimeLong();
-
-    default HybridTimestamp leaseExpirationTime() {
-        return hybridTimestamp(leaseExpirationTimeLong());
-    }
-
-    boolean force();
+    /**
+     * Refreshes schemas and partition mapping asynchronously.
+     *
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Void> refreshAsync();
 }
