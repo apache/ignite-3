@@ -514,6 +514,7 @@ public class InternalTableImpl implements InternalTable {
                     (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                             .groupId(groupId)
                             .binaryRow(keyRow)
+                            .commitPartitionId(commitPart)
                             .transactionId(txo.id())
                             .term(term)
                             .requestType(RequestType.RW_GET)
@@ -548,7 +549,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             if (firstRow == null) {
-                return CompletableFuture.completedFuture(Collections.emptyList());
+                return completedFuture(Collections.emptyList());
             } else {
                 return evaluateReadOnlyRecipientNode(partitionId(firstRow))
                         .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
@@ -560,6 +561,7 @@ public class InternalTableImpl implements InternalTable {
                     (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                             .groupId(groupId)
                             .binaryRows(keyRows0)
+                            .commitPartitionId(commitPart)
                             .transactionId(txo.id())
                             .term(term)
                             .requestType(RequestType.RW_GET_ALL)

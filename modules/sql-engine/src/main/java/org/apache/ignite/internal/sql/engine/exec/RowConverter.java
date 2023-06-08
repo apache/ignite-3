@@ -83,7 +83,7 @@ public final class RowConverter {
 
         BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, indexedColumnsCount);
 
-        return new BinaryTuplePrefix(binarySchema, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
+        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }
 
     /**
@@ -118,7 +118,7 @@ public final class RowConverter {
 
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount, binarySchema.hasNullableElements());
 
-        return new BinaryTuple(binarySchema, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
+        return new BinaryTuple(rowColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }
 
     private static <RowT> ByteBuffer toByteBuffer(

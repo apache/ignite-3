@@ -73,13 +73,13 @@ public class ItMetricExportersLoadingTest {
 
             src.inc();
 
-            waitForOutput(pushOutputStream, "TestMetricsSource:\nmetric:1");
-            assertTrue(pushOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
+            waitForOutput(pushOutputStream, "TestMetricsSource:\nMetric:1");
+            assertTrue(pushOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
             TestPullMetricExporter.requestMetrics();
 
-            waitForOutput(pullOutputStream, "TestMetricsSource:\nmetric:1");
-            assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
+            waitForOutput(pullOutputStream, "TestMetricsSource:\nMetric:1");
+            assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
             metricManager.stop();
         }

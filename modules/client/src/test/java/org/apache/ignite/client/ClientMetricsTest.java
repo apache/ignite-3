@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -169,7 +170,7 @@ public class ClientMetricsTest {
         assertEquals(1, metrics().requestsSent());
         assertEquals(0, metrics().requestsRetried());
 
-        assertThrows(IgniteException.class, () -> client.sql().createSession().execute(null, "foo bar"));
+        assertThrows(IgniteException.class, () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());

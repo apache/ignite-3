@@ -73,36 +73,36 @@ public class JvmMetricSource implements MetricSource {
         var metrics = new HashMap<String, Metric>();
 
         CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
-        metrics.put("memory.heap.init",
-                new LongGauge("memory.heap.init", "Initial amount of heap memory", () -> heapMemoryUsage.get().getInit()));
-        metrics.put("memory.heap.used",
-                new LongGauge("memory.heap.used",
+        metrics.put("memory.heap.Init",
+                new LongGauge("memory.heap.Init", "Initial amount of heap memory", () -> heapMemoryUsage.get().getInit()));
+        metrics.put("memory.heap.Used",
+                new LongGauge("memory.heap.Used",
                         "Current used amount of heap memory",
                         () -> heapMemoryUsage.get().getUsed()));
-        metrics.put("memory.heap.committed",
-                new LongGauge("memory.heap.committed",
+        metrics.put("memory.heap.Committed",
+                new LongGauge("memory.heap.Committed",
                         "Committed amount of heap memory",
                         () -> heapMemoryUsage.get().getCommitted()));
-        metrics.put("memory.heap.max",
-                new LongGauge("memory.heap.max",
+        metrics.put("memory.heap.Max",
+                new LongGauge("memory.heap.Max",
                         "Maximum amount of heap memory",
                         () -> heapMemoryUsage.get().getMax()));
 
         CachedMemoryUsage nonHeapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getNonHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
-        metrics.put("memory.non-heap.init",
-                new LongGauge("memory.non-heap.init",
+        metrics.put("memory.non-heap.Init",
+                new LongGauge("memory.non-heap.Init",
                         "Initial amount of non-heap memory",
                         () -> nonHeapMemoryUsage.get().getInit()));
-        metrics.put("memory.non-heap.used",
-                new LongGauge("memory.non-heap.used",
+        metrics.put("memory.non-heap.Used",
+                new LongGauge("memory.non-heap.Used",
                         "Used amount of non-heap memory",
                         () -> nonHeapMemoryUsage.get().getUsed()));
-        metrics.put("memory.non-heap.committed",
-                new LongGauge("memory.non-heap.committed",
+        metrics.put("memory.non-heap.Committed",
+                new LongGauge("memory.non-heap.Committed",
                         "Committed amount of non-heap memory",
                         () -> nonHeapMemoryUsage.get().getCommitted()));
-        metrics.put("memory.non-heap.max",
-                new LongGauge("memory.non-heap.max",
+        metrics.put("memory.non-heap.Max",
+                new LongGauge("memory.non-heap.Max",
                         "Maximum amount of non-heap memory",
                         () -> nonHeapMemoryUsage.get().getMax()));
 

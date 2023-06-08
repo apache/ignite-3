@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -99,7 +99,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             SchemaManager schemaManager,
             ReplicaService replicaService,
             HybridClock clock,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
@@ -149,12 +149,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
-        SchemaPlus schemaPlus = calciteSchemaVv.latest();
-
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
 
+        SchemaPlus schemaPlus = calciteSchemaVv.latest();
+
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus schema(String name, int version) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -165,7 +171,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
         try {
             if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(null);
+                return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;
@@ -180,6 +186,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
