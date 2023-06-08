@@ -64,11 +64,11 @@ internal static class DataStreamer
 
         try
         {
+            var schema = await schemaProvider().ConfigureAwait(false);
+            var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+
             await foreach (var item in data)
             {
-                var schema = await schemaProvider().ConfigureAwait(false);
-                var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
-
                 var (batch, partition) = Add(item, schema, partitionAssignment);
 
                 if (batch.Count >= options.BatchSize)
@@ -78,6 +78,9 @@ internal static class DataStreamer
 
                     batch.Count = 0;
                     batch.Buffer.Clear();
+
+                    schema = await schemaProvider().ConfigureAwait(false);
+                    partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
                 }
             }
 
@@ -136,13 +139,6 @@ internal static class DataStreamer
             noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
             batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
 
-            if (batch.Schema != schema)
-            {
-                // TODO: Support schema change during streaming? Separate ticket?
-                // We should re-serialize the buffer in this case.
-                throw new NotSupportedException("Schema change is not supported.");
-            }
-
             return (batch, partition);
         }
 
@@ -163,7 +159,7 @@ internal static class DataStreamer
             var countPos = buf.Position;
             buf.Advance(5); // Reserve count.
 
-            batch = new Batch(buf, schema, countPos);
+            batch = new Batch(buf, countPos);
             batches.Add(partition, batch);
 
             return batch;
@@ -179,7 +175,7 @@ internal static class DataStreamer
         }
     }
 
-    private sealed record Batch(PooledArrayBuffer Buffer, Schema Schema, int CountPos)
+    private sealed record Batch(PooledArrayBuffer Buffer, int CountPos)
     {
         public int Count { get; set; }
     }
