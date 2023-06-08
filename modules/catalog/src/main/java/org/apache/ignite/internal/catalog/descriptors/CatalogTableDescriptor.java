@@ -32,18 +32,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table descriptor.
  */
-public class TableDescriptor extends ObjectDescriptor {
+public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -2021394971104316570L;
 
     private final int zoneId = 0;
     private final int engineId = 0;
 
-    private final List<TableColumnDescriptor> columns;
+    private final List<CatalogTableColumnDescriptor> columns;
     private final List<String> primaryKeyColumns;
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
-    private transient Map<String, TableColumnDescriptor> columnsMap;
+    private transient Map<String, CatalogTableColumnDescriptor> columnsMap;
 
     /**
      * Constructor.
@@ -54,10 +54,10 @@ public class TableDescriptor extends ObjectDescriptor {
      * @param pkCols Primary key column names.
      * @param colocationCols Colocation column names.
      */
-    public TableDescriptor(
+    public CatalogTableDescriptor(
             int id,
             String name,
-            List<TableColumnDescriptor> columns,
+            List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
             @Nullable List<String> colocationCols
     ) {
@@ -67,12 +67,10 @@ public class TableDescriptor extends ObjectDescriptor {
         primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
         colocationColumns = colocationCols == null ? pkCols : colocationCols;
 
-        this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
+        this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
 
         // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
-        assert !primaryKeyColumns.isEmpty() : "No primary key columns.";
-        assert !colocationColumns.isEmpty() : "No colocation columns.";
 
         assert primaryKeyColumns.stream().noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
         assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
@@ -81,7 +79,7 @@ public class TableDescriptor extends ObjectDescriptor {
     /**
      * Returns column descriptor for column with given name.
      */
-    public TableColumnDescriptor columnDescriptor(String columnName) {
+    public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
         return columnsMap.get(columnName);
     }
 
@@ -101,11 +99,11 @@ public class TableDescriptor extends ObjectDescriptor {
         return colocationColumns;
     }
 
-    public List<TableColumnDescriptor> columns() {
+    public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }
 
-    public TableColumnDescriptor column(String name) {
+    public CatalogTableColumnDescriptor column(String name) {
         return columnsMap.get(name);
     }
 
@@ -113,9 +111,13 @@ public class TableDescriptor extends ObjectDescriptor {
         return primaryKeyColumns.contains(name);
     }
 
+    public boolean isColocationColumn(String name) {
+        return colocationColumns.contains(name);
+    }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
-        this.columnsMap = columns.stream().collect(Collectors.toMap(TableColumnDescriptor::name, Function.identity()));
+        this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
     }
 
     /** {@inheritDoc} */

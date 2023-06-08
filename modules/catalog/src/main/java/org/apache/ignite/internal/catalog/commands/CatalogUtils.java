@@ -17,21 +17,35 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Catalog utils.
  */
 public class CatalogUtils {
+    private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
+
+    static {
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT16, ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
+        ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
+    }
+
     /**
      * Converts CreateTable command params to descriptor.
      *
@@ -39,8 +53,8 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Table descriptor.
      */
-    public static TableDescriptor fromParams(int id, CreateTableParams params) {
-        return new TableDescriptor(id,
+    public static CatalogTableDescriptor fromParams(int id, CreateTableParams params) {
+        return new CatalogTableDescriptor(id,
                 params.tableName(),
                 params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
                 params.primaryKeyColumns(),
@@ -56,8 +70,8 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static IndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new HashIndexDescriptor(id,
+    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new CatalogHashIndexDescriptor(id,
                 params.indexName(),
                 tableId,
                 false,
@@ -73,16 +87,16 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static IndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
-        List<ColumnCollation> collations = params.collations();
+    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
+        List<CatalogColumnCollation> collations = params.collations();
 
         assert collations.size() == params.columns().size();
 
-        List<IndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
-                .mapToObj(i -> new IndexColumnDescriptor(params.columns().get(i), collations.get(i)))
+        List<CatalogIndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
+                .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
                 .collect(Collectors.toList());
 
-        return new SortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
     }
 
     /**
@@ -91,7 +105,26 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Column descriptor.
      */
-    public static TableColumnDescriptor fromParams(ColumnParams params) {
-        return new TableColumnDescriptor(params.name(), params.type(), params.nullable(), params.defaultValueDefinition());
+    public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
+        int precision = params.precision() != null ? params.precision() : 0;
+        int scale = params.scale() != null ? params.scale() : 0;
+        int length = params.length() != null ? params.length() : 0;
+        DefaultValue defaultValue = params.defaultValueDefinition();
+
+        return new CatalogTableColumnDescriptor(params.name(), params.type(), params.nullable(),
+                precision, scale, length, defaultValue);
+    }
+
+    /**
+     * Checks if the specified column type transition is supported.
+     *
+     * @param source Source column type.
+     * @param target Target column type.
+     * @return {@code True} if the specified type transition is supported, {@code false} otherwise.
+     */
+    public static boolean isSupportedColumnTypeChange(ColumnType source, ColumnType target) {
+        Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(source);
+
+        return supportedTransitions != null && supportedTransitions.contains(target);
     }
 }

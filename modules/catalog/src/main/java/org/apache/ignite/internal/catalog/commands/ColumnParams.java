@@ -35,6 +35,15 @@ public class ColumnParams {
     /** Nullability flag. */
     private boolean nullable;
 
+    /** Column length. */
+    private Integer length;
+
+    /** Column precision. */
+    private Integer precision;
+
+    /** Column scale. */
+    private Integer scale;
+
     /** Column default value. */
     private DefaultValue defaultValueDefinition = DefaultValue.constant(null);
 
@@ -73,14 +82,21 @@ public class ColumnParams {
      * Get column's precision.
      */
     public Integer precision() {
-        return null;
+        return precision;
     }
 
     /**
      * Get column's scale.
      */
     public Integer scale() {
-        return null;
+        return scale;
+    }
+
+    /**
+     * Get column's length.
+     */
+    public Integer length() {
+        return length;
     }
 
     /** Parameters builder. */
@@ -133,6 +149,39 @@ public class ColumnParams {
          */
         public Builder defaultValue(DefaultValue defaultValue) {
             params.defaultValueDefinition = defaultValue;
+
+            return this;
+        }
+
+        /**
+         * Sets column precision.
+         *
+         * @return {@code this}.
+         */
+        public Builder precision(int precision) {
+            params.precision = precision;
+
+            return this;
+        }
+
+        /**
+         * Sets column scale.
+         *
+         * @return {@code this}.
+         */
+        public Builder scale(int scale) {
+            params.scale = scale;
+
+            return this;
+        }
+
+        /**
+         * Sets column length.
+         *
+         * @return {@code this}.
+         */
+        public Builder length(int length) {
+            params.length = length;
 
             return this;
         }

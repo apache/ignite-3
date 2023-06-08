@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
@@ -28,7 +29,7 @@ import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
  */
 public interface IgniteDeployment extends IgniteComponent {
     /**
-     * Deploy provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group, if
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group, if
      * {@code deployMode} is {@code MAJORITY}, or to all available units, if {@code deployMode} is {@code ALL} asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
@@ -47,7 +48,7 @@ public interface IgniteDeployment extends IgniteComponent {
     }
 
     /**
-     * Deploy provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group, if
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group, if
      * {@code deployMode} is {@code MAJORITY}, or to all available units, if {@code deployMode} is {@code ALL} asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
@@ -66,7 +67,7 @@ public interface IgniteDeployment extends IgniteComponent {
     );
 
     /**
-     * Deploy provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group and to the nodes
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group and to the nodes
      * passed in the @{code initialNodes} list asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
@@ -85,7 +86,7 @@ public interface IgniteDeployment extends IgniteComponent {
     }
 
     /**
-     * Deploy provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group and to the nodes
+     * Deploys provided unit to the current node. After the deploy is finished, the unit will be placed to the CMG group and to the nodes
      * passed in the @{code initialNodes} list asynchronously.
      *
      * @param id Unit identifier. Not empty and not null.
@@ -104,7 +105,7 @@ public interface IgniteDeployment extends IgniteComponent {
     );
 
     /**
-     * Undeploy unit with corresponding identifier and version.
+     * Undeploys unit with corresponding identifier and version.
      * Note that unit files will be deleted asynchronously.
      *
      * @param id Unit identifier.
@@ -139,7 +140,7 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<DeploymentStatus> clusterStatusAsync(String id, Version version);
 
     /**
-     * List all deployed versions of the specified unit.
+     * Lists all deployed versions of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
      * @return Future with list of all available version of unit. In case when unit with specified identifier not exist future list will be
@@ -155,7 +156,7 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<List<UnitStatuses>> nodeStatusesAsync();
 
     /**
-     * Lists all versions of the unit on this node.
+     * Returns status of unit with provided identifier.
      *
      * @param id Unit identifier.
      * @return Future with the unit statuses.
@@ -172,7 +173,16 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<DeploymentStatus> nodeStatusAsync(String id, Version version);
 
     /**
-     * Request on demand deploy to local node unit with provided identifier and version.
+     * Returns path to unit with provided identifier and version.
+     *
+     * @param id Unit identifier. Not empty and not null.
+     * @param version Unit version.
+     * @return Future with path to unit. Future will be failed if unit with specified identifier and version not exist.
+     */
+    CompletableFuture<Path> path(String id, Version version);
+
+    /**
+     * Requests on demand deploy to local node unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.

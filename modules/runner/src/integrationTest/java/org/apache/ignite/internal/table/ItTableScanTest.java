@@ -51,7 +51,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -446,11 +445,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     public void testScanWithUpperBound() throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        var sortedIndexBinarySchema = BinaryTupleSchema.createSchema(SCHEMA, new int[]{1 /* intVal column */});
-
-        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(sortedIndexBinarySchema,
+        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
                 new BinaryTupleBuilder(1, false).appendInt(5).build()));
-        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(sortedIndexBinarySchema,
+        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
                 new BinaryTupleBuilder(1, false).appendInt(9).build()));
 
         int soredIndexId = getSortedIndexId();

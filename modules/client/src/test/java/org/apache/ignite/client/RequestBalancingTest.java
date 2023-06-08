@@ -65,7 +65,7 @@ public class RequestBalancingTest {
 
             // Execute on unknown node to fall back to balancing.
             List<String> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), "job").join())
+                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), List.of(), "job").join())
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());

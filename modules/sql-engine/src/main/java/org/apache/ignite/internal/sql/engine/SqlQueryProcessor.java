@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -35,8 +34,9 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
@@ -140,7 +141,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SchemaManager schemaManager;
 
-    private final Consumer<Function<Long, CompletableFuture<?>>> registry;
+    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
 
     private final DataStorageManager dataStorageManager;
 
@@ -178,7 +179,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
             IndexManager indexManager,
@@ -386,13 +387,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
 
-        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
-
-        if (schema == null) {
-            return CompletableFuture.failedFuture(
-                    new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName)));
-        }
-
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
         QueryCancel queryCancel = new QueryCancel();
@@ -413,6 +407,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
+        AtomicReference<InternalTransaction> tx = new AtomicReference<>();
+
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenApply(v -> {
                     StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
@@ -424,6 +420,16 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
+
+                    boolean implicitTxRequired = outerTx == null;
+
+                    tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+
+                    if (schema == null) {
+                        return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+                    }
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
@@ -439,11 +445,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(sqlNode, ctx)
                             .thenApply(plan -> {
-                                boolean implicitTxRequired = outerTx == null;
-
-                                InternalTransaction tx = implicitTxRequired ? txManager.begin(!rwOp) : outerTx;
-
-                                var dataCursor = executionSrvc.executePlan(tx, plan, ctx);
+                                var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;
@@ -451,7 +453,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 return new AsyncSqlCursorImpl<>(
                                         queryType,
                                         plan.metadata(),
-                                        implicitTxRequired ? tx : null,
+                                        implicitTxRequired ? tx.get() : null,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -474,6 +476,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         stage.whenComplete((cur, ex) -> {
             if (ex instanceof CancellationException) {
                 queryCancel.cancel();
+            }
+
+            if (ex != null && outerTx == null) {
+                InternalTransaction tx0 = tx.get();
+                if (tx0 != null) {
+                    tx0.rollback();
+                }
             }
         });
 

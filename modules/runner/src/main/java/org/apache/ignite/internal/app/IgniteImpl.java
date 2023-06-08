@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -56,6 +56,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
+import org.apache.ignite.internal.compute.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -340,12 +341,6 @@ public class IgniteImpl implements Ignite {
                 new VaultStateIds(vaultMgr)
         );
 
-        computeComponent = new ComputeComponentImpl(
-                this,
-                clusterSvc.messagingService(),
-                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY)
-        );
-
         clock = new HybridClockImpl();
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
@@ -449,7 +444,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry =
+        Consumer<LongFunction<CompletableFuture<?>>> registry =
                 c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
@@ -533,6 +528,23 @@ public class IgniteImpl implements Ignite {
 
         sql = new IgniteSqlImpl(qryEngine);
 
+        deploymentManager = new DeploymentManagerImpl(
+                clusterSvc,
+                metaStorageMgr,
+                workDir,
+                nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
+                cmgMgr
+        );
+
+        JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(deploymentManager);
+
+        computeComponent = new ComputeComponentImpl(
+                this,
+                clusterSvc.messagingService(),
+                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
+                jobClassLoaderFactory
+        );
+
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
         authenticationManager = createAuthenticationManager();
@@ -555,12 +567,6 @@ public class IgniteImpl implements Ignite {
                 authenticationManager,
                 authenticationConfiguration
                 );
-
-        deploymentManager = new DeploymentManagerImpl(clusterSvc,
-                metaStorageMgr,
-                workDir,
-                nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
-                cmgMgr);
 
         restComponent = createRestComponent(name);
     }

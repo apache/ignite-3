@@ -15,38 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.descriptors;
+package org.apache.ignite.internal.sql.engine.schema;
 
-import java.io.Serializable;
-import java.util.Objects;
-import org.apache.ignite.internal.tostring.S;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
 
 /**
- * Indexed column descriptor.
+ * Schema adapter for apache calcite.
  */
-public class IndexColumnDescriptor implements Serializable {
-    private static final long serialVersionUID = 5750677168056750717L;
+public class IgniteCatalogSchema extends AbstractSchema {
 
     private final String name;
 
-    private final ColumnCollation collation;
+    private final int version;
 
-    public IndexColumnDescriptor(String name, ColumnCollation collation) {
+    private final Map<String, Table> tableMap;
+
+    /** Constructor. */
+    public IgniteCatalogSchema(String name, int version, Map<String, Table> tableMap) {
         this.name = name;
-        this.collation = Objects.requireNonNull(collation, "collation");
+        this.version = version;
+        this.tableMap = tableMap;
     }
 
-    public String name() {
+    /** Schema name. */
+    public String getName() {
         return name;
     }
 
-    public ColumnCollation collation() {
-        return collation;
+    /** Schema version. */
+    public int version() {
+        return version;
     }
 
     /** {@inheritDoc} */
     @Override
-    public String toString() {
-        return S.toString(this);
+    protected Map<String, Table> getTableMap() {
+        return Collections.unmodifiableMap(tableMap);
     }
 }

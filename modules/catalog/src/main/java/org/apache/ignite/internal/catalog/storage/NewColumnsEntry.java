@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -28,7 +28,7 @@ public class NewColumnsEntry implements UpdateEntry {
     private static final long serialVersionUID = 2970125889493580121L;
 
     private final int tableId;
-    private final List<TableColumnDescriptor> descriptors;
+    private final List<CatalogTableColumnDescriptor> descriptors;
 
     /**
      * Constructs the object.
@@ -36,7 +36,7 @@ public class NewColumnsEntry implements UpdateEntry {
      * @param tableId Table id.
      * @param descriptors Descriptors of columns to add.
      */
-    public NewColumnsEntry(int tableId, List<TableColumnDescriptor> descriptors) {
+    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors) {
         this.tableId = tableId;
         this.descriptors = descriptors;
     }
@@ -47,7 +47,7 @@ public class NewColumnsEntry implements UpdateEntry {
     }
 
     /** Returns descriptors of columns to add. */
-    public List<TableColumnDescriptor> descriptors() {
+    public List<CatalogTableColumnDescriptor> descriptors() {
         return descriptors;
     }
 

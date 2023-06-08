@@ -30,17 +30,17 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Schema definition contains database schema objects.
  */
-public class SchemaDescriptor extends ObjectDescriptor {
+public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -233494425779955410L;
 
     private final int version;
-    private final TableDescriptor[] tables;
-    private final IndexDescriptor[] indexes;
+    private final CatalogTableDescriptor[] tables;
+    private final CatalogIndexDescriptor[] indexes;
 
     @IgniteToStringExclude
-    private transient Map<String, TableDescriptor> tablesMap;
+    private transient Map<String, CatalogTableDescriptor> tablesMap;
     @IgniteToStringExclude
-    private transient Map<String, IndexDescriptor> indexesMap;
+    private transient Map<String, CatalogIndexDescriptor> indexesMap;
 
     /**
      * Constructor.
@@ -51,7 +51,7 @@ public class SchemaDescriptor extends ObjectDescriptor {
      * @param tables Tables description.
      * @param indexes Indexes description.
      */
-    public SchemaDescriptor(int id, String name, int version, TableDescriptor[] tables, IndexDescriptor[] indexes) {
+    public CatalogSchemaDescriptor(int id, String name, int version, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
         super(id, Type.SCHEMA, name);
         this.version = version;
         this.tables = Objects.requireNonNull(tables, "tables");
@@ -64,19 +64,19 @@ public class SchemaDescriptor extends ObjectDescriptor {
         return version;
     }
 
-    public TableDescriptor[] tables() {
+    public CatalogTableDescriptor[] tables() {
         return tables;
     }
 
-    public IndexDescriptor[] indexes() {
+    public CatalogIndexDescriptor[] indexes() {
         return indexes;
     }
 
-    public TableDescriptor table(String name) {
+    public CatalogTableDescriptor table(String name) {
         return tablesMap.get(name);
     }
 
-    public IndexDescriptor index(String name) {
+    public CatalogIndexDescriptor index(String name) {
         return indexesMap.get(name);
     }
 
@@ -87,8 +87,8 @@ public class SchemaDescriptor extends ObjectDescriptor {
     }
 
     private void rebuildMaps() {
-        tablesMap = Arrays.stream(tables).collect(Collectors.toMap(ObjectDescriptor::name, Function.identity()));
-        indexesMap = Arrays.stream(indexes).collect(Collectors.toMap(ObjectDescriptor::name, Function.identity()));
+        tablesMap = Arrays.stream(tables).collect(Collectors.toMap(CatalogObjectDescriptor::name, Function.identity()));
+        indexesMap = Arrays.stream(indexes).collect(Collectors.toMap(CatalogObjectDescriptor::name, Function.identity()));
     }
 
     /** {@inheritDoc} */

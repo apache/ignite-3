@@ -19,6 +19,10 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toHashIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,6 +53,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -59,6 +64,8 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -66,15 +73,15 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
@@ -103,9 +110,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected MvTableStorage tableStorage;
 
-    protected SortedIndexDescriptor sortedIdx;
+    protected StorageSortedIndexDescriptor sortedIdx;
 
-    protected HashIndexDescriptor hashIdx;
+    protected StorageHashIndexDescriptor hashIdx;
 
     protected StorageEngine storageEngine;
 
@@ -129,8 +136,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         TablesView tablesView = tablesConfig.value();
 
-        sortedIdx = new SortedIndexDescriptor(tablesView.indexes().get(SORTED_INDEX_NAME).id(), tablesView);
-        hashIdx = new HashIndexDescriptor(tablesView.indexes().get(HASH_INDEX_NAME).id(), tablesView);
+        SortedIndexView sortedIndexView = (SortedIndexView) tablesView.indexes().get(SORTED_INDEX_NAME);
+        HashIndexView hashIndexView = (HashIndexView) tablesView.indexes().get(HASH_INDEX_NAME);
+
+        CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(findTableView(tablesView, sortedIndexView.tableId()));
+
+        sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, toSortedIndexDescriptor(sortedIndexView));
+        hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, toHashIndexDescriptor(hashIndexView));
     }
 
     @AfterEach
@@ -228,7 +240,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx), is(instanceOf(SortedIndexStorage.class)));
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx), is(instanceOf(HashIndexStorage.class)));
 
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(IndexDescriptor.class)));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(StorageIndexDescriptor.class)));
     }
 
     /**
@@ -304,7 +316,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 .appendInt(2)
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         partitionStorage1.runConsistently(locker -> {
             storage1.put(new IndexRowImpl(tuple, rowId1));
@@ -320,59 +332,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(getAll(storage1.get(tuple)), contains(rowId1));
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
-    }
-
-    /**
-     * Tests that exceptions are thrown if indices are not configured correctly.
-     */
-    @Test
-    public void testMisconfiguredIndices() {
-        Exception e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx)
-        );
-
-        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
-
-        e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx)
-        );
-
-        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
-
-        tableStorage.createMvPartition(PARTITION_ID);
-
-        int invalidId = Integer.MAX_VALUE;
-
-        TablesView tablesView = tableStorage.tablesConfiguration().value();
-
-        e = assertThrows(
-                StorageException.class,
-                () -> new HashIndexDescriptor(invalidId, tablesView)
-        );
-
-        assertThat(e.getMessage(), containsString(String.format("Index configuration for \"%s\" could not be found", invalidId)));
-
-        e = assertThrows(
-                StorageException.class,
-                () -> new HashIndexDescriptor(sortedIdx.id(), tablesView)
-        );
-
-        assertThat(
-                e.getMessage(),
-                containsString(String.format("Index \"%s\" is not configured as a Hash Index. Actual type: SORTED", sortedIdx.id()))
-        );
-
-        e = assertThrows(
-                StorageException.class,
-                () -> new SortedIndexDescriptor(hashIdx.id(), tablesView)
-        );
-
-        assertThat(
-                e.getMessage(),
-                containsString(String.format("Index \"%s\" is not configured as a Sorted Index. Actual type: HASH", hashIdx.id()))
-        );
     }
 
     @Test

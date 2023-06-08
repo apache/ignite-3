@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+
 /**
  * Description of a binary tuple.
  */
@@ -282,6 +285,49 @@ public class BinaryTupleSchema {
      */
     public boolean convertible() {
         return false;
+    }
+
+    /**
+     * Reads a {@code BigDecimal} value from the given tuple at the given field.
+     *
+     * @param tuple Tuple to read the value from.
+     * @param index Field index.
+     * @return {@code BigDecimal} value of the field.
+     */
+    public BigDecimal decimalValue(BinaryTupleReader tuple, int index) {
+        return tuple.decimalValue(index, element(index).decimalScale);
+    }
+
+    /**
+     * Gets an Object representation from a tuple's field. This method does no type conversions and
+     * will throw an exception if row column type differs from this type.
+     *
+     * @param tuple Tuple to read the value from.
+     * @param index Field index to read.
+     * @return An Object representation of the value.
+     */
+    public Object value(BinaryTupleReader tuple, int index) {
+        Element element = element(index);
+
+        switch (element.typeSpec) {
+            case INT8: return tuple.byteValueBoxed(index);
+            case INT16: return tuple.shortValueBoxed(index);
+            case INT32: return tuple.intValueBoxed(index);
+            case INT64: return tuple.longValueBoxed(index);
+            case FLOAT: return tuple.floatValueBoxed(index);
+            case DOUBLE: return tuple.doubleValueBoxed(index);
+            case DECIMAL: return tuple.decimalValue(index, element.decimalScale);
+            case UUID: return tuple.uuidValue(index);
+            case STRING: return tuple.stringValue(index);
+            case BYTES: return tuple.bytesValue(index);
+            case BITMASK: return tuple.bitmaskValue(index);
+            case NUMBER: return tuple.numberValue(index);
+            case DATE: return tuple.dateValue(index);
+            case TIME: return tuple.timeValue(index);
+            case DATETIME: return tuple.dateTimeValue(index);
+            case TIMESTAMP: return tuple.timestampValue(index);
+            default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
+        }
     }
 
     /** Tests if there are any nullable elements in the array. */
