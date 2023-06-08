@@ -35,8 +35,7 @@ class ScaleCubeTopologyServiceTest {
 
     @Test
     void addedEventAddsNodeToTopology() {
-        topologyService.onMembershipEvent(MembershipEvent.createAdded(member1, null, 1));
-        topologyService.onMembershipEvent(MembershipEvent.createAdded(member2, null, 2));
+        addTwoMembers();
 
         assertThat(topologyService.allMembers(), hasSize(2));
         assertThat(topologyService.getByConsistentId("first").name(), is("first"));
