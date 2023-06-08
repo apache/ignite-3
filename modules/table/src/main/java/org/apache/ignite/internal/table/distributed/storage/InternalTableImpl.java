@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -526,7 +527,7 @@ public class InternalTableImpl implements InternalTable {
                     tx,
                     (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                             .groupId(groupId)
-                            .binaryRow(keyRow)
+                            .binaryRowBytes(keyRow.byteBuffer())
                             .commitPartitionId(commitPart)
                             .transactionId(txo.id())
                             .term(term)
@@ -548,7 +549,7 @@ public class InternalTableImpl implements InternalTable {
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowReplicaRequest()
                 .groupId(partGroupId)
-                .binaryRow(keyRow)
+                .binaryRowBytes(keyRow.byteBuffer())
                 .requestType(RequestType.RO_GET)
                 .readTimestampLong(readTimestamp.longValue())
                 .build()
@@ -573,7 +574,7 @@ public class InternalTableImpl implements InternalTable {
                     tx,
                     (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                             .groupId(groupId)
-                            .binaryRows(keyRows0)
+                            .binaryRowsBytes(serializeBinaryRows(keyRows0))
                             .commitPartitionId(commitPart)
                             .transactionId(txo.id())
                             .term(term)
@@ -602,7 +603,7 @@ public class InternalTableImpl implements InternalTable {
 
             CompletableFuture<Object> fut = replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlyMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .binaryRows(partToRows.getValue())
+                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
                     .requestType(RequestType.RO_GET_ALL)
                     .readTimestampLong(readTimestamp.longValue())
                     .build()
@@ -614,6 +615,16 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponses(futures);
     }
 
+    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+        var result = new ArrayList<ByteBuffer>(rows.size());
+
+        for (BinaryRow row : rows) {
+            result.add(row.byteBuffer());
+        }
+
+        return result;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
@@ -623,7 +634,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(row)
+                        .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
@@ -640,7 +651,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRows(keyRows0)
+                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_UPSERT_ALL)
@@ -658,7 +669,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(row)
+                        .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
@@ -676,7 +687,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(row)
+                        .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
@@ -694,7 +705,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRows(keyRows0)
+                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_INSERT_ALL)
@@ -712,7 +723,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(row)
+                        .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
@@ -730,8 +741,8 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .oldBinaryRow(oldRow)
-                        .binaryRow(newRow)
+                        .oldBinaryRowBytes(oldRow.byteBuffer())
+                        .binaryRowBytes(newRow.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_REPLACE)
@@ -749,7 +760,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(row)
+                        .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
@@ -767,7 +778,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(keyRow)
+                        .binaryRowBytes(keyRow.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
@@ -785,7 +796,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(oldRow)
+                        .binaryRowBytes(oldRow.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
@@ -803,7 +814,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRow(row)
+                        .binaryRowBytes(row.byteBuffer())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
@@ -821,7 +832,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRows(keyRows0)
+                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_ALL)
@@ -842,7 +853,7 @@ public class InternalTableImpl implements InternalTable {
                 (commitPart, keyRows0, txo, groupId, term) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(commitPart)
-                        .binaryRows(keyRows0)
+                        .binaryRowsBytes(serializeBinaryRows(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT_ALL)
@@ -1237,7 +1248,7 @@ public class InternalTableImpl implements InternalTable {
      * Enlists a partition.
      *
      * @param partId Partition id.
-     * @param tx     The transaction.
+     * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
@@ -1281,7 +1292,8 @@ public class InternalTableImpl implements InternalTable {
          * The constructor.
          *
          * @param retrieveBatch Closure that gets a new batch from the remote replica.
-         * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is finished.
+         * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is
+         *         finished.
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
@@ -1442,6 +1454,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     // TODO: IGNITE-17963 Use smarter logic for recipient node evaluation.
+
     /**
      * Evaluated cluster node for read-only request processing.
      *
@@ -1465,9 +1478,9 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Casts any exception type to a client exception, wherein {@link ReplicationException} and {@link LockException} are wrapped
-     * to {@link TransactionException}, but another exceptions are wrapped to a common exception.
-     * The method does not wrap an exception if the exception already inherits type of {@link RuntimeException}.
+     * Casts any exception type to a client exception, wherein {@link ReplicationException} and {@link LockException} are wrapped to
+     * {@link TransactionException}, but another exceptions are wrapped to a common exception. The method does not wrap an exception if the
+     * exception already inherits type of {@link RuntimeException}.
      *
      * @param e An instance exception to cast to client side one.
      * @return {@link IgniteException} An instance of client side exception.

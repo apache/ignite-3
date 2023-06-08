@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -89,7 +90,7 @@ public class MarshallableTypesBlackList {
     private static class TypeVisitor extends SimpleTypeVisitor9<Boolean, Void> {
         private final TypeUtils typeUtils;
 
-        private final List<Class<?>> resourcesBlacklist;
+        private final List<TypeMirror> resourcesBlacklist;
 
         TypeVisitor(TypeUtils typeUtils) {
             super(false);
@@ -98,22 +99,15 @@ public class MarshallableTypesBlackList {
             this.resourcesBlacklist = readBlacklistFromResources();
         }
 
-        private List<Class<?>> readBlacklistFromResources() {
+        private List<TypeMirror> readBlacklistFromResources() {
             try (
                     InputStream is = getClass().getClassLoader().getResourceAsStream(BLACKLIST_FILE_NAME);
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is))
             ) {
                 return reader.lines()
-                        .map(className -> {
-                            // Try to load the class from the resource file. It may not exist in the current compilation unit,
-                            // in which case we simply ignore it.
-                            try {
-                                return Class.forName(className, false, getClass().getClassLoader());
-                            } catch (ClassNotFoundException e) {
-                                return null;
-                            }
-                        })
+                        .map(typeUtils.elements()::getTypeElement)
                         .filter(Objects::nonNull)
+                        .map(TypeElement::asType)
                         .collect(Collectors.toList());
             } catch (IOException e) {
                 throw new ProcessingException("Unable to read " + BLACKLIST_FILE_NAME, e);
@@ -141,7 +135,7 @@ public class MarshallableTypesBlackList {
             return types.stream().anyMatch(cls -> typeUtils.isSameType(type, cls));
         }
 
-        private boolean isSubType(List<Class<?>> types, DeclaredType type) {
+        private boolean isSubType(List<TypeMirror> types, DeclaredType type) {
             return types.stream().anyMatch(cls -> typeUtils.isSubType(type, cls));
         }
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -252,7 +253,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .term(1L)
                 .commitPartitionId(PARTITION_ID)
                 .transactionId(TRANSACTION_ID)
-                .binaryRow(testBinaryRow)
+                .binaryRowBytes(testBinaryRow.byteBuffer())
                 .requestType(arg.type)
                 .build());
 
@@ -298,7 +299,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .term(1L)
                 .commitPartitionId(PARTITION_ID)
                 .transactionId(TRANSACTION_ID)
-                .binaryRows(rows)
+                .binaryRowsBytes(rows.stream().map(BinaryRow::byteBuffer).collect(toList()))
                 .requestType(arg.type)
                 .build());
 
