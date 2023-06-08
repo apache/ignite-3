@@ -63,10 +63,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(D);
 
-        nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        nodes = distributionZoneManager.dataNodes(1);
 
         assertEquals(Set.of(A, C, D).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
     }
@@ -79,10 +76,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.removeNodes(Set.of(C));
 
-        nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        nodes = distributionZoneManager.dataNodes(1);
 
         assertEquals(Set.of(A).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
     }
@@ -102,10 +96,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(newB);
 
-        nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        nodes = distributionZoneManager.dataNodes(1);
 
         assertEquals(Set.of(A, newB, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
     }
@@ -133,10 +124,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
                         .build()
         ).get(10_000, TimeUnit.MILLISECONDS);
 
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                topology.getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        Set<String> nodes = distributionZoneManager.dataNodes(1);
 
         assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
     }

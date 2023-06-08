@@ -22,6 +22,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -45,6 +48,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         distributionZoneManager.start();
 
+        verify(keyValueStorage, timeout(1000).times(1))
+                .invoke(any(), any());
+
         assertLogicalTopologyVersion(1L, keyValueStorage);
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
@@ -58,6 +64,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(1L), HybridTimestamp.MIN_VALUE);
 
         distributionZoneManager.start();
+
+        verify(keyValueStorage, timeout(1000).times(1))
+                .invoke(any(), any());
 
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
