@@ -536,7 +536,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         List<String> idxCols = indexDescriptor.columns();
 
-        assertThat(boundPrefix.count(), Matchers.lessThanOrEqualTo(idxCols.size()));
+        assertThat(boundPrefix.elementCount(), Matchers.lessThanOrEqualTo(idxCols.size()));
 
         for (int i = 0; i < boundPrefix.elementCount(); i++) {
             Column col = schemaDescriptor.column(idxCols.get(i));
@@ -556,9 +556,9 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         List<String> idxCols = indexDescriptor.columns();
 
-        assertThat(bound.count(), Matchers.equalTo(idxCols.size()));
+        assertThat(bound.elementCount(), Matchers.equalTo(idxCols.size()));
 
-        for (int i = 0; i < bound.count(); i++) {
+        for (int i = 0; i < bound.elementCount(); i++) {
             Column col = schemaDescriptor.column(idxCols.get(i));
             Object val = bound.hasNullValue(i) ? null : tupleSchema.value(bound, i);
 

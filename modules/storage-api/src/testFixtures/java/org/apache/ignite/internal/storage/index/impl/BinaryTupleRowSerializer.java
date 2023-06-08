@@ -121,7 +121,7 @@ public class BinaryTupleRowSerializer {
     public Object[] deserializeColumns(IndexRow indexRow) {
         BinaryTuple tuple = indexRow.indexColumns();
 
-        assert tuple.count() == schema.size();
+        assert tuple.elementCount() == schema.size();
 
         var result = new Object[schema.size()];
 

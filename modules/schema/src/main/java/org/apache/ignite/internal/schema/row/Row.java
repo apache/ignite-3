@@ -84,7 +84,7 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
 
     /** {@inheritDoc} */
     @Override
-    public int count() {
+    public int elementCount() {
         return schema.length();
     }
 
@@ -98,7 +98,6 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
         return binaryTupleSchema.value(this, col);
     }
 
-    @Override
     public BigDecimal decimalValue(int col) {
         return binaryTupleSchema.decimalValue(this, col);
     }

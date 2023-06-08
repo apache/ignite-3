@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -64,7 +63,7 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         ByteBuffer prefixBuffer = ByteBuffer.allocate(tupleBuffer.remaining() + Integer.BYTES)
                 .order(ORDER)
                 .put(tupleBuffer)
-                .putInt(tuple.count())
+                .putInt(tuple.elementCount())
                 .flip();
 
         byte flags = prefixBuffer.get(0);
@@ -72,16 +71,6 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         prefixBuffer.put(0, (byte) (flags | PREFIX_FLAG));
 
         return new BinaryTuplePrefix(tuple.elementCount(), prefixBuffer);
-    }
-
-    @Override
-    public BigDecimal decimalValue(int col) {
-        throw new UnsupportedOperationException("Must never be called, use BinaryTupleSchema#decimalValue instead");
-    }
-
-    @Override
-    public int count() {
-        return elementCount();
     }
 
     @Override

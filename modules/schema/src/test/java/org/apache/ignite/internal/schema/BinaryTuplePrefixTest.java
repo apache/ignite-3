@@ -51,7 +51,7 @@ public class BinaryTuplePrefixTest {
 
         var prefix = new BinaryTuplePrefix(5, tuple);
 
-        assertThat(prefix.count(), is(3));
+        assertThat(prefix.elementCount(), is(3));
         assertThat(prefix.elementCount(), is(3));
 
         assertThat(prefix.intValue(0), is(42));
@@ -72,7 +72,7 @@ public class BinaryTuplePrefixTest {
 
         var prefix = new BinaryTuplePrefix(1, tuple);
 
-        assertThat(prefix.count(), is(1));
+        assertThat(prefix.elementCount(), is(1));
         assertThat(prefix.intValue(0), is(Integer.MAX_VALUE));
     }
 

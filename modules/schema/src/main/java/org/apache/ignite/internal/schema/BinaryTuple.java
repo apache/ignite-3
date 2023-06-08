@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.row.InternalTuple;
@@ -45,15 +44,5 @@ public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
      */
     public BinaryTuple(int elementCount, ByteBuffer buffer) {
         super(elementCount, buffer);
-    }
-
-    @Override
-    public BigDecimal decimalValue(int col) {
-        throw new UnsupportedOperationException("Must never be called, use BinaryTupleSchema#decimalValue instead");
-    }
-
-    @Override
-    public int count() {
-        return elementCount();
     }
 }
