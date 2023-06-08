@@ -46,7 +46,7 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<IList<T>, string, Task> sender,
+        Func<Batch, string, Task> sender,
         IRecordSerializerHandler<T> writer,
         Func<Task<Schema>> schemaProvider,
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
@@ -59,7 +59,7 @@ internal static class DataStreamer
             options.PerNodeParallelOperations > 0,
             $"{nameof(options.PerNodeParallelOperations)} should be positive.");
 
-        var batches = new Dictionary<string, Batch<T>>();
+        var batches = new Dictionary<string, Batch>();
 
         try
         {
@@ -70,23 +70,21 @@ internal static class DataStreamer
 
                 var (batch, partition) = Add(item, schema, partitionAssignment);
 
-                batch.Items.Add(item);
-
-                if (batch.Items.Count >= options.BatchSize)
+                if (batch.Count >= options.BatchSize)
                 {
                     // TODO: Allow adding items to another buffer while sending previous.
-                    await sender(batch.Items, partition).ConfigureAwait(false);
+                    await sender(batch, partition).ConfigureAwait(false);
 
-                    batch.Items.Clear();
+                    batch.Count = 0;
                     batch.Buffer.Clear();
                 }
             }
 
             foreach (var (partition, batch) in batches)
             {
-                if (batch.Items.Count > 0)
+                if (batch.Count > 0)
                 {
-                    await sender(batch.Items, partition).ConfigureAwait(false);
+                    await sender(batch, partition).ConfigureAwait(false);
                 }
             }
         }
@@ -98,7 +96,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) Add(T item, Schema schema, string[]? partitionAssignment)
+        (Batch Batch, string Partition) Add(T item, Schema schema, string[]? partitionAssignment)
         {
             var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
 
@@ -112,7 +110,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) Add0(
+        (Batch Batch, string Partition) Add0(
             T item,
             Schema schema,
             string[]? partitionAssignment,
@@ -132,7 +130,7 @@ internal static class DataStreamer
                 : partitionAssignment[Math.Abs(tupleBuilder.Hash % partitionAssignment.Length)];
 
             var batch = GetOrCreateBatch(partition, schema);
-            batch.Items.Add(item);
+            batch.Count++;
 
             noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
             batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
@@ -147,7 +145,7 @@ internal static class DataStreamer
             return (batch, partition);
         }
 
-        Batch<T> GetOrCreateBatch(string partition, Schema schema)
+        Batch GetOrCreateBatch(string partition, Schema schema)
         {
             if (batches.TryGetValue(partition, out var batch))
             {
@@ -164,13 +162,18 @@ internal static class DataStreamer
             var countPos = buf.Position;
             buf.Advance(5); // Reserve count.
 
-            // TODO: Pooled buffers for Items?
-            batch = new Batch<T>(new List<T>(options.BatchSize), buf, schema, countPos);
+            batch = new Batch(buf, schema, countPos);
             batches.Add(partition, batch);
 
             return batch;
         }
     }
 
-    private sealed record Batch<T>(IList<T> Items, PooledArrayBuffer Buffer, Schema Schema, int CountPos);
+    public sealed record Batch(PooledArrayBuffer Buffer, Schema Schema, int CountPos)
+    {
+        /// <summary>
+        /// Gets or sets batch item count.
+        /// </summary>
+        public int Count { get; set; }
+    }
 }
