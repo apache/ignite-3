@@ -33,6 +33,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -47,11 +48,10 @@ import org.junit.jupiter.api.Test;
 public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode NODE_1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 123));
     private static final LogicalNode NODE_2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 123));
-    private static final LogicalNode NODE_3 = new LogicalNode("node3", "node3", new NetworkAddress("localhost", 123));
 
     @Test
     void testStaleWatchEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of(), vaultMgr);
+        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr);
 
         startDistributionZoneManager();
 
@@ -65,13 +65,17 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         long revision = 100;
 
-        keyValueStorage.put(zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.putAll(
+                List.of(zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()),
+                List.of(longToBytes(revision), keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value()),
+                HybridTimestamp.MIN_VALUE
+        );
 
         Set<LogicalNode> nodes = Set.of(NODE_1, NODE_2);
 
         setLogicalTopologyInMetaStorage(nodes, 100, metaStorageManager);
 
-        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(), keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1), keyValueStorage);
     }
 
     @Test
@@ -88,8 +92,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         mockVaultZonesLogicalTopologyKey(nodes, vaultMgr);
 
         startDistributionZoneManager();
-
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
 
         assertDataNodesForZone(DEFAULT_ZONE_ID, null, keyValueStorage);
     }

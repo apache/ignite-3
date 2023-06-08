@@ -39,14 +39,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.LongFunction;
@@ -56,12 +53,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -72,8 +68,6 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -85,7 +79,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -95,8 +88,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
-import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
-import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -111,7 +102,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -120,11 +110,8 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -150,10 +137,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
-public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
-    /** Default node port. */
-    private static final int DEFAULT_NODE_PORT = 3344;
-
+public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
 
@@ -162,28 +146,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
-
-    @Language("HOCON")
-    private static final String RAFT_CFG = "{\n"
-            + "  fsync: false,\n"
-            + "  retryDelay: 20\n"
-            + "}";
-
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  network.port: {},\n"
-            + "  network.nodeFinder.netClusterNodes: {}\n"
-            + "  network.membership: {\n"
-            + "    membershipSyncInterval: 1000,\n"
-            + "    failurePingInterval: 500,\n"
-            + "    scaleCube: {\n"
-            + "      membershipSuspicionMultiplier: 1,\n"
-            + "      failurePingRequestMembers: 1,\n"
-            + "      gossipInterval: 10\n"
-            + "    },\n"
-            + "  },\n"
-            + "  raft: " + RAFT_CFG + "\n"
-            + "}";
 
     @InjectConfiguration("mock: " + RAFT_CFG)
     private static RaftConfiguration raftConfiguration;
@@ -479,62 +441,19 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             components.add(component);
         }
 
-        AtomicLong lastRevision = new AtomicLong();
-
-        Consumer<Long> revisionCallback0 = rev -> {
-            if (revisionCallback != null) {
-                revisionCallback.accept(rev);
-            }
-
-            lastRevision.set(rev);
-        };
-
-        CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
+        PartialNode partialNode = partialNode(
+                nodeCfgMgr,
                 clusterCfgMgr,
-                fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
+                revisionCallback,
+                components,
+                localConfigurationGenerator,
+                logicalTopology,
+                cfgStorage,
+                distributedConfigurationGenerator
         );
 
-        CompletableFuture<?> notificationFuture = CompletableFuture.allOf(
-                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
-        );
-
-        CompletableFuture<?> startFuture = notificationFuture
-                .thenCompose(v -> {
-                    // Deploy all registered watches because all components are ready and have registered their listeners.
-                    try {
-                        metaStorageMgr.deployWatches();
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
-
-                    return configurationCatchUpFuture;
-                });
-
-        assertThat(startFuture, willCompleteSuccessfully());
-
-        log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
-                + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
-        );
-
-        PartialNode partialNode = new PartialNode(components, List.of(localConfigurationGenerator, distributedConfigurationGenerator));
         partialNodes.add(partialNode);
         return partialNode;
-    }
-
-    /**
-     * Starts the Vault component.
-     */
-    private static VaultManager createVault(String nodeName, Path workDir) {
-        Path vaultPath = workDir.resolve(Paths.get("vault"));
-
-        try {
-            Files.createDirectories(vaultPath);
-        } catch (IOException e) {
-            throw new IgniteInternalException(e);
-        }
-
-        return new VaultManager(new PersistentVaultService(nodeName, vaultPath));
     }
 
     /**
@@ -553,36 +472,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         }
 
         return partitionsStore;
-    }
-
-    /**
-     * Load configuration modules.
-     *
-     * @param log Log.
-     * @param classLoader Class loader.
-     * @return Configuration modules.
-     */
-    private static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
-
-        if (log.isInfoEnabled()) {
-            log.info("Configuration modules loaded: {}", modules);
-        }
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        var configModules = new ConfigurationModules(modules);
-
-        if (log.isInfoEnabled()) {
-            log.info("Local root keys: {}", configModules.local().rootKeys());
-            log.info("Distributed root keys: {}", configModules.distributed().rootKeys());
-        }
-
-        return configModules;
     }
 
     /**
@@ -676,18 +565,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                     return (IgniteImpl) future.join();
                 })
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Build a configuration string.
-     *
-     * @param idx Node index.
-     * @return Configuration string.
-     */
-    private static String configurationString(int idx) {
-        String connectAddr = "[\"localhost:" + DEFAULT_NODE_PORT + "\"]";
-
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + idx, connectAddr);
     }
 
     /**
@@ -969,25 +846,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Find component of a given type in list.
-     *
-     * @param components Components list.
-     * @param cls Class.
-     * @param <T> Type parameter.
-     * @return Ignite component.
-     */
-    @Nullable
-    private static <T extends IgniteComponent> T findComponent(List<IgniteComponent> components, Class<T> cls) {
-        for (IgniteComponent component : components) {
-            if (cls.isAssignableFrom(component.getClass())) {
-                return cls.cast(component);
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Check that the table with given name is present in TableManager.
      *
      * @param tableManager Table manager.
@@ -1085,7 +943,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         PartialNode partialNode = startPartialNode(1, cfgString);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1113,7 +971,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         PartialNode partialNode = startPartialNode(nodes.size() - 1, null);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
@@ -1164,7 +1022,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 }
         );
 
-        TableManager tableManager = findComponent(partialNode.startedComponents, TableManager.class);
+        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
 
         for (int i = 0; i < cfgGap; i++) {
             assertTablePresent(tableManager, "T" + i);
@@ -1283,7 +1141,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         if (!partialNodes.isEmpty()) {
             partialTablesConfiguration = partialNodes.stream()
-                    .flatMap(it -> it.startedComponents.stream())
+                    .flatMap(it -> it.startedComponents().stream())
                     .filter(ConfigurationManager.class::isInstance)
                     .map(c -> ((ConfigurationManager) c).configurationRegistry().getConfiguration(TablesConfiguration.KEY))
                     .filter(Objects::nonNull)
@@ -1324,81 +1182,5 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         }
 
         return ignite.tables().table(name);
-    }
-
-    /**
-     * Configuration catch-up listener for test.
-     */
-    private static class TestConfigurationCatchUpListener extends ConfigurationCatchUpListener {
-        /** Callback called on revision update. */
-        private final Consumer<Long> revisionCallback;
-
-        /**
-         * Constructor.
-         *
-         * @param cfgStorage Configuration storage.
-         * @param catchUpFuture Catch-up future.
-         */
-        TestConfigurationCatchUpListener(
-                ConfigurationStorage cfgStorage,
-                CompletableFuture<Void> catchUpFuture,
-                Consumer<Long> revisionCallback
-        ) {
-            super(cfgStorage, catchUpFuture, log);
-
-            this.revisionCallback = revisionCallback;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<?> onUpdate(long appliedRevision) {
-            if (revisionCallback != null) {
-                revisionCallback.accept(appliedRevision);
-            }
-
-            return super.onUpdate(appliedRevision);
-        }
-    }
-
-    private static class PartialNode {
-
-        private final List<IgniteComponent> startedComponents;
-
-        private final List<ManuallyCloseable> closeables;
-
-        public PartialNode(List<IgniteComponent> startedComponents, List<ManuallyCloseable> closeables) {
-            this.startedComponents = startedComponents;
-            this.closeables = closeables;
-        }
-
-        public void stop() {
-            ListIterator<IgniteComponent> iter = startedComponents.listIterator(startedComponents.size());
-
-            while (iter.hasPrevious()) {
-                IgniteComponent prev = iter.previous();
-
-                prev.beforeNodeStop();
-            }
-
-            iter = startedComponents.listIterator(startedComponents.size());
-
-            while (iter.hasPrevious()) {
-                IgniteComponent prev = iter.previous();
-
-                try {
-                    prev.stop();
-                } catch (Exception e) {
-                    log.error("Error during component stop", e);
-                }
-            }
-
-            closeables.forEach(c -> {
-                try {
-                    c.close();
-                } catch (Exception e) {
-                    log.error("Error during close", e);
-                }
-            });
-        }
     }
 }
