@@ -170,7 +170,6 @@ public class CatalogServiceSelfTest {
         assertEquals(SCHEMA_NAME, schema.name());
 
         assertEquals(0, schema.id());
-        assertEquals(0, schema.version());
         assertEquals(0, schema.tables().length);
         assertEquals(0, schema.indexes().length);
 
@@ -211,7 +210,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(0, schema.version());
         assertSame(schema, service.activeSchema(0L));
         assertSame(schema, service.activeSchema(123L));
 
@@ -225,7 +223,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(1, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
@@ -248,7 +245,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
@@ -285,7 +281,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
@@ -300,7 +295,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(3, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertNull(schema.table(TABLE_NAME));
@@ -448,7 +442,7 @@ public class CatalogServiceSelfTest {
         CatalogSchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
-        assertEquals(2, schema.version());
+        assertSame(service.schema(2), schema);
 
         assertNotNull(schema.table(TABLE_NAME).column("ID"));
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
@@ -932,7 +926,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(CatalogService.PUBLIC, schema.name());
-        assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
@@ -947,7 +940,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(CatalogService.PUBLIC, schema.name());
-        assertEquals(3, schema.version());
         assertSame(schema, service.activeSchema(System.currentTimeMillis()));
 
         assertNull(schema.table(TABLE_NAME));

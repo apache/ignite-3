@@ -141,7 +141,6 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
                 objectIdGen++,
                 "PUBLIC",
-                0,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0]
         );
@@ -155,7 +154,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 INFINITE_TIMER_VALUE,
                 CreateZoneParams.DEFAULT_FILTER
         );
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
+        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
@@ -238,6 +237,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
         return catalogAt(timestamp).schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int activeCatalogVersion(long timestamp) {
+        return catalogAt(timestamp).version();
     }
 
     private Catalog catalog(int version) {
@@ -794,13 +799,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     ArrayUtils.concat(schema.tables(), ((NewTableEntry) entry).descriptor()),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -816,13 +820,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -838,10 +841,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables())
                                             .map(table -> table.id() != tableId
                                                     ? table
@@ -854,7 +856,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                             )
                                             .toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -870,10 +872,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables())
                                             .map(table -> table.id() != tableId
                                                     ? table
@@ -887,7 +888,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                             )
                                             .toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -900,13 +901,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     schema.tables(),
                                     ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -921,13 +921,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     schema.tables(),
                                     Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new)
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -940,7 +939,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             CollectionUtils.concat(catalog.zones(), List.of(((NewZoneEntry) entry).descriptor())),
-                            schema.copy(version)
+                            catalog.schemas()
                     );
 
                     eventFutures.add(fireEvent(
@@ -955,7 +954,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones().stream().filter(z -> z.id() != zoneId).collect(Collectors.toList()),
-                            schema.copy(version)
+                            catalog.schemas()
                     );
 
                     eventFutures.add(fireEvent(
@@ -972,7 +971,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             catalog.zones().stream()
                                     .map(z -> z.id() == descriptor.id() ? descriptor : z)
                                     .collect(Collectors.toList()),
-                            schema.copy(version)
+                            catalog.schemas()
                     );
 
                     eventFutures.add(fireEvent(
@@ -985,13 +984,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     schema.tables(),
                                     schema.indexes()
-                            )
+                            ))
                     );
                 } else if (entry instanceof AlterColumnEntry) {
                     int tableId = ((AlterColumnEntry) entry).tableId();
@@ -1002,10 +1000,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             System.currentTimeMillis(),
                             catalog.objectIdGenState(),
                             catalog.zones(),
-                            new CatalogSchemaDescriptor(
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables())
                                             .map(table -> table.id() != tableId
                                                     ? table
@@ -1021,7 +1018,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                             )
                                             .toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(

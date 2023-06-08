@@ -37,25 +37,25 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
     /** Amount of zone partitions. */
-    protected int partitions = DEFAULT_PARTITION_COUNT;
+    private int partitions = DEFAULT_PARTITION_COUNT;
 
     /** Amount of zone partition replicas. */
-    protected int replicas = DEFAULT_REPLICA_COUNT;
+    private int replicas = DEFAULT_REPLICA_COUNT;
 
     /** Data nodes auto adjust timeout. */
-    protected int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
+    private int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
 
     /** Data nodes auto adjust scale up timeout. */
-    protected int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
+    private int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
 
     /** Data nodes auto adjust scale down timeout. */
-    protected int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
+    private int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 
     /**
-     * Default filter value for a distribution zone,
-     * which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
+     * Default filter value for a distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes
+     * of nodes.
      */
-    public static final String DEFAULT_FILTER = "$..*";
+    public static final String DEFAULT_FILTER = "$.+";
     /** Nodes' filter. */
     protected String filter = DEFAULT_FILTER;
 
@@ -182,8 +182,8 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
          * @param filter Nodes' filter.
          * @return This instance.
          */
-        public Builder filter(String filter) {
-            params.filter = filter;
+        public Builder filter(@Nullable String filter) {
+            params.filter = Objects.requireNonNullElse(filter, DEFAULT_FILTER);
 
             return this;
         }

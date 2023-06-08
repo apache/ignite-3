@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.catalog;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -38,15 +41,15 @@ public class Catalog {
     private final int version;
     private final int objectIdGen;
     private final long activationTimestamp;
-    private final Map<String, CatalogSchemaDescriptor> schemas;
-    private final Map<String, CatalogZoneDescriptor> zones;
+    private final Map<String, CatalogSchemaDescriptor> schemasByName;
+    private final Map<String, CatalogZoneDescriptor> zonesByName;
 
     @IgniteToStringExclude
-    private final Map<Integer, CatalogTableDescriptor> tablesMap;
+    private final Int2ObjectMap<CatalogTableDescriptor> tablesById;
     @IgniteToStringExclude
-    private final Map<Integer, CatalogIndexDescriptor> indexesMap;
+    private final Int2ObjectMap<CatalogIndexDescriptor> indexesById;
     @IgniteToStringExclude
-    private final Map<Integer, CatalogZoneDescriptor> zonesMap;
+    private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
     /**
      * Constructor.
@@ -63,25 +66,33 @@ public class Catalog {
             long activationTimestamp,
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
-            CatalogSchemaDescriptor... schemas
+            Collection<CatalogSchemaDescriptor> schemas
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
         this.objectIdGen = objectIdGen;
 
         Objects.requireNonNull(schemas, "schemas");
+        Objects.requireNonNull(zones, "zones");
 
-        assert schemas.length > 0 : "No schemas found";
-        assert Arrays.stream(schemas).allMatch(t -> t.version() == version) : "Invalid schema version";
+        this.schemasByName = schemas.stream().collect(Collectors.toUnmodifiableMap(CatalogSchemaDescriptor::name, t -> t));
+        this.zonesByName = zones.stream().collect(Collectors.toUnmodifiableMap(CatalogZoneDescriptor::name, t -> t));
 
-        this.schemas = Arrays.stream(schemas).collect(Collectors.toUnmodifiableMap(CatalogSchemaDescriptor::name, t -> t));
-        this.zones = zones.stream().collect(Collectors.toUnmodifiableMap(CatalogZoneDescriptor::name, t -> t));
+        tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables()))
+                .collect(intMapCollector(CatalogObjectDescriptor::id, Function.identity()));
+        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes()))
+                .collect(intMapCollector(CatalogObjectDescriptor::id, Function.identity()));
+        zonesById = zones.stream()
+                .collect(intMapCollector(CatalogObjectDescriptor::id, Function.identity()));
+    }
 
-        tablesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.tables()))
-                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::id, Function.identity()));
-        indexesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.indexes()))
-                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::id, Function.identity()));
-        zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(CatalogZoneDescriptor::id, t -> t));
+    private static <T, V> Collector<T, ?, Int2ObjectArrayMap<V>> intMapCollector(
+            Function<T, Integer> keyMapper, Function<T, V> valueMapper) {
+        return Collectors.toMap(
+                keyMapper,
+                valueMapper,
+                (oldVal, newVal) -> newVal,
+                Int2ObjectArrayMap::new);
     }
 
     public int version() {
@@ -97,31 +108,31 @@ public class Catalog {
     }
 
     public CatalogSchemaDescriptor schema(String name) {
-        return schemas.get(name);
+        return schemasByName.get(name);
     }
 
     public Collection<CatalogSchemaDescriptor> schemas() {
-        return schemas.values();
+        return schemasByName.values();
     }
 
     public CatalogTableDescriptor table(int tableId) {
-        return tablesMap.get(tableId);
+        return tablesById.get(tableId);
     }
 
     public CatalogIndexDescriptor index(int indexId) {
-        return indexesMap.get(indexId);
+        return indexesById.get(indexId);
     }
 
     public CatalogZoneDescriptor zone(String name) {
-        return zones.get(name);
+        return zonesByName.get(name);
     }
 
     public CatalogZoneDescriptor zone(int zoneId) {
-        return zonesMap.get(zoneId);
+        return zonesById.get(zoneId);
     }
 
     public Collection<CatalogZoneDescriptor> zones() {
-        return zones.values();
+        return zonesByName.values();
     }
 
     /** {@inheritDoc} */

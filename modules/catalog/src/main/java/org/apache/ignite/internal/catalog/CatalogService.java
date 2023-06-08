@@ -60,5 +60,7 @@ public interface CatalogService {
 
     CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
+    int activeCatalogVersion(long timestamp);
+
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }
