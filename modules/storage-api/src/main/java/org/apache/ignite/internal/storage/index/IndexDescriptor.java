@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 
 /**
  * Index descriptor.
@@ -59,23 +56,23 @@ public interface IndexDescriptor {
     List<? extends ColumnDescriptor> columns();
 
     /**
-     * Creates an index description based on the configuration.
+     * Creates an index description based on the catalog descriptors.
      *
-     * @param tablesView Tables configuration.
-     * @param indexId Index ID.
+     * @param table Catalog table descriptor.
+     * @param index Catalog index descriptor.
      */
-    static IndexDescriptor createIndexDescriptor(TablesView tablesView, int indexId) {
-        TableIndexView indexView = tablesView.indexes().stream()
-                .filter(tableIndexView -> indexId == tableIndexView.id())
-                .findFirst()
-                .orElse(null);
-
-        if (indexView instanceof HashIndexView) {
-            return new HashIndexDescriptor(indexId, tablesView);
-        } else if (indexView instanceof SortedIndexView) {
-            return new SortedIndexDescriptor(indexId, tablesView);
-        } else {
-            throw new AssertionError("Unknown type: " + indexView);
+    static IndexDescriptor create(
+            TableDescriptor table,
+            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor index
+    ) {
+        if (index instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {
+            return new HashIndexDescriptor(table, (org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) index);
         }
+
+        if (index instanceof org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) {
+            return new SortedIndexDescriptor(table, ((org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) index));
+        }
+
+        throw new IllegalArgumentException("Unknown type: " + index);
     }
 }

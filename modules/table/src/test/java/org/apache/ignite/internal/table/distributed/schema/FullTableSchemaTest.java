@@ -47,12 +47,12 @@ class FullTableSchemaTest {
 
     @NotNull
     private static HashIndexDescriptor someIndex(int id, String name) {
-        return new HashIndexDescriptor(id, name, 1, List.of("a"));
+        return new HashIndexDescriptor(id, name, 1, true, List.of("a"));
     }
 
     @NotNull
     private static TableColumnDescriptor someColumn(String columnName) {
-        return new TableColumnDescriptor(columnName, ColumnType.INT32, true, DefaultValue.constant(null));
+        return new TableColumnDescriptor(columnName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
     }
 
     @Test
@@ -78,7 +78,7 @@ class FullTableSchemaTest {
 
         var schema1 = new FullTableSchema(1, 1, List.of(column1), List.of());
         var schema2 = new FullTableSchema(2, 1,
-                List.of(new TableColumnDescriptor("a", ColumnType.STRING, true, DefaultValue.constant(null))),
+                List.of(new TableColumnDescriptor("a", ColumnType.STRING, true, 0, 0, 10, DefaultValue.constant(null))),
                 List.of()
         );
 

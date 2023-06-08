@@ -34,7 +34,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.causality.CompletionListener;
@@ -90,7 +90,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
     /** Constructor. */
     public SchemaManager(
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             MetaStorageManager metastorageMgr
     ) {

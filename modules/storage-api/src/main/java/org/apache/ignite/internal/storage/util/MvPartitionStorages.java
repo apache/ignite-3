@@ -130,7 +130,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         }).whenComplete((storage, throwable) -> operationByPartitionId.compute(partitionId, (partId, operation) -> {
             assert operation instanceof CreateStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-            return completeOperation(operation);
+            return nextOperationIfAvailable(operation);
         }));
     }
 
@@ -161,7 +161,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                        return completeOperation(operation);
+                        return nextOperationIfAvailable(operation);
                     });
 
                     if (throwable == null) {
@@ -199,7 +199,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof CleanupStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
+                            return nextOperationIfAvailable(operation);
                         })
                 );
     }
@@ -215,19 +215,21 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @throws StorageRebalanceException If rebalancing is already in progress.
      */
     public CompletableFuture<Void> startRebalance(int partitionId, Function<T, CompletableFuture<Void>> startRebalanceStorageFunction) {
-        operationByPartitionId.compute(partitionId, (partId, operation) -> {
-            checkStorageExistsForRebalance(partitionId);
+        StartRebalanceStorageOperation startRebalanceOperation = (StartRebalanceStorageOperation) operationByPartitionId.compute(
+                partitionId,
+                (partId, operation) -> {
+                    checkStorageExistsForRebalance(partitionId);
 
-            if (operation != null) {
-                throwExceptionDependingOnOperationForRebalance(operation, partitionId);
-            }
+                    if (operation != null) {
+                        throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+                    }
 
-            if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
-                throw new StorageRebalanceException(createStorageInProgressOfRebalanceErrorMessage(partitionId));
-            }
+                    if (rebalanceFutureByPartitionId.containsKey(partitionId)) {
+                        throw new StorageRebalanceException(createStorageInProgressOfRebalanceErrorMessage(partitionId));
+                    }
 
-            return new StartRebalanceStorageOperation();
-        });
+                    return new StartRebalanceStorageOperation();
+                });
 
         return completedFuture(null)
                 .thenCompose(unused -> {
@@ -238,14 +240,16 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     assert old == null : createStorageInfo(partitionId);
 
                     return startRebalanceFuture;
-                }).whenComplete((unused, throwable) ->
-                        operationByPartitionId.compute(partitionId, (partId, operation) -> {
-                            assert operation instanceof StartRebalanceStorageOperation :
-                                    createStorageInfo(partitionId) + ", op=" + operation;
+                }).whenComplete((unused, throwable) -> {
+                    operationByPartitionId.compute(partitionId, (partId, operation) -> {
+                        assert operation instanceof StartRebalanceStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
-                        })
-                );
+                        return nextOperationIfAvailable(operation);
+                    });
+
+                    // Even if an error occurs, we must be able to abort the rebalance, so we do not report the error.
+                    startRebalanceOperation.getStartRebalanceFuture().complete(null);
+                });
     }
 
     /**
@@ -258,8 +262,16 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @throws StorageRebalanceException If the storage does not exist or another operation is already in progress.
      */
     public CompletableFuture<Void> abortRebalance(int partitionId, Function<T, CompletableFuture<Void>> abortRebalanceStorageFunction) {
-        operationByPartitionId.compute(partitionId, (partId, operation) -> {
+        StorageOperation storageOperation = operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
+
+            if (operation instanceof StartRebalanceStorageOperation) {
+                if (!((StartRebalanceStorageOperation) operation).setAbortOperation(new AbortRebalanceStorageOperation())) {
+                    throw new StorageRebalanceException("Rebalance abort is already planned: [{}]", createStorageInfo(partitionId));
+                }
+
+                return operation;
+            }
 
             if (operation != null) {
                 throwExceptionDependingOnOperationForRebalance(operation, partitionId);
@@ -268,7 +280,10 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             return new AbortRebalanceStorageOperation();
         });
 
-        return completedFuture(null)
+        CompletableFuture<?> startRebalanceFuture = storageOperation instanceof StartRebalanceStorageOperation
+                ? ((StartRebalanceStorageOperation) storageOperation).getStartRebalanceFuture() : completedFuture(null);
+
+        return startRebalanceFuture
                 .thenCompose(unused -> {
                     CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
@@ -284,7 +299,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof AbortRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
+                            return nextOperationIfAvailable(operation);
                         })
                 );
     }
@@ -326,7 +341,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof FinishRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return completeOperation(operation);
+                            return nextOperationIfAvailable(operation);
                         })
                 );
     }
@@ -408,14 +423,22 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         return "Storage in the process of rebalance: [" + createStorageInfo(partitionId) + ']';
     }
 
-    private static @Nullable StorageOperation completeOperation(StorageOperation operation) {
+    private static @Nullable StorageOperation nextOperationIfAvailable(StorageOperation operation) {
         operation.operationFuture().complete(null);
 
         if (operation.isFinalOperation()) {
             return operation;
         }
 
-        return operation instanceof DestroyStorageOperation ? ((DestroyStorageOperation) operation).getCreateStorageOperation() : null;
+        if (operation instanceof DestroyStorageOperation) {
+            return ((DestroyStorageOperation) operation).getCreateStorageOperation();
+        }
+
+        if (operation instanceof StartRebalanceStorageOperation) {
+            return ((StartRebalanceStorageOperation) operation).getAbortRebalanceOperation();
+        }
+
+        return null;
     }
 
     /**

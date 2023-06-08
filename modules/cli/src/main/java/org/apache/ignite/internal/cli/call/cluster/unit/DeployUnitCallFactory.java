@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
-import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 
 /** Factory for {@link DeployUnitCall}. */
@@ -28,14 +27,11 @@ public class DeployUnitCallFactory {
 
     private final ApiClientFactory factory;
 
-    private final UnitsRegistry registry;
-
-    public DeployUnitCallFactory(ApiClientFactory factory, UnitsRegistry registry) {
+    public DeployUnitCallFactory(ApiClientFactory factory) {
         this.factory = factory;
-        this.registry = registry;
     }
 
     public DeployUnitCall create(ProgressTracker tracker) {
-        return new DeployUnitCall(tracker, factory, registry);
+        return new DeployUnitCall(tracker, factory);
     }
 }

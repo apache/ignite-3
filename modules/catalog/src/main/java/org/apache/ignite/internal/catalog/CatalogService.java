@@ -24,6 +24,7 @@ import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service provides methods to access schema object's descriptors of exact version and/or last actual version at given timestamp,
@@ -41,13 +42,19 @@ public interface CatalogService {
 
     TableDescriptor table(int tableId, long timestamp);
 
+    IndexDescriptor index(String indexName, long timestamp);
+
     IndexDescriptor index(int indexId, long timestamp);
 
     Collection<IndexDescriptor> tableIndexes(int tableId, long timestamp);
 
     SchemaDescriptor schema(int version);
 
+    SchemaDescriptor schema(@Nullable String schemaName, int version);
+
     SchemaDescriptor activeSchema(long timestamp);
+
+    SchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }
