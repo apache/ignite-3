@@ -176,7 +176,12 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             }
         }
 
-        return new UpToDatePeekCursor<>(upperBoundBytes, indexCf, mapper, lowerBoundBytes);
+        return new UpToDatePeekCursor<>(upperBoundBytes, indexCf, lowerBoundBytes) {
+            @Override
+            protected T map(ByteBuffer byteBuffer) {
+                return mapper.apply(byteBuffer);
+            }
+        };
     }
 
     private static void setEqualityFlag(byte[] prefix) {

@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
-import java.util.function.Function;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
@@ -108,13 +107,16 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
             byte[] rangeEnd = incrementPrefix(rangeStart);
 
-            return new UpToDatePeekCursor<>(rangeEnd, indexCf, (Function<ByteBuffer, RowId>) byteBuffer -> {
-                // RowId UUID is located at the last 16 bytes of the key
-                long mostSignificantBits = byteBuffer.getLong(rangeStart.length);
-                long leastSignificantBits = byteBuffer.getLong(rangeStart.length + Long.BYTES);
+            return new UpToDatePeekCursor<>(rangeEnd, indexCf, rangeStart) {
+                @Override
+                protected RowId map(ByteBuffer byteBuffer) {
+                    // RowId UUID is located at the last 16 bytes of the key
+                    long mostSignificantBits = byteBuffer.getLong(rangeStart.length);
+                    long leastSignificantBits = byteBuffer.getLong(rangeStart.length + Long.BYTES);
 
-                return new RowId(helper.partitionId(), mostSignificantBits, leastSignificantBits);
-            }, rangeStart);
+                    return new RowId(helper.partitionId(), mostSignificantBits, leastSignificantBits);
+                }
+            };
         });
     }
 

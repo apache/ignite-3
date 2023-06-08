@@ -196,7 +196,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 
-    /** Constant that represents the absence of value in {@link ScanCursor}. */
+    /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
 
     /**
@@ -207,17 +207,21 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     protected abstract class ScanCursor<R> implements PeekCursor<R> {
         private final BplusTree<K, V> indexTree;
 
-        @Nullable
-        private Boolean hasNext;
+        private final @Nullable K lower;
 
-        @Nullable
-        private final K lower;
+        private @Nullable Boolean hasNext;
 
-        @Nullable
-        private V treeRow;
+        /**
+         * Last row used in mapping in the {@link #next()} call.
+         * {@code null} upon cursor creation or after {@link #hasNext()} returned {@code null}.
+         */
+        private @Nullable V treeRow;
 
-        @Nullable
-        private V peekedRow = (V) NO_INDEX_ROW;
+        /**
+         * Row used in the mapping of the latest {@link #peek()} call, that was performed after the last {@link #next()} call.
+         * {@link #NO_INDEX_ROW} if there was no such call.
+         */
+        private @Nullable V peekedRow = (V) NO_INDEX_ROW;
 
         protected ScanCursor(@Nullable K lower, BplusTree<K, V> indexTree) {
             this.lower = lower;
@@ -243,7 +247,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         public boolean hasNext() {
             return busy(() -> {
                 try {
-                    return advanceIfNeeded();
+                    return advanceIfNeededBusy();
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException("Error while advancing the cursor", e);
                 }
@@ -254,7 +258,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         public R next() {
             return busy(() -> {
                 try {
-                    if (!advanceIfNeeded()) {
+                    if (!advanceIfNeededBusy()) {
                         throw new NoSuchElementException();
                     }
 
@@ -298,7 +302,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             return peekedRow;
         }
 
-        private boolean advanceIfNeeded() throws IgniteInternalCheckedException {
+        private boolean advanceIfNeededBusy() throws IgniteInternalCheckedException {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryIndexStorage.this::createStorageInfo);
 
             if (hasNext != null) {

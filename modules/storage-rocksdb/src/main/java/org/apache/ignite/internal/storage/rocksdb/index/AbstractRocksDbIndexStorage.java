@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
@@ -218,29 +218,38 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /**
      * Cursor that always returns up-to-date next element.
      */
-    protected final class UpToDatePeekCursor<T> implements PeekCursor<T> {
+    protected abstract class UpToDatePeekCursor<T> implements PeekCursor<T> {
         private final Slice upperBoundSlice;
         private final byte[] lowerBound;
 
         private final ReadOptions options;
         private final RocksIterator it;
-        private final Function<ByteBuffer, T> mapper;
 
-        @Nullable
-        private Boolean hasNext;
+        private @Nullable Boolean hasNext;
 
+        /**
+         * Last key used in mapping in the {@link #next()} call.
+         * {@code null} upon cursor creation or after {@link #hasNext()} returned {@code null}.
+         */
         private byte @Nullable [] key;
 
+        /**
+         * Row used in the mapping of the latest {@link #peek()} call, that was performed after the last {@link #next()} call.
+         * {@link ArrayUtils#BYTE_EMPTY_ARRAY} if there was no such call.
+         */
         private byte @Nullable [] peekedKey = BYTE_EMPTY_ARRAY;
 
-        UpToDatePeekCursor(byte[] upperBound, ColumnFamily indexCf, Function<ByteBuffer, T> mapper, byte[] lowerBound) {
+        UpToDatePeekCursor(byte[] upperBound, ColumnFamily indexCf, byte[] lowerBound) {
             this.lowerBound = lowerBound;
             upperBoundSlice = new Slice(upperBound);
             options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
             it = indexCf.newIterator(options);
-
-            this.mapper = mapper;
         }
+
+        /**
+         * Maps the key from the index into the required result.
+         */
+        protected abstract T map(ByteBuffer byteBuffer);
 
         @Override
         public void close() {
@@ -253,19 +262,19 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(this::advanceIfNeeded);
+            return busy(this::advanceIfNeededBusy);
         }
 
         @Override
         public T next() {
             return busy(() -> {
-                if (!advanceIfNeeded()) {
+                if (!advanceIfNeededBusy()) {
                     throw new NoSuchElementException();
                 }
 
                 this.hasNext = null;
 
-                return mapper.apply(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
+                return map(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
             });
         }
 
@@ -274,22 +283,22 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
             return busy(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
-                byte[] res = peek0();
+                byte[] res = peekBusy();
 
                 if (res == null) {
                     return null;
                 } else {
-                    return mapper.apply(ByteBuffer.wrap(res).order(KEY_BYTE_ORDER));
+                    return map(ByteBuffer.wrap(res).order(KEY_BYTE_ORDER));
                 }
             });
         }
 
-        private byte @Nullable [] peek0() {
+        private byte @Nullable [] peekBusy() {
             if (hasNext != null) {
                 return key;
             }
 
-            refreshAndPrepareRocksIterator();
+            refreshAndPrepareRocksIteratorBusy();
 
             if (!it.isValid()) {
                 RocksUtils.checkIterator(it);
@@ -302,18 +311,18 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
             return peekedKey;
         }
 
-        private boolean advanceIfNeeded() throws StorageException {
+        private boolean advanceIfNeededBusy() throws StorageException {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
             //noinspection ArrayEquality
-            key = (peekedKey == BYTE_EMPTY_ARRAY) ? peek0() : peekedKey;
+            key = (peekedKey == BYTE_EMPTY_ARRAY) ? peekBusy() : peekedKey;
             peekedKey = BYTE_EMPTY_ARRAY;
 
             hasNext = key != null;
             return hasNext;
         }
 
-        private void refreshAndPrepareRocksIterator() {
+        private void refreshAndPrepareRocksIteratorBusy() {
             try {
                 it.refresh();
             } catch (RocksDBException e) {
