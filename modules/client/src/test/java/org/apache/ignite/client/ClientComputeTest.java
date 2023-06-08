@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -63,9 +64,9 @@ public class ClientComputeTest {
         try (var client = getClient(server1, server2, server3, server1, server2)) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
-            String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
-            String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
-            String res3 = client.compute().<String>execute(getClusterNodes("s3"), "job").join();
+            String res1 = client.compute().<String>execute(getClusterNodes("s1"), List.of(), "job").join();
+            String res2 = client.compute().<String>execute(getClusterNodes("s2"), List.of(), "job").join();
+            String res3 = client.compute().<String>execute(getClusterNodes("s3"), List.of(), "job").join();
 
             assertEquals("s1", res1);
             assertEquals("s2", res2);
@@ -78,9 +79,9 @@ public class ClientComputeTest {
         initServers(reqId -> false);
 
         try (var client = getClient(server3)) {
-            String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
-            String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
-            String res3 = client.compute().<String>execute(getClusterNodes("s3"), "job").join();
+            String res1 = client.compute().<String>execute(getClusterNodes("s1"), List.of(), "job").join();
+            String res2 = client.compute().<String>execute(getClusterNodes("s2"), List.of(), "job").join();
+            String res3 = client.compute().<String>execute(getClusterNodes("s3"), List.of(), "job").join();
 
             assertEquals("s3", res1);
             assertEquals("s3", res2);
@@ -97,7 +98,7 @@ public class ClientComputeTest {
                 var nodeId = i % 3 + 1;
                 var nodeName = "s" + nodeId;
 
-                String res = client.compute().<String>execute(getClusterNodes(nodeName), "job").join();
+                String res = client.compute().<String>execute(getClusterNodes(nodeName), List.of(), "job").join();
 
                 assertEquals("s3", res);
             }
@@ -111,10 +112,10 @@ public class ClientComputeTest {
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().<String>executeColocated(TABLE_NAME, key, "job").join();
+            String res1 = client.compute().<String>executeColocated(TABLE_NAME, key, List.of(), "job").join();
             assertEquals("s2", res1);
 
-            String res2 = client.compute().<Long, String>executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), "job").join();
+            String res2 = client.compute().<Long, String>executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), List.of(), "job").join();
             assertEquals("s2", res2);
         }
     }
@@ -127,7 +128,7 @@ public class ClientComputeTest {
             Tuple key = Tuple.create().set("key", "k");
 
             var ex = assertThrows(CompletionException.class,
-                    () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
+                    () -> client.compute().<String>executeColocated("bad-tbl", key, List.of(), "job").join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
             assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
@@ -145,14 +146,14 @@ public class ClientComputeTest {
         try (var client = getClient(server3)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            String res1 = client.compute().<String>executeColocated(tableName, key, "job").join();
+            String res1 = client.compute().<String>executeColocated(tableName, key, List.of(), "job").join();
             assertEquals("s3", res1);
 
             // Drop table and create a new one with a different ID.
             ((FakeIgniteTables) ignite.tables()).dropTable(tableName);
             ((FakeIgniteTables) ignite.tables()).createTable(tableName);
 
-            String res2 = client.compute().<Long, String>executeColocated(tableName, 1L, Mapper.of(Long.class), "job").join();
+            String res2 = client.compute().<Long, String>executeColocated(tableName, 1L, Mapper.of(Long.class), List.of(), "job").join();
             assertEquals("s3", res2);
         }
     }
