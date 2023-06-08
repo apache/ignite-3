@@ -155,29 +155,23 @@ internal static class DataStreamer
                 return batch;
             }
 
-            batch = new Batch<T>
-            {
-                Items = new List<T>(options.BatchSize), // TODO: Pooled buffers.
-                Buffer = ProtoCommon.GetMessageWriter(),
-                Schema = schema
-            };
+            var buf = ProtoCommon.GetMessageWriter();
 
-            // TODO: Write buffer header: tableId, tx, schemaVer, count.
+            var w = buf.MessageWriter;
+            w.Write(schema.TableId);
+            w.WriteTx(null);
+            w.Write(schema.Version);
+
+            var countPos = buf.Position;
+            buf.Advance(5); // Reserve count.
+
+            // TODO: Pooled buffers for Items?
+            batch = new Batch<T>(new List<T>(options.BatchSize), buf, schema, countPos);
             batches.Add(partition, batch);
 
             return batch;
         }
     }
 
-    [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Private class.")]
-    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private class.")]
-    [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Private class.")]
-    private sealed class Batch<T>
-    {
-        public List<T> Items { get; init; } = null!;
-
-        public PooledArrayBuffer Buffer { get; init; } = null!;
-
-        public Schema Schema { get; init; } = null!;
-    }
+    private sealed record Batch<T>(IList<T> Items, PooledArrayBuffer Buffer, Schema Schema, int CountPos);
 }

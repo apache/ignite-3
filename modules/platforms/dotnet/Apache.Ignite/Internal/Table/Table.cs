@@ -353,7 +353,7 @@ namespace Apache.Ignite.Internal.Table
                 }
             }
 
-            var schema = new Schema(schemaVersion, keyColumnCount, columns);
+            var schema = new Schema(schemaVersion, Id, keyColumnCount, columns);
             _schemas[schemaVersion] = Task.FromResult(schema);
 
             if (_logger?.IsEnabled(LogLevel.Debug) == true)
