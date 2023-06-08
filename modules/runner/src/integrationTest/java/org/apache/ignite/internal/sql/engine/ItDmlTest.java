@@ -105,7 +105,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void failMergeOpOnChangePrimaryKey() {
         clearAndPopulateMergeTable1();
 
-        clearAndPopulateMergeTable2(true);
+        clearAndPopulateMergeTable2();
 
         String sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
                 + "WHEN MATCHED THEN UPDATE SET b = src.b, k1 = src.k1 "
@@ -191,90 +191,80 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testMerge() {
         clearAndPopulateMergeTable1();
 
-        clearAndPopulateMergeTable2(true);
+        clearAndPopulateMergeTable2();
 
-        for (int i = 0; i < 10; i++) {
-            System.out.println(">xxx> itr " + i);
+        String sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = 100 * src.b "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, 10 * src.a, src.b)";
 
-            String sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
-                    + "WHEN MATCHED THEN UPDATE SET b = 100 * src.b "
-                    + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, 10 * src.a, src.b)";
+        sql(sql);
 
-            sql(sql);
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
+                .returns(222, 222, 10, 300, null)
+                .returns(333, 333, 0, 10000, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
 
-            assertQuery("SELECT * FROM test2 ORDER BY k1")
-                    .returns(222, 222, 10, 300, null)
-                    .returns(333, 333, 0, 10000, "")
-                    .returns(444, 444, 2, 200, null)
-                    .check();
+        // ---- the same but ON fld _a = src.a_ append to MATCHED too
+        clearAndPopulateMergeTable2();
 
-            // ---- the same but ON fld _a = src.a_ append to MATCHED too
-            clearAndPopulateMergeTable2(false);
+        sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, src.a, src.b)";
 
-            sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
-                    + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
-                    + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, src.a, src.b)";
+        sql(sql);
 
-            sql(sql);
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
+                .returns(222, 222, 1, 300, null)
+                .returns(333, 333, 0, 100, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
 
-            assertQuery("SELECT * FROM test2 ORDER BY k1")
-                    .returns(222, 222, 1, 300, null)
-                    .returns(333, 333, 0, 100, "")
-                    .returns(444, 444, 2, 200, null)
-                    .check();
+        // ---- all flds covered on NOT MATCHED
+        clearAndPopulateMergeTable2();
 
-            // ---- all flds covered on NOT MATCHED
-            clearAndPopulateMergeTable2(false);
+        sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1, src.k2, src.a, src.b, src.c)";
 
-            sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
-                    + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
-                    + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1, src.k2, src.a, src.b, src.c)";
+        sql(sql);
 
-            sql(sql);
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
+                .returns(222, 222, 1, 300, "1")
+                .returns(333, 333, 0, 100, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
 
-            assertQuery("SELECT * FROM test2 ORDER BY k1")
-                    .returns(222, 222, 1, 300, "1")
-                    .returns(333, 333, 0, 100, "")
-                    .returns(444, 444, 2, 200, null)
-                    .check();
+        // --- only WHEN MATCHED section.
+        clearAndPopulateMergeTable2();
 
-            // --- only WHEN MATCHED section.
-            clearAndPopulateMergeTable2(false);
+        sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a";
+        sql(sql);
 
-            sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
-                    + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a";
-            sql(sql);
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
+                .returns(333, 333, 0, 100, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
 
-            assertQuery("SELECT * FROM test2 ORDER BY k1")
-                    .returns(333, 333, 0, 100, "")
-                    .returns(444, 444, 2, 200, null)
-                    .check();
+        // ---- only WHEN NOT MATCHED section.
+        clearAndPopulateMergeTable2();
 
-            // ---- only WHEN NOT MATCHED section.
-            clearAndPopulateMergeTable2(false);
+        sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1, src.k2, src.a, src.b, src.c)";
 
-            sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
-                    + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1, src.k2, src.a, src.b, src.c)";
+        sql(sql);
 
-            sql(sql);
-
-            assertQuery("SELECT * FROM test2 ORDER BY k1")
-                    .returns(222, 222, 1, 300, "1")
-                    .returns(333, 333, 0, 100, "")
-                    .returns(444, 444, 2, 200, null)
-                    .check();
-
-            clearAndPopulateMergeTable2(false);
-        }
+        assertQuery("SELECT * FROM test2 ORDER BY k1")
+                .returns(222, 222, 1, 300, "1")
+                .returns(333, 333, 0, 100, "")
+                .returns(444, 444, 2, 200, null)
+                .check();
     }
 
-    private void clearAndPopulateMergeTable2(boolean recreate) {
-        if (recreate) {
-            sql("DROP TABLE IF EXISTS test2 ");
-            sql("CREATE TABLE test2 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
-        } else {
-            sql("DELETE FROM test2");
-        }
+    private void clearAndPopulateMergeTable2() {
+        sql("DROP TABLE IF EXISTS test2 ");
+        sql("CREATE TABLE test2 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
         sql("INSERT INTO test2 VALUES (333, 333, 0, 100, '')");
         sql("INSERT INTO test2 VALUES (444, 444, 2, 200, null)");
     }
@@ -395,9 +385,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> sql(
-                "MERGE INTO test2 USING test1 ON test1.a = test2.a "
-                        + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
-                        + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
+                        "MERGE INTO test2 USING test1 ON test1.a = test2.a "
+                                + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
+                                + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
         assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
     }
