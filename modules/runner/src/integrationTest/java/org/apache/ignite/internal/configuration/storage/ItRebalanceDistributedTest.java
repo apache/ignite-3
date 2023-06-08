@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -98,6 +99,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -167,7 +169,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -770,8 +771,8 @@ public class ItRebalanceDistributedTest {
                     zonesCfg,
                     clusterService,
                     raftManager,
-                    Mockito.mock(ReplicaManager.class),
-                    Mockito.mock(LockManager.class),
+                    mock(ReplicaManager.class),
+                    mock(LockManager.class),
                     replicaSvc,
                     baselineMgr,
                     clusterService.topologyService(),
@@ -786,7 +787,8 @@ public class ItRebalanceDistributedTest {
                     topologyAwareRaftGroupServiceFactory,
                     vaultManager,
                     cmgManager,
-                    distributionZoneManager
+                    distributionZoneManager,
+                    mock(PlacementDriver.class)
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,

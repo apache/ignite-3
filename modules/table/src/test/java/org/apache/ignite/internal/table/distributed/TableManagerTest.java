@@ -80,6 +80,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -872,7 +873,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                mock(PlacementDriver.class)
         ) {
 
             @Override

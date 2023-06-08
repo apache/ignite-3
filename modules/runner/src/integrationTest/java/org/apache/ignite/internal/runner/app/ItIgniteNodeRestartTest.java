@@ -91,6 +91,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -414,7 +415,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory,
                 vault,
                 null,
-                null
+                null,
+                mock(PlacementDriver.class)
         );
 
         var indexManager = new IndexManager(tablesConfiguration, schemaManager, tableManager);
