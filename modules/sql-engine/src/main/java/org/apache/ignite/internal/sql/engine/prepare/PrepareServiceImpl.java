@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -48,7 +44,6 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -62,7 +57,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
-public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
+public class PrepareServiceImpl implements PrepareService {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
@@ -70,8 +65,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private static final int THREAD_COUNT = 4;
 
     private final DdlSqlToCommandConverter ddlConverter;
-
-    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
 
     private final String nodeName;
 
@@ -112,11 +105,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
-
-        cache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<CacheKey, CompletableFuture<QueryPlan>>build()
-                .asMap();
     }
 
     /** {@inheritDoc} */
@@ -176,12 +164,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        cache.clear();
-    }
-
     private CompletableFuture<QueryPlan> prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
@@ -212,30 +194,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        Class[] paramTypes = ctx.parameters().length == 0
-                ? EMPTY_CLASS_ARRAY :
-                Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
-
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), null, paramTypes);
-
-//        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
-//            IgnitePlanner planner = ctx.planner();
-//
-//            // Validate
-//            ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
-//
-//            SqlNode validatedNode = validated.sqlNode();
-//
-//            IgniteRel igniteRel = optimize(validatedNode, planner);
-//
-//            // Split query plan to query fragments.
-//            List<Fragment> fragments = new Splitter().go(igniteRel);
-//
-//            QueryTemplate template = new QueryTemplate(fragments);
-//
-//            return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
-//        }, planningPool));
-
         CompletableFuture<MultiStepQueryPlan> planFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
@@ -258,25 +216,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
-
-//        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
-//            IgnitePlanner planner = ctx.planner();
-//
-//            // Validate
-//            SqlNode validatedNode = planner.validate(sqlNode);
-//
-//            // Convert to Relational operators graph
-//            IgniteRel igniteRel = optimize(validatedNode, planner);
-//
-//            // Split query plan to query fragments.
-//            List<Fragment> fragments = new Splitter().go(igniteRel);
-//
-//            QueryTemplate template = new QueryTemplate(fragments);
-//
-//            return new MultiStepDmlPlan(template);
-//        }, planningPool));
-
         CompletableFuture<MultiStepDmlPlan> planFut = CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 

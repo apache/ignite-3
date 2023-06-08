@@ -259,7 +259,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 busyLock
         );
 
-//        sqlSchemaManager.registerListener(prepareSvc);
         sqlSchemaManager.registerListener(planCache::clear);
 
         this.prepareSvc = prepareSvc;
@@ -433,14 +432,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    var key = new CacheKey(schemaName, sql, null, paramTypes);
+                    var cacheKey = new CacheKey(schemaName, sql, null, paramTypes);
 
-                    // todo synchronization
-                    CompletableFuture<QueryPlan> futPlan = planCache.get(key);
+                    AtomicReference<CompletableFuture<Pair<QueryPlan, BaseQueryContext>>> planWithCtxFutRef = new AtomicReference<>();
 
-                    CompletableFuture<Pair<QueryPlan, BaseQueryContext>> futPlan0 = null;
-
-                    if (futPlan == null) {
+                    CompletableFuture<QueryPlan> planFut = planCache.computeIfAbsent(cacheKey, (k) -> {
                         StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
                         SqlNode sqlNode = parseResult.statement();
 
@@ -468,33 +464,30 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .plannerTimeout(PLANNER_TIMEOUT)
                                 .build();
 
-                        futPlan = prepareSvc.prepareAsync(sqlNode, ctx);
-
-
                         SqlQueryType queryType = Commons.getQueryType(sqlNode);
 
-                        if (queryType == QUERY || queryType == DML) {
-                            planCache.put(key, futPlan);
-                        }
+                        CompletableFuture<QueryPlan> planFut0 = prepareSvc.prepareAsync(sqlNode, ctx);
 
-                        futPlan0 = futPlan.thenApply(plan -> {
-                            return new Pair<>(plan, ctx);
-                        });
-                    } else {
-//                        assert false;
+                        planWithCtxFutRef.set(planFut0.thenApply(plan -> new Pair<>(plan, ctx)));
 
-                        futPlan0 = futPlan.thenApply(plan -> {
+                        return queryType == QUERY || queryType == DML ? planFut0 : null;
+                    });
+
+                    CompletableFuture<Pair<QueryPlan, BaseQueryContext>> resFut = planWithCtxFutRef.get();
+
+                    if (resFut == null) {
+                        assert planFut != null;
+
+                        resFut = planFut.thenApply(plan -> {
                             boolean rwOp = DML == plan.type();
 
                             tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
 
                             SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
-                            // todo
-//                            if (schema == null) {
-//                                return (CompletableFuture<Pair<QueryPlan, BaseQueryContext>>)
-//                                        CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
-//                            }
+                            if (schema == null) {
+                                throw new SchemaNotFoundException(schemaName);
+                            }
 
                             BaseQueryContext ctx = BaseQueryContext.builder()
                                     .frameworkConfig(
@@ -512,36 +505,35 @@ public class SqlQueryProcessor implements QueryProcessor {
                         });
                     }
 
-                    return futPlan0
-                            .thenApply(pair -> {
-                                QueryPlan plan = pair.getKey();
-                                BaseQueryContext ctx = pair.getValue();
-                                var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
+                    return resFut.thenApply(pair -> {
+                        QueryPlan plan = pair.getKey();
+                        BaseQueryContext ctx = pair.getValue();
+                        var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 
-                                SqlQueryType queryType = plan.type();
-                                assert queryType != null : "Expected a full plan but got a fragment: " + plan;
+                        SqlQueryType queryType = plan.type();
+                        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
 
-                                return new AsyncSqlCursorImpl<>(
-                                        queryType,
-                                        plan.metadata(),
-                                        implicitTxRequired ? tx.get() : null,
-                                        new AsyncCursor<List<Object>>() {
-                                            @Override
-                                            public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                                                session.touch();
+                        return new AsyncSqlCursorImpl<>(
+                                queryType,
+                                plan.metadata(),
+                                implicitTxRequired ? tx.get() : null,
+                                new AsyncCursor<List<Object>>() {
+                                    @Override
+                                    public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                                        session.touch();
 
-                                                return dataCursor.requestNextAsync(rows);
-                                            }
+                                        return dataCursor.requestNextAsync(rows);
+                                    }
 
-                                            @Override
-                                            public CompletableFuture<Void> closeAsync() {
-                                                session.touch();
+                                    @Override
+                                    public CompletableFuture<Void> closeAsync() {
+                                        session.touch();
 
-                                                return dataCursor.closeAsync();
-                                            }
-                                        }
-                                );
-                            });
+                                        return dataCursor.closeAsync();
+                                    }
+                                }
+                        );
+                    });
                 });
 
         stage.whenComplete((cur, ex) -> {
