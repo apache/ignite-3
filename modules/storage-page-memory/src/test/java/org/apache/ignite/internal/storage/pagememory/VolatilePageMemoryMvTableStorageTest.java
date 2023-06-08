@@ -157,7 +157,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                 .appendString("a".repeat(300))
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         return new IndexRowImpl(tuple, rowId);
     }

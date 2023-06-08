@@ -309,7 +309,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     private IndexRow decodeRow(ByteBuffer bytes) {
         assert bytes.getShort(0) == helper.partitionId();
 
-        var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), binaryTupleSlice(bytes));
+        var tuple = new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), binaryTupleSlice(bytes));
 
         return new IndexRowImpl(tuple, decodeRowId(bytes));
     }

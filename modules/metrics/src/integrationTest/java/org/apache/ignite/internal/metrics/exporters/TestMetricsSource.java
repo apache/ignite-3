@@ -44,7 +44,7 @@ public class TestMetricsSource extends AbstractMetricSource<Holder> {
 
     /** {@inheritDoc} */
     @Override protected void init(MetricSetBuilder bldr, Holder holder) {
-        atomicIntMetric = bldr.atomicInt("metric", "Metric");
+        atomicIntMetric = bldr.atomicInt("Metric", "Metric");
     }
 
     public void inc() {

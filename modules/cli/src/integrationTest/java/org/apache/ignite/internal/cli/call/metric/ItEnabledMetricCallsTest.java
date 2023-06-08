@@ -87,14 +87,14 @@ class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
 
         // And
         Metric[] expectedMetrics = {
-                new Metric().name("memory.heap.init").desc("Initial amount of heap memory"),
-                new Metric().name("memory.heap.used").desc("Current used amount of heap memory"),
-                new Metric().name("memory.heap.committed").desc("Committed amount of heap memory"),
-                new Metric().name("memory.heap.max").desc("Maximum amount of heap memory"),
-                new Metric().name("memory.non-heap.init").desc("Initial amount of non-heap memory"),
-                new Metric().name("memory.non-heap.used").desc("Used amount of non-heap memory"),
-                new Metric().name("memory.non-heap.committed").desc("Committed amount of non-heap memory"),
-                new Metric().name("memory.non-heap.max").desc("Maximum amount of non-heap memory")
+                new Metric().name("memory.heap.Init").desc("Initial amount of heap memory"),
+                new Metric().name("memory.heap.Used").desc("Current used amount of heap memory"),
+                new Metric().name("memory.heap.Committed").desc("Committed amount of heap memory"),
+                new Metric().name("memory.heap.Max").desc("Maximum amount of heap memory"),
+                new Metric().name("memory.non-heap.Init").desc("Initial amount of non-heap memory"),
+                new Metric().name("memory.non-heap.Used").desc("Used amount of non-heap memory"),
+                new Metric().name("memory.non-heap.Committed").desc("Committed amount of non-heap memory"),
+                new Metric().name("memory.non-heap.Max").desc("Maximum amount of non-heap memory")
         };
 
         assertAll(
