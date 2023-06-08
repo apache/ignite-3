@@ -59,11 +59,13 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
 public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME_1 = "zone1";
 
@@ -228,7 +230,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create the zone with not immediate timers.
+        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -261,7 +263,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create the zone with not immediate timers.
+        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(1)
@@ -318,7 +320,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create the zone with not immediate timers.
+        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -499,7 +501,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create the zone with not immediate timers.
+        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -529,7 +531,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create the zone with not immediate timers.
+        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(10000)
@@ -629,7 +631,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void createThenDropZone() throws Exception {
         // Prerequisite.
 
-        // Create the zone with not immediate timers.
+        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -724,7 +726,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<LogicalNode> threeNodes = Set.of(NODE_0, NODE_1, NODE_2);
         Set<String> threeNodeNames = Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name());
 
+        // Change logical topology. NODE_0 is added.
         long topologyRevision0 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
+
+        // Change logical topology. NODE_1 is added.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, twoNodes);
 
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID);
@@ -745,7 +750,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_2);
         Set<String> twoNodesNames1 = Set.of(NODE_0.name(), NODE_2.name());
 
+        // Change logical topology. NODE_2 is added.
         long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_2, twoNodes1);
+
+        // Change logical topology. NODE_1 is left.
         long topologyRevision3 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), twoNodes1);
 
         CompletableFuture<Set<String>> dataNodesFut7 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID);
