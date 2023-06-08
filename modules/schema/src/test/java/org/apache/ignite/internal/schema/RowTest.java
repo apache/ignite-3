@@ -666,10 +666,9 @@ public class RowTest {
             NativeTypeSpec type = col.type().spec();
 
             if (type == NativeTypeSpec.BYTES) {
-                assertArrayEquals((byte[]) vals[i], (byte[]) NativeTypeSpec.BYTES.objectValue(row, i),
-                        "Failed for column: " + col);
+                assertArrayEquals((byte[]) vals[i], row.bytesValue(i), "Failed for column: " + col);
             } else {
-                assertEquals(vals[i], type.objectValue(row, i), "Failed for column: " + col);
+                assertEquals(vals[i], row.value(i), "Failed for column: " + col);
             }
         }
     }
