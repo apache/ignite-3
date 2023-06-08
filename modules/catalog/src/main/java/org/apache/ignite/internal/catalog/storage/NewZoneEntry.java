@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -26,19 +26,19 @@ import org.apache.ignite.internal.tostring.S;
 public class NewZoneEntry implements UpdateEntry {
     private static final long serialVersionUID = 2970125889493580121L;
 
-    private final DistributionZoneDescriptor descriptor;
+    private final CatalogZoneDescriptor descriptor;
 
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a zone to add.
      */
-    public NewZoneEntry(DistributionZoneDescriptor descriptor) {
+    public NewZoneEntry(CatalogZoneDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
     /** Returns descriptor of a zone to add. */
-    public DistributionZoneDescriptor descriptor() {
+    public CatalogZoneDescriptor descriptor() {
         return descriptor;
     }
 

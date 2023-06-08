@@ -49,11 +49,11 @@ import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -137,10 +137,24 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     public void start() {
         int objectIdGen = 0;
 
-        // TODO: IGNITE-19082 Fix default descriptors.
-        CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
-        DistributionZoneDescriptor defaultZone = new DistributionZoneDescriptor(objectIdGen++, CatalogService.DEFAULT_ZONE_NAME, 25, 1,
-                INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, CreateZoneParams.DEFAULT_FILTER);
+        // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
+        CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
+                objectIdGen++,
+                "PUBLIC",
+                0,
+                new CatalogTableDescriptor[0],
+                new CatalogIndexDescriptor[0]
+        );
+        CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
+                objectIdGen++,
+                CatalogService.DEFAULT_ZONE_NAME,
+                25,
+                1,
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                CreateZoneParams.DEFAULT_FILTER
+        );
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), schemaPublic));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
@@ -204,13 +218,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
-    public DistributionZoneDescriptor zone(String zoneName, long timestamp) {
+    public CatalogZoneDescriptor zone(String zoneName, long timestamp) {
         return catalogAt(timestamp).zone(zoneName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public DistributionZoneDescriptor zone(int zoneId, long timestamp) {
+    public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
         return catalogAt(timestamp).zone(zoneId);
     }
 
@@ -594,7 +608,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new DistributionZoneAlreadyExistsException(zoneName);
             }
 
-            DistributionZoneDescriptor zone = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            CatalogZoneDescriptor zone = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewZoneEntry(zone),
@@ -609,7 +623,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
 
-            DistributionZoneDescriptor zone = catalog.zone(zoneName);
+            CatalogZoneDescriptor zone = catalog.zone(zoneName);
 
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(zoneName);
@@ -642,7 +656,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String zoneName = Objects.requireNonNull(params.newZoneName(), "newZoneName");
 
-            DistributionZoneDescriptor zone = catalog.zone(params.zoneName());
+            CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
 
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(zoneName);
@@ -658,7 +672,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 );
             }
 
-            DistributionZoneDescriptor descriptor = new DistributionZoneDescriptor(
+            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
                     zone.id(),
                     params.newZoneName(),
                     zone.partitions(),
@@ -676,7 +690,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
         return saveUpdate(catalog -> {
-            DistributionZoneDescriptor zone = catalog.zone(params.zoneName());
+            CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
 
             if (zone == null) {
                 throw new DistributionZoneNotFoundException(params.zoneName());
@@ -705,7 +719,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE);
             }
 
-            DistributionZoneDescriptor descriptor = new DistributionZoneDescriptor(
+            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
                     zone.id(),
                     zone.name(),
                     Objects.requireNonNullElse(params.partitions(), zone.partitions()),
@@ -949,7 +963,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             new DropZoneEventParameters(version, zoneId)
                     ));
                 } else if (entry instanceof AlterZoneEntry) {
-                    DistributionZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
+                    CatalogZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
 
                     catalog = new Catalog(
                             version,

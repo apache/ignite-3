@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 
 /**
  * Create zone event parameters contains a distribution zone descriptor for newly created distribution zone.
  */
 public class CreateZoneEventParameters extends CatalogEventParameters {
 
-    private final DistributionZoneDescriptor zoneDescriptor;
+    private final CatalogZoneDescriptor zoneDescriptor;
 
     /**
      * Constructor.
@@ -32,7 +32,7 @@ public class CreateZoneEventParameters extends CatalogEventParameters {
      * @param causalityToken Causality token.
      * @param zoneDescriptor Newly created distribution zone descriptor.
      */
-    public CreateZoneEventParameters(long causalityToken, DistributionZoneDescriptor zoneDescriptor) {
+    public CreateZoneEventParameters(long causalityToken, CatalogZoneDescriptor zoneDescriptor) {
         super(causalityToken);
 
         this.zoneDescriptor = zoneDescriptor;
@@ -41,7 +41,7 @@ public class CreateZoneEventParameters extends CatalogEventParameters {
     /**
      * Gets distribution zone descriptor for newly created distribution zone.
      */
-    public DistributionZoneDescriptor zoneDescriptor() {
+    public CatalogZoneDescriptor zoneDescriptor() {
         return zoneDescriptor;
     }
 }

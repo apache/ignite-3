@@ -22,7 +22,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Distribution zone descriptor base class.
  */
-public class DistributionZoneDescriptor extends ObjectDescriptor {
+public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = 1093607327002694066L;
 
     /** Amount of zone partitions. */
@@ -55,7 +55,7 @@ public class DistributionZoneDescriptor extends ObjectDescriptor {
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
      */
-    public DistributionZoneDescriptor(
+    public CatalogZoneDescriptor(
             int id,
             String name,
             int partitions,

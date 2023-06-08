@@ -23,11 +23,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -39,14 +39,14 @@ public class Catalog {
     private final int objectIdGen;
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemas;
-    private final Map<String, DistributionZoneDescriptor> zones;
+    private final Map<String, CatalogZoneDescriptor> zones;
 
     @IgniteToStringExclude
     private final Map<Integer, CatalogTableDescriptor> tablesMap;
     @IgniteToStringExclude
     private final Map<Integer, CatalogIndexDescriptor> indexesMap;
     @IgniteToStringExclude
-    private final Map<Integer, DistributionZoneDescriptor> zonesMap;
+    private final Map<Integer, CatalogZoneDescriptor> zonesMap;
 
     /**
      * Constructor.
@@ -62,7 +62,7 @@ public class Catalog {
             int version,
             long activationTimestamp,
             int objectIdGen,
-            Collection<DistributionZoneDescriptor> zones,
+            Collection<CatalogZoneDescriptor> zones,
             CatalogSchemaDescriptor... schemas
     ) {
         this.version = version;
@@ -75,13 +75,13 @@ public class Catalog {
         assert Arrays.stream(schemas).allMatch(t -> t.version() == version) : "Invalid schema version";
 
         this.schemas = Arrays.stream(schemas).collect(Collectors.toUnmodifiableMap(CatalogSchemaDescriptor::name, t -> t));
-        this.zones = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::name, t -> t));
+        this.zones = zones.stream().collect(Collectors.toUnmodifiableMap(CatalogZoneDescriptor::name, t -> t));
 
         tablesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.tables()))
                 .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::id, Function.identity()));
         indexesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.indexes()))
                 .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::id, Function.identity()));
-        zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::id, t -> t));
+        zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(CatalogZoneDescriptor::id, t -> t));
     }
 
     public int version() {
@@ -100,7 +100,7 @@ public class Catalog {
         return schemas.get(name);
     }
 
-    public Collection<SchemaDescriptor> schemas() {
+    public Collection<CatalogSchemaDescriptor> schemas() {
         return schemas.values();
     }
 
@@ -112,15 +112,15 @@ public class Catalog {
         return indexesMap.get(indexId);
     }
 
-    public DistributionZoneDescriptor zone(String name) {
+    public CatalogZoneDescriptor zone(String name) {
         return zones.get(name);
     }
 
-    public DistributionZoneDescriptor zone(int zoneId) {
+    public CatalogZoneDescriptor zone(int zoneId) {
         return zonesMap.get(zoneId);
     }
 
-    public Collection<DistributionZoneDescriptor> zones() {
+    public Collection<CatalogZoneDescriptor> zones() {
         return zones.values();
     }
 

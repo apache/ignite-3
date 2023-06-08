@@ -60,8 +60,8 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         rebuildMaps();
     }
 
-    private SchemaDescriptor(int id, String name, int version, TableDescriptor[] tables, IndexDescriptor[] indexes,
-            Map<String, TableDescriptor> tablesMap, Map<String, IndexDescriptor> indexesMap) {
+    private CatalogSchemaDescriptor(int id, String name, int version, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes,
+            Map<String, CatalogTableDescriptor> tablesMap, Map<String, CatalogIndexDescriptor> indexesMap) {
         super(id, Type.SCHEMA, name);
         this.version = version;
         this.tables = Objects.requireNonNull(tables, "tables");
@@ -102,8 +102,8 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     /** Creates new schema descriptor with new version. */
-    public SchemaDescriptor copy(int version) {
-        return new SchemaDescriptor(
+    public CatalogSchemaDescriptor copy(int version) {
+        return new CatalogSchemaDescriptor(
                 id(),
                 name(),
                 version,

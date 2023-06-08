@@ -25,13 +25,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -107,8 +107,8 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Distribution zone descriptor.
      */
-    public static DistributionZoneDescriptor fromParams(int id, CreateZoneParams params) {
-        return new DistributionZoneDescriptor(
+    public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
+        return new CatalogZoneDescriptor(
                 id,
                 params.zoneName(),
                 params.partitions(),

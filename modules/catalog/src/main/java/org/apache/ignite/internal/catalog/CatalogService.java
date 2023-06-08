@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.catalog;
 
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
@@ -52,9 +52,9 @@ public interface CatalogService {
 
     CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
-    DistributionZoneDescriptor zone(String zoneName, long timestamp);
+    CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
-    DistributionZoneDescriptor zone(int zoneId, long timestamp);
+    CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
     CatalogSchemaDescriptor activeSchema(long timestamp);
 

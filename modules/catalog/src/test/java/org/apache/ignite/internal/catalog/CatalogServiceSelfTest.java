@@ -62,12 +62,12 @@ import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -174,7 +174,7 @@ public class CatalogServiceSelfTest {
         assertEquals(0, schema.tables().length);
         assertEquals(0, schema.indexes().length);
 
-        DistributionZoneDescriptor zone = service.zone(1, System.currentTimeMillis());
+        CatalogZoneDescriptor zone = service.zone(1, System.currentTimeMillis());
         assertEquals(CatalogService.DEFAULT_ZONE_NAME, zone.name());
 
         assertEquals(1, zone.id());
@@ -1215,7 +1215,7 @@ public class CatalogServiceSelfTest {
         assertNull(service.zone(2, 123L));
 
         // Validate actual catalog
-        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
 
         assertNotNull(zone);
         assertSame(zone, service.zone(2, System.currentTimeMillis()));
@@ -1252,7 +1252,7 @@ public class CatalogServiceSelfTest {
         assertThat(fut, willBe((Object) null));
 
         // Validate catalog version from the past.
-        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
 
         assertNotNull(zone);
         assertEquals(ZONE_NAME, zone.name());
@@ -1290,7 +1290,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.renameDistributionZone(renameZoneParams), willBe((Object) null));
 
         // Validate catalog version from the past.
-        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
 
         assertNotNull(zone);
         assertEquals(ZONE_NAME, zone.name());
@@ -1311,7 +1311,7 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testDefaultZone() {
-        DistributionZoneDescriptor defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis());
+        CatalogZoneDescriptor defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, System.currentTimeMillis());
 
         // Try to create zone with default zone name.
         CreateZoneParams createParams = CreateZoneParams.builder()
@@ -1387,7 +1387,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.alterDistributionZone(alterZoneParams), willBe((Object) null));
 
         // Validate actual catalog
-        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
         assertNotNull(zone);
         assertSame(zone, service.zone(2, System.currentTimeMillis()));
 
@@ -1421,7 +1421,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.createDistributionZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
 
         // Validate zone was NOT changed
-        DistributionZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, System.currentTimeMillis());
 
         assertNotNull(zone);
         assertSame(zone, service.zone(2, System.currentTimeMillis()));
