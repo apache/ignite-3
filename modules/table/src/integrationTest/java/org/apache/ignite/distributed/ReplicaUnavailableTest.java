@@ -181,6 +181,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
                 .binaryRow(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
