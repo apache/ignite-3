@@ -61,25 +61,18 @@ internal static class DataStreamer
             $"{nameof(options.PerNodeParallelOperations)} should be positive.");
 
         var batches = new Dictionary<string, Batch>();
+        var schema = await schemaProvider().ConfigureAwait(false);
+        var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
 
         try
         {
-            var schema = await schemaProvider().ConfigureAwait(false);
-            var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
-
             await foreach (var item in data)
             {
-                var (batch, partition) = Add(item, schema, partitionAssignment);
+                var (batch, partition) = Add(item);
 
                 if (batch.Count >= options.BatchSize)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
-
-                    batch.Count = 0;
-                    batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAsync.
-
-                    schema = await schemaProvider().ConfigureAwait(false);
-                    partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
                 }
             }
 
@@ -100,13 +93,13 @@ internal static class DataStreamer
             }
         }
 
-        (Batch Batch, string Partition) Add(T item, Schema schema, string[]? partitionAssignment)
+        (Batch Batch, string Partition) Add(T item)
         {
             var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
 
             try
             {
-                return Add0(item, schema, partitionAssignment, ref tupleBuilder);
+                return Add0(item, ref tupleBuilder);
             }
             finally
             {
@@ -114,11 +107,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch Batch, string Partition) Add0(
-            T item,
-            Schema schema,
-            string[]? partitionAssignment,
-            ref BinaryTupleBuilder tupleBuilder)
+        (Batch Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder)
         {
             var columnCount = schema.Columns.Count;
 
@@ -133,7 +122,7 @@ internal static class DataStreamer
                 ? string.Empty // Default connection.
                 : partitionAssignment[Math.Abs(tupleBuilder.Hash % partitionAssignment.Length)];
 
-            var batch = GetOrCreateBatch(partition, schema);
+            var batch = GetOrCreateBatch(partition);
             batch.Count++;
 
             noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
@@ -142,7 +131,7 @@ internal static class DataStreamer
             return (batch, partition);
         }
 
-        Batch GetOrCreateBatch(string partition, Schema schema)
+        Batch GetOrCreateBatch(string partition)
         {
             if (batches.TryGetValue(partition, out var batch))
             {
@@ -176,6 +165,13 @@ internal static class DataStreamer
 
             // Wait for the previous batch for this node.
             await oldTask.ConfigureAwait(false);
+
+            batch.Count = 0;
+            batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
+
+            // Refresh schema and assignment once per send.
+            schema = await schemaProvider().ConfigureAwait(false);
+            partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         }
 
         async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition)
