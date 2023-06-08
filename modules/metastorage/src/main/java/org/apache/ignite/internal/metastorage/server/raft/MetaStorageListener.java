@@ -107,7 +107,7 @@ public class MetaStorageListener implements RaftGroupListener {
                     clo.result(b);
                     long duration = System.currentTimeMillis() - start;
                     long bytesSize = b.entries().stream().mapToInt(e -> e.key().length + (e.value() == null ? 0 : e.value().length)).sum();
-                    log.info("qqq get range command, keyFrom: " + (new String(keyFrom, StandardCharsets.UTF_8) +
+                    System.out.println("qqq get range command, keyFrom: " + (new String(keyFrom, StandardCharsets.UTF_8) +
                             ", time: " + duration + ", batch size: " + b.entries().size() + ", size in bytes: " + bytesSize));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
@@ -137,10 +137,27 @@ public class MetaStorageListener implements RaftGroupListener {
                 ? storage.range(keyFrom, keyTo)
                 : storage.range(keyFrom, keyTo, command.revUpperBound());
 
+        long nextDuration = 0;
+        long hnDuration = 0;
+        int tombstonesCount = 0;
+        int iterations = 0;
         try (cursor) {
             var entries = new ArrayList<Entry>();
 
-            for (Entry entry : cursor) {
+            while (true) {
+                long st = System.currentTimeMillis();
+                boolean hasNext = cursor.hasNext();
+                hnDuration += (System.currentTimeMillis() - st);
+                if (!hasNext)
+                    break;
+                iterations++;
+
+                st = System.currentTimeMillis();
+                Entry entry = cursor.next();
+                nextDuration += (System.currentTimeMillis() - st);
+                if (entry.tombstone())
+                    tombstonesCount++;
+
                 if (command.includeTombstones() || !entry.tombstone()) {
                     entries.add(entry);
 
@@ -150,6 +167,14 @@ public class MetaStorageListener implements RaftGroupListener {
                 }
             }
 
+            System.out.println("qqq range next total duration: " + nextDuration + ", hasNext total duration: " + hnDuration + ", iterations=" + iterations + ", tombstones=" + tombstonesCount);
+
+            if (hnDuration > 1000) {
+                Cursor<Entry> cur = storage.range("0".getBytes(StandardCharsets.UTF_8), "z".getBytes(StandardCharsets.UTF_8));
+                for (Entry e : cur) {
+                    System.out.println(new String(e.key(), StandardCharsets.UTF_8));
+                }
+            }
             return new BatchResponse(entries, cursor.hasNext());
         }
     }
