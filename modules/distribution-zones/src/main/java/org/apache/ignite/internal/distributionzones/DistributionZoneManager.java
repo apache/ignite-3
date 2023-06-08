@@ -782,7 +782,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Zone id.
      * @return The latest data nodes.
      */
-    private Set<String> dataNodes(int zoneId) {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
+    public Set<String> dataNodes(int zoneId) {
         return inBusyLock(busyLock, () -> {
             ZoneState zoneState = zonesState.get(zoneId);
 
@@ -795,7 +796,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Asynchronously gets the zone using causality token.
+     * Asynchronously gets data nodes of the zone using causality token.
      *
      * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
      * does not exist.

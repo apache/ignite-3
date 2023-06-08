@@ -2278,18 +2278,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     TableConfiguration tblCfg = tablesCfg.tables().get(tbl.name());
 
-                                    Integer zoneId = tblCfg.zoneId().value();
-
-                                    return distributionZoneManager.dataNodes(evt.revision(), zoneId)
-                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
-                                                            metaStorageMgr,
-                                                            dataNodes,
-                                                            getZoneById(distributionZonesConfiguration, zoneId).replicas().value(),
-                                                            partitionNumber,
-                                                            replicaGrpId,
-                                                            evt
-                                                    )
-                                            );
+                                    return RebalanceUtil.handleReduceChanged(
+                                            metaStorageMgr,
+                                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                                            getZoneById(distributionZonesConfiguration, tblCfg.zoneId().value()).replicas().value(),
+                                            partitionNumber,
+                                            replicaGrpId,
+                                            evt
+                                    );
                                 } finally {
                                     busyLock.leaveBusy();
                                 }

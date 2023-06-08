@@ -271,52 +271,51 @@ public class DistributionZoneRebalanceEngine {
 
                 CompletableFuture<?>[] futs = new CompletableFuture[tblsCfg.size() * zoneCfg.partitions()];
 
-                return distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId())
-                        .thenCompose(dataNodes -> {
-                            int futCur = 0;
+                int furCur = 0;
 
-                            for (TableConfiguration tblCfg : tblsCfg) {
-                                LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                                        tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
+                for (TableConfiguration tblCfg : tblsCfg) {
+                    LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
+                            tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
 
-                                int partCnt = zoneCfg.partitions();
+                    int partCnt = zoneCfg.partitions();
 
-                                int newReplicas = replicasCtx.newValue();
+                    int newReplicas = replicasCtx.newValue();
 
-                                int tableId = tblCfg.id().value();
+                    int tableId = tblCfg.id().value();
 
-                                CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+                    CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+                            metaStorageManager,
+                            tableId,
+                            partCnt
+                    );
+
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+
+                    if (dataNodes.isEmpty()) {
+                        futs[furCur++] = completedFuture(null);
+
+                        continue;
+                    }
+
+                    for (int i = 0; i < partCnt; i++) {
+                        TablePartitionId replicaGrpId = new TablePartitionId(tblCfg.id().value(), i);
+
+                        int partId = i;
+
+                        futs[furCur++] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                                updatePendingAssignmentsKeys(
+                                        tblCfg.name().value(),
+                                        replicaGrpId,
+                                        dataNodes,
+                                        newReplicas,
+                                        replicasCtx.storageRevision(),
                                         metaStorageManager,
-                                        tableId,
-                                        partCnt
-                                );
-
-                                if (dataNodes.isEmpty()) {
-                                    futs[futCur++] = completedFuture(null);
-
-                                    continue;
-                                }
-
-                                for (int i = 0; i < partCnt; i++) {
-                                    TablePartitionId replicaGrpId = new TablePartitionId(tblCfg.id().value(), i);
-
-                                    int partId = i;
-
-                                    futs[futCur++] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                                            updatePendingAssignmentsKeys(
-                                                    tblCfg.name().value(),
-                                                    replicaGrpId,
-                                                    dataNodes,
-                                                    newReplicas,
-                                                    replicasCtx.storageRevision(),
-                                                    metaStorageManager,
-                                                    partId,
-                                                    tableAssignments.get(partId)
-                                            ));
-                                }
-                            }
-                            return allOf(futs);
-                        });
+                                        partId,
+                                        tableAssignments.get(partId)
+                                ));
+                    }
+                }
+                return allOf(futs);
             } else {
                 return completedFuture(null);
             }
