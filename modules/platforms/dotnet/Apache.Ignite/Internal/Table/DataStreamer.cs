@@ -69,7 +69,7 @@ internal static class DataStreamer
                 var schema = await schemaProvider().ConfigureAwait(false);
                 var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
 
-                var (batch, partition) = AddItem(item, schema, partitionAssignment);
+                var (batch, partition) = Add(item, schema, partitionAssignment);
 
                 batch.Items.Add(item);
 
@@ -99,57 +99,73 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) AddItem(T item, Schema schema, string[]? partitionAssignment)
+        (Batch<T> Batch, string Partition) Add(T item, Schema schema, string[]? partitionAssignment)
         {
             var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
 
             try
             {
-                var columnCount = schema.Columns.Count;
-
-                // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
-                // because it may expose referenced variables outside of their declaration scope".
-                Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
-                Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
-
-                writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
-
-                var hash = tupleBuilder.Hash;
-                var partition = partitionAssignment == null
-                    ? string.Empty // Default connection.
-                    : partitionAssignment[Math.Abs(hash % partitionAssignment.Length)];
-
-                if (!batches.TryGetValue(partition, out var batch))
-                {
-                    batch = new Batch<T>
-                    {
-                        Items = new List<T>(options.BatchSize), // TODO: Pooled buffers.
-                        Buffer = ProtoCommon.GetMessageWriter(),
-                        Schema = schema
-                    };
-
-                    // TODO: Write buffer header: tableId, tx, schemaVer, count.
-                    batches.Add(partition, batch);
-                }
-
-                batch.Items.Add(item);
-
-                noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
-                batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
-
-                if (batch.Schema != schema)
-                {
-                    // TODO: Support schema change during streaming? Separate ticket?
-                    // We should re-serialize the buffer in this case.
-                    throw new NotSupportedException("Schema change is not supported.");
-                }
-
-                return (batch, partition);
+                return Add0(item, schema, partitionAssignment, ref tupleBuilder);
             }
             finally
             {
                 tupleBuilder.Dispose();
             }
+        }
+
+        (Batch<T> Batch, string Partition) Add0(
+            T item,
+            Schema schema,
+            string[]? partitionAssignment,
+            ref BinaryTupleBuilder tupleBuilder)
+        {
+            var columnCount = schema.Columns.Count;
+
+            // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
+            // because it may expose referenced variables outside of their declaration scope".
+            Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
+            Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
+
+            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
+
+            var partition = partitionAssignment == null
+                ? string.Empty // Default connection.
+                : partitionAssignment[Math.Abs(tupleBuilder.Hash % partitionAssignment.Length)];
+
+            var batch = GetOrCreateBatch(partition, schema);
+            batch.Items.Add(item);
+
+            noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
+            batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+
+            if (batch.Schema != schema)
+            {
+                // TODO: Support schema change during streaming? Separate ticket?
+                // We should re-serialize the buffer in this case.
+                throw new NotSupportedException("Schema change is not supported.");
+            }
+
+            return (batch, partition);
+        }
+
+        Batch<T> GetOrCreateBatch(string partition, Schema schema)
+        {
+            if (batches.TryGetValue(partition, out var batch))
+            {
+                return batch;
+            }
+
+            batch = new Batch<T>
+            {
+                Items = new List<T>(options.BatchSize), // TODO: Pooled buffers.
+                Buffer = ProtoCommon.GetMessageWriter(),
+                Schema = schema
+            };
+
+            // TODO: Write buffer header: tableId, tx, schemaVer, count.
+            batches.Add(partition, batch);
+
+            return batch;
         }
     }
 
