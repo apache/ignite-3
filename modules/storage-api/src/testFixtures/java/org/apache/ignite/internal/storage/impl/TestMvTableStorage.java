@@ -101,7 +101,7 @@ public class TestMvTableStorage implements MvTableStorage {
         this.tablesCfg = tablesCfg;
         this.distributionZoneCfg = distributionZoneCfg;
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.value(), distributionZoneCfg.value());
+        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.id().value(), distributionZoneCfg.partitions().value());
     }
 
     @Override
@@ -194,11 +194,6 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
-    }
-
-    @Override
-    public DistributionZoneConfiguration distributionZoneConfiguration() {
-        return distributionZoneCfg;
     }
 
     @Override

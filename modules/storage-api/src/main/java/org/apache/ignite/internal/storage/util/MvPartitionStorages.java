@@ -31,8 +31,6 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -50,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
  * Class for storing stores and performing operations on them.
  */
 public class MvPartitionStorages<T extends MvPartitionStorage> {
-    private final TableView tableView;
+    private final int tableId;
 
     private final AtomicReferenceArray<T> storageByPartitionId;
 
@@ -61,13 +59,13 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     /**
      * Constructor.
      *
-     * @param tableView Table configuration.
-     * @param distributionZoneView Distribution zone configuration.
+     * @param tableId Table ID.
+     * @param partitions Count of partitions.
      */
-    public MvPartitionStorages(TableView tableView, DistributionZoneView distributionZoneView) {
-        this.tableView = tableView;
+    public MvPartitionStorages(int tableId, int partitions) {
+        this.tableId = tableId;
 
-        storageByPartitionId = new AtomicReferenceArray<>(distributionZoneView.partitions());
+        storageByPartitionId = new AtomicReferenceArray<>(partitions);
     }
 
     /**
@@ -347,19 +345,12 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     /**
-     * Returns table name.
-     */
-    public String getTableName() {
-        return tableView.name();
-    }
-
-    /**
      * Creates a short info of the multi-versioned partition storage in the format "table=user, partitionId=1".
      *
      * @param partitionId Partition ID.
      */
     public String createStorageInfo(int partitionId) {
-        return IgniteStringFormatter.format("table={}, partitionId={}", getTableName(), partitionId);
+        return IgniteStringFormatter.format("tableId={}, partitionId={}", tableId, partitionId);
     }
 
     /**
@@ -373,8 +364,8 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
         if (partitionId < 0 || partitionId >= partitions) {
             throw new IllegalArgumentException(IgniteStringFormatter.format(
-                    "Unable to access partition with id outside of configured range: [table={}, partitionId={}, partitions={}]",
-                    getTableName(),
+                    "Unable to access partition with id outside of configured range: [tableId={}, partitionId={}, partitions={}]",
+                    tableId,
                     partitionId,
                     partitions
             ));

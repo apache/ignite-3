@@ -214,11 +214,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public DistributionZoneConfiguration distributionZoneConfiguration() {
-        return distributionZoneCfg;
-    }
-
-    @Override
     public void start() throws StorageException {
         inBusyLock(busyLock, () -> {
             flusher = new RocksDbFlusher(
@@ -315,7 +310,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages =
-                    new MvPartitionStorages<>(tableView, distributionZoneConfiguration().value());
+                    new MvPartitionStorages<>(tableView.id(), distributionZoneCfg.partitions().value());
 
             for (int partitionId : meta.getPartitionIds()) {
                 // There is no need to wait for futures, since there will be no parallel operations yet.

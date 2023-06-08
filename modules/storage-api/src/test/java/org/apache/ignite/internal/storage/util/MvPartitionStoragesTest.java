@@ -38,34 +38,24 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * Class for testing {@link MvPartitionStorages}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class MvPartitionStoragesTest {
-    @InjectConfiguration
-    private TableConfiguration tableConfig;
-
-    @InjectConfiguration("mock.partitions = 10")
-    private DistributionZoneConfiguration distributionZoneConfiguration;
+    private static final int PARTITIONS = 10;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
-        mvPartitionStorages = new MvPartitionStorages(tableConfig.value(), distributionZoneConfiguration.value());
+        mvPartitionStorages = new MvPartitionStorages(0, PARTITIONS);
     }
 
     @Test
@@ -714,7 +704,7 @@ public class MvPartitionStoragesTest {
     }
 
     private int getPartitionIdOutOfConfig() {
-        return distributionZoneConfiguration.partitions().value();
+        return PARTITIONS;
     }
 
     private static <T extends Throwable> void assertThrowsWithMessage(

@@ -82,11 +82,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public DistributionZoneConfiguration distributionZoneConfiguration() {
-        return distributionZoneConfiguration;
-    }
-
-    @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
     }
@@ -99,7 +94,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public void start() throws StorageException {
         busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages(tableCfg.value(), distributionZoneConfiguration.value());
+            mvPartitionStorages = new MvPartitionStorages<>(tableCfg.id().value(), distributionZoneConfiguration.partitions().value());
 
             return null;
         });

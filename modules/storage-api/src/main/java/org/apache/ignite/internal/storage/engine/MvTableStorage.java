@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.engine;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -136,12 +135,6 @@ public interface MvTableStorage extends ManuallyCloseable {
      */
     // TODO: IGNITE-19690 избавиться
     TablesConfiguration tablesConfiguration();
-
-    /**
-     * Returns the distribution zone configuration.
-     */
-    // TODO: IGNITE-19690 избавиться
-    DistributionZoneConfiguration distributionZoneConfiguration();
 
     /**
      * Starts the storage.
