@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.placementdriver.message;
 
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * The result of an action.
+ * A base message for placement driver request to a replication group.
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_RESPONSE)
-public interface TxFinishResponse extends TimestampAware {
+public interface PlacementDriverGroupMessage extends PlacementDriverMessage {
     /**
-     * Returns the error message.
+     * Gets a replication group id.
      *
-     * @return Finish error message or null if finished normally.
+     * @return Replication group id.
      */
-    @Nullable String errorMessage();
+    @Marshallable
+    ReplicationGroupId groupId();
 }
