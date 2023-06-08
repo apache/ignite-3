@@ -299,8 +299,8 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT SUBSTRING('text' FROM 1 FOR null)").returns(null).check();
         assertQuery("SELECT SUBSTRING('test' FROM null FOR 2)").returns(null).check();
 
-        // uncomment after https://issues.apache.org/jira/browse/CALCITE-5708 was merged.
-        //assertQuery("select SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
+        // uncomment after https://issues.apache.org/jira/browse/IGNITE-19686 was implemented.
+        assertQuery("select SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
 
         assertThrowsWithCause(() -> sql("SELECT SUBSTRING('abcdefg', 1, -3)"), IgniteException.class, "negative substring length");
     }
