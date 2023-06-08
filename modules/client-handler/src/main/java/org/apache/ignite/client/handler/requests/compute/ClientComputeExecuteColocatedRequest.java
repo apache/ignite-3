@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -51,7 +52,7 @@ public class ClientComputeExecuteColocatedRequest {
         String jobClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
-        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(val -> {
+        return compute.executeColocated(table.name(), keyTuple, List.of(), jobClassName, args).thenAccept(val -> {
             out.packInt(table.schemaView().lastSchemaVersion());
             out.packObjectAsBinaryTuple(val);
         });

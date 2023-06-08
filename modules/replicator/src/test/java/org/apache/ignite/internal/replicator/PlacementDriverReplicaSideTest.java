@@ -144,8 +144,9 @@ public class PlacementDriverReplicaSideTest {
             boolean force
     ) {
         PlacementDriverReplicaMessage msg = MSG_FACTORY.leaseGrantedMessage()
-                .leaseStartTime(leaseStartTime)
-                .leaseExpirationTime(leaseExpirationTime)
+                .groupId(GRP_ID)
+                .leaseStartTimeLong(leaseStartTime.longValue())
+                .leaseExpirationTimeLong(leaseExpirationTime.longValue())
                 .force(force)
                 .build();
 
@@ -318,13 +319,6 @@ public class PlacementDriverReplicaSideTest {
 
         assertTrue(resp1.accepted());
         assertNull(resp1.redirectProposal());
-    }
-
-    @Test
-    public void testIncorrectMessageToReplica() {
-        CompletableFuture<?> future = replica.processPlacementDriverMessage(MSG_FACTORY.leaseGrantedMessageResponse().build());
-        assertTrue(future.isDone());
-        assertTrue(future.isCompletedExceptionally());
     }
 
     @Test

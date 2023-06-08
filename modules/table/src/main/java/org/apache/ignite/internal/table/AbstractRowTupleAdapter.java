@@ -76,7 +76,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int columnIndex(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        var col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         return col == null ? -1 : col.schemaIndex();
     }
@@ -86,24 +86,24 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
-        return col == null ? defaultValue : (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return col == null ? defaultValue : (T) row.value(col.schemaIndex());
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> T value(@NotNull String columnName) {
-        final Column col = rowColumnByName(columnName);
+        Column col = rowColumnByName(columnName);
 
-        return (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return (T) row.value(col.schemaIndex());
     }
 
     @Override
     public <T> T value(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return (T) col.type().spec().objectValue(row, col.schemaIndex());
+        return (T) row.value(col.schemaIndex());
     }
 
 
@@ -360,7 +360,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     protected Column rowColumnByName(@NotNull String columnName) {
         Objects.requireNonNull(columnName);
 
-        final Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
         if (col == null) {
             throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);

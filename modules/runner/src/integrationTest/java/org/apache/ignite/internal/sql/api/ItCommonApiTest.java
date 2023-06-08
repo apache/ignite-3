@@ -23,11 +23,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -38,7 +41,12 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -46,6 +54,8 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
@@ -166,6 +176,96 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             res = ses.execute(null, query);
 
             assertEquals(ins, res.next().timestampValue(3));
+        }
+    }
+
+    /** Check transaction change status with erroneous statements.  */
+    @Test
+    public void testTxStateChangedOnErroneousOp() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        // TODO: need to be refactored after https://issues.apache.org/jira/browse/IGNITE-19663
+        TxManager txManagerInternal =
+                (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+
+        SqlQueryProcessor queryProc =
+                (SqlQueryProcessor) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "qryEngine");
+
+        SqlSchemaManager oldManager =
+                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProc, SqlQueryProcessor.class, "sqlSchemaManager");
+
+        int txPrevCnt = txManagerInternal.finished();
+
+        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+
+        try {
+            sql(tx, "INSERT INTO PUBLIC.TEST VALUES(1, 1)");
+            sql(tx, "INSERT INTO NOTEXIST.TEST VALUES(1, 1)");
+        } catch (Throwable ignore) {
+            // No op.
+        }
+
+        assertEquals(0, txManagerInternal.finished() - txPrevCnt);
+        InternalTransaction tx0 = (InternalTransaction) tx;
+        assertNull(tx0.state());
+
+        tx.rollback();
+        assertEquals(1, txManagerInternal.finished() - txPrevCnt);
+
+        sql("INSERT INTO TEST VALUES(1, 1)");
+        assertEquals(2, txManagerInternal.finished() - txPrevCnt);
+
+        var schemaManager = new ErroneousSchemaManager();
+
+        // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
+        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", schemaManager);
+
+        try {
+            sql("SELECT a FROM NOTEXIST.TEST");
+        } catch (Throwable ignore) {
+            // No op.
+        }
+
+        try {
+            sql("INSERT INTO NOTEXIST.TEST VALUES(1, 1)");
+        } catch (Throwable ignore) {
+            // No op.
+        }
+
+        assertEquals(2, txManagerInternal.finished() - txPrevCnt);
+
+        IgniteTestUtils.setFieldValue(queryProc, "sqlSchemaManager", oldManager);
+    }
+
+    private static class ErroneousSchemaManager implements SqlSchemaManager {
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus schema(@Nullable String schema) {
+            return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus schema(@Nullable String name, int version) {
+            return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteTable tableById(int id) {
+            throw new UnsupportedOperationException();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<SchemaPlus> actualSchemaAsync(long ver) {
+            throw new UnsupportedOperationException();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+            throw new UnsupportedOperationException();
         }
     }
 }

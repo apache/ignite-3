@@ -23,15 +23,12 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PAR
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.NoSuchElementException;
 import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
@@ -39,16 +36,13 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -65,7 +59,7 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage implements SortedIndexStorage {
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
 
@@ -78,7 +72,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbSortedIndexStorage(
-            SortedIndexDescriptor descriptor,
+            StorageSortedIndexDescriptor descriptor,
             ColumnFamily indexCf,
             PartitionDataHelper helper,
             RocksDbMetaStorage indexMetaStorage
@@ -90,7 +84,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     }
 
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
+    public StorageSortedIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 
@@ -149,7 +143,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         });
     }
 
-    private <T> PeekCursor<T> scan(
+    protected <T> PeekCursor<T> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             boolean includeLower,
@@ -159,7 +153,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         byte[] lowerBoundBytes;
 
         if (lowerBound == null) {
-            lowerBoundBytes = null;
+            lowerBoundBytes = helper.partitionStartPrefix();
         } else {
             lowerBoundBytes = rocksPrefix(lowerBound);
 
@@ -172,7 +166,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         byte[] upperBoundBytes;
 
         if (upperBound == null) {
-            upperBoundBytes = null;
+            upperBoundBytes = helper.partitionEndPrefix();
         } else {
             upperBoundBytes = rocksPrefix(upperBound);
 
@@ -182,119 +176,10 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             }
         }
 
-        return createScanCursor(lowerBoundBytes, upperBoundBytes, mapper);
-    }
-
-    private <T> PeekCursor<T> createScanCursor(
-            byte @Nullable [] lowerBound,
-            byte @Nullable [] upperBound,
-            Function<ByteBuffer, T> mapper
-    ) {
-        Slice upperBoundSlice = upperBound == null ? new Slice(helper.partitionEndPrefix()) : new Slice(upperBound);
-
-        ReadOptions options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
-
-        RocksIterator it = indexCf.newIterator(options);
-
-        return new PeekCursor<>() {
-            @Nullable
-            private Boolean hasNext;
-
-            private byte @Nullable [] key;
-
-            private byte @Nullable [] peekedKey = BYTE_EMPTY_ARRAY;
-
+        return new UpToDatePeekCursor<>(upperBoundBytes, indexCf, lowerBoundBytes) {
             @Override
-            public void close() {
-                try {
-                    closeAll(it, options, upperBoundSlice);
-                } catch (Exception e) {
-                    throw new StorageException("Error closing cursor", e);
-                }
-            }
-
-            @Override
-            public boolean hasNext() {
-                return busy(this::advanceIfNeeded);
-            }
-
-            @Override
-            public T next() {
-                return busy(() -> {
-                    if (!advanceIfNeeded()) {
-                        throw new NoSuchElementException();
-                    }
-
-                    this.hasNext = null;
-
-                    return mapper.apply(ByteBuffer.wrap(key).order(KEY_BYTE_ORDER));
-                });
-            }
-
-            @Override
-            public @Nullable T peek() {
-                return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbSortedIndexStorage.this::createStorageInfo);
-
-                    byte[] res = peek0();
-
-                    if (res == null) {
-                        return null;
-                    } else {
-                        return mapper.apply(ByteBuffer.wrap(res).order(KEY_BYTE_ORDER));
-                    }
-                });
-            }
-
-            private byte @Nullable [] peek0() {
-                if (hasNext != null) {
-                    return key;
-                }
-
-                refreshAndPrepareRocksIterator();
-
-                if (!it.isValid()) {
-                    RocksUtils.checkIterator(it);
-
-                    peekedKey = null;
-                } else {
-                    peekedKey = it.key();
-                }
-
-                return peekedKey;
-            }
-
-            private boolean advanceIfNeeded() throws StorageException {
-                throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbSortedIndexStorage.this::createStorageInfo);
-
-                //noinspection ArrayEquality
-                key = (peekedKey == BYTE_EMPTY_ARRAY) ? peek0() : peekedKey;
-                peekedKey = BYTE_EMPTY_ARRAY;
-
-                hasNext = key != null;
-                return hasNext;
-            }
-
-            private void refreshAndPrepareRocksIterator() {
-                try {
-                    it.refresh();
-                } catch (RocksDBException e) {
-                    throw new StorageException("Error refreshing an iterator", e);
-                }
-
-                if (key == null) {
-                    it.seek(lowerBound == null ? helper.partitionStartPrefix() : lowerBound);
-                } else {
-                    it.seekForPrev(key);
-
-                    if (it.isValid()) {
-                        it.next();
-                    } else {
-                        RocksUtils.checkIterator(it);
-
-                        it.seek(lowerBound == null ? helper.partitionStartPrefix() : lowerBound);
-                    }
-                }
+            protected T map(ByteBuffer byteBuffer) {
+                return mapper.apply(byteBuffer);
             }
         };
     }
@@ -309,7 +194,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     private IndexRow decodeRow(ByteBuffer bytes) {
         assert bytes.getShort(0) == helper.partitionId();
 
-        var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), binaryTupleSlice(bytes));
+        var tuple = new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), binaryTupleSlice(bytes));
 
         return new IndexRowImpl(tuple, decodeRowId(bytes));
     }

@@ -60,7 +60,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
@@ -90,11 +91,11 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -107,6 +108,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
@@ -433,7 +435,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (request.exactKey() != null) {
-                assert request.lowerBound() == null && request.upperBound() == null : "Index lookup doesn't allow bounds.";
+                assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return safeReadFuture.thenCompose(unused -> lookupIndex(request, indexStorage));
             }
@@ -667,7 +669,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (request.exactKey() != null) {
-                assert request.lowerBound() == null && request.upperBound() == null : "Index lookup doesn't allow bounds.";
+                assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
                 return lookupIndex(request, indexStorage.storage());
             }
@@ -730,7 +732,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(request.transactionId(), request.scanId());
 
-        BinaryTuple key = request.exactKey();
+        BinaryTuple key = request.exactKey().asBinaryTuple();
 
         Cursor<RowId> cursor = (Cursor<RowId>) cursors.computeIfAbsent(cursorId,
                 id -> indexStorage.get(key));
@@ -754,7 +756,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         Integer indexId = request.indexToUse();
 
-        BinaryTuple exactKey = request.exactKey();
+        BinaryTuple exactKey = request.exactKey().asBinaryTuple();
 
         return lockManager.acquire(txId, new LockKey(indexId), LockMode.IS).thenCompose(idxLock -> { // Index IS lock
             return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IS).thenCompose(tblLock -> { // Table IS lock
@@ -791,8 +793,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         Integer indexId = request.indexToUse();
 
-        BinaryTuplePrefix lowerBound = request.lowerBound();
-        BinaryTuplePrefix upperBound = request.upperBound();
+        BinaryTupleMessage lowerBoundMessage = request.lowerBoundPrefix();
+        BinaryTupleMessage upperBoundMessage = request.upperBoundPrefix();
+
+        BinaryTuplePrefix lowerBound = lowerBoundMessage == null ? null : lowerBoundMessage.asBinaryTuplePrefix();
+        BinaryTuplePrefix upperBound = upperBoundMessage == null ? null : upperBoundMessage.asBinaryTuplePrefix();
 
         int flags = request.flags();
 
@@ -858,8 +863,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        BinaryTuplePrefix lowerBound = request.lowerBound();
-        BinaryTuplePrefix upperBound = request.upperBound();
+        BinaryTupleMessage lowerBoundMessage = request.lowerBoundPrefix();
+        BinaryTupleMessage upperBoundMessage = request.upperBoundPrefix();
+
+        BinaryTuplePrefix lowerBound = lowerBoundMessage == null ? null : lowerBoundMessage.asBinaryTuplePrefix();
+        BinaryTuplePrefix upperBound = upperBoundMessage == null ? null : upperBoundMessage.asBinaryTuplePrefix();
 
         int flags = request.flags();
 
@@ -2446,10 +2454,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     assert tableView != null : tableId();
 
-                    TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-                    org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+                    CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                    CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-                    startBuildIndex(IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
+                    startBuildIndex(StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
                 });
 
                 return completedFuture(null);
@@ -2486,18 +2494,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
     }
 
-    private void startBuildIndex(IndexDescriptor indexDescriptor) {
+    private void startBuildIndex(StorageIndexDescriptor indexDescriptor) {
         // TODO: IGNITE-19112 We only need to create the index storage once
         IndexStorage indexStorage = mvTableStorage.getOrCreateIndex(partId(), indexDescriptor);
 
         indexBuilder.startBuildIndex(tableId(), partId(), indexDescriptor.id(), indexStorage, mvDataStorage, raftClient);
-    }
-
-    private int[] collectIndexIds(TablesView tablesView) {
-        return tablesView.indexes().stream()
-                .filter(tableIndexView -> replicationGroupId.tableId() == tableIndexView.tableId())
-                .mapToInt(TableIndexView::id)
-                .toArray();
     }
 
     private int partId() {
@@ -2539,10 +2540,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             assert tableView != null : tableId();
 
-            TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+            CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+            CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
-            startBuildIndex(IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
+            startBuildIndex(StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
         }
     }
 

@@ -122,6 +122,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     @Nullable
     private SnapshotTxDataResponse getNullableTxDataResponse(int maxTxsInBatch) {
         SnapshotTxDataRequest request = messagesFactory.snapshotTxDataRequest()
+                .id(snapshot.id())
                 .maxTransactionsInBatch(maxTxsInBatch)
                 .build();
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.network.annotations.MessageGroup;
@@ -35,4 +36,9 @@ public class ComputeMessageTypes {
      * Type for {@link ExecuteResponse}.
      */
     public static final short EXECUTE_RESPONSE = 1;
+
+    /**
+     * Type for {@link DeploymentUnitMsg}.
+     */
+    public static final short DEPLOYMENT_UNIT = 2;
 }

@@ -23,8 +23,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -35,7 +35,7 @@ import org.rocksdb.WriteBatch;
  * Class that represents a Sorted Index defined for all partitions of a Table.
  */
 class SortedIndex implements ManuallyCloseable {
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
 
@@ -43,7 +43,7 @@ class SortedIndex implements ManuallyCloseable {
 
     private final RocksDbMetaStorage indexMetaStorage;
 
-    SortedIndex(ColumnFamily indexCf, SortedIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
+    SortedIndex(ColumnFamily indexCf, StorageSortedIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
         this.descriptor = descriptor;
         this.indexCf = indexCf;
         this.indexMetaStorage = indexMetaStorage;

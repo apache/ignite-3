@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,7 +30,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,8 +39,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -52,16 +49,26 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for Compute functionality.
+ * Base integration tests for Compute functionality.
  */
-@SuppressWarnings("resource")
-class ItComputeTest extends ClusterPerTestIntegrationTest {
+public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
+
+    protected abstract List<DeploymentUnit> units();
+
+    protected abstract String concatJobClassName();
+
+    protected abstract String getNodeNameJobClassName();
+
+    protected abstract String failingJobClassName();
+
+    protected abstract String jobExceptionClassName();
+
     @Test
     void executesJobLocally() throws Exception {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .execute(Set.of(entryNode.node()), ConcatJob.class, "a", 42)
+                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -72,7 +79,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(entryNode.node()), ConcatJob.class.getName(), "a", 42)
+                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -83,7 +90,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), ConcatJob.class, "a", 42)
+                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -94,7 +101,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(node(1).node(), node(2).node()), ConcatJob.class.getName(), "a", 42)
+                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -105,7 +112,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .execute(Set.of(entryNode.node()), GetNodeNameJob.class)
+                .<String>execute(Set.of(entryNode.node()), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is(entryNode.name()));
@@ -117,7 +124,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl remoteNode = node(1);
 
         String result = entryNode.compute()
-                .execute(Set.of(remoteNode.node()), GetNodeNameJob.class)
+                .<String>execute(Set.of(remoteNode.node()), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is(remoteNode.name()));
@@ -129,11 +136,11 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> {
             entryNode.compute()
-                    .execute(Set.of(entryNode.node()), FailingJob.class)
+                    .execute(Set.of(entryNode.node()), units(), failingJobClassName())
                     .get(1, TimeUnit.SECONDS);
         });
 
-        assertThat(ex.getCause(), is(instanceOf(JobException.class)));
+        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
         assertThat(ex.getCause().getMessage(), is("Oops"));
         assertThat(ex.getCause().getCause(), is(notNullValue()));
     }
@@ -144,11 +151,11 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> {
             entryNode.compute()
-                    .execute(Set.of(node(1).node(), node(2).node()), FailingJob.class)
+                    .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
                     .get(1, TimeUnit.SECONDS);
         });
 
-        assertThat(ex.getCause(), is(instanceOf(JobException.class)));
+        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
         assertThat(ex.getCause().getMessage(), is("Oops"));
         assertThat(ex.getCause().getCause(), is(notNullValue()));
     }
@@ -158,7 +165,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), ConcatJob.class, "a", 42);
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -172,7 +179,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), ConcatJob.class.getName(), "a", 42);
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -186,7 +193,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), GetNodeNameJob.class);
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), getNodeNameJobClassName());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -200,20 +207,18 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), FailingJob.class);
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), failingJobClassName());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
-            Object result = results.get(node(i).node())
+            Exception result = (Exception) results.get(node(i).node())
                     .handle((res, ex) -> ex != null ? ex : res)
                     .get(1, TimeUnit.SECONDS);
 
             assertThat(result, is(instanceOf(CompletionException.class)));
-            assertThat(((CompletionException) result).getCause(), is(instanceOf(JobException.class)));
-
-            JobException ex = (JobException) ((CompletionException) result).getCause();
-            assertThat(ex.getMessage(), is("Oops"));
-            assertThat(ex.getCause(), is(notNullValue()));
+            assertThat(result.getCause().getClass().getName(), is(jobExceptionClassName()));
+            assertThat(result.getCause().getMessage(), is("Oops"));
+            assertThat(result.getCause(), is(notNullValue()));
         }
     }
 
@@ -224,7 +229,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .executeColocated("test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class)
+                .<String>executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -236,7 +241,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
 
         var ex = assertThrows(CompletionException.class,
                 () -> entryNode.compute().executeColocated(
-                        "\"bad-table\"", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class).join());
+                        "\"bad-table\"", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName()).join());
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
@@ -261,7 +266,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<String>executeColocated("test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class.getName())
+                .<String>executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -274,7 +279,7 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .executeColocated("test", 1, Mapper.of(Integer.class), GetNodeNameJob.class)
+                .<Integer, String>executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -287,41 +292,9 @@ class ItComputeTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<Integer, String>executeColocated("test", 1, Mapper.of(Integer.class), GetNodeNameJob.class.getName())
+                .<Integer, String>executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
-    }
-
-    private static class ConcatJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return Arrays.stream(args)
-                    .map(Object::toString)
-                    .collect(joining());
-        }
-    }
-
-    private static class GetNodeNameJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return context.ignite().name();
-        }
-    }
-
-    private static class FailingJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new JobException("Oops", new Exception());
-        }
-    }
-
-    private static class JobException extends RuntimeException {
-        public JobException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 }

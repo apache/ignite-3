@@ -24,12 +24,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.row.InternalTuple;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -39,12 +39,12 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedInde
  * Otherwise comparison result is determined by the first non-matching column.
  */
 public class BinaryTupleComparator implements Comparator<ByteBuffer> {
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     /**
      * Creates a comparator for a Sorted Index identified by the given descriptor.
      */
-    public BinaryTupleComparator(SortedIndexDescriptor descriptor) {
+    public BinaryTupleComparator(StorageSortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
@@ -56,17 +56,17 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         boolean isBuffer1Prefix = isFlagSet(buffer1, PREFIX_FLAG);
         boolean isBuffer2Prefix = isFlagSet(buffer2, PREFIX_FLAG);
 
-        BinaryTupleSchema schema = descriptor.binaryTupleSchema();
+        int numElements = descriptor.binaryTupleSchema().elementCount();
 
-        InternalTuple tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(schema, buffer1) : new BinaryTuple(schema, buffer1);
-        InternalTuple tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(schema, buffer2) : new BinaryTuple(schema, buffer2);
+        BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1) : new BinaryTuple(numElements, buffer1);
+        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
 
-        int columnsToCompare = Math.min(tuple1.count(), tuple2.count());
+        int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
 
         assert columnsToCompare <= descriptor.columns().size();
 
         for (int i = 0; i < columnsToCompare; i++) {
-            SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
+            StorageSortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(i);
 
             int compare = compareField(tuple1, tuple2, i);
 
@@ -90,7 +90,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     /**
      * Compares individual fields of two tuples.
      */
-    private int compareField(InternalTuple tuple1, InternalTuple tuple2, int index) {
+    private int compareField(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
         boolean tuple1HasNull = tuple1.hasNullValue(index);
         boolean tuple2HasNull = tuple2.hasNullValue(index);
 
@@ -103,7 +103,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             return -1;
         }
 
-        SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);
+        StorageSortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);
 
         NativeTypeSpec typeSpec = columnDescriptor.type().spec();
 
@@ -141,7 +141,9 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             case DATE:
             case TIME:
             case DATETIME:
-                return ((Comparable) typeSpec.objectValue(tuple1, index)).compareTo(typeSpec.objectValue(tuple2, index));
+                BinaryTupleSchema schema = descriptor.binaryTupleSchema();
+
+                return ((Comparable) schema.value(tuple1, index)).compareTo(schema.value(tuple2, index));
 
             default:
                 throw new IllegalArgumentException(String.format(

@@ -53,7 +53,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -73,15 +73,15 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
@@ -110,9 +110,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected MvTableStorage tableStorage;
 
-    protected SortedIndexDescriptor sortedIdx;
+    protected StorageSortedIndexDescriptor sortedIdx;
 
-    protected HashIndexDescriptor hashIdx;
+    protected StorageHashIndexDescriptor hashIdx;
 
     protected StorageEngine storageEngine;
 
@@ -139,10 +139,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         SortedIndexView sortedIndexView = (SortedIndexView) tablesView.indexes().get(SORTED_INDEX_NAME);
         HashIndexView hashIndexView = (HashIndexView) tablesView.indexes().get(HASH_INDEX_NAME);
 
-        TableDescriptor catalogTableDescriptor = toTableDescriptor(findTableView(tablesView, sortedIndexView.tableId()));
+        CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(findTableView(tablesView, sortedIndexView.tableId()));
 
-        sortedIdx = new SortedIndexDescriptor(catalogTableDescriptor, toSortedIndexDescriptor(sortedIndexView));
-        hashIdx = new HashIndexDescriptor(catalogTableDescriptor, toHashIndexDescriptor(hashIndexView));
+        sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, toSortedIndexDescriptor(sortedIndexView));
+        hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, toHashIndexDescriptor(hashIndexView));
     }
 
     @AfterEach
@@ -240,7 +240,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx), is(instanceOf(SortedIndexStorage.class)));
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx), is(instanceOf(HashIndexStorage.class)));
 
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(IndexDescriptor.class)));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(StorageIndexDescriptor.class)));
     }
 
     /**
@@ -316,7 +316,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 .appendInt(2)
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         partitionStorage1.runConsistently(locker -> {
             storage1.put(new IndexRowImpl(tuple, rowId1));

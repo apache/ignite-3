@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table column descriptor.
  */
-public class TableColumnDescriptor implements Serializable {
+public class CatalogTableColumnDescriptor implements Serializable {
     private static final long serialVersionUID = 7684890562398520509L;
 
     private final String name;
@@ -46,7 +46,7 @@ public class TableColumnDescriptor implements Serializable {
      * @param type Column type.
      * @param nullable Nullability flag.
      */
-    public TableColumnDescriptor(String name, ColumnType type, boolean nullable,
+    public CatalogTableColumnDescriptor(String name, ColumnType type, boolean nullable,
             int precision, int scale, int length, @Nullable DefaultValue defaultValue) {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type);
@@ -95,7 +95,7 @@ public class TableColumnDescriptor implements Serializable {
             return false;
         }
 
-        TableColumnDescriptor that = (TableColumnDescriptor) o;
+        CatalogTableColumnDescriptor that = (CatalogTableColumnDescriptor) o;
 
         if (nullable != that.nullable) {
             return false;

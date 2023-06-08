@@ -62,11 +62,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
@@ -306,7 +306,10 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                     assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
 
-                    var indexDescriptor = new SortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
+                    var indexDescriptor = new StorageSortedIndexDescriptor(
+                            toTableDescriptor(tableView),
+                            toSortedIndexDescriptor(indexView)
+                    );
 
                     sortedIndices.put(indexId, new SortedIndex(entry.getValue(), indexDescriptor, meta));
                 }
@@ -476,7 +479,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, SortedIndexDescriptor indexDescriptor) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         return inBusyLock(busyLock, () -> {
             SortedIndex storages = sortedIndices.computeIfAbsent(
                     indexDescriptor.id(),
@@ -493,7 +496,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         });
     }
 
-    private SortedIndex createSortedIndex(SortedIndexDescriptor indexDescriptor) {
+    private SortedIndex createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
         ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexDescriptor.id()), indexDescriptor);
 
         ColumnFamily columnFamily;
@@ -509,7 +512,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, HashIndexDescriptor indexDescriptor) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         return inBusyLock(busyLock, () -> {
             HashIndex storages = hashIndices.computeIfAbsent(
                     indexDescriptor.id(),
@@ -624,7 +627,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
 
-                var indexDescriptor = new SortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
+                var indexDescriptor = new StorageSortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
 
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 
@@ -636,7 +639,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Creates a Column Family descriptor for a Sorted Index.
      */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(String cfName, SortedIndexDescriptor descriptor) {
+    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(String cfName, StorageSortedIndexDescriptor descriptor) {
         var comparator = new RocksDbBinaryTupleComparator(descriptor);
 
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(comparator);

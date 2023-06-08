@@ -24,13 +24,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -53,8 +53,8 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Table descriptor.
      */
-    public static TableDescriptor fromParams(int id, CreateTableParams params) {
-        return new TableDescriptor(id,
+    public static CatalogTableDescriptor fromParams(int id, CreateTableParams params) {
+        return new CatalogTableDescriptor(id,
                 params.tableName(),
                 params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
                 params.primaryKeyColumns(),
@@ -70,8 +70,8 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static IndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new HashIndexDescriptor(id,
+    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
+        return new CatalogHashIndexDescriptor(id,
                 params.indexName(),
                 tableId,
                 false,
@@ -87,16 +87,16 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Index descriptor.
      */
-    public static IndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
-        List<ColumnCollation> collations = params.collations();
+    public static CatalogIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
+        List<CatalogColumnCollation> collations = params.collations();
 
         assert collations.size() == params.columns().size();
 
-        List<IndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
-                .mapToObj(i -> new IndexColumnDescriptor(params.columns().get(i), collations.get(i)))
+        List<CatalogIndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
+                .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
                 .collect(Collectors.toList());
 
-        return new SortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
     }
 
     /**
@@ -105,13 +105,13 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Column descriptor.
      */
-    public static TableColumnDescriptor fromParams(ColumnParams params) {
+    public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = params.precision() != null ? params.precision() : 0;
         int scale = params.scale() != null ? params.scale() : 0;
         int length = params.length() != null ? params.length() : 0;
         DefaultValue defaultValue = params.defaultValueDefinition();
 
-        return new TableColumnDescriptor(params.name(), params.type(), params.nullable(),
+        return new CatalogTableColumnDescriptor(params.name(), params.type(), params.nullable(),
                 precision, scale, length, defaultValue);
     }
 
