@@ -48,8 +48,7 @@ public class DeploymentUnit {
      * @param version Version of the deployment unit.
      */
     public DeploymentUnit(String name, String version) {
-        this.name = name;
-        this.version = Version.parseVersion(version);
+        this(name, Version.parseVersion(version));
     }
 
     /**
