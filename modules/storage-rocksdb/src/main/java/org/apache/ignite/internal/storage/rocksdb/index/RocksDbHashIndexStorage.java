@@ -24,12 +24,9 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PAR
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -40,10 +37,7 @@ import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.HashUtils;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 import org.rocksdb.WriteOptions;
@@ -113,47 +107,14 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
             byte[] rangeEnd = incrementPrefix(rangeStart);
 
-            Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
-
-            ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound);
-
-            RocksIterator it = indexCf.newIterator(options);
-
-            it.seek(rangeStart);
-
-            return new RocksIteratorAdapter<RowId>(it) {
+            return new UpToDatePeekCursor<RowId>(rangeEnd, indexCf, rangeStart) {
                 @Override
-                protected RowId decodeEntry(byte[] key, byte[] value) {
+                protected RowId map(ByteBuffer byteBuffer) {
                     // RowId UUID is located at the last 16 bytes of the key
-                    long mostSignificantBits = bytesToLong(key, key.length - Long.BYTES * 2);
-                    long leastSignificantBits = bytesToLong(key, key.length - Long.BYTES);
+                    long mostSignificantBits = byteBuffer.getLong(rangeStart.length);
+                    long leastSignificantBits = byteBuffer.getLong(rangeStart.length + Long.BYTES);
 
                     return new RowId(helper.partitionId(), mostSignificantBits, leastSignificantBits);
-                }
-
-                @Override
-                public boolean hasNext() {
-                    return busy(() -> {
-                        throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbHashIndexStorage.this::createStorageInfo);
-
-                        return super.hasNext();
-                    });
-                }
-
-                @Override
-                public RowId next() {
-                    return busy(() -> {
-                        throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbHashIndexStorage.this::createStorageInfo);
-
-                        return super.next();
-                    });
-                }
-
-                @Override
-                public void close() {
-                    super.close();
-
-                    RocksUtils.closeAll(options, upperBound);
                 }
             };
         });
