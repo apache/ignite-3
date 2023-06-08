@@ -394,7 +394,6 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.
      */
-    // TODO: IGNITE-19494 We need to correctly stop the replica
     private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
         CompletableFuture<Replica> removed = replicas.remove(replicaGrpId);
 
