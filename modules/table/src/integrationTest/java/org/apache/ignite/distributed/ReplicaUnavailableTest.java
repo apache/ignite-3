@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -139,7 +139,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRow(createKeyValueRow(1L, 1L))
+                .binaryRowBytes(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -181,7 +181,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRow(createKeyValueRow(1L, 1L))
+                .binaryRowBytes(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -207,12 +207,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertTrue(e1.getCause() instanceof ReplicaUnavailableException, e1.toString());
     }
 
-    private static Row createKeyValueRow(long id, long value) {
+    private static ByteBuffer createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return rowBuilder.build().byteBuffer();
     }
 }

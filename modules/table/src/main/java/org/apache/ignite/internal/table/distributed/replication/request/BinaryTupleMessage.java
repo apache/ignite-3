@@ -15,15 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
-@Transferable(1)
-public interface MessageWithMarshallableNetworkMessageField extends NetworkMessage {
-    @Marshallable
-    ScaleCubeMessage msgField();
+/**
+ * Message for transferring a {@link BinaryTuple} or a {@link BinaryTuplePrefix}.
+ */
+@Transferable(TableMessageGroup.BINARY_TUPLE)
+public interface BinaryTupleMessage extends NetworkMessage {
+    ByteBuffer tuple();
+
+    int elementCount();
+
+    default BinaryTuple asBinaryTuple() {
+        return new BinaryTuple(elementCount(), tuple());
+    }
+
+    default BinaryTuplePrefix asBinaryTuplePrefix() {
+        return new BinaryTuplePrefix(elementCount(), tuple());
+    }
 }
