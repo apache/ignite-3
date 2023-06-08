@@ -430,8 +430,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 0L);
         Tuple t2 = Tuple.create().set("ID", 1L);
 
-        assertEquals("server-1", compute().executeColocated(table.name(), t1, "job").join());
-        assertEquals("server-2", compute().executeColocated(table.name(), t2, "job").join());
+        assertEquals("server-1", compute().executeColocated(table.name(), t1, List.of(), "job").join());
+        assertEquals("server-2", compute().executeColocated(table.name(), t2, List.of(), "job").join());
     }
 
     @Test
@@ -439,8 +439,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertEquals("server-1", compute().executeColocated(table.name(), 0L, mapper, "job").join());
-        assertEquals("server-2", compute().executeColocated(table.name(), 1L, mapper, "job").join());
+        assertEquals("server-1", compute().executeColocated(table.name(), 0L, mapper, List.of(), "job").join());
+        assertEquals("server-2", compute().executeColocated(table.name(), 1L, mapper, List.of(), "job").join());
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {

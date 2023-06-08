@@ -18,17 +18,20 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
 
 /**
  * Index descriptor.
  */
-public interface IndexDescriptor {
+public interface StorageIndexDescriptor {
     /**
      * Index column descriptor.
      */
-    interface ColumnDescriptor {
+    interface StorageColumnDescriptor {
         /**
          * Returns the name of an index column.
          */
@@ -53,7 +56,7 @@ public interface IndexDescriptor {
     /**
      * Returns index column descriptions.
      */
-    List<? extends ColumnDescriptor> columns();
+    List<? extends StorageColumnDescriptor> columns();
 
     /**
      * Creates an index description based on the catalog descriptors.
@@ -61,16 +64,13 @@ public interface IndexDescriptor {
      * @param table Catalog table descriptor.
      * @param index Catalog index descriptor.
      */
-    static IndexDescriptor create(
-            TableDescriptor table,
-            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor index
-    ) {
-        if (index instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {
-            return new HashIndexDescriptor(table, (org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) index);
+    static StorageIndexDescriptor create(CatalogTableDescriptor table, CatalogIndexDescriptor index) {
+        if (index instanceof CatalogHashIndexDescriptor) {
+            return new StorageHashIndexDescriptor(table, (CatalogHashIndexDescriptor) index);
         }
 
-        if (index instanceof org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) {
-            return new SortedIndexDescriptor(table, ((org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) index));
+        if (index instanceof CatalogSortedIndexDescriptor) {
+            return new StorageSortedIndexDescriptor(table, ((CatalogSortedIndexDescriptor) index));
         }
 
         throw new IllegalArgumentException("Unknown type: " + index);

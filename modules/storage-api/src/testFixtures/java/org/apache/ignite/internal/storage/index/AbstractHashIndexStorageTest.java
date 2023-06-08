@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Base class for Hash Index storage tests.
  */
-public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, HashIndexDescriptor> {
+public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, StorageHashIndexDescriptor> {
     @Override
     protected HashIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
         HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex(name)
@@ -66,12 +66,12 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         return tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
-                new HashIndexDescriptor(toTableDescriptor(tableView), toHashIndexDescriptor(((HashIndexView) indexView)))
+                new StorageHashIndexDescriptor(toTableDescriptor(tableView), toHashIndexDescriptor(((HashIndexView) indexView)))
         );
     }
 
     @Override
-    protected HashIndexDescriptor indexDescriptor(HashIndexStorage index) {
+    protected StorageHashIndexDescriptor indexDescriptor(HashIndexStorage index) {
         return index.indexDescriptor();
     }
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
@@ -117,5 +118,12 @@ public class JobClassLoader extends URLClassLoader {
                     e
             );
         }
+    }
+
+    @Override
+    public String toString() {
+        return "JobClassLoader{"
+                + "classpath=" + Arrays.toString(getURLs())
+                + '}';
     }
 }

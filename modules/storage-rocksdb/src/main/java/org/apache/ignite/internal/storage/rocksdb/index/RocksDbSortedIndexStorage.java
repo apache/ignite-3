@@ -36,8 +36,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -59,7 +59,7 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage implements SortedIndexStorage {
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
 
@@ -72,7 +72,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbSortedIndexStorage(
-            SortedIndexDescriptor descriptor,
+            StorageSortedIndexDescriptor descriptor,
             ColumnFamily indexCf,
             PartitionDataHelper helper,
             RocksDbMetaStorage indexMetaStorage
@@ -84,7 +84,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     }
 
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
+    public StorageSortedIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 

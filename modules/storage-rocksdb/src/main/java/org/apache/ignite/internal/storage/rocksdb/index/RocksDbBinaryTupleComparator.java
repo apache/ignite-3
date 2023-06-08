@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 
@@ -38,11 +38,11 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
      *
      * @param descriptor Sorted Index descriptor.
      */
-    public RocksDbBinaryTupleComparator(SortedIndexDescriptor descriptor) {
+    public RocksDbBinaryTupleComparator(StorageSortedIndexDescriptor descriptor) {
         this(descriptor, new ComparatorOptions());
     }
 
-    private RocksDbBinaryTupleComparator(SortedIndexDescriptor descriptor, ComparatorOptions options) {
+    private RocksDbBinaryTupleComparator(StorageSortedIndexDescriptor descriptor, ComparatorOptions options) {
         super(options);
 
         this.options = options;

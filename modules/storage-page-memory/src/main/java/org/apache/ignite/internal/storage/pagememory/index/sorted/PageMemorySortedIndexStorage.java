@@ -34,8 +34,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
@@ -53,7 +53,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
 
     /** Index descriptor. */
-    private final SortedIndexDescriptor descriptor;
+    private final StorageSortedIndexDescriptor descriptor;
 
     /** Sorted index tree instance. */
     private volatile SortedIndexTree sortedIndexTree;
@@ -69,7 +69,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      */
     public PageMemorySortedIndexStorage(
             IndexMeta indexMeta,
-            SortedIndexDescriptor descriptor,
+            StorageSortedIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             SortedIndexTree sortedIndexTree,
             IndexMetaTree indexMetaTree
@@ -81,7 +81,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     }
 
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
+    public StorageSortedIndexDescriptor indexDescriptor() {
         return descriptor;
     }
 

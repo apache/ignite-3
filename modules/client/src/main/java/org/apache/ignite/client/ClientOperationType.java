@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.RecordView;
@@ -124,7 +125,7 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#execute(Set, String, Object...)}).
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#execute(Set, List, String, Object...)}).
      */
     COMPUTE_EXECUTE,
 

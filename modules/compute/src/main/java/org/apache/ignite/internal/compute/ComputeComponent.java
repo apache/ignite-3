@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
 
@@ -29,33 +30,12 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node.
      *
-     * @param jobClass job class
-     * @param args     job args
-     * @param <R>      result type
-     * @return future execution result
-     */
-    <R> CompletableFuture<R> executeLocally(Class<? extends ComputeJob<R>> jobClass, Object... args);
-
-    /**
-     * Executes a job of the given class on the current node.
-     *
      * @param jobClassName name of the job class
      * @param args     job args
      * @param <R>      result type
      * @return future execution result
      */
-    <R> CompletableFuture<R> executeLocally(String jobClassName, Object... args);
-
-    /**
-     * Executes a job of the given class on a remote node.
-     *
-     * @param remoteNode name of the job class
-     * @param jobClass job class
-     * @param args     job args
-     * @param <R>      result type
-     * @return future execution result
-     */
-    <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, Class<? extends ComputeJob<R>> jobClass, Object... args);
+    <R> CompletableFuture<R> executeLocally(List<DeploymentUnit> units, String jobClassName, Object... args);
 
     /**
      * Executes a job of the given class on a remote node.
@@ -66,5 +46,5 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R>      result type
      * @return future execution result
      */
-    <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, String jobClassName, Object... args);
+    <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, List<DeploymentUnit> units, String jobClassName, Object... args);
 }

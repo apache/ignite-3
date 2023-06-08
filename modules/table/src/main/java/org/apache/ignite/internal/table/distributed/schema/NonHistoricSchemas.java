@@ -23,7 +23,7 @@ import static java.util.stream.Collectors.toList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
@@ -72,7 +72,7 @@ public class NonHistoricSchemas implements Schemas {
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
 
-        List<TableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
+        List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {
                     Column column = schemaDescriptor.column(colName);
 
@@ -100,13 +100,13 @@ public class NonHistoricSchemas implements Schemas {
     }
 
     /**
-     * Converts a {@link Column} to a {@link TableColumnDescriptor}. Please note that the conversion is not full; it's
+     * Converts a {@link Column} to a {@link CatalogTableColumnDescriptor}. Please note that the conversion is not full; it's
      * used in the code that actually doesn't care about columns.
      *
      * @param column Column to convert.
      * @return Conversion result.
      */
-    public static TableColumnDescriptor columnDescriptor(Column column) {
+    public static CatalogTableColumnDescriptor columnDescriptor(Column column) {
         NativeType nativeType = column.type();
         int precision;
         int scale;
@@ -157,7 +157,7 @@ public class NonHistoricSchemas implements Schemas {
                 throw new IllegalArgumentException("Unexpected native type: " + nativeType);
         }
 
-        return new TableColumnDescriptor(
+        return new CatalogTableColumnDescriptor(
                 column.name(),
                 nativeType.spec().asColumnType(),
                 column.nullable(),

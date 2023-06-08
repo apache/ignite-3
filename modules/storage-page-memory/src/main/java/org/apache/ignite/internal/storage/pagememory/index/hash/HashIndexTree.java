@@ -27,7 +27,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeLeafIo;
@@ -69,7 +69,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            HashIndexDescriptor indexDescriptor,
+            StorageHashIndexDescriptor indexDescriptor,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);

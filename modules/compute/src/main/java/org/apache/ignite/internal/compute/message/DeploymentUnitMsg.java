@@ -17,38 +17,44 @@
 
 package org.apache.ignite.internal.compute.message;
 
-import java.util.List;
-import java.util.Set;
+import java.io.Serializable;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
+import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
+ * Deployment unit message.
  */
-@Transferable(value = ComputeMessageTypes.EXECUTE_REQUEST)
-public interface ExecuteRequest extends NetworkMessage {
-    /**
-     * Returns list of deployment units.
-     *
-     * @return list of deployment units
-     */
-    List<DeploymentUnitMsg> deploymentUnits();
+@Transferable(value = ComputeMessageTypes.DEPLOYMENT_UNIT)
+public interface DeploymentUnitMsg extends NetworkMessage, Serializable {
 
     /**
-     * Returns job class name.
+     * Returns deployment unit name.
      *
-     * @return job class name
+     * @return Deployment unit name.
      */
-    String jobClassName();
+    String name();
 
     /**
-     * Returns job arguments.
+     * Returns deployment unit version.
      *
-     * @return arguments
+     * @return Deployment unit version.
      */
-    @Marshallable
-    Object @Nullable [] args();
+    String version();
+
+    /**
+     * Creates a new deployment unit message.
+     *
+     * @param factory Message factory.
+     * @param unit Deployment unit.
+     * @return Deployment unit message.
+     */
+    static DeploymentUnitMsg fromDeploymentUnit(ComputeMessagesFactory factory, DeploymentUnit unit) {
+        return factory.deploymentUnitMsg()
+                .name(unit.name())
+                .version(unit.version().toString())
+                .build();
+    }
 }

@@ -21,8 +21,10 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.getNativeType;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
@@ -33,11 +35,11 @@ import org.apache.ignite.internal.tostring.S;
  *
  * @see SortedIndexStorage
  */
-public class SortedIndexDescriptor implements IndexDescriptor {
+public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
     /**
      * Descriptor of a Sorted Index column (column name and column sort order).
      */
-    public static class SortedIndexColumnDescriptor implements ColumnDescriptor {
+    public static class StorageSortedIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
         private final NativeType type;
@@ -54,7 +56,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
          * @param nullable Flag indicating that the column may contain {@code null}s.
          * @param asc Sort order of the column.
          */
-        public SortedIndexColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
+        public StorageSortedIndexColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
             this.name = name;
             this.type = type;
             this.nullable = nullable;
@@ -91,7 +93,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
 
     private final int id;
 
-    private final List<SortedIndexColumnDescriptor> columns;
+    private final List<StorageSortedIndexColumnDescriptor> columns;
 
     private final BinaryTupleSchema binaryTupleSchema;
 
@@ -101,10 +103,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
      * @param table Catalog table descriptor.
      * @param index Catalog index descriptor.
      */
-    public SortedIndexDescriptor(
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
-            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index
-    ) {
+    public StorageSortedIndexDescriptor(CatalogTableDescriptor table, CatalogSortedIndexDescriptor index) {
         this(index.id(), extractIndexColumnsConfiguration(table, index));
     }
 
@@ -114,13 +113,13 @@ public class SortedIndexDescriptor implements IndexDescriptor {
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
      */
-    public SortedIndexDescriptor(int indexId, List<SortedIndexColumnDescriptor> columnDescriptors) {
+    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
     }
 
-    private static BinaryTupleSchema createSchema(List<SortedIndexColumnDescriptor> columns) {
+    private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
         Element[] elements = columns.stream()
                 .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
                 .toArray(Element[]::new);
@@ -134,7 +133,7 @@ public class SortedIndexDescriptor implements IndexDescriptor {
     }
 
     @Override
-    public List<SortedIndexColumnDescriptor> columns() {
+    public List<StorageSortedIndexColumnDescriptor> columns() {
         return columns;
     }
 
@@ -145,9 +144,9 @@ public class SortedIndexDescriptor implements IndexDescriptor {
         return binaryTupleSchema;
     }
 
-    private static List<SortedIndexColumnDescriptor> extractIndexColumnsConfiguration(
-            org.apache.ignite.internal.catalog.descriptors.TableDescriptor table,
-            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor index
+    private static List<StorageSortedIndexColumnDescriptor> extractIndexColumnsConfiguration(
+            CatalogTableDescriptor table,
+            CatalogSortedIndexDescriptor index
     ) {
         assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
@@ -155,13 +154,13 @@ public class SortedIndexDescriptor implements IndexDescriptor {
                 .map(columnDescriptor -> {
                     String columnName = columnDescriptor.name();
 
-                    TableColumnDescriptor column = table.column(columnName);
+                    CatalogTableColumnDescriptor column = table.column(columnName);
 
                     assert column != null : columnName;
 
-                    ColumnCollation collation = columnDescriptor.collation();
+                    CatalogColumnCollation collation = columnDescriptor.collation();
 
-                    return new SortedIndexColumnDescriptor(columnName, getNativeType(column), column.nullable(), collation.asc());
+                    return new StorageSortedIndexColumnDescriptor(columnName, getNativeType(column), column.nullable(), collation.asc());
                 })
                 .collect(toList());
     }

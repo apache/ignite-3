@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DE
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -270,6 +271,18 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
         return deploymentUnitStore.getNodeStatus(getLocalNodeId(), id, version)
                 .thenApply(DeploymentManagerImpl::extractDeploymentStatus);
+    }
+
+    @Override
+    public CompletableFuture<Path> path(String id, Version version) {
+        return CompletableFuture.supplyAsync(() -> {
+            Path path = deployer.unitPath(id, version);
+            if (Files.exists(path)) {
+                return path;
+            } else {
+                throw new DeploymentUnitNotFoundException("Unit " + id + ":" + version + " not found");
+            }
+        });
     }
 
     @Override
