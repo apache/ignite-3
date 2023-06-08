@@ -200,7 +200,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
 
     /**
-     * Cursor that always return up-to-date next element.
+     * Cursor that always returns up-to-date next element.
      *
      * @param <R> Type of the returned value.
      */

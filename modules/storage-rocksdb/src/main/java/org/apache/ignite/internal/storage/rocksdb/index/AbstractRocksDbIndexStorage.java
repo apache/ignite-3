@@ -216,7 +216,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     abstract void destroyData(WriteBatch writeBatch) throws RocksDBException;
 
     /**
-     * Cursor that always return up-to-date next element.
+     * Cursor that always returns up-to-date next element.
      */
     protected final class UpToDatePeekCursor<T> implements PeekCursor<T> {
         private final Slice upperBoundSlice;
