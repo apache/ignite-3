@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fi
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigParseOptions;
@@ -49,6 +50,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
+import org.apache.ignite.internal.configuration.NodeConfigParseException;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -134,7 +136,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     private Config readHoconFromFile() {
         checkAndRestoreConfigFile();
 
-        return ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setAllowMissing(false));
+        try {
+            return ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setAllowMissing(false));
+        } catch (ConfigException.Parse e) {
+            throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
+        }
     }
 
     @Override
@@ -255,7 +261,15 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
         fillFromPrefixMap(rootNode, toPrefixMap(latest));
 
-        Object transformed = rootNode.accept(null, new ConverterToMapVisitor(false, true));
+        Object transformed = rootNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .skipEmptyValues(true)
+                        .maskSecretValues(false)
+                        .build()
+        );
 
         ConfigValue conf = ConfigImpl.fromAnyRef(transformed, null);
 

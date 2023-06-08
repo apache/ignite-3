@@ -35,7 +35,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -76,6 +75,8 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
@@ -192,7 +193,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         table = new InternalTableImpl(
                 "table",
-                UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
@@ -233,7 +234,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
-                        .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
+                        .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
                         .safeTimeLong(hybridClock.nowLong())
@@ -247,7 +248,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .txId(req0.txId())
                         .commit(req0.commit())
                         .commitTimestampLong(req0.commitTimestampLong())
-                        .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0))))
+                        .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(1, 0))))
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 
@@ -377,17 +378,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
-                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(
+                    PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
                             new HybridTimestamp(1, 0)
+                    );
+
+                    IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
+                            DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of())
                     );
 
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                             0,
                             partitionDataStorage,
-                            DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()),
                             zoneCfg.dataStorage(),
-                            safeTime,
-                            mock(LowWatermark.class)
+                            mock(LowWatermark.class),
+                            indexUpdateHandler,
+                            new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                     );
 
                     PartitionListener listener = new PartitionListener(

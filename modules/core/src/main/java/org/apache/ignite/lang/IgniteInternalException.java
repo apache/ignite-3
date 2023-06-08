@@ -20,10 +20,9 @@ package org.apache.ignite.lang;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
-import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -68,8 +67,6 @@ public class IgniteInternalException extends RuntimeException {
      * @param code Full error code.
      */
     public IgniteInternalException(UUID traceId, int code) {
-        super(errorMessage(traceId, code, null));
-
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
         this.code = code;
@@ -93,7 +90,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param message Detail message.
      */
     public IgniteInternalException(UUID traceId, int code, String message) {
-        super(errorMessage(traceId, code, message));
+        super(message);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -118,7 +115,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(UUID traceId, int code, @Nullable Throwable cause) {
-        super(errorMessageFromCause(traceId, code, cause), cause);
+        super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -145,7 +142,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalException(UUID traceId, int code, String message, @Nullable Throwable cause) {
-        super(errorMessage(traceId, code, message), cause);
+        super(message, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -157,7 +154,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException() {
-        this(UNKNOWN_ERR);
+        this(INTERNAL_ERR);
     }
 
     /**
@@ -167,7 +164,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException(String msg) {
-        this(UNKNOWN_ERR, msg);
+        this(INTERNAL_ERR, msg);
     }
 
     /**
@@ -177,7 +174,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException(Throwable cause) {
-        this(UNKNOWN_ERR, cause);
+        this(INTERNAL_ERR, cause);
     }
 
     /**
@@ -188,7 +185,7 @@ public class IgniteInternalException extends RuntimeException {
      */
     @Deprecated
     public IgniteInternalException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR, msg, cause);
+        this(INTERNAL_ERR, msg, cause);
     }
 
     /**
@@ -263,5 +260,13 @@ public class IgniteInternalException extends RuntimeException {
      */
     public UUID traceId() {
         return traceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        String s = getClass().getName();
+        String message = errorMessage(traceId, groupName, code, getLocalizedMessage());
+        return (message != null) ? (s + ": " + message) : s;
     }
 }

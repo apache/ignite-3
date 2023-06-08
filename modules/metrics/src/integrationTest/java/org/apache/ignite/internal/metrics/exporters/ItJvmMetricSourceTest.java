@@ -66,16 +66,16 @@ public class ItJvmMetricSourceTest {
 
         var jvmMetrics = simpleExporter.pull().get("jvm");
 
-        assertPositiveLongValue(jvmMetrics.get("memory.heap.init"));
-        assertPositiveLongValue(jvmMetrics.get("memory.heap.used"));
-        assertPositiveLongValue(jvmMetrics.get("memory.heap.committed"));
-        assertPositiveLongValue(jvmMetrics.get("memory.heap.max"));
+        assertPositiveLongValue(jvmMetrics.get("memory.heap.Init"));
+        assertPositiveLongValue(jvmMetrics.get("memory.heap.Used"));
+        assertPositiveLongValue(jvmMetrics.get("memory.heap.Committed"));
+        assertPositiveLongValue(jvmMetrics.get("memory.heap.Max"));
 
 
-        assertNotNull(jvmMetrics.get("memory.non-heap.init"));
-        assertNotNull(jvmMetrics.get("memory.non-heap.used"));
-        assertNotNull(jvmMetrics.get("memory.non-heap.committed"));
-        assertNotNull(jvmMetrics.get("memory.non-heap.max"));
+        assertNotNull(jvmMetrics.get("memory.non-heap.Init"));
+        assertNotNull(jvmMetrics.get("memory.non-heap.Used"));
+        assertNotNull(jvmMetrics.get("memory.non-heap.Committed"));
+        assertNotNull(jvmMetrics.get("memory.non-heap.Max"));
 
         metricManager.stop();
     }

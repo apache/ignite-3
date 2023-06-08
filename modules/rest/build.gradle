@@ -30,6 +30,7 @@ dependencies {
 
     implementation project(':ignite-api')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest-api')
     implementation project(':ignite-core')
     implementation project(':ignite-network')
@@ -76,6 +77,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.micronaut.http.client

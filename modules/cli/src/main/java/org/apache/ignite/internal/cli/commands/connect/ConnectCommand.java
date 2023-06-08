@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 
 import jakarta.inject.Inject;
+import java.net.URL;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
@@ -34,11 +35,11 @@ import picocli.CommandLine.Parameters;
  * Connects to the Ignite 3 node.
  */
 @Command(name = "connect", description = "Connects to Ignite 3 node")
-public class ConnectCommand extends BaseCommand implements Runnable {
+public class ConnectCommand extends BaseCommand implements Callable<Integer> {
 
     /** Node URL option. */
-    @Parameters(description = NODE_URL_OR_NAME_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private NodeNameOrUrl nodeNameOrUrl;
+    @Parameters(description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+    private URL nodeUrl;
 
     @Inject
     private ConnectCall connectCall;
@@ -48,9 +49,9 @@ public class ConnectCommand extends BaseCommand implements Runnable {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         int exitCode = CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> new UrlCallInput(nodeNameOrUrl.stringUrl()))
+                .inputProvider(() -> new UrlCallInput(nodeUrl.toString()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
@@ -59,5 +60,6 @@ public class ConnectCommand extends BaseCommand implements Runnable {
         if (exitCode == 0) {
             replManager.startReplMode();
         }
+        return exitCode;
     }
 }

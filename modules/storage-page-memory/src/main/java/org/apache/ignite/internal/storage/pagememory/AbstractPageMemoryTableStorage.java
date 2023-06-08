@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.createMissing
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,6 +42,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -188,7 +189,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -196,12 +197,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            return partitionStorage.getOrCreateSortedIndex(indexId);
+            return partitionStorage.getOrCreateSortedIndex(indexDescriptor);
         });
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -209,12 +210,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            return partitionStorage.getOrCreateHashIndex(indexId);
+            return partitionStorage.getOrCreateHashIndex(indexDescriptor);
         });
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
@@ -317,7 +318,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+    public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 

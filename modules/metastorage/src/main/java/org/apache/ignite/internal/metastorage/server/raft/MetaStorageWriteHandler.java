@@ -88,13 +88,9 @@ class MetaStorageWriteHandler {
                 safeTime = cmdWithTime.safeTime();
 
                 handleWriteWithTime(clo, cmdWithTime, safeTime);
-
-                // Every MetaStorageWriteCommand holds safe time that we should set as the cluster time.
-                clusterTime.updateSafeTime(safeTime);
             } else if (command instanceof SyncTimeCommand) {
-                clusterTime.updateSafeTime(((SyncTimeCommand) command).safeTime());
-
-                clo.result(null);
+                // TODO: IGNITE-19199 WatchProcessor must be notified of the new safe time.
+                throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-19199");
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }

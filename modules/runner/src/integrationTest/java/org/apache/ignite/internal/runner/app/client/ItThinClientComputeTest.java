@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -157,8 +157,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
-        assertEquals(UNEXPECTED_ERR, cause.code());
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
+        assertEquals(INTERNAL_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
     }
 
@@ -171,8 +171,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         var cause = (IgniteException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
-        assertEquals(UNEXPECTED_ERR, cause.code());
+        assertThat(cause.getMessage(), containsString("ArithmeticException: math err"));
+        assertEquals(INTERNAL_ERR, cause.code());
 
         assertNotNull(cause.getCause());
         assertThat(cause.getCause().getMessage(), containsString(
@@ -263,7 +263,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new NullPointerException("null ref");
+            throw new ArithmeticException("math err");
         }
     }
 

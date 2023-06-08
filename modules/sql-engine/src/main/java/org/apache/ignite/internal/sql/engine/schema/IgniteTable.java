@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -57,7 +56,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @return And id of the table.
      */
-    UUID id();
+    int id();
 
     /**
      * Returns the version of the table's schema.

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.gc;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 
 /**
  * Container for handling storage by the garbage collector.
@@ -29,9 +28,9 @@ class GcStorageHandler {
     /**
      * Handler of multi-versioned partition storage and its indexes for garbage collection.
      *
-     * @see StorageUpdateHandler#vacuum(HybridTimestamp)
+     * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int)
      */
-    final StorageUpdateHandler storageUpdateHandler;
+    final GcUpdateHandler gcUpdateHandler;
 
     /**
      * Reference to the future of garbage collection batch for multi-versioned partition storage and its indexes.
@@ -41,7 +40,7 @@ class GcStorageHandler {
      */
     final AtomicReference<CompletableFuture<Void>> gcInProgressFuture = new AtomicReference<>();
 
-    GcStorageHandler(StorageUpdateHandler storageUpdateHandler) {
-        this.storageUpdateHandler = storageUpdateHandler;
+    GcStorageHandler(GcUpdateHandler gcUpdateHandler) {
+        this.gcUpdateHandler = gcUpdateHandler;
     }
 }

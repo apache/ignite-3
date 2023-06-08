@@ -85,6 +85,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,6 +112,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
     /** Error format is that the field must be a specific class. */
     private static final String FIELD_MUST_BE_SPECIFIC_CLASS_ERROR_FORMAT = "%s %s.%s field must be a %s";
+
+    private static final String SECRET_FIELD_MUST_BE_STRING = "%s.%s must be String. Only String field can be annotated with @Secret";
 
     /** Postfix with which any configuration schema class name must end. */
     private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
@@ -223,6 +226,14 @@ public class ConfigurationProcessor extends AbstractProcessor {
                                 field.getSimpleName(),
                                 UUID.class.getSimpleName()
                         ));
+                    }
+                }
+
+                if (field.getAnnotation(Secret.class) != null) {
+                    if (!isClass(field.asType(), String.class)) {
+                        throw new ConfigurationProcessorException(
+                                String.format(SECRET_FIELD_MUST_BE_STRING, clazz.getQualifiedName(), field.getSimpleName())
+                        );
                     }
                 }
 

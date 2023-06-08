@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.BitSet;
-import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.network.annotations.Marshallable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Scan retrieve batch replica request.
@@ -37,16 +37,15 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
 
     /**
      * Gets an index to use fot the retrieve request.
-     *
-     * @return Index id.
      */
-    UUID indexToUse();
+    @Nullable Integer indexToUse();
 
     /**
      * Gets a key which is used for exact comparison in the index.
      *
      * @return Key to search.
      */
+    @Nullable
     @Marshallable
     BinaryTuple exactKey();
 
@@ -56,6 +55,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return lower bound.
      */
+    @Nullable
     @Marshallable
     BinaryTuplePrefix lowerBound();
 
@@ -65,6 +65,7 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return upper bound.
      */
+    @Nullable
     @Marshallable
     BinaryTuplePrefix upperBound();
 
@@ -81,6 +82,6 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return Bitset to include columns.
      */
-    @Marshallable
+    @Nullable
     BitSet columnsToInclude();
 }

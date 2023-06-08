@@ -22,15 +22,19 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.intersect;
+import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -358,5 +362,19 @@ public class CollectionUtilsTest {
 
         assertThrows(UnsupportedOperationException.class, () -> copy.add(42));
         assertThrows(UnsupportedOperationException.class, () -> copy.remove(3));
+    }
+
+    @Test
+    void testIntersect() {
+        assertThat(intersect(Set.of(1, 2), Set.of(2, 3)), is(Set.of(2)));
+        assertThat(intersect(Set.of(1, 2), Set.of(3, 4)), is(Set.of()));
+    }
+
+    @Test
+    void testLast() {
+        assertNull(last(List.of()));
+
+        assertEquals(1, last(List.of(1)));
+        assertEquals(2, last(List.of(1, 2)));
     }
 }

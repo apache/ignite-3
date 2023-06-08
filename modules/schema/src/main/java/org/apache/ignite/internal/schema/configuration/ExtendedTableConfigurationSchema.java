@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import java.util.UUID;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
-import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -28,17 +26,6 @@ import org.apache.ignite.configuration.annotation.Value;
 @InternalConfiguration
 // TODO: IGNITE-15480 Add id's to columns in order to properly process column renaming withing index context.
 public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
-    /** Table id. */
-    @InternalId
-    public UUID id;
-
-    /**
-     * Serialized version of an affinity assignments. Currently, configuration doesn't support neither collections nor array of arrays, so
-     * that serialization was chosen.
-     */
-    @Value
-    public byte[] assignments;
-
     /** Current schema id. Monotonically increasing number. */
     @Value
     public int schemaId;

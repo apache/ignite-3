@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -43,7 +42,7 @@ public class ClientTablePartitionAssignmentGetRequest {
             ClientMessagePacker out,
             IgniteTablesInternal tables
     ) throws NodeStoppingException {
-        UUID tableId = in.unpackUuid();
+        int tableId = in.unpackInt();
         var assignment = tables.assignments(tableId);
 
         if (assignment == null) {

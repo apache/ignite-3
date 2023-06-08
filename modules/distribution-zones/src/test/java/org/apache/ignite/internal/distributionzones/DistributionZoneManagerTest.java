@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,9 +36,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -64,6 +67,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private static final String NEW_ZONE_NAME = "zone2";
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationRegistry registry;
 
     private DistributionZoneManager distributionZoneManager;
@@ -73,12 +78,16 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        registry = new ConfigurationRegistry(
+        generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(FilterValidator.INSTANCE),
-                new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
+        );
+        registry = new ConfigurationRegistry(
+                List.of(DistributionZonesConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED),
+                generator,
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(FilterValidator.INSTANCE))
         );
 
         registry.start();
@@ -100,6 +109,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test
@@ -157,7 +167,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone1, "Zone was not created.");
         assertEquals(ZONE_NAME, zone1.name().value(), "Zone name is wrong.");
-        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(IMMEDIATE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
         assertEquals(200, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
@@ -247,12 +257,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
-        assertNotNull(zone, "Zone was not created.");
-        assertEquals(zoneName, zone.name().value(), "Zone name is wrong.");
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
-
 
         distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
                         .dataNodesAutoAdjustScaleUp(200).dataNodesAutoAdjustScaleDown(300).build())
@@ -332,11 +336,20 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 )
                 .get(5, TimeUnit.SECONDS);
 
+        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                .get(ZONE_NAME);
+
+        assertNotNull(zone1, "Zone was not renamed.");
+        assertEquals(ZONE_NAME, zone1.name().value(), "Zone was not renamed.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(100, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+
         distributionZoneManager.alterZone(ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).dataNodesAutoAdjust(400).build())
                 .get(5, TimeUnit.SECONDS);
 
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
                 .get(ZONE_NAME);
 
         DistributionZoneConfiguration zone2 = registry.getConfiguration(DistributionZonesConfiguration.KEY)

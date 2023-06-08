@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.COMMON_AUTHENTICATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -248,7 +248,7 @@ public class ItClientHandlerTest {
             final var patch = unpacker.unpackInt();
 
             unpacker.skipValue(); // traceId
-            final var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
+            final var code = unpacker.tryUnpackNil() ? INTERNAL_ERR : unpacker.unpackInt();
             final var errClassName = unpacker.unpackString();
             final var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
             final var errStackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
@@ -301,7 +301,7 @@ public class ItClientHandlerTest {
             final var patch = unpacker.unpackInt();
 
             unpacker.skipValue(); // traceId
-            final var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
+            final var code = unpacker.tryUnpackNil() ? INTERNAL_ERR : unpacker.unpackInt();
             final var errClassName = unpacker.unpackString();
             final var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
             final var errStackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
@@ -334,8 +334,7 @@ public class ItClientHandlerTest {
             change.changeProviders().create("basic", authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                         .changeUsername(username)
-                        .changePassword(password)
-                        .changeName("basic");
+                        .changePassword(password);
             });
         }).join();
     }

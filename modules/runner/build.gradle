@@ -30,6 +30,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
     implementation project(':ignite-vault')

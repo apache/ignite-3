@@ -25,30 +25,33 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OB
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.key.UnitMetaSerializer;
-import org.apache.ignite.internal.deployunit.metastore.UnitStatusAccumulator;
-import org.apache.ignite.internal.deployunit.metastore.UnitsAccumulator;
-import org.apache.ignite.internal.deployunit.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.util.subscription.SortedListAccumulator;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.network.ClusterService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment manager implementation.
@@ -90,7 +93,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     /**
      * Deployment units metastore service.
      */
-    private final DeployMetastoreService metastore;
+    private final DeploymentUnitStore deploymentUnitStore;
 
     /**
      * Deploy tracker.
@@ -115,10 +118,36 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         this.configuration = configuration;
         this.cmgManager = cmgManager;
         this.workDir = workDir;
-        this.tracker = new DeployTracker();
-        metastore = new DeployMetastoreService(metaStorage);
+        tracker = new DeployTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
+        deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
+    }
+
+    private void onUnitRegister(UnitNodeStatus status, Set<String> deployedNodes) {
+        if (status.status() == UPLOADING) {
+            messaging.downloadUnitContent(status.id(), status.version(), new ArrayList<>(deployedNodes))
+                    .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
+                    .thenApply(deployed -> {
+                        if (deployed) {
+                            return deploymentUnitStore.updateNodeStatus(
+                                    getLocalNodeId(),
+                                    status.id(),
+                                    status.version(),
+                                    DEPLOYED);
+                        }
+                        return deployed;
+                    });
+        } else if (status.status() == DEPLOYED) {
+            deploymentUnitStore.getClusterStatus(status.id(), status.version())
+                    .thenApply(UnitClusterStatus::initialNodesToDeploy)
+                    .thenApply(deployedNodes::containsAll)
+                    .thenAccept(allRequiredDeployed -> {
+                        if (allRequiredDeployed) {
+                            deploymentUnitStore.updateClusterStatus(status.id(), status.version(), DEPLOYED);
+                        }
+                    });
+        }
     }
 
     @Override
@@ -127,40 +156,11 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
 
-        List<String> fileNames = List.copyOf(deploymentUnit.content().keySet());
-        UnitMeta meta = new UnitMeta(id, version, fileNames, UPLOADING, Collections.emptyList());
-
-        return metastore.putIfNotExist(id, version, meta)
+        return cmgManager.cmgNodes()
+                .thenCompose(cmg -> deploymentUnitStore.createClusterStatus(id, version, cmg))
                 .thenCompose(success -> {
                     if (success) {
-                        Map<String, byte[]> unitContent;
-                        try {
-                            unitContent = deploymentUnit.content().entrySet().stream()
-                                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> readContent(entry.getValue())));
-                        } catch (DeploymentUnitReadException e) {
-                            return failedFuture(e);
-                        }
-                        return tracker.track(id, version, deployer.deploy(id, version.render(), unitContent)
-                                .thenCompose(deployed -> {
-                                    if (deployed) {
-                                        return metastore.updateMeta(id, version,
-                                                unitMeta -> unitMeta
-                                                        .addConsistentId(clusterService.topologyService().localMember().name()));
-                                    }
-                                    return completedFuture(false);
-                                })
-                                .thenApply(completed -> {
-                                    if (completed) {
-                                        messaging.startDeployAsyncToCmg(id, version, unitContent)
-                                                .thenAccept(ids -> metastore.updateMeta(id, version, unitMeta -> {
-                                                    for (String consistentId : ids) {
-                                                        unitMeta.addConsistentId(consistentId);
-                                                    }
-                                                    unitMeta.updateStatus(DEPLOYED);
-                                                }));
-                                    }
-                                    return completed;
-                                }));
+                        return doDeploy(id, version, deploymentUnit);
                     } else {
                         if (force) {
                             return undeployAsync(id, version)
@@ -176,17 +176,50 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 });
     }
 
+    private CompletableFuture<Boolean> doDeploy(String id, Version version, DeploymentUnit deploymentUnit) {
+        UnitContent unitContent;
+        try {
+            unitContent = UnitContent.readContent(deploymentUnit);
+        } catch (DeploymentUnitReadException e) {
+            LOG.error("Error reading deployment unit content", e);
+            return failedFuture(e);
+        }
+        return tracker.track(id, version, deployToLocalNode(id, version, unitContent)
+                .thenApply(completed -> {
+                    if (completed) {
+                        String localNodeId = getLocalNodeId();
+                        cmgManager.cmgNodes().thenAccept(nodes -> nodes.forEach(node -> {
+                            if (!node.equals(localNodeId)) {
+                                deploymentUnitStore.createNodeStatus(node, id, version);
+                            }
+                        }));
+                    }
+                    return completed;
+                })
+        );
+    }
+
+    private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
+        return deployer.deploy(id, version, unitContent)
+                .thenCompose(deployed -> {
+                    if (deployed) {
+                        return deploymentUnitStore.createNodeStatus(getLocalNodeId(), id, version, DEPLOYED);
+                    }
+                    return completedFuture(false);
+                });
+    }
+
     @Override
-    public CompletableFuture<Void> undeployAsync(String id, Version version) {
+    public CompletableFuture<Boolean> undeployAsync(String id, Version version) {
         checkId(id);
         Objects.requireNonNull(version);
 
         return messaging.stopInProgressDeploy(id, version)
-                .thenCompose(v -> metastore.updateMeta(id, version, true, meta -> meta.updateStatus(OBSOLETE)))
+                .thenCompose(v -> deploymentUnitStore.updateClusterStatus(id, version, OBSOLETE))
                 .thenCompose(success -> {
                     if (success) {
                         //TODO: Check unit usages here. If unit used in compute task we cannot just remove it.
-                        return metastore.updateMeta(id, version, true, meta -> meta.updateStatus(REMOVING));
+                        return deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
                     }
                     return completedFuture(false);
                 })
@@ -200,58 +233,97 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         logicalTopologySnapshot.nodes().stream()
                                 .map(node -> messaging.undeploy(node, id, version))
                                 .toArray(CompletableFuture[]::new))
-                        .thenAccept(unused -> metastore.removeIfExist(id, version)));
+                ).thenCompose(unused -> deploymentUnitStore.remove(id, version));
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> unitsAsync() {
-        CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
-        metastore.getAll()
-                .subscribe(new UnitsAccumulator().toSubscriber(result));
-        return result;
+    public CompletableFuture<List<UnitStatuses>> clusterStatusesAsync() {
+        return deploymentUnitStore.getClusterStatuses()
+                .thenApply(DeploymentManagerImpl::fromUnitStatuses);
+    }
+
+    @Override
+    public CompletableFuture<UnitStatuses> clusterStatusesAsync(String id) {
+        checkId(id);
+
+        return deploymentUnitStore.getClusterStatuses(id)
+                .thenApply(statuses -> fromUnitStatuses(id, statuses));
+    }
+
+    @Override
+    public CompletableFuture<DeploymentStatus> clusterStatusAsync(String id, Version version) {
+        checkId(id);
+        Objects.requireNonNull(version);
+
+        return deploymentUnitStore.getClusterStatus(id, version)
+                .thenApply(DeploymentManagerImpl::extractDeploymentStatus);
     }
 
     @Override
     public CompletableFuture<List<Version>> versionsAsync(String id) {
         checkId(id);
-        CompletableFuture<List<Version>> result = new CompletableFuture<>();
-        metastore.getAllWithId(id)
-                .subscribe(
-                        new SortedListAccumulator<Entry, Version>(e -> UnitMetaSerializer.deserialize(e.value()).version())
-                                .toSubscriber(result));
-        return result;
+
+        return deploymentUnitStore.getClusterStatuses(id)
+                .thenApply(statuses -> statuses.stream().map(UnitClusterStatus::version)
+                        .sorted()
+                        .collect(Collectors.toList()));
     }
 
     @Override
-    public CompletableFuture<UnitStatus> statusAsync(String id) {
+    public CompletableFuture<List<UnitStatuses>> nodeStatusesAsync() {
+        return deploymentUnitStore.getNodeStatuses(getLocalNodeId())
+                .thenApply(DeploymentManagerImpl::fromUnitStatuses);
+    }
+
+    @Override
+    public CompletableFuture<UnitStatuses> nodeStatusesAsync(String id) {
         checkId(id);
-        CompletableFuture<UnitStatus> result = new CompletableFuture<>();
-        metastore.getAllWithId(id)
-                .subscribe(new UnitStatusAccumulator(id).toSubscriber(result));
-        return result;
+
+        return deploymentUnitStore.getNodeStatuses(getLocalNodeId(), id)
+                .thenApply(statuses -> fromUnitStatuses(id, statuses));
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> findUnitByConsistentIdAsync(String consistentId) {
-        Objects.requireNonNull(consistentId);
+    public CompletableFuture<DeploymentStatus> nodeStatusAsync(String id, Version version) {
+        checkId(id);
+        Objects.requireNonNull(version);
 
-        CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
-        metastore.getAll()
-                .subscribe(
-                        new UnitsAccumulator(meta -> meta.consistentIdLocation().contains(consistentId)).toSubscriber(result)
-                );
-        return result;
+        return deploymentUnitStore.getNodeStatus(getLocalNodeId(), id, version)
+                .thenApply(DeploymentManagerImpl::extractDeploymentStatus);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
+        return deploymentUnitStore.getAllNodes(id, version)
+                .thenCompose(nodes -> {
+                    if (nodes.isEmpty()) {
+                        return completedFuture(false);
+                    }
+                    if (nodes.contains(getLocalNodeId())) {
+                        return completedFuture(true);
+                    }
+                    return messaging.downloadUnitContent(id, version, nodes)
+                            .thenCompose(unitContent -> deployToLocalNode(id, version, unitContent));
+                });
     }
 
     @Override
     public void start() {
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
+        deploymentUnitStore.registerListener(new NodeStatusWatchListener(
+                deploymentUnitStore,
+                this::getLocalNodeId,
+                this::onUnitRegister));
         messaging.subscribe();
     }
 
     @Override
     public void stop() throws Exception {
         tracker.cancelAll();
+    }
+
+    private String getLocalNodeId() {
+        return clusterService.topologyService().localMember().name();
     }
 
     private static void checkId(String id) {
@@ -262,12 +334,31 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         }
     }
 
-    private static byte[] readContent(InputStream inputStream) {
-        try (inputStream) {
-            return inputStream.readAllBytes();
-        } catch (IOException e) {
-            LOG.error("Error reading deployment unit content", e);
-            throw new DeploymentUnitReadException(e);
+    private static List<UnitStatuses> fromUnitStatuses(List<? extends UnitStatus> statuses) {
+        Map<String, UnitStatusesBuilder> map = new HashMap<>();
+        for (UnitStatus status : statuses) {
+            map.computeIfAbsent(status.id(), UnitStatuses::builder)
+                    .append(status.version(), status.status()).build();
         }
+        return map.values().stream().map(UnitStatusesBuilder::build).collect(Collectors.toList());
+    }
+
+    @Nullable
+    private static UnitStatuses fromUnitStatuses(String id, List<? extends UnitStatus> statuses) {
+        if (statuses.isEmpty()) {
+            return null;
+        }
+
+        UnitStatusesBuilder builder = UnitStatuses.builder(id);
+        for (UnitStatus status : statuses) {
+            builder.append(status.version(), status.status());
+        }
+
+        return builder.build();
+    }
+
+    @Nullable
+    private static DeploymentStatus extractDeploymentStatus(UnitStatus status) {
+        return status != null ? status.status() : null;
     }
 }

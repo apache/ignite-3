@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
+    implementation project(':ignite-schema')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 

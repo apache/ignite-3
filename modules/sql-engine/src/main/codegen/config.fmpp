@@ -36,6 +36,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlParserUtil",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",

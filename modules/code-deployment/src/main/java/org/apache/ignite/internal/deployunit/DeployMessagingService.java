@@ -18,25 +18,21 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
-import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
-import org.apache.ignite.internal.deployunit.message.DeployUnitRequestImpl;
-import org.apache.ignite.internal.deployunit.message.DeployUnitResponse;
-import org.apache.ignite.internal.deployunit.message.DeployUnitResponseImpl;
+import org.apache.ignite.internal.deployunit.message.DownloadUnitRequest;
+import org.apache.ignite.internal.deployunit.message.DownloadUnitRequestImpl;
+import org.apache.ignite.internal.deployunit.message.DownloadUnitResponse;
+import org.apache.ignite.internal.deployunit.message.DownloadUnitResponseImpl;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequest;
 import org.apache.ignite.internal.deployunit.message.StopDeployRequestImpl;
 import org.apache.ignite.internal.deployunit.message.StopDeployResponseImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
-import org.apache.ignite.internal.deployunit.version.Version;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ChannelType;
@@ -97,8 +93,8 @@ public class DeployMessagingService {
     public void subscribe() {
         clusterService.messagingService().addMessageHandler(DeployUnitMessageTypes.class,
                 (message, senderConsistentId, correlationId) -> {
-                    if (message instanceof DeployUnitRequest) {
-                        processDeployRequest((DeployUnitRequest) message, senderConsistentId, correlationId);
+                    if (message instanceof DownloadUnitRequest) {
+                        processDownloadRequest((DownloadUnitRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof UndeployUnitRequest) {
                         processUndeployRequest((UndeployUnitRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof StopDeployRequest) {
@@ -108,40 +104,23 @@ public class DeployMessagingService {
     }
 
     /**
-     * Start deployment process to all nodes from CMG group.
+     * Download deployment unit content from randomly selected node.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
-     * @param unitContent Deployment unit file names and content.
-     * @return Future with deployment result.
+     * @param nodes Nodes where unit deployed.
+     * @return Downloaded deployment unit content.
      */
-    public CompletableFuture<List<String>> startDeployAsyncToCmg(String id, Version version, Map<String, byte[]> unitContent) {
-        DeployUnitRequest request = DeployUnitRequestImpl.builder()
+    CompletableFuture<UnitContent> downloadUnitContent(String id, Version version, List<String> nodes) {
+        String node = nodes.get(new Random().nextInt(nodes.size()));
+        DownloadUnitRequest request = DownloadUnitRequestImpl.builder()
                 .id(id)
                 .version(version.render())
-                .unitContent(unitContent)
                 .build();
-        return cmgManager.cmgNodes()
-                .thenCompose(nodes -> deploy(nodes, request));
-    }
 
-    private CompletableFuture<List<String>> deploy(Set<String> nodes, DeployUnitRequest request) {
-        CompletableFuture<List<String>> resultFuture = new CompletableFuture<>();
-        Map<String, Boolean> results = new ConcurrentHashMap<>();
-        CompletableFuture<Void> allDeployment = CompletableFuture.allOf(
-                nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
-                        .map(node -> requestDeploy(node, request)
-                                .thenAccept(deployed -> results.put(node.name(), deployed)))
-                        .toArray(CompletableFuture[]::new));
-
-        allDeployment.thenAccept(v -> resultFuture.complete(
-                results.entrySet().stream()
-                        .filter(Entry::getValue)
-                        .map(Entry::getKey)
-                        .collect(Collectors.toList()))
-        );
-
-        return resultFuture;
+        return clusterService.messagingService()
+                .invoke(clusterService.topologyService().getByConsistentId(node), DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE)
+                .thenApply(message -> ((DownloadUnitResponse) message).unitContent());
     }
 
     /**
@@ -188,19 +167,6 @@ public class DeployMessagingService {
                         LOG.info("Undeploy unit " + id + ":" + version + " from node " + node + " finished"));
     }
 
-    private CompletableFuture<Boolean> requestDeploy(ClusterNode clusterNode, DeployUnitRequest request) {
-        return clusterService.messagingService()
-                .invoke(clusterNode, DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE)
-                .thenCompose(message -> {
-                    boolean success = ((DeployUnitResponse) message).success();
-                    if (!success) {
-                        LOG.error("Failed to deploy unit " + request.id() + ":" + request.version()
-                                + " to node " + clusterNode);
-                    }
-                    return CompletableFuture.completedFuture(success);
-                });
-    }
-
     private void processStopDeployRequest(StopDeployRequest request, String senderConsistentId, long correlationId) {
         tracker.cancelIfDeploy(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
@@ -208,25 +174,23 @@ public class DeployMessagingService {
 
     }
 
-    private void processDeployRequest(DeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
-        String id = executeRequest.id();
-        String version = executeRequest.version();
-        tracker.track(id, Version.parseVersion(version),
-                deployerService.deploy(id, version, executeRequest.unitContent())
-                        .thenCompose(success -> clusterService.messagingService().respond(
-                                senderConsistentId,
-                                DEPLOYMENT_CHANNEL,
-                                DeployUnitResponseImpl.builder().success(success).build(),
-                                correlationId)
-                        )
-        );
-    }
-
     private void processUndeployRequest(UndeployUnitRequest executeRequest, String senderConsistentId, long correlationId) {
         LOG.info("Start to undeploy " + executeRequest.id() + " with version " + executeRequest.version() + " from "
                 + clusterService.topologyService().localMember().name());
-        deployerService.undeploy(executeRequest.id(), executeRequest.version())
+        deployerService.undeploy(executeRequest.id(), Version.parseVersion(executeRequest.version()))
                 .thenRun(() -> clusterService.messagingService()
-                        .respond(senderConsistentId, UndeployUnitResponseImpl.builder().build(), correlationId));
+                        .respond(senderConsistentId,
+                                UndeployUnitResponseImpl.builder().build(),
+                                correlationId)
+                );
+    }
+
+    private void processDownloadRequest(DownloadUnitRequest request, String senderConsistentId, long correlationId) {
+        deployerService.getUnitContent(request.id(), Version.parseVersion(request.version()))
+                .thenApply(content -> clusterService.messagingService()
+                        .respond(senderConsistentId,
+                                DownloadUnitResponseImpl.builder().unitContent(content).build(),
+                                correlationId)
+                );
     }
 }

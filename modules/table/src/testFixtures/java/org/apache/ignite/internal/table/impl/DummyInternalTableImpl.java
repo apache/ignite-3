@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
@@ -66,6 +67,9 @@ import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -104,7 +108,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final HybridClock CLOCK = new HybridClockImpl();
 
-    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
+    private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
 
     private PartitionListener partitionListener;
 
@@ -114,6 +118,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** The thread updates safe time on the dummy replica. */
     private Thread safeTimeUpdaterThread;
+
+    private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
     /**
      * Creates a new local table.
@@ -180,7 +186,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     ) {
         super(
                 "test",
-                UUID.randomUUID(),
+                nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
@@ -199,7 +205,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().doReturn(groupId).when(svc).groupId();
         Peer leaderPeer = new Peer(UUID.randomUUID().toString());
         lenient().doReturn(leaderPeer).when(svc).leader();
-        lenient().doReturn(CompletableFuture.completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        lenient().doReturn(completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
@@ -253,8 +259,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        UUID tableId = tableId();
-        UUID indexId = UUID.randomUUID();
+        int tableId = tableId();
+        int indexId = 1;
 
         Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
@@ -266,7 +272,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
+                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -275,13 +282,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(gcBatchSizeValue.value()).thenReturn(5);
         lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
 
+        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 PART_ID,
                 partitionDataStorage,
-                indexes,
                 dsCfg,
-                safeTime,
-                mock(LowWatermark.class)
+                mock(LowWatermark.class),
+                indexUpdateHandler,
+                new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
@@ -302,8 +311,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
-                peer -> true,
-                CompletableFuture.completedFuture(schemaManager)
+                new DummySchemas(schemaManager),
+                completedFuture(schemaManager),
+                mock(ClusterNode.class),
+                mock(MvTableStorage.class),
+                mock(IndexBuilder.class)
         );
 
         partitionListener = new PartitionListener(
@@ -323,16 +335,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * A process to update safe time periodically.
      */
     private static class SafeTimeUpdater implements Runnable {
-        PendingComparableValuesTracker<HybridTimestamp> safeTime;
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
-        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp> safeTime) {
+        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
             this.safeTime = safeTime;
         }
 
         @Override
         public void run() {
             while (true) {
-                safeTime.update(CLOCK.now());
+                safeTime.update(CLOCK.now(), null);
 
                 try {
                     Thread.sleep(1_000);
@@ -397,7 +409,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return CompletableFuture.completedFuture(mock(ClusterNode.class));
+        return completedFuture(mock(ClusterNode.class));
     }
 
     @Override
@@ -416,16 +428,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param indexes Index storage by ID.
      */
-    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<UUID, TableSchemaAwareIndexStorage> indexes) {
+    public static TableIndexStoragesSupplier createTableIndexStoragesSupplier(Map<Integer, TableSchemaAwareIndexStorage> indexes) {
         return new TableIndexStoragesSupplier() {
             @Override
-            public Map<UUID, TableSchemaAwareIndexStorage> get() {
+            public Map<Integer, TableSchemaAwareIndexStorage> get() {
                 return indexes;
             }
 
             @Override
-            public void addIndexToWaitIfAbsent(UUID indexId) {
-                fail("not supported");
+            public void addIndexToWaitIfAbsent(int indexId) {
             }
         };
     }

@@ -132,7 +132,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void partitionDestructionFreesHashIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx);
 
         indexStorage.put(nonInlinableIndexRow());
 
@@ -157,7 +157,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                 .appendString("a".repeat(300))
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         return new IndexRowImpl(tuple, rowId);
     }
@@ -179,7 +179,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void partitionDestructionFreesSortedIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
+        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx);
 
         indexStorage.put(nonInlinableIndexRow());
 
@@ -195,7 +195,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void tableStorageDestructionFreesHashIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx);
 
         indexStorage.put(nonInlinableIndexRow());
 
@@ -211,7 +211,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     void tableStorageDestructionFreesSortedIndexPages() throws Exception {
         getOrCreateMvPartition(0);
 
-        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
+        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx);
 
         indexStorage.put(nonInlinableIndexRow());
 

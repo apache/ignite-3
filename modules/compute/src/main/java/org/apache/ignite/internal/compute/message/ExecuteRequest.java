@@ -22,6 +22,7 @@ import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
@@ -41,5 +42,5 @@ public interface ExecuteRequest extends NetworkMessage {
      * @return arguments
      */
     @Marshallable
-    Object[] args();
+    Object @Nullable [] args();
 }

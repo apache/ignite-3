@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -103,6 +103,7 @@ import org.apache.ignite.internal.security.authentication.UsernamePasswordReques
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
@@ -393,9 +394,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             IgniteException iex = (IgniteException) err;
             packer.packUuid(iex.traceId());
             packer.packInt(iex.code());
+        } else if (err instanceof IgniteCheckedException) {
+            IgniteCheckedException iex = (IgniteCheckedException) err;
+            packer.packUuid(iex.traceId());
+            packer.packInt(iex.code());
         } else {
             packer.packUuid(UUID.randomUUID());
-            packer.packInt(UNEXPECTED_ERR);
+            packer.packInt(INTERNAL_ERR);
         }
 
         packer.packString(err.getClass().getName());

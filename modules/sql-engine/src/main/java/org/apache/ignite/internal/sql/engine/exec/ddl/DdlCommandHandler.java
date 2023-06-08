@@ -69,6 +69,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
@@ -135,6 +136,8 @@ public class DdlCommandHandler {
             return handleAlterAddColumn((AlterTableAddCommand) cmd);
         } else if (cmd instanceof AlterTableDropCommand) {
             return handleAlterDropColumn((AlterTableDropCommand) cmd);
+        } else if (cmd instanceof AlterColumnCommand) {
+            return completedFuture(true);
         } else if (cmd instanceof CreateIndexCommand) {
             return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
@@ -190,6 +193,10 @@ public class DdlCommandHandler {
             zoneCfgBuilder.partitions(cmd.partitions());
         }
 
+        if (cmd.nodeFilter() != null) {
+            zoneCfgBuilder.filter(cmd.nodeFilter());
+        }
+
         zoneCfgBuilder.dataStorageChangeConsumer(
                 dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
@@ -224,6 +231,18 @@ public class DdlCommandHandler {
 
         if (cmd.dataNodesAutoAdjustScaleUp() != null) {
             zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
+        }
+
+        if (cmd.replicas() != null) {
+            zoneCfgBuilder.replicas(cmd.replicas());
+        }
+
+        if (cmd.partitions() != null) {
+            zoneCfgBuilder.partitions(cmd.partitions());
+        }
+
+        if (cmd.nodeFilter() != null) {
+            zoneCfgBuilder.filter(cmd.nodeFilter());
         }
 
         return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
@@ -297,7 +316,7 @@ public class DdlCommandHandler {
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
-    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
+    protected static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
         return (val, err) -> {
             if (err == null) {
                 return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;

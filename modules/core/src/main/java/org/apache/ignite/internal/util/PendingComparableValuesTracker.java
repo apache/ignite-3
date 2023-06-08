@@ -22,23 +22,27 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Tracker that stores comparable value internally, this value can grow when {@link #update(Comparable)} method is called. The tracker gives
+ * Tracker that stores comparable value internally, this value can grow when {@link #update} method is called. The tracker gives
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
-public class PendingComparableValuesTracker<T extends Comparable<T>> implements ManuallyCloseable {
+public class PendingComparableValuesTracker<T extends Comparable<T>, R> implements ManuallyCloseable {
     private static final VarHandle CURRENT;
 
     private static final VarHandle CLOSE_GUARD;
 
     static {
         try {
-            CURRENT = MethodHandles.lookup().findVarHandle(PendingComparableValuesTracker.class, "current", Comparable.class);
+            CURRENT = MethodHandles.lookup().findVarHandle(PendingComparableValuesTracker.class, "current", Map.Entry.class);
             CLOSE_GUARD = MethodHandles.lookup().findVarHandle(PendingComparableValuesTracker.class, "closeGuard", boolean.class);
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
@@ -46,10 +50,11 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> implements 
     }
 
     /** Map of comparable values to corresponding futures. */
-    private final ConcurrentSkipListMap<T, CompletableFuture<Void>> valueFutures = new ConcurrentSkipListMap<>();
+    private final ConcurrentSkipListMap<T, CompletableFuture<R>> valueFutures = new ConcurrentSkipListMap<>();
 
-    /** Current value. */
-    private volatile T current;
+    /** Current value along with associated result. */
+    @SuppressWarnings("FieldMayBeFinal") // Changed through CURRENT VarHandle.
+    private volatile Map.Entry<T, @Nullable R> current;
 
     /** Prevents double closing. */
     @SuppressWarnings("unused")
@@ -58,13 +63,16 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> implements 
     /** Busy lock to close synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final Comparator<Map.Entry<T, @Nullable R>> comparator;
+
     /**
      * Constructor with initial value.
      *
      * @param initialValue Initial value.
      */
     public PendingComparableValuesTracker(T initialValue) {
-        current = initialValue;
+        current = new IgniteBiTuple<>(initialValue, null);
+        comparator = Map.Entry.comparingByKey(Comparator.nullsFirst(Comparator.naturalOrder()));
     }
 
     /**
@@ -72,28 +80,27 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> implements 
      * that had been created for corresponding values that are lower than the given one.
      *
      * @param newValue New value.
+     * @param futureResult A result that will be used to complete a future returned by the
+     *        {@link PendingComparableValuesTracker#waitFor(Comparable)}.
      * @throws TrackerClosedException if the tracker is closed.
      */
-    public void update(T newValue) {
+    public void update(T newValue, @Nullable R futureResult) {
         while (true) {
             if (!busyLock.enterBusy()) {
                 throw new TrackerClosedException();
             }
 
             try {
-                T current = this.current;
+                Map.Entry<T, @Nullable R> current = this.current;
 
-                if (newValue.compareTo(current) <= 0) {
+                IgniteBiTuple<T, @Nullable R> newEntry = new IgniteBiTuple<>(newValue, futureResult);
+
+                if (comparator.compare(newEntry, current) <= 0) {
                     break;
                 }
 
-                if (CURRENT.compareAndSet(this, current, newValue)) {
-                    ConcurrentNavigableMap<T, CompletableFuture<Void>> smallerFutures = valueFutures.headMap(newValue, true);
-
-                    smallerFutures.forEach((k, f) -> f.complete(null));
-
-                    smallerFutures.clear();
-
+                if (CURRENT.compareAndSet(this, current, newEntry)) {
+                    completeWaitersOnUpdate(newValue, futureResult);
                     break;
                 }
             } finally {
@@ -110,25 +117,17 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> implements 
      *
      * @param valueToWait Value to wait.
      */
-    public CompletableFuture<Void> waitFor(T valueToWait) {
+    public CompletableFuture<R> waitFor(T valueToWait) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new TrackerClosedException());
         }
 
         try {
-            if (current.compareTo(valueToWait) >= 0) {
-                return completedFuture(null);
+            if (current.getKey().compareTo(valueToWait) >= 0) {
+                return completedFuture(current.getValue());
             }
 
-            CompletableFuture<Void> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
-
-            if (current.compareTo(valueToWait) >= 0) {
-                future.complete(null);
-
-                valueFutures.remove(valueToWait);
-            }
-
-            return future;
+            return addNewWaiter(valueToWait);
         } finally {
             busyLock.leaveBusy();
         }
@@ -145,7 +144,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> implements 
         }
 
         try {
-            return current;
+            return current.getKey();
         } finally {
             busyLock.leaveBusy();
         }
@@ -161,8 +160,43 @@ public class PendingComparableValuesTracker<T extends Comparable<T>> implements 
 
         TrackerClosedException trackerClosedException = new TrackerClosedException();
 
+        cleanupWaitersOnClose(trackerClosedException);
+    }
+
+    protected void completeWaitersOnUpdate(T newValue, @Nullable R futureResult) {
+        ConcurrentNavigableMap<T, CompletableFuture<R>> smallerFutures = valueFutures.headMap(newValue, true);
+
+        smallerFutures.forEach((k, f) -> f.complete(futureResult));
+
+        smallerFutures.clear();
+    }
+
+    protected CompletableFuture<R> addNewWaiter(T valueToWait) {
+        CompletableFuture<R> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
+
+        Map.Entry<T, R> currentEntry = current;
+
+        if (currentEntry.getKey().compareTo(valueToWait) >= 0) {
+            future.complete(currentEntry.getValue());
+
+            valueFutures.remove(valueToWait);
+        }
+
+        return future;
+    }
+
+    protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {
         valueFutures.values().forEach(future -> future.completeExceptionally(trackerClosedException));
 
         valueFutures.clear();
+    }
+
+    Map.Entry<T, R> currentEntry() {
+        return current;
+    }
+
+    /** Returns true if this tracker contains no waiters. */
+    public boolean isEmpty() {
+        return valueFutures.isEmpty();
     }
 }

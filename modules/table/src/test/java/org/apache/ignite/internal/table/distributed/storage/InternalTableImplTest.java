@@ -24,7 +24,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -43,7 +42,7 @@ public class InternalTableImplTest {
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
-                UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.emptyMap(),
                 1,
                 s -> mock(ClusterNode.class),
@@ -59,8 +58,8 @@ public class InternalTableImplTest {
         assertNull(internalTable.getPartitionStorageIndexTracker(0));
 
         // Let's check the first insert.
-        PendingComparableValuesTracker<HybridTimestamp> safeTime0 = mock(PendingComparableValuesTracker.class);
-        PendingComparableValuesTracker<Long> storageIndex0 = mock(PendingComparableValuesTracker.class);
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime0 = mock(PendingComparableValuesTracker.class);
+        PendingComparableValuesTracker<Long, Void> storageIndex0 = mock(PendingComparableValuesTracker.class);
 
         internalTable.updatePartitionTrackers(0, safeTime0, storageIndex0);
 
@@ -71,8 +70,8 @@ public class InternalTableImplTest {
         verify(storageIndex0, never()).close();
 
         // Let's check the new insert.
-        PendingComparableValuesTracker<HybridTimestamp> safeTime1 = mock(PendingComparableValuesTracker.class);
-        PendingComparableValuesTracker<Long> storageIndex1 = mock(PendingComparableValuesTracker.class);
+        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime1 = mock(PendingComparableValuesTracker.class);
+        PendingComparableValuesTracker<Long, Void> storageIndex1 = mock(PendingComparableValuesTracker.class);
 
         internalTable.updatePartitionTrackers(0, safeTime1, storageIndex1);
 

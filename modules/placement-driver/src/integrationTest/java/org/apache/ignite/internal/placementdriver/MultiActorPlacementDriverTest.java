@@ -20,8 +20,10 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -67,6 +69,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -117,6 +120,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
+
+    private final AtomicInteger nextTableId = new AtomicInteger(1);
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) throws Exception {
@@ -186,7 +191,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .groupId(((LeaseGrantedMessage) msg).groupId())
                         .accepted(true)
                         .build();
             }
@@ -350,7 +354,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         Lease lease = checkLeaseCreated(grpPart0, true);
         Lease leaseRenew = waitForProlong(grpPart0, lease);
 
-        assertEquals(acceptedNodeRef.get(), leaseRenew.getLeaseholder().name());
+        assertEquals(acceptedNodeRef.get(), leaseRenew.getLeaseholder());
     }
 
     @Test
@@ -416,7 +420,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        assertEquals(lease.getLeaseholder().name(), acceptedNodeRef.get());
+        assertEquals(lease.getLeaseholder(), acceptedNodeRef.get());
 
         waitForProlong(grpPart0, lease);
     }
@@ -441,7 +445,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         lease = waitForProlong(grpPart, lease);
 
-        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder().name());
+        assertEquals(acceptedNodeRef.get(), lease.getLeaseholder());
+        assertTrue(lease.isAccepted());
 
         var service = clusterServices.get(acceptedNodeRef.get());
 
@@ -467,7 +472,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         Lease leaseRenew = waitNewLeaseholder(grpPart, lease);
 
-        log.info("Lease move from {} to {}", lease.getLeaseholder().name(), leaseRenew.getLeaseholder().name());
+        log.info("Lease move from {} to {}", lease.getLeaseholder(), leaseRenew.getLeaseholder());
     }
 
     /**
@@ -484,7 +489,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             if (!lease.getLeaseholder().equals(leaseRenew.getLeaseholder())) {
                 leaseRenewRef.set(leaseRenew);
@@ -514,7 +519,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart));
 
-            Lease leaseRenew = ByteUtils.fromBytes(fut.join().value());
+            Lease leaseRenew = fromBytes(fut.join().value());
 
             if (lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0) {
                 leaseRenewRef.set(leaseRenew);
@@ -547,7 +552,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             var leaseEntry = leaseFut.join();
 
             if (leaseEntry != null && !leaseEntry.empty()) {
-                Lease lease = ByteUtils.fromBytes(leaseEntry.value());
+                Lease lease = fromBytes(leaseEntry.value());
 
                 if (!waitAccept) {
                     leaseRef.set(lease);
@@ -569,7 +574,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TablePartitionId createTableAssignment() throws Exception {
-        AtomicReference<UUID> tblIdRef = new AtomicReference<>();
+        int tableId = nextTableId.incrementAndGet();
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
 
@@ -578,17 +583,29 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table", tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
+
+                extConfCh.changeId(tableId);
+
                 extConfCh.changeZoneId(zoneId);
-
-                tblIdRef.set(extConfCh.id());
-
-                extConfCh.changeAssignments(ByteUtils.toBytes(assignments));
             });
-        }).get();
+        }).thenCompose(v -> {
+            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
-        var grpPart0 = new TablePartitionId(tblIdRef.get(), 0);
+            for (int i = 0; i < assignments.size(); i++) {
+                partitionAssignments.put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(assignments.get(i)));
 
-        log.info("Fake table created [id={}, repGrp={}]", tblIdRef.get(), grpPart0);
+            }
+
+            return metaStorageManager.putAll(partitionAssignments);
+        })
+        .get();
+
+        var grpPart0 = new TablePartitionId(tableId, 0);
+
+        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
 
         return grpPart0;
     }

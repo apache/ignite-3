@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.tree;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
 
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -112,8 +113,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** {@inheritDoc} */
     @Override
-    public <T> T accept(String key, ConfigurationVisitor<T> visitor) {
-        return visitor.visitNamedListNode(key, this);
+    public <T> T accept(Field field, String key, ConfigurationVisitor<T> visitor) {
+        return visitor.visitNamedListNode(field, key, this);
     }
 
     /** {@inheritDoc} */

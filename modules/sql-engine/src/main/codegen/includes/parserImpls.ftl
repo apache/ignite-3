@@ -382,7 +382,7 @@ SqlNode ColumnWithType() :
             strategy = ColumnStrategy.DEFAULT;
         }
     |
-        {
+    {
             dflt = null;
             strategy = nullable ? ColumnStrategy.NULLABLE
                 : ColumnStrategy.NOT_NULLABLE;
@@ -424,7 +424,59 @@ SqlNode SqlAlterTable() :
         <DROP> [<COLUMN>] colIgnoreErr = IfExistsOpt() cols = SimpleIdentifierOrList() {
             return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, colIgnoreErr, cols);
         }
+    |
+        <ALTER> [<COLUMN>] {
+            return SqlAlterColumn(s, id, ifExists);
+        }
     )
+}
+
+SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
+{
+    SqlIdentifier id;
+    SqlDataTypeSpec type;
+    Boolean nullable;
+    SqlNode dflt;
+}
+{
+    id = SimpleIdentifier()
+    (
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, dflt, nullable == null ? null : !nullable);
+        }
+    |
+        <SET> <NOT> <NULL> {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, null, true);
+        }
+    |
+        <DROP> <NOT> <NULL> {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, null, false);
+        }
+    |
+        <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
+        {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, dflt, null);
+        }
+    |
+        <DROP> <DEFAULT_> {
+            return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, SqlLiteral.createNull(s.end(this)), null);
+        }
+    )
+}
+
+SqlNode DefaultLiteralOrNull() :
+{
+    SqlNode dflt;
+}
+{
+    <DEFAULT_> dflt = Literal()
+    {
+        return dflt;
+    }
+    |
+    {
+        return null;
+    }
 }
 
 <DEFAULT, DQID, BTID> TOKEN :

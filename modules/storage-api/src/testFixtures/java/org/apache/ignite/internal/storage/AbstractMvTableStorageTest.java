@@ -19,6 +19,10 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toHashIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,7 +53,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -59,7 +63,9 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -73,6 +79,9 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
@@ -97,11 +106,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /** Partition id for 1 storage. */
     protected static final int PARTITION_ID_1 = 1 << 8;
 
+    protected static final int COMMIT_TABLE_ID = 999;
+
     protected MvTableStorage tableStorage;
 
-    protected TableIndexView sortedIdx;
+    protected StorageSortedIndexDescriptor sortedIdx;
 
-    protected TableIndexView hashIdx;
+    protected StorageHashIndexDescriptor hashIdx;
 
     protected StorageEngine storageEngine;
 
@@ -123,8 +134,15 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         this.tableStorage.start();
 
-        sortedIdx = tablesConfig.indexes().get(SORTED_INDEX_NAME).value();
-        hashIdx = tablesConfig.indexes().get(HASH_INDEX_NAME).value();
+        TablesView tablesView = tablesConfig.value();
+
+        SortedIndexView sortedIndexView = (SortedIndexView) tablesView.indexes().get(SORTED_INDEX_NAME);
+        HashIndexView hashIndexView = (HashIndexView) tablesView.indexes().get(HASH_INDEX_NAME);
+
+        CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(findTableView(tablesView, sortedIndexView.tableId()));
+
+        sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, toSortedIndexDescriptor(sortedIndexView));
+        hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, toHashIndexDescriptor(hashIndexView));
     }
 
     @AfterEach
@@ -184,7 +202,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData0, txId, UUID.randomUUID(), 0);
+            return partitionStorage0.addWrite(rowId0, testData0, txId, COMMIT_TABLE_ID, 0);
         });
 
         assertThat(unwrap(partitionStorage0.read(rowId0, HybridTimestamp.MAX_VALUE)), is(equalTo(unwrap(testData0))));
@@ -197,7 +215,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         partitionStorage1.runConsistently(locker -> {
             locker.lock(rowId1);
 
-            return partitionStorage1.addWrite(rowId1, testData1, txId, UUID.randomUUID(), 0);
+            return partitionStorage1.addWrite(rowId1, testData1, txId, COMMIT_TABLE_ID, 0);
         });
 
         assertThrows(IllegalArgumentException.class, () -> partitionStorage0.read(rowId1, HybridTimestamp.MAX_VALUE));
@@ -213,16 +231,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testCreateIndex() {
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()));
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx));
 
         // Index should only be available after the associated partition has been created.
         tableStorage.createMvPartition(PARTITION_ID);
 
-        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()), is(instanceOf(SortedIndexStorage.class)));
-        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()), is(instanceOf(HashIndexStorage.class)));
+        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx), is(instanceOf(SortedIndexStorage.class)));
+        assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx), is(instanceOf(HashIndexStorage.class)));
 
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, UUID.randomUUID()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, mock(StorageIndexDescriptor.class)));
     }
 
     /**
@@ -230,12 +248,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testCreateSortedIndex() {
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx));
 
         // Index should only be available after the associated partition has been created.
         tableStorage.createMvPartition(PARTITION_ID);
 
-        assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()), is(notNullValue()));
+        assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx), is(notNullValue()));
     }
 
     /**
@@ -243,12 +261,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testCreateHashIndex() {
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx));
 
         // Index should only be available after the associated partition has been created.
         tableStorage.createMvPartition(PARTITION_ID);
 
-        assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
+        assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx), is(notNullValue()));
     }
 
     /**
@@ -259,8 +277,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     public void testDestroyIndex() {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
-        assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()), is(notNullValue()));
-        assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
+        assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx), is(notNullValue()));
+        assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx), is(notNullValue()));
 
         CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(sortedIdx.id());
         CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(hashIdx.id());
@@ -274,13 +292,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     public void testHashIndexIndependence() {
         MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID);
 
-        assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID + 1, hashIdx.id()));
+        assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx), is(notNullValue()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID + 1, hashIdx));
 
         MvPartitionStorage partitionStorage2 = getOrCreateMvPartition(PARTITION_ID + 1);
 
-        HashIndexStorage storage1 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        HashIndexStorage storage2 = tableStorage.getOrCreateHashIndex(PARTITION_ID + 1, hashIdx.id());
+        HashIndexStorage storage1 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        HashIndexStorage storage2 = tableStorage.getOrCreateHashIndex(PARTITION_ID + 1, hashIdx);
 
         assertThat(storage1, is(notNullValue()));
         assertThat(storage2, is(notNullValue()));
@@ -298,7 +316,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 .appendInt(2)
                 .build();
 
-        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+        BinaryTuple tuple = new BinaryTuple(schema.elementCount(), buffer);
 
         partitionStorage1.runConsistently(locker -> {
             storage1.put(new IndexRowImpl(tuple, rowId1));
@@ -316,64 +334,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
     }
 
-    /**
-     * Tests that exceptions are thrown if indices are not configured correctly.
-     */
-    @Test
-    public void testMisconfiguredIndices() {
-        Exception e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id())
-        );
-
-        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
-
-        e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id())
-        );
-
-        assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
-
-        tableStorage.createMvPartition(PARTITION_ID);
-
-        UUID invalidUuid = UUID.randomUUID();
-
-        e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, invalidUuid)
-        );
-
-        assertThat(e.getMessage(), containsString(String.format("Index configuration for \"%s\" could not be found", invalidUuid)));
-
-        e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, sortedIdx.id())
-        );
-
-        assertThat(
-                e.getMessage(),
-                containsString(String.format("Index \"%s\" is not configured as a Hash Index. Actual type: SORTED", sortedIdx.id()))
-        );
-
-        e = assertThrows(
-                StorageException.class,
-                () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, hashIdx.id())
-        );
-
-        assertThat(
-                e.getMessage(),
-                containsString(String.format("Index \"%s\" is not configured as a Sorted Index. Actual type: HASH", hashIdx.id()))
-        );
-    }
-
     @Test
     public void testDestroyPartition() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> tableStorage.destroyPartition(getPartitionIdOutOfRange()));
 
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         RowId rowId = new RowId(PARTITION_ID);
 
@@ -405,8 +372,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()));
-        assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx));
+        assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx));
 
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
@@ -455,8 +422,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Test
     public void testSuccessRebalance() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         // Error because reblance has not yet started for the partition.
         assertThrows(
@@ -517,8 +484,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Test
     public void testFailRebalance() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         // Nothing will happen because rebalancing has not started.
         tableStorage.abortRebalancePartition(PARTITION_ID).get(1, SECONDS);
@@ -573,8 +540,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Test
     public void testDestroyTableStorage() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows = List.of(
                 new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
@@ -616,8 +583,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         tableStorage.start();
 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
     }
@@ -625,8 +592,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Test
     public void testRestartStoragesInTheMiddleOfRebalance() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows = List.of(
                 new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
@@ -654,8 +621,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         tableStorage.start();
 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         if (tableStorage.isVolatile()) {
             // Let's check the repositories: they should be empty.
@@ -677,8 +644,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageException.class, () -> tableStorage.clearPartition(PARTITION_ID));
 
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
-        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         // Let's check the cleanup for an empty partition.
         assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
@@ -751,8 +718,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     void testNextRowIdToBuilt() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
-        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
-        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
+        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
 
         assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
         assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
@@ -775,8 +742,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     void testNextRowIdToBuiltAfterRestart() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
-        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
-        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
+        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
 
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
@@ -799,8 +766,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         getOrCreateMvPartition(PARTITION_ID);
 
-        IndexStorage hashIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id());
-        IndexStorage sortedIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id());
+        IndexStorage hashIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
+        IndexStorage sortedIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
 
         if (tableStorage.isVolatile()) {
             assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
@@ -821,11 +788,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                         .build()
         );
 
-        UUID tableId = ConfigurationUtil.internalId(tablesConfig.tables().value(), "foo");
+        int tableId = tablesConfig.tables().value().get("foo").id();
 
         CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
                 indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
-                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, c)
+                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, idxDef.name().hashCode(), c)
                 ))
         );
 
@@ -876,7 +843,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), partId));
+        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
         assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
@@ -1035,7 +1002,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 locker.lock(rowId);
 
                 if ((finalI % 2) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), UUID.randomUUID(), rowId.partitionId());
+                    mvPartitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);
                 } else {

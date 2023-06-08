@@ -302,7 +302,7 @@ private:
     /** Affected rows. */
     std::int64_t m_affected_rows{-1};
 
-    /** Statement was applied. */
+    /** statement was applied. */
     bool m_was_applied{false};
 
     /** Connection. */

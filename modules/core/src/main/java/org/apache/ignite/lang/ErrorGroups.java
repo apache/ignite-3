@@ -24,27 +24,26 @@ package org.apache.ignite.lang;
 public class ErrorGroups {
     /** Common error group. */
     public static class Common {
-        /** Unknown error group. */
+        /** Common error group. */
         public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", 1);
 
-        /** Unexpected error. */
-        public static final int UNEXPECTED_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
-
         /** Node stopping error. */
-        public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
+        public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
 
         /** Component not started error. */
-        public static final int COMPONENT_NOT_STARTED_ERR = COMMON_ERR_GROUP.registerErrorCode(3);
+        public static final int COMPONENT_NOT_STARTED_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
 
         /** Illegal argument or argument in a wrong format has been passed. */
-        public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
+        public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(3);
 
         /** SSL can not be configured error. */
-        public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
+        public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
-        /** Unknown error. */
-        @Deprecated
-        public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
+        /**
+         * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
+         * In general, this error code should be considered as a non-recoverable error
+         */
+        public static final int INTERNAL_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
     }
 
     /** Tables error group. */
@@ -201,9 +200,6 @@ public class ErrorGroups {
 
         /** Execution cancelled. */
         public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
-
-        /** Error code describing any unexpected situation. */
-        public static final int INTERNAL_ERR = SQL_ERR_GROUP.registerErrorCode(34);
     }
 
     /** Meta storage error group. */
@@ -276,6 +272,9 @@ public class ErrorGroups {
 
         /** Error occurred when trying to create a read-only transaction with a timestamp older than the data available in the tables. */
         public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode(11);
+
+        /** Failure due to an incompatible schema change. */
+        public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode(12);
     }
 
     /** Replicator error group. */
@@ -351,53 +350,36 @@ public class ErrorGroups {
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
     }
 
-    /**
-     * Node configuration error group.
-     */
+    /** Node configuration error group. */
     public static class NodeConfiguration {
-        /**
-         * Node configuration error group.
-         */
+        /** Node configuration error group. */
         public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = ErrorGroup.newGroup("NODECFG", 12);
 
-        /**
-         * Config read error.
-         */
+        /** Config read error. */
         public static final int CONFIG_READ_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(1);
 
-        /**
-         * Config file creation error.
-         */
+        /** Config file creation error. */
         public static final int CONFIG_FILE_CREATE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(2);
 
-        /**
-         * Config write error.
-         */
+        /** Config write error. */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
+
+        /** Config parse error. */
+        public static final int CONFIG_PARSE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(4);
     }
 
-    /**
-     * Code deployment error group.
-     */
+    /** Code deployment error group. */
     public static class CodeDeployment {
-        /**
-         * Code deployment error group.
-         */
+        /** Code deployment error group. */
         public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", 13);
 
-        /**
-         * Access to non-existing deployment unit.
-         */
+        /** Access to non-existing deployment unit. */
         public static final int UNIT_NOT_FOUND_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
 
-        /**
-         * Unit duplicate error.
-         */
+        /** Unit duplicate error. */
         public static final int UNIT_ALREADY_EXISTS_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(2);
 
-        /**
-         * Deployment unit content read error.
-         */
+        /** Deployment unit content read error. */
         public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
     }
 
@@ -421,5 +403,19 @@ public class ErrorGroups {
 
         /** General authentication error. */
         public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode(1);
+    }
+
+    /**
+     * Compute error group.
+     */
+    public static class Compute {
+        /** Compute error group. */
+        public static final ErrorGroup COMPUTE_ERR_GROUP = ErrorGroup.newGroup("COMPUTE", 16);
+
+        /** Classpath error. */
+        public static final int CLASS_PATH_ERR = COMPUTE_ERR_GROUP.registerErrorCode(1);
+
+        /** Class loader error. */
+        public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode(2);
     }
 }

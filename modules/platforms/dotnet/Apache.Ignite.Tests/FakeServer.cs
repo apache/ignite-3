@@ -48,17 +48,17 @@ namespace Apache.Ignite.Tests
 
         public const string CustomColocationKeyTableName = "tbl3";
 
-        private static readonly Guid ExistingTableId = Guid.NewGuid();
+        private const int ExistingTableId = 1001;
 
-        private static readonly Guid CompositeKeyTableId = Guid.NewGuid();
+        private const int CompositeKeyTableId = 1002;
 
-        private static readonly Guid CustomColocationKeyTableId = Guid.NewGuid();
+        private const int CustomColocationKeyTableId = 1003;
 
         private readonly Socket _listener;
 
         private readonly CancellationTokenSource _cts = new();
 
-        private readonly Func<int, bool> _shouldDropConnection;
+        private readonly Func<RequestContext, bool> _shouldDropConnection;
 
         private readonly ConcurrentQueue<ClientOp>? _ops;
 
@@ -70,8 +70,14 @@ namespace Apache.Ignite.Tests
 
         private volatile bool _dropNewConnections;
 
-        public FakeServer(
-            Func<int, bool>? shouldDropConnection = null,
+        public FakeServer(bool disableOpsTracking)
+            : this(null, disableOpsTracking: disableOpsTracking)
+        {
+            // No-op.
+        }
+
+        internal FakeServer(
+            Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
             bool disableOpsTracking = false)
         {
@@ -344,7 +350,7 @@ namespace Apache.Ignite.Tests
 
         private void GetSchemas(MsgPackReader reader, Socket handler, long requestId)
         {
-            var tableId = reader.ReadGuid();
+            var tableId = reader.ReadInt32();
 
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
@@ -491,14 +497,14 @@ namespace Apache.Ignite.Tests
                         Thread.Sleep(OperationDelay);
                     }
 
-                    if (_shouldDropConnection(++requestCount))
-                    {
-                        break;
-                    }
-
                     var reader = new MsgPackReader(msg.AsMemory().Span);
                     var opCode = (ClientOp)reader.ReadInt32();
                     var requestId = reader.ReadInt64();
+
+                    if (_shouldDropConnection(new RequestContext(++requestCount, opCode, requestId)))
+                    {
+                        break;
+                    }
 
                     _ops?.Enqueue(opCode);
 
@@ -631,6 +637,8 @@ namespace Apache.Ignite.Tests
                 handler.Disconnect(true);
             }
         }
+
+        internal record struct RequestContext(int RequestCount, ClientOp OpCode, long RequestId);
 
         [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
         [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]

@@ -465,6 +465,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     public CompletableFuture<Long> readIndex() {
         Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readIndexRequest()
                 .groupId(groupId)
+                .peerId(p.consistentId())
                 .build();
 
         Peer leader = leader();
@@ -693,7 +694,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             newIdx = random.nextInt(peers0.size());
 
             if (newIdx != lastPeerIndex) {
-                break;
+                Peer peer = peers0.get(newIdx);
+
+                if (cluster.topologyService().getByConsistentId(peer.consistentId()) != null) {
+                    break;
+                }
             }
         }
 

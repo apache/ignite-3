@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
-    protected static final UUID COMMIT_TABLE_ID = UUID.randomUUID();
+    protected static final int COMMIT_TABLE_ID = 999;
 
     protected static final UUID TX_ID = newTransactionId();
 
@@ -192,8 +193,37 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         });
     }
 
-    protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        //TODO IGNITE-19367 Remove or replace with some other method.
-        return storage.pollForVacuum(lowWatermark);
+    /**
+     * Polls the oldest row in the partition, removing it at the same time.
+     *
+     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
+     *      can be removed.
+     * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
+     *      {@code null} if there's no such value.
+     */
+    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        while (true) {
+            BinaryRowAndRowId binaryRowAndRowId = storage.runConsistently(locker -> {
+                GcEntry gcEntry = storage.peek(lowWatermark);
+
+                if (gcEntry == null) {
+                    return null;
+                }
+
+                locker.lock(gcEntry.getRowId());
+
+                return new BinaryRowAndRowId(storage.vacuum(gcEntry), gcEntry.getRowId());
+            });
+
+            if (binaryRowAndRowId == null) {
+                return null;
+            }
+
+            if (binaryRowAndRowId.binaryRow() == null) {
+                continue;
+            }
+
+            return binaryRowAndRowId;
+        }
     }
 }

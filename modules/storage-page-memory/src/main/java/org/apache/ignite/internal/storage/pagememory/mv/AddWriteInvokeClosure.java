@@ -35,7 +35,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}.
+ * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
@@ -49,7 +49,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final UUID txId;
 
-    private final UUID commitTableId;
+    private final int commitTableId;
 
     private final int commitPartitionId;
 
@@ -65,7 +65,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            UUID commitTableId,
+            int commitTableId,
             int commitPartitionId,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
@@ -118,7 +118,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     /**
-     * Returns the result for {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}.
+     * Returns the result for {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}.
      */
     @Nullable BinaryRow getPreviousUncommittedRowVersion() {
         return previousUncommittedRowVersion;

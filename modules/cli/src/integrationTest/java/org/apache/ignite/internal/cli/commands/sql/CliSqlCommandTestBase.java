@@ -31,8 +31,10 @@ public class CliSqlCommandTestBase extends CliCommandTestInitializedIntegrationB
         createAndPopulateTable();
     }
 
+    @Override
     @AfterEach
-    void tearDown() {
+    public void tearDown() {
+        super.tearDown();
         dropAllTables();
     }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -32,13 +31,13 @@ import org.apache.ignite.internal.util.Cursor;
  * i.e. derives the index key from a given table row.
  */
 public class TableSchemaAwareIndexStorage {
-    private final UUID indexId;
+    private final int indexId;
     private final IndexStorage storage;
     private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
     /** Constructs the object. */
     public TableSchemaAwareIndexStorage(
-            UUID indexId,
+            int indexId,
             IndexStorage storage,
             Function<BinaryRow, BinaryTuple> indexRowResolver
     ) {
@@ -48,7 +47,7 @@ public class TableSchemaAwareIndexStorage {
     }
 
     /** Returns an identifier of the index. */
-    public UUID id() {
+    public int id() {
         return indexId;
     }
 
@@ -89,7 +88,7 @@ public class TableSchemaAwareIndexStorage {
      * @param row Full row.
      * @return A tuple that represents indexed columns of a row.
      */
-    BinaryTuple resolveIndexRow(BinaryRow row) {
+    public BinaryTuple resolveIndexRow(BinaryRow row) {
         return indexRowResolver.apply(row);
     }
 

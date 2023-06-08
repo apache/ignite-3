@@ -33,15 +33,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -75,9 +74,6 @@ public class ItDistributedConfigurationStorageTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static SecurityConfiguration securityConfiguration;
-
-    @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
     /**
@@ -95,8 +91,6 @@ public class ItDistributedConfigurationStorageTest {
         private final MetaStorageManager metaStorageManager;
 
         private final DistributedConfigurationStorage cfgStorage;
-
-        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -119,9 +113,6 @@ public class ItDistributedConfigurationStorageTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
-
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -129,9 +120,8 @@ public class ItDistributedConfigurationStorageTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    distributedConfigurationUpdater,
-                    nodeAttributes
-            );
+                    nodeAttributes,
+                    new TestConfigurationValidator());
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -152,7 +142,7 @@ public class ItDistributedConfigurationStorageTest {
         void start() throws Exception {
             vaultManager.start();
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager, distributedConfigurationUpdater)
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
@@ -177,7 +167,7 @@ public class ItDistributedConfigurationStorageTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager, distributedConfigurationUpdater);
+                    List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();

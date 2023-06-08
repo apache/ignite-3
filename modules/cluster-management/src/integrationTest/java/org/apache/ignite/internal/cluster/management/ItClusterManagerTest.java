@@ -19,10 +19,12 @@ package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,7 +32,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -42,6 +46,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.awaitility.Awaitility;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -334,21 +340,53 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = cluster.stream()
-                .filter(n -> {
-                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
-
-                    assertThat(isLeader, willCompleteSuccessfully());
-
-                    return isLeader.join();
-                })
-                .findAny()
-                .orElseThrow();
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
 
         stopNodes(List.of(leaderNode));
 
         // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testClusterConfigurationIsRemovedFromClusterStateAfterUpdating(TestInfo testInfo) throws Exception {
+        // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
+        startCluster(3, testInfo);
+
+        String[] cmgNodes = clusterNodeNames();
+
+        // Start the CMG on all 3 nodes.
+        String clusterConfiguration = "security.authentication.enabled:true";
+        initCluster(cmgNodes, cmgNodes, clusterConfiguration);
+
+        // Find the CMG leader and stop it.
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
+
+        // Read cluster configuration from the cluster state and remove it.
+        UpdateDistributedConfigurationAction leaderAction = leaderNode.clusterManager()
+                .clusterConfigurationToUpdate()
+                .get();
+
+        // Check the leader has configuration.
+        assertEquals(clusterConfiguration, leaderAction.configuration());
+
+        // Execute the next action (remove the configuration from the cluster state)
+        assertThat(leaderAction.nextAction().get(), willCompleteSuccessfully());
+
+        // Stop the cluster leader to check the new leader is not going to update the configuration.
+        stopNodes(List.of(leaderNode));
+        cluster.remove(leaderNode);
+
+        // Wait for a new leader to be elected.
+        MockNode newLeaderNode = Awaitility.await()
+                .until(() -> findLeaderNode(cluster), Optional::isPresent)
+                .get();
+
+        // Check the new leader cancels the action.
+        assertThat(
+                newLeaderNode.clusterManager().clusterConfigurationToUpdate(),
+                willThrow(CancellationException.class, 5, TimeUnit.SECONDS)
+        );
     }
 
     @Test
@@ -362,16 +400,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = cluster.stream()
-                .filter(n -> {
-                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
-
-                    assertThat(isLeader, willCompleteSuccessfully());
-
-                    return isLeader.join();
-                })
-                .findAny()
-                .orElseThrow();
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
 
         stopNodes(List.of(leaderNode));
 
@@ -414,6 +443,18 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
     }
 
+    private Optional<MockNode> findLeaderNode(List<MockNode> cluster) {
+        return cluster.stream()
+                .filter(n -> {
+                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
+
+                    assertThat(isLeader, willCompleteSuccessfully());
+
+                    return isLeader.join();
+                })
+                .findAny();
+    }
+
     private List<ClusterNode> currentPhysicalTopology() {
         return cluster.stream()
                 .map(MockNode::localMember)
@@ -440,11 +481,21 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         }, 10000));
     }
 
+
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException {
+        initCluster(metaStorageNodes, cmgNodes, null);
+    }
+
+    private void initCluster(
+            String[] metaStorageNodes,
+            String[] cmgNodes,
+            @Nullable String clusterConfiguration
+    ) throws NodeStoppingException {
         cluster.get(0).clusterManager().initCluster(
                 Arrays.asList(metaStorageNodes),
                 Arrays.asList(cmgNodes),
-                "cluster"
+                "cluster",
+                clusterConfiguration
         );
 
         for (MockNode node : cluster) {

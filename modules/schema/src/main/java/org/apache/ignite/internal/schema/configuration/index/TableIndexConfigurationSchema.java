@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.schema.configuration.index;
 
-import java.util.UUID;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * SQL index configuration.
@@ -40,16 +39,17 @@ public class TableIndexConfigurationSchema {
     public String type;
 
     /** Index identifier. */
-    @InternalId
-    public UUID id;
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public int id = 1;
 
     /** Index name. */
     @InjectedName
     public String name;
 
-    /** Table id the index associated with. */
+    /** ID of the table the index is associated with. */
     @Value
-    public UUID tableId;
+    public int tableId;
 
     /** Has default value flag. */
     @Value(hasDefault = true)

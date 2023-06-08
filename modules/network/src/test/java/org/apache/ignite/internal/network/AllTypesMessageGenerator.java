@@ -106,23 +106,27 @@ public class AllTypesMessageGenerator {
      */
     @Nullable
     private static Object randomValue(Random random, Field field, boolean nestedMsg) {
+        if (field.isAnnotationPresent(Nullable.class) && random.nextBoolean()) {
+            return null;
+        }
+
         Class<?> type = field.getType();
 
-        if (type == byte.class) {
+        if (type == byte.class || type == Byte.class) {
             return (byte) random.nextInt();
-        } else if (type == short.class) {
+        } else if (type == short.class || type == Short.class) {
             return (short) random.nextInt();
-        } else if (type == int.class) {
+        } else if (type == int.class || type == Integer.class) {
             return random.nextInt();
-        } else if (type == long.class) {
+        } else if (type == long.class || type == Long.class) {
             return random.nextLong();
-        } else if (type == float.class) {
+        } else if (type == float.class || type == Float.class) {
             return random.nextFloat();
-        } else if (type == double.class) {
+        } else if (type == double.class || type == Double.class) {
             return random.nextDouble();
-        } else if (type == char.class) {
+        } else if (type == char.class || type == Character.class) {
             return (char) random.nextInt();
-        } else if (type == boolean.class) {
+        } else if (type == boolean.class || type == Boolean.class) {
             return random.nextBoolean();
         } else if (type == byte[].class) {
             int byteArrLen = random.nextInt(1024);

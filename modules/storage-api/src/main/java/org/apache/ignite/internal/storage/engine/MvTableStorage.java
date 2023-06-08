@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import static org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
-import static org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
-
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -28,7 +25,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -38,6 +34,9 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,54 +82,41 @@ public interface MvTableStorage extends ManuallyCloseable {
      * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.
      *
      * @param partitionId Partition ID.
-     * @param indexId Index ID.
+     * @param indexDescriptor Index descriptor.
      * @return Index Storage.
      * @throws StorageException If the given partition does not exist, or if the given index does not exist.
      */
-    default IndexStorage getOrCreateIndex(int partitionId, UUID indexId) {
-        TableIndexConfiguration indexConfig = tablesConfiguration().indexes().get(indexId);
-
-        if (indexConfig == null) {
-            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
-        }
-
-        switch (indexConfig.type().value()) {
-            case HASH_INDEX_TYPE:
-                return getOrCreateHashIndex(partitionId, indexId);
-            case SORTED_INDEX_TYPE:
-                return getOrCreateSortedIndex(partitionId, indexId);
-            default:
-                throw new StorageException("Unknown index type: " + indexConfig.type().value());
+    default IndexStorage getOrCreateIndex(int partitionId, StorageIndexDescriptor indexDescriptor) {
+        if (indexDescriptor instanceof StorageHashIndexDescriptor) {
+            return getOrCreateHashIndex(partitionId, (StorageHashIndexDescriptor) indexDescriptor);
+        } else if (indexDescriptor instanceof StorageSortedIndexDescriptor) {
+            return getOrCreateSortedIndex(partitionId, (StorageSortedIndexDescriptor) indexDescriptor);
+        } else {
+            throw new StorageException("Unknown index type: " + indexDescriptor);
         }
     }
 
     /**
      * Returns an already created Sorted Index with the given name or creates a new one if it does not exist.
      *
-     * <p>In order for an index to be created, it should be already configured under the same name in the Table Configuration
-     * (see {@link #configuration()}).
-     *
      * @param partitionId Partition ID for which this index has been configured.
-     * @param indexId Index ID.
+     * @param indexDescriptor Index descriptor.
      * @return Sorted Index storage.
      * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
      *         a sorted index.
      */
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId);
+    SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor);
 
     /**
      * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
      *
-     * <p>In order for an index to be created, it should be already configured under the same name in the Table Configuration
-     * (see {@link #configuration()}).
-     *
      * @param partitionId Partition ID for which this index has been configured.
-     * @param indexId Index ID.
+     * @param indexDescriptor Index descriptor.
      * @return Hash Index storage.
      * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
      *         hash index.
      */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId);
+    HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor);
 
     /**
      * Destroys the index under the given name and all data in it.
@@ -139,7 +125,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param indexId Index ID.
      */
-    CompletableFuture<Void> destroyIndex(UUID indexId);
+    CompletableFuture<Void> destroyIndex(int indexId);
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
@@ -301,5 +287,5 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageException If the given partition does not exist.
      */
     // TODO: IGNITE-19112 Change or get rid of
-    @Nullable IndexStorage getIndex(int partitionId, UUID indexId);
+    @Nullable IndexStorage getIndex(int partitionId, int indexId);
 }

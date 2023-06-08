@@ -49,7 +49,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Closure for executing write operations on the storage. All write operations, such as
-     * {@link #addWrite(RowId, BinaryRow, UUID, UUID, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
+     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
      * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
      * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)}) must hold lock on
      * the corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
@@ -182,7 +182,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -265,44 +265,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @see Locker#tryLock(RowId)
      */
     @Nullable BinaryRow vacuum(GcEntry entry);
-
-    /**
-     * Polls the oldest row in the partition, removing it at the same time.
-     *
-     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
-     *      can be removed.
-     * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
-     *      {@code null} if there's no such value.
-     * @throws StorageException If failed to poll element for vacuum.
-     */
-    //TODO IGNITE-19367 Remove this method and replace its usages with proper batch removes.
-    @Deprecated
-    default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
-        while (true) {
-            BinaryRowAndRowId binaryRowAndRowId = runConsistently(locker -> {
-                GcEntry gcEntry = peek(lowWatermark);
-
-                if (gcEntry == null) {
-                    return null;
-                }
-
-                //TODO IGNITE-19367 With batches, this call would have to become a "tryLock" to prevent deadlocks.
-                locker.lock(gcEntry.getRowId());
-
-                return new BinaryRowAndRowId(vacuum(gcEntry), gcEntry.getRowId());
-            });
-
-            if (binaryRowAndRowId == null) {
-                return null;
-            }
-
-            if (binaryRowAndRowId.binaryRow() == null) {
-                continue;
-            }
-
-            return binaryRowAndRowId;
-        }
-    }
 
     /**
      * Returns rows count belongs to current storage.

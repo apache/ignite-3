@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,49 +31,60 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.annotation.Secret;
 
 /**
  * {@link ConfigurationVisitor} implementation that converts a configuration tree to a combination of {@link Map} and {@link List} objects.
  */
 public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
+
+    /** Leaf node value will be replaced with this string, if the {@link Field} of the value has {@link Secret} annotation. */
+    private static final String MASKED_VALUE = "********";
+
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
     /** Skip nulls, empty Maps and empty lists. */
     private final boolean skipEmptyValues;
 
+    /** Mask values, if their {@link Field} has {@link Secret} annotation. */
+    private final boolean maskSecretValues;
+
     /** Stack with intermediate results. Used to store values during recursive calls. */
     private final Deque<Object> deque = new ArrayDeque<>();
+
+    public static ConverterToMapVisitorBuilder builder() {
+        return new ConverterToMapVisitorBuilder();
+    }
 
     /**
      * Constructor.
      *
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @param skipEmptyValues Skip empty values.
+     * @param maskSecretValues Mask values, if their {@link Field} has {@link Secret} annotation.
      */
-    public ConverterToMapVisitor(boolean includeInternal, boolean skipEmptyValues) {
+    ConverterToMapVisitor(
+            boolean includeInternal,
+            boolean skipEmptyValues,
+            boolean maskSecretValues
+    ) {
         this.includeInternal = includeInternal;
         this.skipEmptyValues = skipEmptyValues;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     */
-    public ConverterToMapVisitor(boolean includeInternal) {
-        this(includeInternal, false);
+        this.maskSecretValues = maskSecretValues;
     }
 
     /** {@inheritDoc} */
     @Override
-    public Object visitLeafNode(String key, Serializable val) {
+    public Object visitLeafNode(Field field, String key, Serializable val) {
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
             valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
-            valObj = toListOfObjects(val);
+            valObj = toListOfObjects(field, val);
+        } else if (val instanceof String) {
+            valObj = maskIfNeeded(field, (String) val);
         }
 
         addToParent(key, valObj);
@@ -82,7 +94,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
     /** {@inheritDoc} */
     @Override
-    public Object visitInnerNode(String key, InnerNode node) {
+    public Object visitInnerNode(Field field, String key, InnerNode node) {
         if (skipEmptyValues && node == null) {
             return null;
         }
@@ -102,7 +114,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
     /** {@inheritDoc} */
     @Override
-    public Object visitNamedListNode(String key, NamedListNode<?> node) {
+    public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         if (skipEmptyValues && node.size() == 0) {
             return null;
         }
@@ -112,7 +124,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         deque.push(list);
 
         for (String subkey : node.namedListKeys()) {
-            node.getInnerNode(subkey).accept(subkey, this);
+            node.getInnerNode(subkey).accept(field, subkey, this);
 
             ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
         }
@@ -161,10 +173,11 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /**
      * Converts array into a list of objects. Boxes array elements if they are primitive values.
      *
+     * @param field Field of the array
      * @param val Array of primitives or array of {@link String}s
      * @return List of objects corresponding to the passed array.
      */
-    private List<?> toListOfObjects(Serializable val) {
+    private List<?> toListOfObjects(Field field, Serializable val) {
         Stream<?> stream = IntStream.range(0, Array.getLength(val)).mapToObj(i -> Array.get(val, i));
 
         if (val.getClass().getComponentType() == char.class || val.getClass().getComponentType() == UUID.class) {
@@ -172,5 +185,25 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         }
 
         return stream.collect(Collectors.toList());
+    }
+
+    /**
+     * Returns {@link ConverterToMapVisitor#MASKED_VALUE} if the field is annotated with {@link Secret} and
+     * {@link ConverterToMapVisitor#maskSecretValues} is {@code true}.
+     *
+     * @param field Field to check
+     * @param val Value to mask
+     * @return Masked value
+     */
+    private Object maskIfNeeded(Field field, String val) {
+        if (!maskSecretValues) {
+            return val;
+        }
+
+        if (field != null && field.isAnnotationPresent(Secret.class)) {
+            return MASKED_VALUE;
+        } else {
+            return val;
+        }
     }
 }

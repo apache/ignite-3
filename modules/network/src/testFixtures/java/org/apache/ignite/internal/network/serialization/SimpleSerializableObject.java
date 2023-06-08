@@ -22,7 +22,7 @@ import java.util.Objects;
 
 /** Serializable class for marshallable test. */
 public class SimpleSerializableObject implements Serializable {
-    private static final long serialVersionUid = 0L;
+    private static final long serialVersionUID = 0L;
 
     private final int val;
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.event;
 
-import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
@@ -26,7 +25,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
  */
 public class SchemaEventParameters extends EventParameters {
     /** Table identifier. */
-    private final UUID tableId;
+    private final int tableId;
 
     /** Schema descriptor. */
     private final SchemaDescriptor schemaDescriptor;
@@ -38,7 +37,7 @@ public class SchemaEventParameters extends EventParameters {
      * @param tableId Table id.
      * @param schemaDescriptor Schema descriptor.
      */
-    public SchemaEventParameters(long causalityToken, UUID tableId, SchemaDescriptor schemaDescriptor) {
+    public SchemaEventParameters(long causalityToken, int tableId, SchemaDescriptor schemaDescriptor) {
         super(causalityToken);
 
         this.tableId = tableId;
@@ -50,7 +49,7 @@ public class SchemaEventParameters extends EventParameters {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return tableId;
     }
 

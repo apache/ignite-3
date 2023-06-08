@@ -24,7 +24,6 @@ import static org.mockito.Mockito.spy;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -34,11 +33,11 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
@@ -51,9 +50,9 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvTableStorage implements MvTableStorage {
     private final MvPartitionStorages<TestMvPartitionStorage> mvPartitionStorages;
 
-    private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
+    private final Map<Integer, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
-    private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+    private final Map<Integer, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -65,11 +64,11 @@ public class TestMvTableStorage implements MvTableStorage {
      * Class for storing Sorted Indices for a particular partition.
      */
     private static class SortedIndices {
-        private final SortedIndexDescriptor descriptor;
+        private final StorageSortedIndexDescriptor descriptor;
 
         final Map<Integer, TestSortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
-        SortedIndices(SortedIndexDescriptor descriptor) {
+        SortedIndices(StorageSortedIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
@@ -82,11 +81,11 @@ public class TestMvTableStorage implements MvTableStorage {
      * Class for storing Hash Indices for a particular partition.
      */
     private static class HashIndices {
-        private final HashIndexDescriptor descriptor;
+        private final StorageHashIndexDescriptor descriptor;
 
         final Map<Integer, TestHashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
-        HashIndices(HashIndexDescriptor descriptor) {
+        HashIndices(StorageHashIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
@@ -143,7 +142,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
         if (mvPartitionStorage == null) {
@@ -151,15 +150,15 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
-                indexId,
-                id -> new SortedIndices(new SortedIndexDescriptor(id, tablesCfg.value()))
+                indexDescriptor.id(),
+                id -> new SortedIndices(indexDescriptor)
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
         if (mvPartitionStorage == null) {
@@ -167,15 +166,15 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
-                indexId,
-                id -> new HashIndices(new HashIndexDescriptor(id, tablesCfg.value()))
+                indexDescriptor.id(),
+                id -> new HashIndices(indexDescriptor)
         );
 
         return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int indexId) {
         sortedIndicesById.remove(indexId);
 
         HashIndices hashIndex = hashIndicesById.remove(indexId);
@@ -285,7 +284,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+    public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         if (mvPartitionStorages.get(partitionId) == null) {
             throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
         }

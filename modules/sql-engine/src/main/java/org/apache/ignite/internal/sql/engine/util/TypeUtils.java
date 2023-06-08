@@ -48,6 +48,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
@@ -481,6 +482,52 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
+        }
+    }
+
+    /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
+    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
+        switch (columnType) {
+            case BOOLEAN:
+                throw new IllegalArgumentException("No NativeType for type: " + columnType);
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(precision, scale);
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time(precision);
+            case DATETIME:
+                return NativeTypes.datetime(precision);
+            case TIMESTAMP:
+                return NativeTypes.timestamp(precision);
+            case UUID:
+                return NativeTypes.UUID;
+            case BITMASK:
+                return NativeTypes.bitmaskOf(precision);
+            case STRING:
+                return NativeTypes.stringOf(precision);
+            case BYTE_ARRAY:
+                return NativeTypes.blobOf(precision);
+            case NUMBER:
+                return NativeTypes.numberOf(precision);
+                // fallthrough
+            case PERIOD:
+            case DURATION:
+            case NULL:
+            default:
+                throw new IllegalArgumentException("No NativeType for type: " + columnType);
         }
     }
 }

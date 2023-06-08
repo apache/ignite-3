@@ -98,7 +98,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         keyFields = keyFieldsBuilder.build();
     }
 
-    @SuppressWarnings("AssertWithSideEffects")
     private ColumnDescriptor injectDefault(ColumnDescriptor desc) {
         assert Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name()) : desc;
 

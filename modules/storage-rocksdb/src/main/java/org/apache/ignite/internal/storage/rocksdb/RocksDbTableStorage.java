@@ -21,6 +21,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toSortedIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.GC_QUEUE_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
@@ -40,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -52,16 +54,19 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesView;
+import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
@@ -133,10 +138,10 @@ public class RocksDbTableStorage implements MvTableStorage {
     private volatile MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages;
 
     /** Hash Index storages by Index IDs. */
-    private final ConcurrentMap<UUID, HashIndex> hashIndices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, HashIndex> hashIndices = new ConcurrentHashMap<>();
 
     /** Sorted Index storages by Index IDs. */
-    private final ConcurrentMap<UUID, SortedIndex> sortedIndices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, SortedIndex> sortedIndices = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -235,7 +240,10 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageException("Failed to create a directory for the table storage", e);
             }
 
-            List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors();
+            TablesView tablesView = tablesCfg.value();
+            TableView tableView = tableCfg.value();
+
+            List<ColumnFamilyDescriptor> cfDescriptors = getExistingCfDescriptors(tablesView, tableView);
 
             List<ColumnFamilyHandle> cfHandles = new ArrayList<>(cfDescriptors.size());
 
@@ -250,7 +258,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             try {
                 db = RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles);
 
-                Map<UUID, ColumnFamily> sortedIndexColumnFamilyByIndexId = new HashMap<>();
+                Map<Integer, ColumnFamily> sortedIndexColumnFamilyByIndexId = new HashMap<>();
 
                 // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
                 for (ColumnFamilyHandle cfHandle : cfHandles) {
@@ -291,10 +299,17 @@ public class RocksDbTableStorage implements MvTableStorage {
                 assert partitionCf != null;
                 assert hashIndexCf != null;
 
-                for (Entry<UUID, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
-                    UUID indexId = entry.getKey();
+                for (Entry<Integer, ColumnFamily> entry : sortedIndexColumnFamilyByIndexId.entrySet()) {
+                    int indexId = entry.getKey();
 
-                    var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
+                    SortedIndexView indexView = (SortedIndexView) findIndexView(tablesView, indexId);
+
+                    assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
+
+                    var indexDescriptor = new StorageSortedIndexDescriptor(
+                            toTableDescriptor(tableView),
+                            toSortedIndexDescriptor(indexView)
+                    );
 
                     sortedIndices.put(indexId, new SortedIndex(entry.getValue(), indexDescriptor, meta));
                 }
@@ -305,7 +320,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             MvPartitionStorages<RocksDbMvPartitionStorage> mvPartitionStorages =
-                    new MvPartitionStorages<>(tableCfg.value(), distributionZoneConfiguration().value());
+                    new MvPartitionStorages<>(tableView, distributionZoneConfiguration().value());
 
             for (int partitionId : meta.getPartitionIds()) {
                 // There is no need to wait for futures, since there will be no parallel operations yet.
@@ -464,9 +479,12 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         return inBusyLock(busyLock, () -> {
-            SortedIndex storages = sortedIndices.computeIfAbsent(indexId, this::createSortedIndex);
+            SortedIndex storages = sortedIndices.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> createSortedIndex(indexDescriptor)
+            );
 
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -478,10 +496,8 @@ public class RocksDbTableStorage implements MvTableStorage {
         });
     }
 
-    private SortedIndex createSortedIndex(UUID indexId) {
-        var indexDescriptor = new SortedIndexDescriptor(indexId, tablesCfg.value());
-
-        ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexId), indexDescriptor);
+    private SortedIndex createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(sortedIndexCfName(indexDescriptor.id()), indexDescriptor);
 
         ColumnFamily columnFamily;
         try {
@@ -496,13 +512,12 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         return inBusyLock(busyLock, () -> {
-            HashIndex storages = hashIndices.computeIfAbsent(indexId, id -> {
-                var indexDescriptor = new HashIndexDescriptor(indexId, tablesCfg.value());
-
-                return new HashIndex(hashIndexCf, indexDescriptor, meta);
-            });
+            HashIndex storages = hashIndices.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> new HashIndex(hashIndexCf, indexDescriptor, meta)
+            );
 
             RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
@@ -515,7 +530,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+    public CompletableFuture<Void> destroyIndex(int indexId) {
         return inBusyLock(busyLock, () -> {
             HashIndex hashIdx = hashIndices.remove(indexId);
 
@@ -574,19 +589,17 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /**
      * Returns a list of CF descriptors present in the RocksDB instance.
-     *
-     * @return List of CF descriptors.
      */
-    private List<ColumnFamilyDescriptor> getExistingCfDescriptors() {
+    private List<ColumnFamilyDescriptor> getExistingCfDescriptors(TablesView tablesView, TableView tableView) {
         return getExistingCfNames().stream()
-                .map(this::cfDescriptorFromName)
+                .map(cfName -> cfDescriptorFromName(tablesView, tableView, cfName))
                 .collect(toList());
     }
 
     /**
      * Creates a Column Family descriptor for the given Family type (encoded in its name).
      */
-    private ColumnFamilyDescriptor cfDescriptorFromName(String cfName) {
+    private ColumnFamilyDescriptor cfDescriptorFromName(TablesView tablesView, TableView tableView, String cfName) {
         switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
             case GC_QUEUE:
@@ -608,19 +621,25 @@ public class RocksDbTableStorage implements MvTableStorage {
                 );
 
             case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tablesCfg.value());
+                int indexId = sortedIndexId(cfName);
+
+                SortedIndexView indexView = (SortedIndexView) findIndexView(tablesView, indexId);
+
+                assert indexView != null : "tableId=" + tableView.id() + ", indexId=" + indexId;
+
+                var indexDescriptor = new StorageSortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor(indexView));
 
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 
             default:
-                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + getTableName() + ']');
+                throw new StorageException("Unidentified column family [name={}, table={}]", cfName, tableView.name());
         }
     }
 
     /**
      * Creates a Column Family descriptor for a Sorted Index.
      */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(String cfName, SortedIndexDescriptor descriptor) {
+    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(String cfName, StorageSortedIndexDescriptor descriptor) {
         var comparator = new RocksDbBinaryTupleComparator(descriptor);
 
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(comparator);
@@ -744,7 +763,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public @Nullable IndexStorage getIndex(int partitionId, UUID indexId) {
+    public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         return inBusyLock(busyLock, () -> {
             if (mvPartitionStorages.get(partitionId) == null) {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));

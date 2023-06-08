@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -205,5 +207,39 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(response.statusCode(), is(200));
         // And version is a semver
         assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
+    }
+
+    @Test
+    @DisplayName("Cluster is not initialized, if config is invalid")
+    void initClusterWithInvalidConfig() throws IOException, InterruptedException {
+        // When POST /management/v1/cluster/init with invalid config
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:true "
+                + "     }\"\n"
+                + "  }";
+
+        // Then
+        HttpResponse<String> initResponse = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
+        Problem initProblem = objectMapper.readValue(initResponse.body(), Problem.class);
+
+        assertThat(initResponse.statusCode(), is(400));
+        assertAll(
+                () -> assertThat(initProblem.status(), is(400)),
+                () -> assertThat(initProblem.title(), is("Bad Request")),
+                () -> assertThat(
+                        initProblem.detail(),
+                        containsString("Validation did not pass for keys: "
+                                + "[security.authentication, Providers must be present, if auth is enabled]")
+                )
+        );
+
+        // And cluster is not initialized
+        startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
     }
 }

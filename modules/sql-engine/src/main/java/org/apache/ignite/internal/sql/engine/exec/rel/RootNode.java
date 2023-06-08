@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 
 import com.google.common.base.Functions;
@@ -286,7 +286,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         if (e instanceof RuntimeException) {
             throw (RuntimeException) e;
         } else {
-            throw new IgniteInternalException(UNEXPECTED_ERR, "An error occurred while query executing.", e);
+            throw new IgniteInternalException(INTERNAL_ERR, "An error occurred while query executing.", e);
         }
         // TODO: rework with SQL error code
         //        if (e instanceof IgniteSQLException)

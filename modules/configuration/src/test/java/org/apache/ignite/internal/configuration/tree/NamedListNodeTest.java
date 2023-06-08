@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.Config;
@@ -43,6 +42,7 @@ import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -108,9 +108,9 @@ public class NamedListNodeTest {
 
         changer = new TestConfigurationChanger(
                 List.of(FirstConfiguration.KEY),
-                Set.of(),
                 storage,
-                cgen
+                cgen,
+                new TestConfigurationValidator()
         );
 
         changer.start();

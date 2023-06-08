@@ -17,19 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * A base message for placement driver network messages.
  */
 public interface PlacementDriverMessage extends NetworkMessage {
-    /**
-     * Gets a replication group id.
-     *
-     * @return Replication group id.
-     */
-    @Marshallable
-    ReplicationGroupId groupId();
 }

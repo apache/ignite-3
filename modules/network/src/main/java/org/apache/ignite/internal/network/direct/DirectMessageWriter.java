@@ -96,12 +96,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedByte(String name, @Nullable Byte val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedByte(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeShort(String name, short val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeShort(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedShort(String name, @Nullable Short val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedShort(val);
 
         return stream.lastFinished();
     }
@@ -116,12 +134,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedInt(String name, @Nullable Integer val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedInt(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeLong(String name, long val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeLong(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedLong(String name, @Nullable Long val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedLong(val);
 
         return stream.lastFinished();
     }
@@ -136,12 +172,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedFloat(String name, @Nullable Float val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedFloat(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeDouble(String name, double val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeDouble(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedDouble(String name, @Nullable Double val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedDouble(val);
 
         return stream.lastFinished();
     }
@@ -156,12 +210,30 @@ public class DirectMessageWriter implements MessageWriter {
         return stream.lastFinished();
     }
 
+    @Override
+    public boolean writeBoxedChar(String name, @Nullable Character val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedChar(val);
+
+        return stream.lastFinished();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean writeBoolean(String name, boolean val) {
         DirectByteBufferStream stream = state.item().stream;
 
         stream.writeBoolean(val);
+
+        return stream.lastFinished();
+    }
+
+    @Override
+    public boolean writeBoxedBoolean(String name, @Nullable Boolean val) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        stream.writeBoxedBoolean(val);
 
         return stream.lastFinished();
     }

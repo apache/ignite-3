@@ -19,18 +19,34 @@ package org.apache.ignite.internal.cli.ssl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import jakarta.inject.Inject;
 import org.apache.ignite.internal.NodeConfig;
+import org.apache.ignite.internal.cli.call.connect.ConnectCall;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for SSL. */
 public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
+    @Inject
+    ConnectCall connectCall;
+
+    /** Mimics non-REPL "connect" command without starting REPL mode. Overriding getCommandClass and returning TopLevelCliReplCommand
+     * wouldn't help because it will start to ask questions.
+     */
+    private void connect(String url) {
+        Flows.from(new UrlCallInput(url))
+                .then(Flows.fromCall(connectCall))
+                .print()
+                .start();
+    }
 
     @Test
     @DisplayName("Should get SSL error, when connect to secured node without SSL settings")
     void connectToSecuredNodeWithoutSslSettings() {
         // When connect via HTTPS without SSL
-        execute("connect", "https://localhost:10401");
+        connect("https://localhost:10401");
 
         // Then
         assertAll(
@@ -50,7 +66,7 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         resetOutput();
 
         // And connect via HTTPS
-        execute("connect", "https://localhost:10401");
+        connect("https://localhost:10401");
 
         // Then
         assertAll(
@@ -70,7 +86,7 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         resetOutput();
 
         // And connect via HTTPS
-        execute("connect", "https://localhost:10401");
+        connect("https://localhost:10401");
 
         // Then
         assertAll(
@@ -90,7 +106,7 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         resetOutput();
 
         // And connect via HTTPS
-        execute("connect", "https://localhost:10401");
+        connect("https://localhost:10401");
 
         // Then
         assertAll(
@@ -110,7 +126,7 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         resetOutput();
 
         // And connect via HTTPS
-        execute("connect", "https://localhost:10401");
+        connect("https://localhost:10401");
 
         // Then
         assertAll(
@@ -130,7 +146,7 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         resetOutput();
 
         // And connect via HTTPS
-        execute("connect", "https://localhost:10401");
+        connect("https://localhost:10401");
 
         // Then
         assertAll(

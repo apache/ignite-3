@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ErrorMessage interface.
@@ -51,5 +52,6 @@ public interface ErrorMessage extends NetworkMessage, Serializable {
     /**
      * Gets original error message.
      */
+    @Nullable
     String message();
 }

@@ -44,7 +44,7 @@ public class VersionChain extends VersionChainKey {
     private final @Nullable UUID transactionId;
 
     /** Commit table id (part of transaction state). */
-    private final @Nullable UUID commitTableId;
+    private final @Nullable Integer commitTableId;
 
     /** Commit partition id (part of transaction state). */
     private final int commitPartitionId;
@@ -52,7 +52,7 @@ public class VersionChain extends VersionChainKey {
     /**
      * Constructor.
      */
-    private VersionChain(RowId rowId, @Nullable UUID transactionId, @Nullable UUID commitTableId, int commitPartitionId, long headLink,
+    private VersionChain(RowId rowId, @Nullable UUID transactionId, @Nullable Integer commitTableId, int commitPartitionId, long headLink,
             long nextLink) {
         super(rowId);
         this.transactionId = transactionId;
@@ -66,7 +66,7 @@ public class VersionChain extends VersionChainKey {
         return new VersionChain(rowId, null, null, ReadResult.UNDEFINED_COMMIT_PARTITION_ID, headLink, nextLink);
     }
 
-    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, UUID commitTableId, int commitPartitionId, long headLink,
+    public static VersionChain createUncommitted(RowId rowId, UUID transactionId, int commitTableId, int commitPartitionId, long headLink,
             long nextLink) {
         return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
     }
@@ -81,7 +81,7 @@ public class VersionChain extends VersionChainKey {
     /**
      * Returns a commit table id, associated with a chain's head, or {@code null} if head is already committed.
      */
-    public @Nullable UUID commitTableId() {
+    public @Nullable Integer commitTableId() {
         return commitTableId;
     }
 
@@ -156,6 +156,6 @@ public class VersionChain extends VersionChainKey {
 
     @Override
     public String toString() {
-        return S.toString(VersionChain.class, this);
+        return S.toString(VersionChain.class, this, "rowId", rowId);
     }
 }

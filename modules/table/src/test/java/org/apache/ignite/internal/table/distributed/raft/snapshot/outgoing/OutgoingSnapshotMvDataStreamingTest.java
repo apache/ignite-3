@@ -69,9 +69,9 @@ class OutgoingSnapshotMvDataStreamingTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final UUID transactionId = UUID.randomUUID();
-    private final UUID commitTableId = UUID.randomUUID();
+    private final int commitTableId = 999;
 
-    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+    private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
     @BeforeEach
     void createTestInstance() {
@@ -139,6 +139,7 @@ class OutgoingSnapshotMvDataStreamingTest {
     @Nullable
     private SnapshotMvDataResponse getNullableMvDataResponse(long batchSizeHint) {
         SnapshotMvDataRequest request = messagesFactory.snapshotMvDataRequest()
+                .id(snapshot.id())
                 .batchSizeHint(batchSizeHint)
                 .build();
 

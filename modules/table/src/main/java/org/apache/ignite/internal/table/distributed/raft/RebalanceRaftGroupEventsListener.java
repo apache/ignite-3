@@ -24,23 +24,21 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.utils.RebalanceUtil.intersect;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.union;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -58,7 +56,6 @@ import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.table.distributed.PartitionMover;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -336,20 +333,20 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> stable = createAssignments(configuration);
 
             // Were reduced
-            Set<Assignment> reducedNodes = subtract(retrievedSwitchReduce, stable);
+            Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stable);
 
             // Were added
-            Set<Assignment> addedNodes = subtract(stable, retrievedStable);
+            Set<Assignment> addedNodes = difference(stable, retrievedStable);
 
             // For further reduction
-            Set<Assignment> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
+            Set<Assignment> calculatedSwitchReduce = difference(retrievedSwitchReduce, reducedNodes);
 
             // For further addition
             Set<Assignment> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
-            calculatedSwitchAppend = subtract(calculatedSwitchAppend, addedNodes);
+            calculatedSwitchAppend = difference(calculatedSwitchAppend, addedNodes);
             calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
 
-            Set<Assignment> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
+            Set<Assignment> calculatedPendingReduction = difference(stable, retrievedSwitchReduce);
 
             Set<Assignment> calculatedPendingAddition = union(stable, reducedNodes);
             calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
@@ -372,13 +369,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             // All conditions combined with AND operator.
             Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-            tblConfiguration.change(ch -> {
-                List<Set<Assignment>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-                assignments.set(partNum, stable);
-                ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-            }).get(10, TimeUnit.SECONDS);
 
             Update successCase;
             Update failCase;
@@ -486,7 +476,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
 
             rebalanceAttempts.set(0);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             LOG.warn("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
                     e, tblConfiguration.name(), partNum);

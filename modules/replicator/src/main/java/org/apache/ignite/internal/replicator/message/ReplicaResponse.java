@@ -20,12 +20,14 @@ package org.apache.ignite.internal.replicator.message;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Replica response interface.
  */
 @Transferable(ReplicaMessageGroup.REPLICA_RESPONSE)
 public interface ReplicaResponse extends NetworkMessage {
+    @Nullable
     @Marshallable
     Object result();
 }

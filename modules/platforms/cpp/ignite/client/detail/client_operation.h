@@ -112,7 +112,7 @@ enum class client_operation {
  * Message type.
  */
 enum class message_type {
-    /** Response. */
+    /** response. */
     RESPONSE = 0,
 
     /** Notification. */

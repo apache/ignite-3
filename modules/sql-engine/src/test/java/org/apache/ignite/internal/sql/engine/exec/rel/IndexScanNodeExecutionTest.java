@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -59,7 +61,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -177,13 +178,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     public void sortedIndexScanWithPrefixBound() {
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{2L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                new Object[]{2L, UNSPECIFIED_VALUE_PLACEHOLDER},
                 null,
                 sortedScanResult
         );
         validateSortedIndexScan(
                 sortedIndexData,
-                new Object[]{null, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                new Object[]{null, UNSPECIFIED_VALUE_PLACEHOLDER},
                 null,
                 sortedScanResult
         );
@@ -191,13 +192,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         validateSortedIndexScan(
                 sortedIndexData,
                 null,
-                new Object[]{4L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                new Object[]{4L, UNSPECIFIED_VALUE_PLACEHOLDER},
                 sortedScanResult
         );
         validateSortedIndexScan(
                 sortedIndexData,
                 null,
-                new Object[]{null, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                new Object[]{null, UNSPECIFIED_VALUE_PLACEHOLDER},
                 sortedScanResult
         );
     }
@@ -281,7 +282,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         assertThrowsWithCause(() ->
                 validateHashIndexScan(
                         sortedIndexData,
-                        new Object[]{1L, RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER},
+                        new Object[]{1L, UNSPECIFIED_VALUE_PLACEHOLDER},
                         EMPTY
                 ), AssertionError.class, "Invalid lookup key");
     }
@@ -531,9 +532,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     }
 
     private void validateBoundPrefix(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuplePrefix boundPrefix) {
+        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+
         List<String> idxCols = indexDescriptor.columns();
 
-        assertThat(boundPrefix.count(), Matchers.lessThanOrEqualTo(idxCols.size()));
+        assertThat(boundPrefix.elementCount(), Matchers.lessThanOrEqualTo(idxCols.size()));
 
         for (int i = 0; i < boundPrefix.elementCount(); i++) {
             Column col = schemaDescriptor.column(idxCols.get(i));
@@ -542,28 +545,28 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 continue;
             }
 
-            Object val = col.type().spec().objectValue(boundPrefix, i);
+            Object val = tupleSchema.value(boundPrefix, i);
 
             assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
         }
     }
 
     private void validateBound(IndexDescriptor indexDescriptor, SchemaDescriptor schemaDescriptor, BinaryTuple bound) {
+        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+
         List<String> idxCols = indexDescriptor.columns();
 
-        assertThat(bound.count(), Matchers.equalTo(idxCols.size()));
+        assertThat(bound.elementCount(), Matchers.equalTo(idxCols.size()));
 
-        for (int i = 0; i < bound.count(); i++) {
+        for (int i = 0; i < bound.elementCount(); i++) {
             Column col = schemaDescriptor.column(idxCols.get(i));
-            Object val = bound.hasNullValue(i) ? null : bound.value(i);
+            Object val = bound.hasNullValue(i) ? null : tupleSchema.value(bound, i);
 
             if (val == null) {
                 assertThat("Unexpected null value: columnName" + idxCols.get(i), col.nullable(), Matchers.is(Boolean.TRUE));
-
-                continue;
+            } else {
+                assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
             }
-
-            assertThat("Column type doesn't match: columnName=" + idxCols.get(i), NativeTypes.fromObject(val), equalTo(col.type()));
         }
     }
 
