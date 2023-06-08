@@ -410,15 +410,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         AtomicReference<InternalTransaction> tx = new AtomicReference<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                .thenApply(v -> {
+                .thenCompose(v -> {
                     StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
                     SqlNode sqlNode = parseResult.statement();
 
                     validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
 
-                    return sqlNode;
-                })
-                .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
 
                     boolean implicitTxRequired = outerTx == null;

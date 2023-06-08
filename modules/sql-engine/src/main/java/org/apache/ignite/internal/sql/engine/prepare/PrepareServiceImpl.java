@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
-import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 
@@ -213,13 +212,11 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     }
 
     private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
                 Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
-        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), distributed, paramTypes);
+        var key = new CacheKey(ctx.schemaName(), sqlNode.toString(), null, paramTypes);
 
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
