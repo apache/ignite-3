@@ -81,6 +81,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -286,6 +287,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs)),
                 snapshotExecutor
         );
+
+        byte[] revision = data.get(REVISION_KEY);
+
+        if (revision != null) {
+            rev = ByteUtils.bytesToLong(revision);
+        }
     }
 
     /**
@@ -295,7 +302,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      *
      * @throws RocksDBException If failed.
      */
-    private void destroyRocksDb() throws RocksDBException {
+    protected void destroyRocksDb() throws RocksDBException {
         try (Options opt = new Options()) {
             RocksDB.destroyDB(dbPath.toString(), opt);
         }
@@ -1466,16 +1473,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @TestOnly
     public Path getDbPath() {
         return dbPath;
-    }
-
-    @TestOnly
-    public ColumnFamily getData() {
-        return data;
-    }
-
-    @TestOnly
-    protected void setRev(long revision) {
-        rev = revision;
     }
 
     private static class UpdatedEntries {
