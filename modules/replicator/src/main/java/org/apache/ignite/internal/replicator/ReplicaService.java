@@ -132,10 +132,10 @@ public class ReplicaService {
 
                                 if (throwable0 instanceof TimeoutException) {
                                     res.completeExceptionally(withCause(
-                                            ReplicationException::new,
+                                            ReplicationTimeoutException::new,
                                             REPLICA_TIMEOUT_ERR,
                                             format(
-                                                    "Could not wait for the replica readiness for the timeout [replicaGroupId={}, req={}]",
+                                                    "Could not wait for the replica readiness due to timeout [replicaGroupId={}, req={}]",
                                                     req.groupId(),
                                                     req.getClass().getSimpleName()
                                             ),

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
@@ -272,6 +273,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
                 .binaryRowBytes(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
@@ -286,8 +289,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         }
 
         assertTrue(e0 != null);
-        assertTrue(unwrapCause(e0) instanceof ReplicationException, e0.toString());
-        assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationException) unwrapCause(e0)).code());
+        assertTrue(unwrapCause(e0) instanceof ReplicationTimeoutException, e0.toString());
+        assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationTimeoutException) unwrapCause(e0)).code());
     }
 
     private static ByteBuffer createKeyValueRow(long id, long value) {
