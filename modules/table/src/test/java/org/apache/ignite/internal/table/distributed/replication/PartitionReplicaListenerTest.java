@@ -80,7 +80,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -282,8 +281,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Nullable
     private TxState txState;
 
-    private BinaryTupleSchema sortedIndexBinarySchema;
-
     /** Secondary sorted index. */
     private TableSchemaAwareIndexStorage sortedIndexStorage;
 
@@ -417,8 +414,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
                 mock(IndexBuilder.class)
         );
-
-        sortedIndexBinarySchema = BinaryTupleSchema.createSchema(schemaDescriptor, new int[]{2 /* intVal column */});
 
         kvMarshaller = marshallerFor(schemaDescriptor);
         kvMarshallerVersion2 = marshallerFor(schemaDescriptorVersion2);
@@ -628,7 +623,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             int indexedVal = i % 5; // Non-uniq index.
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
-            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+            BinaryTuple indexedValue = new BinaryTuple(1,
                     new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
@@ -735,7 +730,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             int indexedVal = i % 5; // Non-uniq index.
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
-            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+            BinaryTuple indexedValue = new BinaryTuple(1,
                     new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
@@ -837,7 +832,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             int indexedVal = i % 2; // Non-uniq index.
             TestValue testValue = new TestValue(indexedVal, "val" + i);
 
-            BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+            BinaryTuple indexedValue = new BinaryTuple(1,
                     new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
             BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
 
@@ -1422,7 +1417,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow futureSchemaVersionRow = binaryRow(key, new TestValue(2, "v2"), kvMarshallerVersion2);
         var rowId = new RowId(partId);
 
-        BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
+        BinaryTuple indexedValue = new BinaryTuple(1,
                 new BinaryTupleBuilder(1, false).appendInt(FUTURE_SCHEMA_ROW_INDEXED_VALUE).build()
         );
 
@@ -1592,13 +1587,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private BinaryTuplePrefix toIndexBound(int val) {
         ByteBuffer tuple = new BinaryTuplePrefixBuilder(1, 1).appendInt(val).build();
 
-        return new BinaryTuplePrefix(sortedIndexBinarySchema, tuple);
+        return new BinaryTuplePrefix(1, tuple);
     }
 
     private BinaryTuple toIndexKey(int val) {
         ByteBuffer tuple = new BinaryTupleBuilder(1, true).appendInt(val).build();
 
-        return new BinaryTuple(sortedIndexBinarySchema, tuple);
+        return new BinaryTuple(1, tuple);
     }
 
     private BinaryRow nextBinaryKey() {

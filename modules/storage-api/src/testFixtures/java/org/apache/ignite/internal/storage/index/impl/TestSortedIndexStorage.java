@@ -143,7 +143,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     }
 
     private IndexRowImpl prefixToIndexRow(BinaryTuplePrefix prefix, RowId rowId) {
-        var binaryTuple = new BinaryTuple(descriptor.binaryTupleSchema(), prefix.byteBuffer());
+        var binaryTuple = new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), prefix.byteBuffer());
 
         return new IndexRowImpl(binaryTuple, rowId);
     }
