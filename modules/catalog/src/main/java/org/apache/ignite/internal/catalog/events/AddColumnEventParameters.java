@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.events;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
  * Add column event parameters contains descriptors of added columns.
@@ -26,7 +26,7 @@ import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
 public class AddColumnEventParameters extends CatalogEventParameters {
 
     private final int tableId;
-    private final List<TableColumnDescriptor> columnDescriptors;
+    private final List<CatalogTableColumnDescriptor> columnDescriptors;
 
     /**
      * Constructor.
@@ -35,7 +35,7 @@ public class AddColumnEventParameters extends CatalogEventParameters {
      * @param tableId An id of table, which columns are added to.
      * @param columnDescriptors New columns descriptors.
      */
-    public AddColumnEventParameters(long causalityToken, int tableId, List<TableColumnDescriptor> columnDescriptors) {
+    public AddColumnEventParameters(long causalityToken, int tableId, List<CatalogTableColumnDescriptor> columnDescriptors) {
         super(causalityToken);
 
         this.tableId = tableId;
@@ -50,7 +50,7 @@ public class AddColumnEventParameters extends CatalogEventParameters {
     /**
      * Returns descriptors of columns to add.
      */
-    public List<TableColumnDescriptor> descriptors() {
+    public List<CatalogTableColumnDescriptor> descriptors() {
         return columnDescriptors;
     }
 }

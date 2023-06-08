@@ -593,7 +593,7 @@ public class ItMetaStorageServiceTest {
 
         long expRevUpperBound = 10;
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(emptyCursor());
 
         node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(singleElementSubscriber());
 
@@ -612,7 +612,7 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
-        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(emptyCursor());
 
         node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(singleElementSubscriber());
 

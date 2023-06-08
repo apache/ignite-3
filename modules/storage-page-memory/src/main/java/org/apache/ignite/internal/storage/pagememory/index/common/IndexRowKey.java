@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.internal.storage.pagememory.index.common;
 
-import org.apache.ignite.internal.network.message.ScaleCubeMessage;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 
-@Transferable(1)
-public interface MessageWithMarshallableNetworkMessageField extends NetworkMessage {
-    @Marshallable
-    ScaleCubeMessage msgField();
+/**
+ * Common interface for search keys in index trees.
+ */
+@FunctionalInterface
+public interface IndexRowKey {
+    /**
+     * Returns an indexed columns value.
+     */
+    IndexColumns indexColumns();
 }

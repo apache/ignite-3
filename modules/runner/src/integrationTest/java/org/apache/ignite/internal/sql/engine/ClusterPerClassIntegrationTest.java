@@ -49,8 +49,8 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
@@ -65,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -520,12 +521,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 TableView tableView = getTableConfiguration(clusterNode, tableName).value();
                 TableIndexView indexView = getIndexConfiguration(clusterNode, indexName).value();
 
-                TableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-                IndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+                CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(
                         partitionId,
-                        org.apache.ignite.internal.storage.index.IndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
+                        StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
                 );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));

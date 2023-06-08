@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.descriptors.ColumnCollation.ASC_NULLS_LAST;
-import static org.apache.ignite.internal.catalog.descriptors.ColumnCollation.DESC_NULLS_FIRST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -52,10 +52,10 @@ public class CatalogDescriptorUtils {
      *
      * @param config Table configuration.
      */
-    public static TableDescriptor toTableDescriptor(TableView config) {
+    public static CatalogTableDescriptor toTableDescriptor(TableView config) {
         PrimaryKeyView primaryKeyConfig = config.primaryKey();
 
-        return new TableDescriptor(
+        return new CatalogTableDescriptor(
                 config.id(),
                 config.name(),
                 config.columns().stream().map(CatalogDescriptorUtils::toTableColumnDescriptor).collect(toList()),
@@ -69,7 +69,7 @@ public class CatalogDescriptorUtils {
      *
      * @param config Index configuration.
      */
-    public static IndexDescriptor toIndexDescriptor(TableIndexView config) {
+    public static CatalogIndexDescriptor toIndexDescriptor(TableIndexView config) {
         switch (config.type()) {
             case TableIndexConfigurationSchema.HASH_INDEX_TYPE:
                 return toHashIndexDescriptor(((HashIndexView) config));
@@ -85,8 +85,8 @@ public class CatalogDescriptorUtils {
      *
      * @param config Hash index configuration.
      */
-    public static HashIndexDescriptor toHashIndexDescriptor(HashIndexView config) {
-        return new HashIndexDescriptor(config.id(), config.name(), config.tableId(), config.uniq(), List.of(config.columnNames()));
+    public static CatalogHashIndexDescriptor toHashIndexDescriptor(HashIndexView config) {
+        return new CatalogHashIndexDescriptor(config.id(), config.name(), config.tableId(), config.uniq(), List.of(config.columnNames()));
     }
 
     /**
@@ -94,8 +94,8 @@ public class CatalogDescriptorUtils {
      *
      * @param config Sorted index configuration.
      */
-    public static SortedIndexDescriptor toSortedIndexDescriptor(SortedIndexView config) {
-        return new SortedIndexDescriptor(
+    public static CatalogSortedIndexDescriptor toSortedIndexDescriptor(SortedIndexView config) {
+        return new CatalogSortedIndexDescriptor(
                 config.id(),
                 config.name(),
                 config.tableId(),
@@ -109,7 +109,7 @@ public class CatalogDescriptorUtils {
      *
      * @param column Table column descriptor.
      */
-    public static NativeType getNativeType(TableColumnDescriptor column) {
+    public static NativeType getNativeType(CatalogTableColumnDescriptor column) {
         switch (column.type()) {
             case INT8:
                 return NativeTypes.INT8;
@@ -148,12 +148,12 @@ public class CatalogDescriptorUtils {
         }
     }
 
-    private static TableColumnDescriptor toTableColumnDescriptor(ColumnView config) {
+    private static CatalogTableColumnDescriptor toTableColumnDescriptor(ColumnView config) {
         ColumnTypeView typeConfig = config.type();
 
         NativeType nativeType = ConfigurationToSchemaDescriptorConverter.convert(typeConfig);
 
-        return new TableColumnDescriptor(
+        return new CatalogTableColumnDescriptor(
                 config.name(),
                 nativeType.spec().asColumnType(),
                 config.nullable(),
@@ -181,11 +181,11 @@ public class CatalogDescriptorUtils {
         }
     }
 
-    private static IndexColumnDescriptor toIndexColumnDescriptor(IndexColumnView config) {
+    private static CatalogIndexColumnDescriptor toIndexColumnDescriptor(IndexColumnView config) {
         //TODO IGNITE-15141: Make null-order configurable.
         // NULLS FIRST for DESC, NULLS LAST for ASC by default.
-        ColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_FIRST;
+        CatalogColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_FIRST;
 
-        return new IndexColumnDescriptor(config.name(), collation);
+        return new CatalogIndexColumnDescriptor(config.name(), collation);
     }
 }

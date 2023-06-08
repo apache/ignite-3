@@ -22,47 +22,31 @@ import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Base class for catalog objects.
- * TODO: IGNITE-19082 Implement custom effective serialization instead.
+ * Indexed column descriptor.
  */
-public abstract class ObjectDescriptor implements Serializable {
-    private static final long serialVersionUID = -6525237234280004860L;
-    private final int id;
+public class CatalogIndexColumnDescriptor implements Serializable {
+    private static final long serialVersionUID = 5750677168056750717L;
+
     private final String name;
-    private final Type type;
 
-    ObjectDescriptor(int id, Type type, String name) {
-        this.id = id;
-        this.type = Objects.requireNonNull(type, "type");
-        this.name = Objects.requireNonNull(name, "name");
+    private final CatalogColumnCollation collation;
+
+    public CatalogIndexColumnDescriptor(String name, CatalogColumnCollation collation) {
+        this.name = name;
+        this.collation = Objects.requireNonNull(collation, "collation");
     }
 
-    /** Returns id of the described object. */
-    public int id() {
-        return id;
-    }
-
-    /** Returns name of the described object. */
     public String name() {
         return name;
     }
 
-    /** Return schema-object type. */
-    public Type type() {
-        return type;
+    public CatalogColumnCollation collation() {
+        return collation;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /** Catalog object type. */
-    enum Type {
-        SCHEMA,
-        TABLE,
-        INDEX,
-        ZONE
     }
 }

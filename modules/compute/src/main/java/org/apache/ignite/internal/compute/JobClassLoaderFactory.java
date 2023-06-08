@@ -26,12 +26,15 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -44,24 +47,17 @@ public class JobClassLoaderFactory {
     private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
 
     /**
-     * Directory for units.
+     * The deployer service.
      */
-    private final Path unitsDir;
-
-    /**
-     * The function to detect the last version of the unit.
-     */
-    private final Function<String, Version> detectLastUnitVersion;
+    private final IgniteDeployment deployment;
 
     /**
      * Constructor.
      *
-     * @param unitsDir The directory for units.
-     * @param detectLastUnitVersion The function to detect the last version of the unit.
+     * @param deployment The deployer service.
      */
-    public JobClassLoaderFactory(Path unitsDir, Function<String, Version> detectLastUnitVersion) {
-        this.unitsDir = unitsDir;
-        this.detectLastUnitVersion = detectLastUnitVersion;
+    public JobClassLoaderFactory(IgniteDeployment deployment) {
+        this.deployment = deployment;
     }
 
     /**
@@ -70,26 +66,50 @@ public class JobClassLoaderFactory {
      * @param units The units of the job.
      * @return The class loader.
      */
-    public JobClassLoader createClassLoader(List<DeploymentUnit> units) {
-        if (units.isEmpty()) {
-            throw new IllegalArgumentException("At least one unit must be specified");
-        }
+    public CompletableFuture<JobClassLoader> createClassLoader(List<DeploymentUnit> units) {
+        Stream<URL>[] unitUrls = new Stream[units.size()];
 
-        URL[] classPath = units.stream()
-                .map(this::constructPath)
-                .flatMap(JobClassLoaderFactory::collectClasspath)
-                .toArray(URL[]::new);
+        CompletableFuture[] futures = IntStream.range(0, units.size())
+                .mapToObj(id -> {
+                    return constructPath(units.get(id))
+                            .thenApply(JobClassLoaderFactory::collectClasspath)
+                            .thenAccept(stream -> unitUrls[id] = stream);
+                }).toArray(CompletableFuture[]::new);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Classpath for job: " + Arrays.toString(classPath));
-        }
-
-        return new JobClassLoader(classPath, getClass().getClassLoader());
+        return CompletableFuture.allOf(futures).thenApply(v -> {
+            return Stream.of(unitUrls)
+                    .flatMap(Function.identity())
+                    .toArray(URL[]::new);
+        })
+                .thenApply(it -> new JobClassLoader(it, getClass().getClassLoader()))
+                .whenComplete((cl, err) -> {
+                    if (err != null) {
+                        LOG.error("Failed to create class loader", err);
+                    } else {
+                        LOG.debug("Created class loader: {}", cl);
+                    }
+                });
     }
 
-    private Path constructPath(DeploymentUnit unit) {
-        Version version = unit.version() == Version.LATEST ? detectLastUnitVersion.apply(unit.name()) : unit.version();
-        return unitsDir.resolve(unit.name()).resolve(version.toString());
+    private CompletableFuture<Path> constructPath(DeploymentUnit unit) {
+        return CompletableFuture.completedFuture(unit.version())
+                .thenCompose(version -> {
+                    if (version == Version.LATEST) {
+                        return lastVersion(unit.name());
+                    } else {
+                        return CompletableFuture.completedFuture(version);
+                    }
+                })
+                .thenCompose(version -> deployment.path(unit.name(), version));
+    }
+
+    private CompletableFuture<Version> lastVersion(String name) {
+        return deployment.versionsAsync(name)
+                .thenApply(versions -> {
+                    return versions.stream()
+                            .max(Version::compareTo)
+                            .orElseThrow(() -> new DeploymentUnitNotFoundException("No versions found for deployment unit: " + name));
+                });
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {

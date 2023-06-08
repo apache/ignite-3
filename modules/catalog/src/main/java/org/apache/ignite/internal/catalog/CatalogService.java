@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.catalog;
 
 import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
@@ -40,25 +40,25 @@ public interface CatalogService {
 
     String DEFAULT_ZONE_NAME = "Default";
 
-    TableDescriptor table(String tableName, long timestamp);
+    CatalogTableDescriptor table(String tableName, long timestamp);
 
-    TableDescriptor table(int tableId, long timestamp);
+    CatalogTableDescriptor table(int tableId, long timestamp);
 
-    IndexDescriptor index(String indexName, long timestamp);
+    CatalogIndexDescriptor index(String indexName, long timestamp);
 
-    IndexDescriptor index(int indexId, long timestamp);
+    CatalogIndexDescriptor index(int indexId, long timestamp);
 
-    SchemaDescriptor schema(int version);
+    CatalogSchemaDescriptor schema(int version);
 
-    SchemaDescriptor schema(@Nullable String schemaName, int version);
+    CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
     DistributionZoneDescriptor zone(String zoneName, long timestamp);
 
     DistributionZoneDescriptor zone(int zoneId, long timestamp);
 
-    SchemaDescriptor activeSchema(long timestamp);
+    CatalogSchemaDescriptor activeSchema(long timestamp);
 
-    SchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+    CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

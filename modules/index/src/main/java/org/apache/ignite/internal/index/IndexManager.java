@@ -36,8 +36,12 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -58,7 +62,9 @@ import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -432,8 +438,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             assert tableView != null : "tableId=" + tableId + ", indexId=" + indexConfig.id();
 
-            TableDescriptor tableDescriptor = toTableDescriptor(tableView);
-            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor indexDescriptor = toIndexDescriptor(indexConfig);
+            CatalogTableDescriptor tableDescriptor = toTableDescriptor(tableView);
+            CatalogIndexDescriptor indexDescriptor = toIndexDescriptor(indexConfig);
 
             return createIndexLocally(evt.storageRevision(), tableDescriptor, indexDescriptor);
         } finally {
@@ -443,8 +449,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<?> createIndexLocally(
             long causalityToken,
-            TableDescriptor tableDescriptor,
-            org.apache.ignite.internal.catalog.descriptors.IndexDescriptor indexDescriptor
+            CatalogTableDescriptor tableDescriptor,
+            CatalogIndexDescriptor indexDescriptor
     ) {
         int tableId = tableDescriptor.id();
         int indexId = indexDescriptor.id();
@@ -454,7 +460,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(indexDescriptor);
 
-        var storageIndexDescriptor = org.apache.ignite.internal.storage.index.IndexDescriptor.create(tableDescriptor, indexDescriptor);
+        var storageIndexDescriptor = StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
 
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
@@ -471,14 +477,14 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             if (eventIndexDescriptor instanceof SortedIndexDescriptor) {
                 table.registerSortedIndex(
-                        (org.apache.ignite.internal.storage.index.SortedIndexDescriptor) storageIndexDescriptor,
+                        (StorageSortedIndexDescriptor) storageIndexDescriptor,
                         tableRowConverter::convert
                 );
             } else {
                 boolean unique = indexDescriptor.unique();
 
                 table.registerHashIndex(
-                        (HashIndexDescriptor) storageIndexDescriptor,
+                        (StorageHashIndexDescriptor) storageIndexDescriptor,
                         unique,
                         tableRowConverter::convert
                 );
@@ -603,13 +609,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param descriptor Catalog index descriptor.
      */
-    private static IndexDescriptor toEventIndexDescriptor(org.apache.ignite.internal.catalog.descriptors.IndexDescriptor descriptor) {
-        if (descriptor instanceof org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) {
-            return toEventHashIndexDescriptor(((org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor) descriptor));
+    private static IndexDescriptor toEventIndexDescriptor(CatalogIndexDescriptor descriptor) {
+        if (descriptor instanceof CatalogHashIndexDescriptor) {
+            return toEventHashIndexDescriptor(((CatalogHashIndexDescriptor) descriptor));
         }
 
-        if (descriptor instanceof org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) {
-            return toEventSortedIndexDescriptor(((org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor) descriptor));
+        if (descriptor instanceof CatalogSortedIndexDescriptor) {
+            return toEventSortedIndexDescriptor(((CatalogSortedIndexDescriptor) descriptor));
         }
 
         throw new IllegalArgumentException("Unknown index type: " + descriptor);
@@ -620,9 +626,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param descriptor Catalog hash index descriptor.
      */
-    private static IndexDescriptor toEventHashIndexDescriptor(
-            org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor descriptor
-    ) {
+    private static IndexDescriptor toEventHashIndexDescriptor(CatalogHashIndexDescriptor descriptor) {
         return new IndexDescriptor(descriptor.name(), descriptor.columns());
     }
 
@@ -631,13 +635,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param descriptor Catalog sorted index descriptor.
      */
-    private static SortedIndexDescriptor toEventSortedIndexDescriptor(
-            org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor descriptor
-    ) {
+    private static SortedIndexDescriptor toEventSortedIndexDescriptor(CatalogSortedIndexDescriptor descriptor) {
         List<String> columns = new ArrayList<>(descriptor.columns().size());
         List<ColumnCollation> collations = new ArrayList<>(descriptor.columns().size());
 
-        for (IndexColumnDescriptor column : descriptor.columns()) {
+        for (CatalogIndexColumnDescriptor column : descriptor.columns()) {
             columns.add(column.name());
 
             collations.add(toEventCollation(column.collation()));
@@ -646,7 +648,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         return new SortedIndexDescriptor(descriptor.name(), columns, collations);
     }
 
-    private static ColumnCollation toEventCollation(org.apache.ignite.internal.catalog.descriptors.ColumnCollation collation) {
+    private static ColumnCollation toEventCollation(CatalogColumnCollation collation) {
         return ColumnCollation.get(collation.asc(), collation.nullsFirst());
     }
 }

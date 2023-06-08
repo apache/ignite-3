@@ -17,43 +17,39 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.util.List;
+import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Hash index descriptor.
+ * Base class for catalog objects.
+ * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
-public class HashIndexDescriptor extends IndexDescriptor {
-    private static final long serialVersionUID = -6784028115063219759L;
+public abstract class CatalogObjectDescriptor implements Serializable {
+    private static final long serialVersionUID = -6525237234280004860L;
+    private final int id;
+    private final String name;
+    private final Type type;
 
-    private final List<String> columns;
-
-    /**
-     * Constructs a hash index descriptor.
-     *
-     * @param id Id of the index.
-     * @param name Name of the index.
-     * @param tableId Id of the table index belongs to.
-     * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
-     * @throws IllegalArgumentException If columns list contains duplicates.
-     */
-    public HashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        super(id, name, tableId, unique);
-
-        this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
+    CatalogObjectDescriptor(int id, Type type, String name) {
+        this.id = id;
+        this.type = Objects.requireNonNull(type, "type");
+        this.name = Objects.requireNonNull(name, "name");
     }
 
-    /** Returns indexed columns. */
-    public List<String> columns() {
-        return columns;
+    /** Returns id of the described object. */
+    public int id() {
+        return id;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasColumn(String columnName) {
-        return columns.contains(columnName);
+    /** Returns name of the described object. */
+    public String name() {
+        return name;
+    }
+
+    /** Return schema-object type. */
+    public Type type() {
+        return type;
     }
 
     /** {@inheritDoc} */
@@ -61,6 +57,12 @@ public class HashIndexDescriptor extends IndexDescriptor {
     public String toString() {
         return S.toString(this);
     }
+
+    /** Catalog object type. */
+    enum Type {
+        SCHEMA,
+        TABLE,
+        INDEX,
+        ZONE
+    }
 }
-
-

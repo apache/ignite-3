@@ -34,8 +34,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
-import org.apache.ignite.internal.storage.index.IndexDescriptor.ColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 
 /**
  * Helper class for index inlining.
@@ -97,15 +97,15 @@ public class InlineUtils {
      * @param indexDescriptor Index descriptor.
      * @return Inline size in bytes, no more than {@link #MAX_BINARY_TUPLE_INLINE_SIZE}.
      */
-    static int binaryTupleInlineSize(IndexDescriptor indexDescriptor) {
-        List<? extends ColumnDescriptor> columns = indexDescriptor.columns();
+    static int binaryTupleInlineSize(StorageIndexDescriptor indexDescriptor) {
+        List<? extends StorageColumnDescriptor> columns = indexDescriptor.columns();
 
         assert !columns.isEmpty();
 
-        boolean hasNullColumns = columns.stream().anyMatch(ColumnDescriptor::nullable);
+        boolean hasNullColumns = columns.stream().anyMatch(StorageColumnDescriptor::nullable);
 
         // Let's calculate the inline size for all columns.
-        int columnsInlineSize = columns.stream().map(ColumnDescriptor::type).mapToInt(InlineUtils::inlineSize).sum();
+        int columnsInlineSize = columns.stream().map(StorageColumnDescriptor::type).mapToInt(InlineUtils::inlineSize).sum();
 
         int inlineSize = BinaryTupleCommon.HEADER_SIZE
                 + (hasNullColumns ? BinaryTupleCommon.nullMapSize(columns.size()) : 0)
@@ -123,7 +123,7 @@ public class InlineUtils {
      * @param indexDescriptor Index descriptor.
      * @return Inline size in bytes, no more than {@link #MAX_BINARY_TUPLE_INLINE_SIZE}.
      */
-    public static int binaryTupleInlineSize(int pageSize, int itemHeaderSize, IndexDescriptor indexDescriptor) {
+    public static int binaryTupleInlineSize(int pageSize, int itemHeaderSize, StorageIndexDescriptor indexDescriptor) {
         int maxInnerNodeItemSize = ((innerNodePayloadSize(pageSize) - CHILD_LINK_SIZE) / MIN_INNER_PAGE_ITEM_COUNT) - CHILD_LINK_SIZE;
 
         int binaryTupleInlineSize = Math.min(maxInnerNodeItemSize - itemHeaderSize, binaryTupleInlineSize(indexDescriptor));

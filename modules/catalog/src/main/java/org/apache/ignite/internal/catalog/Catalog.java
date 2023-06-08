@@ -24,10 +24,10 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.DistributionZoneDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.ObjectDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -38,13 +38,13 @@ public class Catalog {
     private final int version;
     private final int objectIdGen;
     private final long activationTimestamp;
-    private final Map<String, SchemaDescriptor> schemas;
+    private final Map<String, CatalogSchemaDescriptor> schemas;
     private final Map<String, DistributionZoneDescriptor> zones;
 
     @IgniteToStringExclude
-    private final Map<Integer, TableDescriptor> tablesMap;
+    private final Map<Integer, CatalogTableDescriptor> tablesMap;
     @IgniteToStringExclude
-    private final Map<Integer, IndexDescriptor> indexesMap;
+    private final Map<Integer, CatalogIndexDescriptor> indexesMap;
     @IgniteToStringExclude
     private final Map<Integer, DistributionZoneDescriptor> zonesMap;
 
@@ -63,7 +63,7 @@ public class Catalog {
             long activationTimestamp,
             int objectIdGen,
             Collection<DistributionZoneDescriptor> zones,
-            SchemaDescriptor... schemas
+            CatalogSchemaDescriptor... schemas
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
@@ -74,13 +74,13 @@ public class Catalog {
         assert schemas.length > 0 : "No schemas found";
         assert Arrays.stream(schemas).allMatch(t -> t.version() == version) : "Invalid schema version";
 
-        this.schemas = Arrays.stream(schemas).collect(Collectors.toUnmodifiableMap(SchemaDescriptor::name, t -> t));
+        this.schemas = Arrays.stream(schemas).collect(Collectors.toUnmodifiableMap(CatalogSchemaDescriptor::name, t -> t));
         this.zones = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::name, t -> t));
 
         tablesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.tables()))
-                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
+                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::id, Function.identity()));
         indexesMap = Arrays.stream(schemas).flatMap(s -> Arrays.stream(s.indexes()))
-                .collect(Collectors.toUnmodifiableMap(ObjectDescriptor::id, Function.identity()));
+                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::id, Function.identity()));
         zonesMap = zones.stream().collect(Collectors.toUnmodifiableMap(DistributionZoneDescriptor::id, t -> t));
     }
 
@@ -96,7 +96,7 @@ public class Catalog {
         return objectIdGen;
     }
 
-    public SchemaDescriptor schema(String name) {
+    public CatalogSchemaDescriptor schema(String name) {
         return schemas.get(name);
     }
 
@@ -104,11 +104,11 @@ public class Catalog {
         return schemas.values();
     }
 
-    public TableDescriptor table(int tableId) {
+    public CatalogTableDescriptor table(int tableId) {
         return tablesMap.get(tableId);
     }
 
-    public IndexDescriptor index(int indexId) {
+    public CatalogIndexDescriptor index(int indexId) {
         return indexesMap.get(indexId);
     }
 
