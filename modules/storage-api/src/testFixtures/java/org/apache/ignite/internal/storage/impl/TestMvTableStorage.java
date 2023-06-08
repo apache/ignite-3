@@ -192,11 +192,6 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
-    }
-
-    @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
     }

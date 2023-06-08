@@ -43,6 +43,6 @@ public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
 
         var storage = new TestMvTableStorage(tableConfig, tablesConfig, distributionZoneConfiguration);
 
-        initialize(storage, tablesConfig);
+        initialize(storage, tableConfig, tablesConfig);
     }
 }

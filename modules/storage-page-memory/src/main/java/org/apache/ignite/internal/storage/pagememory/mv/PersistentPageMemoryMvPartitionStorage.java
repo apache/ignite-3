@@ -131,7 +131,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 dataRegion.pageMemory(),
-                tableStorage.configuration().value().id(),
+                tableStorage.getTableDescriptor().getId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -395,7 +395,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
-                tableStorage.configuration().id().value(),
+                tableStorage.getTableDescriptor().getId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );

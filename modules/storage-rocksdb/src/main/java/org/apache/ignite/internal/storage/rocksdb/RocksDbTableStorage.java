@@ -209,11 +209,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
-    }
-
-    @Override
     public TablesConfiguration tablesConfiguration() {
         return tablesCfg;
     }
@@ -357,7 +352,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                         LOG.error(
                                 "Filed to refresh persisted applied index value for table {} partition {}",
                                 storageException,
-                                configuration().name().value(),
+                                getTableDescriptor().getId(),
                                 partitionId
                         );
                     }

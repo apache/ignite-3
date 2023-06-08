@@ -82,11 +82,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
-    }
-
-    @Override
     public DistributionZoneConfiguration distributionZoneConfiguration() {
         return distributionZoneConfiguration;
     }
