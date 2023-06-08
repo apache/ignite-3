@@ -221,7 +221,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 CompletableFuture.completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
-                mock(IndexBuilder.class)
+                mock(IndexBuilder.class),
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -248,7 +249,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                 .groupId(PARTITION_ID)
-                .term(1L)
+                .enlistmentConsistencyToken(1L)
                 .commitPartitionId(PARTITION_ID)
                 .transactionId(TRANSACTION_ID)
                 .binaryRow(testBinaryRow)
@@ -294,7 +295,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                 .groupId(PARTITION_ID)
-                .term(1L)
+                .enlistmentConsistencyToken(1L)
                 .commitPartitionId(PARTITION_ID)
                 .transactionId(TRANSACTION_ID)
                 .binaryRows(rows)

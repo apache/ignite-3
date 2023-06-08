@@ -194,7 +194,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
-                CLOCK
+                CLOCK,
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
@@ -313,7 +314,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
-                mock(IndexBuilder.class)
+                mock(IndexBuilder.class),
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
         );
 
         partitionListener = new PartitionListener(

@@ -384,7 +384,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient() ? clientClock : clocks.get(localNodeName)
+                startClient() ? clientClock : clocks.get(localNodeName),
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -397,7 +398,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient() ? clientClock : clocks.get(localNodeName)
+                startClient() ? clientClock : clocks.get(localNodeName),
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");
@@ -525,7 +527,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 completedFuture(schemaManager),
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
-                                                mock(IndexBuilder.class)
+                                                mock(IndexBuilder.class),
+                                                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
                                         ),
                                         raftSvc,
                                         storageIndexTracker

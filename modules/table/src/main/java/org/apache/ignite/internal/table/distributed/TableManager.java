@@ -243,7 +243,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final DataStorageManager dataStorageMgr;
 
     /** Placement driver. */
-    private final PlacementDriver placementDriver;
+    private final PlacementDriver txnStateResolver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<UUID, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -327,6 +327,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final IndexBuilder indexBuilder;
 
+    private final org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver;
+
     /**
      * Creates a new table manager.
      *
@@ -369,7 +371,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             ClusterManagementGroupManager cmgMgr,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver
     ) {
         this.tablesCfg = tablesCfg;
         this.distributionZonesConfiguration = distributionZonesConfiguration;
@@ -390,10 +393,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
+        this.placementDriver = placementDriver;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
-        placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
+        txnStateResolver = new PlacementDriver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -670,7 +674,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
 
-                placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
+                txnStateResolver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
                         new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
@@ -832,13 +836,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             clock,
                                                             safeTimeTracker,
                                                             txStateStorage,
-                                                            placementDriver,
+                                                            txnStateResolver,
                                                             partitionUpdateHandlers.storageUpdateHandler,
                                                             new NonHistoricSchemas(schemaManager),
                                                             schemaManager.schemaRegistry(causalityToken, tblId),
                                                             localNode(),
                                                             table.internalTable().storage(),
-                                                            indexBuilder
+                                                            indexBuilder,
+                                                            placementDriver
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -1102,10 +1107,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg, distributionZoneConfiguration);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg, distributionZoneConfiguration);
 
-        InternalTableImpl internalTable = new InternalTableImpl(name, tblId,
+        InternalTableImpl internalTable = new InternalTableImpl(
+                name,
+                tblId,
                 new Int2ObjectOpenHashMap<>(distributionZoneConfiguration.partitions().value()),
-                distributionZoneConfiguration.partitions().value(), clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock);
+                distributionZoneConfiguration.partitions().value(),
+                clusterNodeResolver,
+                txManager,
+                tableStorage,
+                txStateStorage,
+                replicaSvc,
+                clock,
+                placementDriver
+        );
 
         var table = new TableImpl(internalTable, lockMgr);
 
@@ -2004,7 +2018,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
 
-        placementDriver.updateAssignment(
+        txnStateResolver.updateAssignment(
                 replicaGrpId,
                 stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
         );
@@ -2108,13 +2122,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             clock,
                                             safeTimeTracker,
                                             txStatePartitionStorage,
-                                            placementDriver,
+                                            txnStateResolver,
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             new NonHistoricSchemas(schemaManager),
                                             completedFuture(schemaManager.schemaRegistry(tblId)),
                                             localNode(),
                                             internalTable.storage(),
-                                            indexBuilder
+                                            indexBuilder,
+                                            placementDriver
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                     storageIndexTracker

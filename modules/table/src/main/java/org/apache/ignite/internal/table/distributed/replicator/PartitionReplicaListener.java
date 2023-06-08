@@ -190,8 +190,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Safe time. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
+    // TODO: sanpwc Rework: rename or merge old PlacementDriver.
     /** Placement Driver. */
-    private final PlacementDriver placementDriver;
+    private final PlacementDriver txnStateResolver;
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
@@ -228,6 +229,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Placement driver. */
+    private final org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver;
+
     /**
      * The constructor.
      *
@@ -243,12 +247,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param hybridClock Hybrid clock.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
-     * @param placementDriver Placement driver.
+     * @param txnStateResolver Placement driver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param schemaFut Table schema.
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
      * @param indexBuilder Index builder.
+     * @param placementDriver Placement driver.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -264,13 +269,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
-            PlacementDriver placementDriver,
+            PlacementDriver txnStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             CompletableFuture<SchemaRegistry> schemaFut,
             ClusterNode localNode,
             MvTableStorage mvTableStorage,
-            IndexBuilder indexBuilder
+            IndexBuilder indexBuilder,
+            org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -283,12 +289,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.hybridClock = hybridClock;
         this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
-        this.placementDriver = placementDriver;
+        this.txnStateResolver = txnStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.schemaFut = schemaFut;
         this.localNode = localNode;
         this.mvTableStorage = mvTableStorage;
         this.indexBuilder = indexBuilder;
+        this.placementDriver = placementDriver;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -2101,33 +2108,33 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not null only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        Long expectedTerm;
+        Long expectedEnlistmentConsistencyToken;
 
         if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
+            expectedEnlistmentConsistencyToken = ((ReadWriteReplicaRequest) request).enlistmentConsistencyToken();
 
-            assert expectedTerm != null;
+            assert expectedEnlistmentConsistencyToken != null;
         } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
+            expectedEnlistmentConsistencyToken = ((TxFinishReplicaRequest) request).enlistmentConsistencyToken();
 
-            assert expectedTerm != null;
+            assert expectedEnlistmentConsistencyToken != null;
         } else if (request instanceof TxCleanupReplicaRequest) {
-            expectedTerm = ((TxCleanupReplicaRequest) request).term();
+            expectedEnlistmentConsistencyToken = ((TxCleanupReplicaRequest) request).enlistmentConsistencyToken();
 
-            assert expectedTerm != null;
+            assert expectedEnlistmentConsistencyToken != null;
         } else {
-            expectedTerm = null;
+            expectedEnlistmentConsistencyToken = null;
         }
 
-        if (expectedTerm != null) {
+        if (expectedEnlistmentConsistencyToken != null) {
             return raftClient.refreshAndGetLeaderWithTerm()
                     .thenCompose(replicaAndTerm -> {
                                 long currentTerm = replicaAndTerm.term();
 
-                                if (expectedTerm == currentTerm) {
+                                if (expectedEnlistmentConsistencyToken == currentTerm) {
                                     return completedFuture(null);
                                 } else {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+                                    return failedFuture(new PrimaryReplicaMissException(expectedEnlistmentConsistencyToken, currentTerm));
                                 }
                             }
                     );
@@ -2277,7 +2284,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         requireNonNull(timestamp, "timestamp");
 
-        return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
+        return txnStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
                         .readTimestampLong(timestamp.longValue())
                         .txId(txId)
