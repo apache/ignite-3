@@ -106,11 +106,13 @@ internal static class DataStreamer
             try
             {
                 var columnCount = schema.Columns.Count;
-                Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
 
-                // TODO: ???
-                Span<byte> noValueSetUnsafeRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
-                writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetUnsafeRef);
+                // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
+                // because it may expose referenced variables outside of their declaration scope".
+                Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
+                Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
+
+                writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
 
                 var hash = tupleBuilder.Hash;
                 var partition = partitionAssignment == null
