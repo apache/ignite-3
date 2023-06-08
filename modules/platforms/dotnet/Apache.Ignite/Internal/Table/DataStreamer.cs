@@ -73,11 +73,10 @@ internal static class DataStreamer
 
                 if (batch.Count >= options.BatchSize)
                 {
-                    // TODO: Allow adding items to another buffer while sending previous.
                     await SendAsync(batch, partition).ConfigureAwait(false);
 
                     batch.Count = 0;
-                    batch.Buffer.Clear();
+                    batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAsync.
 
                     schema = await schemaProvider().ConfigureAwait(false);
                     partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
@@ -89,6 +88,7 @@ internal static class DataStreamer
                 if (batch.Count > 0)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
+                    await batch.Task.ConfigureAwait(false);
                 }
             }
         }
@@ -149,17 +149,17 @@ internal static class DataStreamer
                 return batch;
             }
 
-            var buf = ProtoCommon.GetMessageWriter();
+            batch = new Batch();
+            var buf = batch.Buffer;
 
             var w = buf.MessageWriter;
             w.Write(schema.TableId);
             w.WriteTx(null);
             w.Write(schema.Version);
 
-            var countPos = buf.Position;
+            batch.CountPos = buf.Position;
             buf.Advance(5); // Reserve count.
 
-            batch = new Batch(buf, countPos);
             batches.Add(partition, batch);
 
             return batch;
@@ -171,12 +171,30 @@ internal static class DataStreamer
             buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
             buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-            await sender(buf, partition).ConfigureAwait(false);
+            var oldTask = batch.Task;
+            batch.Task = SendAndDisposeBufAsync(buf, partition);
+
+            // Wait for the previous batch for this node.
+            await oldTask.ConfigureAwait(false);
+        }
+
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition)
+        {
+            using (buf)
+            {
+                await sender(buf, partition).ConfigureAwait(false);
+            }
         }
     }
 
-    private sealed record Batch(PooledArrayBuffer Buffer, int CountPos)
+    private sealed record Batch
     {
+        public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
+
         public int Count { get; set; }
+
+        public int CountPos { get; set; }
+
+        public Task Task { get; set; } = Task.CompletedTask; // Task for the previous buffer.
     }
 }
