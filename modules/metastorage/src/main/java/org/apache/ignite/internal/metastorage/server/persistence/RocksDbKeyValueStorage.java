@@ -117,7 +117,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
     /** Revision key. */
-    protected static final byte[] REVISION_KEY = keyToRocksKey(
+    private static final byte[] REVISION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
             "SYSTEM_REVISION_KEY".getBytes(StandardCharsets.UTF_8)
     );
