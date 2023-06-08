@@ -32,34 +32,18 @@ public class CacheKey {
 
     private final String query;
 
-    private final Object contextKey;
-
     private final Class[] paramTypes;
 
     /**
      * Constructor.
-     *
-     * @param schemaName Schema name.
+     *  @param schemaName Schema name.
      * @param query      Query string.
-     * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
-     *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(String schemaName, String query, Object contextKey, Class[] paramTypes) {
+    public CacheKey(String schemaName, String query, Class[] paramTypes) {
         this.schemaName = schemaName;
         this.query = query;
-        this.contextKey = contextKey;
         this.paramTypes = paramTypes;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param schemaName Schema name.
-     * @param query      Query string.
-     */
-    public CacheKey(String schemaName, String query) {
-        this(schemaName, query, null, EMPTY_CLASS_ARRAY);
     }
 
     /** {@inheritDoc} */
@@ -80,9 +64,6 @@ public class CacheKey {
         if (!query.equals(cacheKey.query)) {
             return false;
         }
-        if (!Objects.equals(contextKey, cacheKey.contextKey)) {
-            return false;
-        }
 
         return Arrays.deepEquals(paramTypes, cacheKey.paramTypes);
     }
@@ -91,7 +72,6 @@ public class CacheKey {
     public int hashCode() {
         int result = schemaName.hashCode();
         result = 31 * result + query.hashCode();
-        result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
         result = 31 * result + Arrays.deepHashCode(paramTypes);
         return result;
     }

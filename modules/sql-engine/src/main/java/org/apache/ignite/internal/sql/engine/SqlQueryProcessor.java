@@ -49,6 +49,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -91,6 +92,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.ParseResult;
 import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext.Builder;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -432,7 +434,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    var cacheKey = new CacheKey(schemaName, sql, null, paramTypes);
+                    Builder ctxBuilder = BaseQueryContext.builder()
+                            .logger(LOG)
+                            .cancel(queryCancel)
+                            .parameters(params)
+                            .plannerTimeout(PLANNER_TIMEOUT);
+
+                    var cacheKey = new CacheKey(schemaName, sql, paramTypes);
 
                     AtomicReference<CompletableFuture<Pair<QueryPlan, BaseQueryContext>>> planWithCtxFutRef = new AtomicReference<>();
 
@@ -446,23 +454,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                         tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
 
-                        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
-
-                        if (schema == null) {
-                            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
-                        }
-
-                        BaseQueryContext ctx = BaseQueryContext.builder()
-                                .frameworkConfig(
-                                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                .defaultSchema(schema)
-                                                .build()
-                                )
-                                .logger(LOG)
-                                .cancel(queryCancel)
-                                .parameters(params)
-                                .plannerTimeout(PLANNER_TIMEOUT)
-                                .build();
+                        BaseQueryContext ctx = ctxBuilder.frameworkConfig(buildConfig(schemaName)).build();
 
                         SqlQueryType queryType = Commons.getQueryType(sqlNode);
 
@@ -479,29 +471,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                         assert planFut != null;
 
                         resFut = planFut.thenApply(plan -> {
-                            boolean rwOp = DML == plan.type();
+                            tx.set(implicitTxRequired ? txManager.begin(plan.type() != DML) : outerTx);
 
-                            tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
-
-                            SchemaPlus schema = sqlSchemaManager.schema(schemaName);
-
-                            if (schema == null) {
-                                throw new SchemaNotFoundException(schemaName);
-                            }
-
-                            BaseQueryContext ctx = BaseQueryContext.builder()
-                                    .frameworkConfig(
-                                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                    .defaultSchema(schema)
-                                                    .build()
-                                    )
-                                    .logger(LOG)
-                                    .cancel(queryCancel)
-                                    .parameters(params)
-                                    .plannerTimeout(PLANNER_TIMEOUT)
-                                    .build();
-
-                            return new Pair<>(plan, ctx);
+                            return new Pair<>(plan, ctxBuilder.frameworkConfig(buildConfig(schemaName)).build());
                         });
                     }
 
@@ -552,6 +524,18 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    private FrameworkConfig buildConfig(String schemaName) {
+        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+
+        if (schema == null) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+
+        return Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                .defaultSchema(schema)
+                .build();
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
