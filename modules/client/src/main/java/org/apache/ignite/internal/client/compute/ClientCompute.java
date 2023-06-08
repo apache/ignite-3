@@ -169,7 +169,7 @@ public class ClientCompute implements IgniteCompute {
 
             w.out().packString(jobClassName);
             w.out().packObjectArrayAsBinaryTuple(args);
-        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null);
+        }, r -> (R) r.in().unpackObjectFromBinaryTuple(), node.name(), null, null);
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
