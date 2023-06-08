@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Buffers;
