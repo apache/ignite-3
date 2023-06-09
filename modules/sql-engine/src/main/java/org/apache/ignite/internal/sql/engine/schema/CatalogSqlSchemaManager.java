@@ -78,7 +78,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         String schemaName = name == null ? CatalogService.PUBLIC : name;
 
         Entry<String, Integer> entry = Map.entry(schemaName, version);
-        return cache.computeIfAbsent(entry, (e) -> createSqlSchema(catalogManager.schema(e.getKey(), e.getValue())));
+        return cache.computeIfAbsent(entry, (e) -> createSqlSchema(e.getValue(), catalogManager.schema(e.getKey(), e.getValue())));
     }
 
     /** {@inheritDoc} */
@@ -98,13 +98,16 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     @Override
     public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
         String schemaName = name == null ? CatalogService.PUBLIC : name;
-        CatalogSchemaDescriptor descriptor = catalogManager.activeSchema(schemaName, timestamp);
 
-        Entry<String, Integer> entry = Map.entry(schemaName, descriptor.version());
-        return cache.computeIfAbsent(entry, (v) -> createSqlSchema(descriptor));
+        int version = catalogManager.activeCatalogVersion(timestamp);
+
+        CatalogSchemaDescriptor descriptor = catalogManager.schema(schemaName, version);
+
+        Entry<String, Integer> entry = Map.entry(schemaName, version);
+        return cache.computeIfAbsent(entry, (v) -> createSqlSchema(v.getValue(), descriptor));
     }
 
-    private SchemaPlus createSqlSchema(CatalogSchemaDescriptor descriptor) {
+    private SchemaPlus createSqlSchema(int version, CatalogSchemaDescriptor descriptor) {
         String schemaName = descriptor.name();
 
         int numTables = descriptor.tables().length;
@@ -145,7 +148,6 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         }
 
         // Assemble tables.
-        int version = descriptor.version();
         for (CatalogTableDescriptor tableDescriptor : descriptor.tables()) {
             int tableId = tableDescriptor.id();
             String tableName = tableDescriptor.name();
@@ -162,7 +164,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
         // create root schema
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
-        IgniteCatalogSchema igniteSchema = new IgniteCatalogSchema(schemaName, descriptor.version(), schemaTables);
+        IgniteCatalogSchema igniteSchema = new IgniteCatalogSchema(schemaName, version, schemaTables);
         return rootSchema.add(schemaName, igniteSchema);
     }
 

@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -57,11 +58,13 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfiguration);
+        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
+
+        tableStorage = engine.createMvTable(tableConfig, tablesConfig, distributionZoneConfiguration);
 
         tableStorage.start();
 
-        initialize(tableStorage, tablesConfig);
+        initialize(tableStorage, tableConfig, tablesConfig);
     }
 
     @AfterEach

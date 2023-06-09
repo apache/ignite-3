@@ -64,8 +64,7 @@ public class RocksDbStorageEngineTest {
 
     @Test
     void testCreateTableWithDefaultDataRegion(
-            @InjectConfiguration(
-                    value = "mock.tables.foo {}")
+            @InjectConfiguration("mock.tables.foo {}")
             TablesConfiguration tablesConfig,
             @InjectConfiguration("mock { dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME + " }")
             DistributionZoneConfiguration distributionZoneConfiguration
@@ -77,7 +76,7 @@ public class RocksDbStorageEngineTest {
 
         try {
             RocksDbDataStorageConfiguration dataStorageConfig =
-                    (RocksDbDataStorageConfiguration) table.distributionZoneConfiguration().dataStorage();
+                    (RocksDbDataStorageConfiguration) distributionZoneConfiguration.dataStorage();
 
             assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
 
@@ -108,7 +107,7 @@ public class RocksDbStorageEngineTest {
 
         try {
             RocksDbDataStorageConfiguration dataStorageConfig =
-                    (RocksDbDataStorageConfiguration) table.distributionZoneConfiguration().dataStorage();
+                    (RocksDbDataStorageConfiguration) distributionZoneConfiguration.dataStorage();
 
             assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
 

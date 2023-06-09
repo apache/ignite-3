@@ -28,13 +28,19 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -113,6 +119,34 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropIndex(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
                             .handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class))
+                    );
+        } else if (cmd instanceof CreateZoneCommand) {
+            CreateZoneCommand zoneCommand = (CreateZoneCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.createDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                            .handle(handleModificationResult(zoneCommand.ifNotExists(), DistributionZoneAlreadyExistsException.class))
+                    );
+        } else if (cmd instanceof DropZoneCommand) {
+            DropZoneCommand zoneCommand = (DropZoneCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.dropDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                            .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterZoneRenameCommand) {
+            AlterZoneRenameCommand zoneCommand = (AlterZoneRenameCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.renameDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                            .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterZoneSetCommand) {
+            AlterZoneSetCommand zoneCommand = (AlterZoneSetCommand) cmd;
+
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.alterDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                            .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
                     );
         }
 

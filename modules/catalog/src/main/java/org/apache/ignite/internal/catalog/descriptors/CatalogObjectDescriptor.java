@@ -62,6 +62,7 @@ public abstract class CatalogObjectDescriptor implements Serializable {
     enum Type {
         SCHEMA,
         TABLE,
-        INDEX
+        INDEX,
+        ZONE
     }
 }

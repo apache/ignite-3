@@ -49,33 +49,42 @@ import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -84,6 +93,8 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -122,6 +133,8 @@ public class CatalogServiceSelfTest {
 
     private CatalogServiceImpl service;
 
+    private HybridClock clock;
+
     @BeforeEach
     void setUp() throws NodeStoppingException {
         vault = new VaultManager(new InMemoryVaultService());
@@ -130,7 +143,8 @@ public class CatalogServiceSelfTest {
                 vault, new SimpleInMemoryKeyValueStorage("test")
         );
 
-        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, vault));
+        clock = new HybridClockImpl();
+        service = new CatalogServiceImpl(new UpdateLogImpl(metastore, vault), clock, 0L);
 
         vault.start();
         metastore.start();
@@ -148,22 +162,32 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testEmptyCatalog() {
-        assertNotNull(service.activeSchema(System.currentTimeMillis()));
+        assertNotNull(service.activeSchema(clock.nowLong()));
         assertNotNull(service.schema(0));
 
         assertNull(service.schema(1));
         assertThrows(IllegalStateException.class, () -> service.activeSchema(-1L));
 
-        assertNull(service.table(0, System.currentTimeMillis()));
-        assertNull(service.index(0, System.currentTimeMillis()));
+        assertNull(service.table(0, clock.nowLong()));
+        assertNull(service.index(0, clock.nowLong()));
 
         CatalogSchemaDescriptor schema = service.schema(0);
         assertEquals(SCHEMA_NAME, schema.name());
 
         assertEquals(0, schema.id());
-        assertEquals(0, schema.version());
         assertEquals(0, schema.tables().length);
         assertEquals(0, schema.indexes().length);
+
+        CatalogZoneDescriptor zone = service.zone(1, clock.nowLong());
+        assertEquals(CatalogService.DEFAULT_ZONE_NAME, zone.name());
+
+        assertEquals(1, zone.id());
+        assertEquals(CreateZoneParams.DEFAULT_PARTITION_COUNT, zone.partitions());
+        assertEquals(CreateZoneParams.DEFAULT_REPLICA_COUNT, zone.replicas());
+        assertEquals(CreateZoneParams.DEFAULT_FILTER, zone.filter());
+        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
+        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
@@ -191,7 +215,6 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(0, schema.version());
         assertSame(schema, service.activeSchema(0L));
         assertSame(schema, service.activeSchema(123L));
 
@@ -205,16 +228,15 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(1, schema.version());
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertSame(schema, service.activeSchema(clock.nowLong()));
 
-        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, clock.nowLong()));
+        assertSame(schema.table(TABLE_NAME), service.table(2, clock.nowLong()));
 
         // Validate newly created table
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
 
-        assertEquals(1L, table.id());
+        assertEquals(2L, table.id());
         assertEquals(TABLE_NAME, table.name());
         assertEquals(0L, table.engineId());
         assertEquals(0L, table.zoneId());
@@ -228,14 +250,13 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(2, schema.version());
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertSame(schema, service.activeSchema(clock.nowLong()));
 
-        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME), service.table(1, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, clock.nowLong()));
+        assertSame(schema.table(TABLE_NAME), service.table(2, clock.nowLong()));
 
-        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, clock.nowLong()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(3, clock.nowLong()));
 
         assertNotSame(schema.table(TABLE_NAME), schema.table(TABLE_NAME_2));
 
@@ -243,7 +264,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willThrowFast(TableAlreadyExistsException.class));
 
         // Validate schema wasn't changed.
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertSame(schema, service.activeSchema(clock.nowLong()));
     }
 
     @Test
@@ -265,13 +286,11 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropTable() throws InterruptedException {
+    public void testDropTable() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
 
-        long beforeDropTimestamp = System.currentTimeMillis();
-
-        Thread.sleep(5);
+        long beforeDropTimestamp = clock.nowLong();
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build();
 
@@ -283,14 +302,13 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME), service.table(1, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME), service.table(2, beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME_2), service.table(2, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME_2), service.table(3, beforeDropTimestamp));
 
         // Validate actual catalog
         schema = service.schema(3);
@@ -298,25 +316,24 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(SCHEMA_NAME, schema.name());
-        assertEquals(3, schema.version());
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertSame(schema, service.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
-        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertNull(service.table(1, System.currentTimeMillis()));
+        assertNull(service.table(TABLE_NAME, clock.nowLong()));
+        assertNull(service.table(2, clock.nowLong()));
 
-        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, System.currentTimeMillis()));
-        assertSame(schema.table(TABLE_NAME_2), service.table(2, System.currentTimeMillis()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(TABLE_NAME_2, clock.nowLong()));
+        assertSame(schema.table(TABLE_NAME_2), service.table(3, clock.nowLong()));
 
         // Try to drop table once again.
         assertThat(service.dropTable(dropTableParams), willThrowFast(TableNotFoundException.class));
 
         // Validate schema wasn't changed.
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertSame(schema, service.activeSchema(clock.nowLong()));
     }
 
     @Test
-    public void testAddColumn() throws InterruptedException {
+    public void testAddColumn() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
         AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
@@ -331,9 +348,7 @@ public class CatalogServiceSelfTest {
                 ))
                 .build();
 
-        long beforeAddedTimestamp = System.currentTimeMillis();
-
-        Thread.sleep(5);
+        long beforeAddedTimestamp = clock.nowLong();
 
         assertThat(service.addColumn(params), willBe((Object) null));
 
@@ -345,7 +360,7 @@ public class CatalogServiceSelfTest {
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
         // Validate actual catalog
-        schema = service.activeSchema(System.currentTimeMillis());
+        schema = service.activeSchema(clock.nowLong());
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
 
@@ -365,7 +380,7 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropColumn() throws InterruptedException {
+    public void testDropColumn() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
         // Validate dropping column
@@ -375,9 +390,7 @@ public class CatalogServiceSelfTest {
                 .columns(Set.of("VAL"))
                 .build();
 
-        long beforeAddedTimestamp = System.currentTimeMillis();
-
-        Thread.sleep(5);
+        long beforeAddedTimestamp = clock.nowLong();
 
         assertThat(service.dropColumn(params), willBe((Object) null));
 
@@ -389,7 +402,7 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
 
         // Validate actual catalog
-        schema = service.activeSchema(System.currentTimeMillis());
+        schema = service.activeSchema(clock.nowLong());
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
 
@@ -398,7 +411,7 @@ public class CatalogServiceSelfTest {
 
     @Test
     public void testCreateDropColumnIfTableNotExists() {
-        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
+        assertNull(service.table(TABLE_NAME, clock.nowLong()));
 
         // Try to add a new column.
         AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
@@ -443,10 +456,10 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(params), willThrow(SqlException.class));
 
         // Validate actual catalog
-        CatalogSchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
+        CatalogSchemaDescriptor schema = service.activeSchema(clock.nowLong());
         assertNotNull(schema);
         assertNotNull(schema.table(TABLE_NAME));
-        assertEquals(2, schema.version());
+        assertSame(service.schema(2), schema);
 
         assertNotNull(schema.table(TABLE_NAME).column("ID"));
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
@@ -469,7 +482,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.addColumn(addColumnParams), willThrow(ColumnAlreadyExistsException.class));
 
         // Validate no column added.
-        CatalogSchemaDescriptor schema = service.activeSchema(System.currentTimeMillis());
+        CatalogSchemaDescriptor schema = service.activeSchema(clock.nowLong());
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
@@ -486,7 +499,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.addColumn(addColumnParams), willBe((Object) null));
 
         // Validate both columns added.
-        schema = service.activeSchema(System.currentTimeMillis());
+        schema = service.activeSchema(clock.nowLong());
 
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
@@ -501,7 +514,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(dropColumnParams), willBe((Object) null));
 
         // Validate both columns dropped.
-        schema = service.activeSchema(System.currentTimeMillis());
+        schema = service.activeSchema(clock.nowLong());
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
@@ -516,7 +529,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
 
         // Validate no column dropped.
-        schema = service.activeSchema(System.currentTimeMillis());
+        schema = service.activeSchema(clock.nowLong());
 
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
     }
@@ -855,8 +868,8 @@ public class CatalogServiceSelfTest {
     }
 
     /**
-     * Ensures that the compound change command {@code SET DATA TYPE BIGINT NULL DEFAULT NULL}
-     * will change the type, drop NOT NULL and the default value at the same time.
+     * Ensures that the compound change command {@code SET DATA TYPE BIGINT NULL DEFAULT NULL} will change the type, drop NOT NULL and the
+     * default value at the same time.
      */
     @Test
     public void testAlterColumnMultipleChanges() {
@@ -906,7 +919,7 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testDropTableWithIndex() throws InterruptedException {
+    public void testDropTableWithIndex() {
         CreateHashIndexParams params = CreateHashIndexParams.builder()
                 .indexName(INDEX_NAME)
                 .tableName(TABLE_NAME)
@@ -916,9 +929,7 @@ public class CatalogServiceSelfTest {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createIndex(params), willBe((Object) null));
 
-        long beforeDropTimestamp = System.currentTimeMillis();
-
-        Thread.sleep(5);
+        long beforeDropTimestamp = clock.nowLong();
 
         DropTableParams dropTableParams = DropTableParams.builder().schemaName("PUBLIC").tableName(TABLE_NAME).build();
 
@@ -930,14 +941,13 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(CatalogService.PUBLIC, schema.name());
-        assertEquals(2, schema.version());
         assertSame(schema, service.activeSchema(beforeDropTimestamp));
 
         assertSame(schema.table(TABLE_NAME), service.table(TABLE_NAME, beforeDropTimestamp));
-        assertSame(schema.table(TABLE_NAME), service.table(1, beforeDropTimestamp));
+        assertSame(schema.table(TABLE_NAME), service.table(2, beforeDropTimestamp));
 
         assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, beforeDropTimestamp));
-        assertSame(schema.index(INDEX_NAME), service.index(2, beforeDropTimestamp));
+        assertSame(schema.index(INDEX_NAME), service.index(3, beforeDropTimestamp));
 
         // Validate actual catalog
         schema = service.schema(3);
@@ -945,16 +955,15 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertEquals(0, schema.id());
         assertEquals(CatalogService.PUBLIC, schema.name());
-        assertEquals(3, schema.version());
-        assertSame(schema, service.activeSchema(System.currentTimeMillis()));
+        assertSame(schema, service.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
-        assertNull(service.table(TABLE_NAME, System.currentTimeMillis()));
-        assertNull(service.table(1, System.currentTimeMillis()));
+        assertNull(service.table(TABLE_NAME, clock.nowLong()));
+        assertNull(service.table(2, clock.nowLong()));
 
         assertNull(schema.index(INDEX_NAME));
-        assertNull(service.index(INDEX_NAME, System.currentTimeMillis()));
-        assertNull(service.index(2, System.currentTimeMillis()));
+        assertNull(service.index(INDEX_NAME, clock.nowLong()));
+        assertNull(service.index(3, clock.nowLong()));
     }
 
     @Test
@@ -975,20 +984,20 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, 123L));
-        assertNull(service.index(2, 123L));
+        assertNull(service.index(3, 123L));
 
         // Validate actual catalog
         schema = service.schema(2);
 
         assertNotNull(schema);
-        assertNull(service.index(1, System.currentTimeMillis()));
-        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, System.currentTimeMillis()));
-        assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
+        assertNull(service.index(1, clock.nowLong()));
+        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, clock.nowLong()));
+        assertSame(schema.index(INDEX_NAME), service.index(3, clock.nowLong()));
 
         // Validate newly created hash index
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
 
-        assertEquals(2L, index.id());
+        assertEquals(3L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -1016,20 +1025,20 @@ public class CatalogServiceSelfTest {
         assertNotNull(schema);
         assertNull(schema.index(INDEX_NAME));
         assertNull(service.index(INDEX_NAME, 123L));
-        assertNull(service.index(2, 123L));
+        assertNull(service.index(3, 123L));
 
         // Validate actual catalog
         schema = service.schema(2);
 
         assertNotNull(schema);
-        assertNull(service.index(1, System.currentTimeMillis()));
-        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, System.currentTimeMillis()));
-        assertSame(schema.index(INDEX_NAME), service.index(2, System.currentTimeMillis()));
+        assertNull(service.index(1, clock.nowLong()));
+        assertSame(schema.index(INDEX_NAME), service.index(INDEX_NAME, clock.nowLong()));
+        assertSame(schema.index(INDEX_NAME), service.index(3, clock.nowLong()));
 
         // Validate newly created sorted index
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
 
-        assertEquals(2L, index.id());
+        assertEquals(3L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
@@ -1076,7 +1085,7 @@ public class CatalogServiceSelfTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock);
         service.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
@@ -1087,6 +1096,7 @@ public class CatalogServiceSelfTest {
 
             VersionedUpdate update = new VersionedUpdate(
                     updateFromInvocation.version(),
+                    updateFromInvocation.activationTimestamp(),
                     List.of(new ObjectIdGenUpdateEntry(1))
             );
 
@@ -1100,14 +1110,61 @@ public class CatalogServiceSelfTest {
         assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
 
         // retry limit is hardcoded at org.apache.ignite.internal.catalog.CatalogServiceImpl.MAX_RETRY_COUNT
-        Mockito.verify(updateLogMock, times(10)).append(any());
+        verify(updateLogMock, times(10)).append(any());
+    }
+
+    @Test
+    public void catalogActivationTime() throws Exception {
+        final int delayDuration = 3_000;
+
+        InMemoryVaultService vaultService = new InMemoryVaultService();
+        VaultManager vault = new VaultManager(vaultService);
+        StandaloneMetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vault);
+        UpdateLog updateLogMock = Mockito.spy(new UpdateLogImpl(metaStorageManager, vault));
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, clock, delayDuration);
+
+        vault.start();
+        metaStorageManager.start();
+        service.start();
+
+        metaStorageManager.deployWatches();
+
+        try {
+            CreateTableParams params = CreateTableParams.builder()
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(TABLE_NAME)
+                    .columns(List.of(
+                            ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                            ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                    ))
+                    .primaryKeyColumns(List.of("key"))
+                    .build();
+
+            CompletableFuture<Void> fut = service.createTable(params);
+
+            verify(updateLogMock).append(any());
+            // TODO IGNITE-19400: recheck future completion guarantees
+            assertThat(fut, willBe((Object) null));
+
+            assertSame(service.schema(0), service.activeSchema(clock.nowLong()));
+            assertNull(service.table(TABLE_NAME, clock.nowLong()));
+
+            clock.update(clock.now().addPhysicalTime(delayDuration));
+
+            assertSame(service.schema(1), service.activeSchema(clock.nowLong()));
+            assertNotNull(service.table(TABLE_NAME, clock.nowLong()));
+        } finally {
+            service.stop();
+            metaStorageManager.stop();
+            vault.stop();
+        }
     }
 
     @Test
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = Mockito.mock(UpdateLog.class);
 
-        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock);
+        CatalogServiceImpl service = new CatalogServiceImpl(updateLogMock, Mockito.mock(HybridClock.class));
 
         service.start();
 
@@ -1203,6 +1260,271 @@ public class CatalogServiceSelfTest {
         // Try drop index once again.
         assertThat(service.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
 
+        verifyNoMoreInteractions(eventListener);
+    }
+
+    @Test
+    public void testCreateZone() {
+        CreateZoneParams params = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
+                .build();
+
+        assertThat(service.createDistributionZone(params), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        assertNull(service.zone(ZONE_NAME, 0));
+        assertNull(service.zone(2, 0));
+        assertNull(service.zone(ZONE_NAME, 123L));
+        assertNull(service.zone(2, 123L));
+
+        // Validate actual catalog
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, clock.nowLong());
+
+        assertNotNull(zone);
+        assertSame(zone, service.zone(2, clock.nowLong()));
+
+        // Validate newly created zone
+        assertEquals(2L, zone.id());
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(42, zone.partitions());
+        assertEquals(15, zone.replicas());
+        assertEquals(73, zone.dataNodesAutoAdjust());
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals("expression", zone.filter());
+    }
+
+    @Test
+    public void testDropZone() {
+        CreateZoneParams createZoneParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        assertThat(service.createDistributionZone(createZoneParams), willBe((Object) null));
+
+        long beforeDropTimestamp = clock.nowLong();
+
+        DropZoneParams params = DropZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        CompletableFuture<Void> fut = service.dropDistributionZone(params);
+
+        assertThat(fut, willBe((Object) null));
+
+        // Validate catalog version from the past.
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
+
+        assertNotNull(zone);
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(2, zone.id());
+
+        assertSame(zone, service.zone(2, beforeDropTimestamp));
+
+        // Validate actual catalog
+        assertNull(service.zone(ZONE_NAME, clock.nowLong()));
+        assertNull(service.zone(2, clock.nowLong()));
+
+        // Try to drop non-existing zone.
+        assertThat(service.dropDistributionZone(params), willThrow(DistributionZoneNotFoundException.class));
+    }
+
+    @Test
+    public void testRenameZone() throws InterruptedException {
+        CreateZoneParams createParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+
+        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .newZoneName("RenamedZone")
+                .build();
+
+        assertThat(service.createDistributionZone(createParams), willBe((Object) null));
+
+        long beforeDropTimestamp = clock.nowLong();
+
+        Thread.sleep(5);
+
+        assertThat(service.renameDistributionZone(renameZoneParams), willBe((Object) null));
+
+        // Validate catalog version from the past.
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, beforeDropTimestamp);
+
+        assertNotNull(zone);
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(2, zone.id());
+
+        assertSame(zone, service.zone(2, beforeDropTimestamp));
+
+        // Validate actual catalog
+        zone = service.zone("RenamedZone", clock.nowLong());
+
+        assertNotNull(zone);
+        assertNull(service.zone(ZONE_NAME, clock.nowLong()));
+        assertEquals("RenamedZone", zone.name());
+        assertEquals(2, zone.id());
+
+        assertSame(zone, service.zone(2, clock.nowLong()));
+    }
+
+    @Test
+    public void testDefaultZone() {
+        CatalogZoneDescriptor defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong());
+
+        // Try to create zone with default zone name.
+        CreateZoneParams createParams = CreateZoneParams.builder()
+                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+        assertThat(service.createDistributionZone(createParams), willThrow(IgniteInternalException.class));
+
+        // Validate default zone wasn't changed.
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+
+        // Try to rename default zone.
+        RenameZoneParams renameZoneParams = RenameZoneParams.builder()
+                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .newZoneName("RenamedDefaultZone")
+                .build();
+        assertThat(service.renameDistributionZone(renameZoneParams), willThrow(IgniteInternalException.class));
+
+        // Validate default zone wasn't changed.
+        assertNull(service.zone("RenamedDefaultZone", clock.nowLong()));
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+
+        // Try to drop default zone.
+        DropZoneParams dropZoneParams = DropZoneParams.builder()
+                .zoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .build();
+        assertThat(service.dropDistributionZone(dropZoneParams), willThrow(IgniteInternalException.class));
+
+        // Validate default zone wasn't changed.
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+
+        // Try to rename to a zone with default name.
+        createParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+        renameZoneParams = RenameZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .newZoneName(CatalogService.DEFAULT_ZONE_NAME)
+                .build();
+
+        assertThat(service.createDistributionZone(createParams), willBe((Object) null));
+        defaultZone = service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong());
+
+        assertThat(service.renameDistributionZone(renameZoneParams), willThrow(DistributionZoneAlreadyExistsException.class));
+
+        // Validate default zone wasn't changed.
+        assertSame(defaultZone, service.zone(CatalogService.DEFAULT_ZONE_NAME, clock.nowLong()));
+    }
+
+    @Test
+    public void testAlterZone() {
+        CreateZoneParams createParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
+                .build();
+
+        AlterZoneParams alterZoneParams = AlterZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(10)
+                .replicas(2)
+                .dataNodesAutoAdjustScaleUp(3)
+                .dataNodesAutoAdjustScaleDown(4)
+                .filter("newExpression")
+                .build();
+
+        assertThat(service.createDistributionZone(createParams), willBe((Object) null));
+        assertThat(service.alterDistributionZone(alterZoneParams), willBe((Object) null));
+
+        // Validate actual catalog
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, clock.nowLong());
+        assertNotNull(zone);
+        assertSame(zone, service.zone(2, clock.nowLong()));
+
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(2, zone.id());
+        assertEquals(10, zone.partitions());
+        assertEquals(2, zone.replicas());
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust());
+        assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals("newExpression", zone.filter());
+    }
+
+    @Test
+    public void testCreateZoneWithSameName() {
+        CreateZoneParams params = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(42)
+                .replicas(15)
+                .build();
+
+        assertThat(service.createDistributionZone(params), willBe((Object) null));
+
+        // Try to create zone with same name.
+        params = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .partitions(8)
+                .replicas(1)
+                .build();
+
+        assertThat(service.createDistributionZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
+
+        // Validate zone was NOT changed
+        CatalogZoneDescriptor zone = service.zone(ZONE_NAME, clock.nowLong());
+
+        assertNotNull(zone);
+        assertSame(zone, service.zone(2, clock.nowLong()));
+        assertNull(service.zone(3, clock.nowLong()));
+
+        assertEquals(2L, zone.id());
+        assertEquals(ZONE_NAME, zone.name());
+        assertEquals(42, zone.partitions());
+        assertEquals(15, zone.replicas());
+    }
+
+    @Test
+    public void testCreateZoneEvents() {
+        CreateZoneParams createZoneParams = CreateZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        DropZoneParams dropZoneParams = DropZoneParams.builder()
+                .zoneName(ZONE_NAME)
+                .build();
+
+        EventListener<CatalogEventParameters> eventListener = Mockito.mock(EventListener.class);
+        when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
+
+        service.listen(CatalogEvent.ZONE_CREATE, eventListener);
+        service.listen(CatalogEvent.ZONE_DROP, eventListener);
+
+        CompletableFuture<Void> fut = service.createDistributionZone(createZoneParams);
+
+        assertThat(fut, willBe((Object) null));
+
+        verify(eventListener).notify(any(CreateZoneEventParameters.class), ArgumentMatchers.isNull());
+
+        fut = service.dropDistributionZone(dropZoneParams);
+
+        assertThat(fut, willBe((Object) null));
+
+        verify(eventListener).notify(any(DropZoneEventParameters.class), ArgumentMatchers.isNull());
         verifyNoMoreInteractions(eventListener);
     }
 
