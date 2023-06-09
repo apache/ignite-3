@@ -17,16 +17,23 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -47,45 +54,32 @@ import org.junit.jupiter.api.Test;
 /**
  * There are tests which check a table managment contract.
  * <ul>
- * <li>When a table is already created other tries to create the table have to fail {@link TableAlreadyExistsException}.</li>
- * <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
+ *     <li>When a table is already created other tries to create the table have to fail {@link TableAlreadyExistsException}.</li>
+ *     <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
  * </ul>
  */
 public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
-    /** Schema name. */
-    public static final String SCHEMA = "PUBLIC";
+    private static final String SCHEMA_NAME = "PUBLIC";
 
-    /** Table name. */
     public static final String TABLE_NAME = "TBL1";
 
-    /** Cluster nodes. */
     private static Ignite ignite;
 
-    /** {@inheritDoc} */
     @Override
     public int nodes() {
         return 1;
     }
 
-    /**
-     * Before all tests.
-     */
     @BeforeAll
     static void beforeAll() {
         ignite = CLUSTER_NODES.get(0);
     }
 
-    /**
-     * Executes after each test.
-     */
     @AfterEach
     void afterTest() {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
     }
 
-    /**
-     * Executes before test.
-     */
     @BeforeEach
     void beforeTest() {
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (name VARCHAR PRIMARY KEY, balance INT NOT NULL)");
@@ -131,29 +125,21 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Checks a contract for asynchronous dropping table.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testDropTable() throws Exception {
-        CompletableFuture<Void> dropTblFut1 =  tableManager().dropTableAsync(TABLE_NAME);
-
-        dropTblFut1.get();
+    public void testDropTable() {
+        assertThat(tableManager().dropTableAsync(TABLE_NAME), willSucceedFast());
 
         assertNull(ignite.tables().table(TABLE_NAME));
 
-        CompletableFuture<Void> dropTblFut2 = tableManager().dropTableAsync(TABLE_NAME);
-
-        assertThrows(TableNotFoundException.class, () -> futureResult(dropTblFut2));
+        assertThat(tableManager().dropTableAsync(TABLE_NAME), willThrowFast(TableNotFoundException.class));
     }
 
     /**
      * Checks a contract for altering table.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testAlterTable() throws Exception {
+    public void testAlterTable() {
         await(tableManager().alterTableAsync(TABLE_NAME, chng -> {
             chng.changeColumns(cols ->
                     cols.create("NAME_1", colChg -> convert(SchemaBuilders.column("NAME_1", ColumnType.string()).asNullable(true)
@@ -175,11 +161,9 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Checks a contract for asynchronous altering table.
-     *
-     * @throws Exception If fialed.
      */
     @Test
-    public void testAlterTableAsync() throws Exception {
+    public void testAlterTableAsync() {
         CompletableFuture<Void> altTblFut1 = tableManager().alterTableAsync(TABLE_NAME,
                 chng -> {
                     chng.changeColumns(cols ->
@@ -200,25 +184,22 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
 
         assertNull(ignite.tables().table(TABLE_NAME + "_not_exist"));
 
-        altTblFut1.get();
-
-        assertThrows(TableNotFoundException.class, () -> futureResult(altTblFut2));
+        assertThat(altTblFut1, willSucceedFast());
+        assertThat(altTblFut2, willThrowFast(TableNotFoundException.class));
     }
 
     /**
      * Checks a contract for table creation.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testCreateTable() throws Exception {
+    public void testCreateTable() {
         Table table = ignite.tables().table(TABLE_NAME);
 
         assertNotNull(table);
 
         assertThrows(TableAlreadyExistsException.class,
                 () -> await(tableManager().createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME,
-                        tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
+                        tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME)
                                 .columns(
                                         SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                         SchemaBuilders.column("new_val", ColumnType.string()).build())
@@ -228,41 +209,46 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Checks a contract for asynchronous table creation.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testCreateTableAsync() throws Exception {
+    public void testCreateTableAsync() {
         assertNotNull(ignite.tables().table(TABLE_NAME));
 
         CompletableFuture<Table> tableFut2 = tableManager()
-                .createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, TABLE_NAME)
+                .createTableAsync(TABLE_NAME, DEFAULT_ZONE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME)
                         .columns(
                                 SchemaBuilders.column("new_key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("new_val", ColumnType.string()).build())
                         .withPrimaryKey("new_key")
                         .build(), tableChange));
 
-        assertThrows(TableAlreadyExistsException.class, () -> futureResult(tableFut2));
+        assertThat(tableFut2, willThrowFast(TableAlreadyExistsException.class));
     }
 
-    private TableManager tableManager() {
+    @Test
+    public void testGetAll() {
+        RecordView<Tuple> tbl = ignite.tables().table(TABLE_NAME).recordView();
+        // recordView.insert(tx, Tuple.create().set("name", "k1").set("balance", 1));
+
+        List<Tuple> recs = IntStream.range(1, 50)
+                .mapToObj(i -> Tuple.create().set("name", "id_" + i * 2).set("balance", i * 2))
+                .collect(toList());
+
+        tbl.upsertAll(null, recs);
+
+        List<Tuple> keyRecs = IntStream.range(1, 100)
+                .mapToObj(i -> Tuple.create().set("name", "id_" + i))
+                .collect(toList());
+
+        List<Tuple> res = (List<Tuple>) tbl.getAll(null, keyRecs);
+
+        assertThat(res, hasSize(keyRecs.size()));
+
+        assertNull(res.get(0));
+        assertEquals(2L, res.get(1).longValue(0));
+    }
+
+    private static TableManager tableManager() {
         return (TableManager) ignite.tables();
-    }
-
-    /**
-     * Gets future result and unwrap exception if it was thrown.
-     *
-     * @param fut Some future.
-     * @param <T> Expected future result parameter.
-     * @return Future result.
-     * @throws Throwable If future completed with an exception.
-     */
-    private <T> T futureResult(CompletableFuture<T> fut) throws Throwable {
-        try {
-            return fut.get();
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
     }
 }
