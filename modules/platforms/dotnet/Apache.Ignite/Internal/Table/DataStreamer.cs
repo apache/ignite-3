@@ -19,7 +19,9 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
@@ -56,6 +58,7 @@ internal static class DataStreamer
         IgniteArgumentCheck.NotNull(data);
 
         IgniteArgumentCheck.Ensure(options.BatchSize > 0, $"{nameof(options.BatchSize)} should be positive.");
+        IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");
         IgniteArgumentCheck.Ensure(
             options.PerNodeParallelOperations > 0,
             $"{nameof(options.PerNodeParallelOperations)} should be positive.");
@@ -63,9 +66,13 @@ internal static class DataStreamer
         var batches = new Dictionary<string, Batch>();
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+        using var cts = new CancellationTokenSource();
 
         try
         {
+            _ = AutoFlushAsync(cts.Token);
+
+            // TODO: Multithreaded iteration? Serialization and hashing in one thread can be a bottleneck. Do a benchmark first.
             await foreach (var item in data)
             {
                 var (batch, partition) = Add(item);
@@ -76,6 +83,7 @@ internal static class DataStreamer
                 }
             }
 
+            // Iteration ended. Drain remaining batches.
             foreach (var (partition, batch) in batches)
             {
                 if (batch.Count > 0)
@@ -87,6 +95,7 @@ internal static class DataStreamer
         }
         finally
         {
+            cts.Cancel();
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
@@ -168,6 +177,7 @@ internal static class DataStreamer
 
             batch.Count = 0;
             batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
+            batch.LastFlush = Stopwatch.GetTimestamp();
 
             // Refresh schema and assignment once per send.
             schema = await schemaProvider().ConfigureAwait(false);
@@ -181,6 +191,24 @@ internal static class DataStreamer
                 await sender(buf, partition).ConfigureAwait(false);
             }
         }
+
+        async Task AutoFlushAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(options.AutoFlushFrequency, cancellationToken).ConfigureAwait(false);
+                var ts = Stopwatch.GetTimestamp();
+
+                foreach (var (partition, batch) in batches)
+                {
+                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushFrequency.Ticks)
+                    {
+                        // TODO: Thread synchronization.
+                        await SendAsync(batch, partition).ConfigureAwait(false);
+                    }
+                }
+            }
+        }
     }
 
     private sealed record Batch
@@ -192,5 +220,7 @@ internal static class DataStreamer
         public int CountPos { get; set; }
 
         public Task Task { get; set; } = Task.CompletedTask; // Task for the previous buffer.
+
+        public long LastFlush { get; set; }
     }
 }
