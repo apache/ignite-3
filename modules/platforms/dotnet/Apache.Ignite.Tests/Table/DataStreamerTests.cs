@@ -20,6 +20,8 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NUnit.Framework;
@@ -46,23 +48,28 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestAutoFlushFrequency()
     {
-        var streamTask = Table.RecordBinaryView.StreamDataAsync(
-            GetTuplesWithDelay(),
-            new() { AutoFlushFrequency = TimeSpan.FromMilliseconds(5000) });
+        using var cts = new CancellationTokenSource();
+
+        _ = Table.RecordBinaryView.StreamDataAsync(
+            GetTuplesWithDelay(cts.Token),
+            new() { AutoFlushFrequency = TimeSpan.FromMilliseconds(50) });
 
         await Task.Delay(100);
 
         var (_, hasVal1) = await Table.RecordBinaryView.GetAsync(null, GetTuple(0));
         Assert.IsTrue(hasVal1);
 
-        await streamTask;
+        var (_, hasVal2) = await Table.RecordBinaryView.GetAsync(null, GetTuple(1));
+        Assert.IsFalse(hasVal2);
 
-        async IAsyncEnumerable<IIgniteTuple> GetTuplesWithDelay()
+        cts.Cancel();
+
+        async IAsyncEnumerable<IIgniteTuple> GetTuplesWithDelay([EnumeratorCancellation] CancellationToken ct = default)
         {
             for (var i = 0; i < 3; i++)
             {
                 yield return GetTuple(i, "t" + i);
-                await Task.Delay(500);
+                await Task.Delay(15000, ct);
             }
         }
     }
