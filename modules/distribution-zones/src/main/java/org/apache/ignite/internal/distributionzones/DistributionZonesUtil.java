@@ -95,6 +95,10 @@ public class DistributionZonesUtil {
      */
     private static final long INITIAL_TRIGGER_REVISION_VALUE = 0;
 
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
+    private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
+            new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
+
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
      *
@@ -112,6 +116,15 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneDataNodesKey() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
+     *
+     * @return ByteArray representation.
+     */
+    public static ByteArray zonesLogicalTopologyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
     /**
@@ -178,6 +191,13 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zonesLogicalTopologyVersionKey() {
         return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY;
+    }
+
+    /**
+     * The key prefix needed for processing an event about zone's data nodes.
+     */
+    static ByteArray zonesDataNodesPrefix() {
+        return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 
     /**
