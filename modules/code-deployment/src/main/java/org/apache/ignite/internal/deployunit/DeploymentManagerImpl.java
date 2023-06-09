@@ -428,18 +428,25 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 .collect(Collectors.toUnmodifiableSet()));
             case MAJORITY:
             default:
-                return cmgManager.cmgNodes();
+                return cmgManager.majority();
         }
     }
 
+    /**
+     * Gets a list of nodes for initial deployment. Always contains at least a majority of CMG nodes.
+     *
+     * @param nodes List of consistent IDs of nodes to add to the majority.
+     * @return Completed future with a set of consistent IDs, or a future, completed exceptionally with
+     *         {@link InvalidNodesArgumentException} if any of the nodes are not present in the logical topology.
+     */
     private CompletableFuture<Set<String>> extractNodes(List<String> nodes) {
-        return cmgManager.cmgNodes()
-                .thenCompose(cmg -> cmgManager.logicalTopology()
+        return cmgManager.majority()
+                .thenCompose(majority -> cmgManager.logicalTopology()
                         .thenApply(snapshot -> snapshot.nodes().stream()
                                 .map(ClusterNode::name)
                                 .collect(Collectors.toUnmodifiableSet()))
                         .thenApply(allNodes -> {
-                            Set<String> result = new HashSet<>(cmg);
+                            Set<String> result = new HashSet<>(majority);
                             for (String node : nodes) {
                                 if (!allNodes.contains(node)) {
                                     throw new InvalidNodesArgumentException(

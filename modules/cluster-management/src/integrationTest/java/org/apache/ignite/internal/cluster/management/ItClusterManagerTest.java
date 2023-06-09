@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -441,6 +443,22 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
 
         assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
+    }
+
+    @Test
+    void majority(TestInfo testInfo) throws NodeStoppingException {
+        startCluster(5, testInfo);
+
+        String[] allNodes = clusterNodeNames();
+
+        initCluster(allNodes, allNodes);
+
+        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
+
+        Set<String> majority = cluster.get(0).clusterManager().majority().join();
+
+        assertThat(majority, hasSize(3));
+        assertThat(majority, hasItem(leaderNode.name()));
     }
 
     private Optional<MockNode> findLeaderNode(List<MockNode> cluster) {
