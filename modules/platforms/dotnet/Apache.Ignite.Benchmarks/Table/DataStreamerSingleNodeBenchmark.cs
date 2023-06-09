@@ -27,6 +27,7 @@ using Tests;
 /// <summary>
 /// Data streamer benchmark.
 /// </summary>
+[MemoryDiagnoser]
 public class DataStreamerSingleNodeBenchmark
 {
     private FakeServer _server = null!;
