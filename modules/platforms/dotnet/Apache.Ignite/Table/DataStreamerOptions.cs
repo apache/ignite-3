@@ -34,5 +34,14 @@ public sealed record DataStreamerOptions(int BatchSize, int RetryLimit, int PerN
     /// <summary>
     /// Default streamer options.
     /// </summary>
-    public static readonly DataStreamerOptions Default = new(1000, 16, 4, TimeSpan.FromSeconds(5));
+    public static readonly DataStreamerOptions Default = new();
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataStreamerOptions"/> class.
+    /// </summary>
+    public DataStreamerOptions()
+        : this(1000, 16, 4, TimeSpan.FromSeconds(5))
+    {
+        // No-op.
+    }
 }

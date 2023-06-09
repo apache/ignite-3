@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -39,5 +41,36 @@ public class DataStreamerTests : IgniteTestsBase
             Assert.IsTrue(hasVal, tuple.ToString());
             Assert.AreEqual(val, tuple);
         }
+    }
+
+    [Test]
+    public async Task TestAutoFlushFrequency()
+    {
+        var streamTask = Table.RecordBinaryView.StreamDataAsync(
+            GetTuplesWithDelay(),
+            new() { AutoFlushFrequency = TimeSpan.FromMilliseconds(5000) });
+
+        await Task.Delay(100);
+
+        var (_, hasVal1) = await Table.RecordBinaryView.GetAsync(null, GetTuple(0));
+        Assert.IsTrue(hasVal1);
+
+        await streamTask;
+
+        async IAsyncEnumerable<IIgniteTuple> GetTuplesWithDelay()
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                yield return GetTuple(i, "t" + i);
+                await Task.Delay(500);
+            }
+        }
+    }
+
+    [Test]
+    public async Task TestOptionsValidation()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 }
