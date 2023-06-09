@@ -1427,7 +1427,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     String createStorageInfo() {
-        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
+        return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
     }
 
     /**

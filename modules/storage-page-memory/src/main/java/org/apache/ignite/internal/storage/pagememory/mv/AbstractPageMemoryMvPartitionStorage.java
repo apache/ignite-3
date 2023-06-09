@@ -282,7 +282,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
-                    tableStorage.getTableName(),
+                    Integer.toString(tableStorage.getTableId()),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -325,7 +325,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             SortedIndexTree sortedIndexTree = new SortedIndexTree(
                     groupId,
-                    tableStorage.getTableName(),
+                    Integer.toString(tableStorage.getTableId()),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -811,7 +811,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     public String createStorageInfo() {
-        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
+        return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
     }
 
     /**

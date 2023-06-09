@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -54,11 +55,7 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    protected final TableConfiguration tableCfg;
-
     protected final TablesConfiguration tablesCfg;
-
-    protected  final DistributionZoneConfiguration distributionZoneConfiguration;
 
     protected volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
 
@@ -67,6 +64,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Table descriptor. */
+    private final StorageTableDescriptor tableDescriptor;
+
     /**
      * Constructor.
      *
@@ -74,11 +74,14 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @param tablesCfg Tables configuration.
      * @param distributionZoneConfiguration Distribution zone configuration.
      */
-    protected AbstractPageMemoryTableStorage(
-            TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneConfiguration) {
-        this.tableCfg = tableCfg;
+    AbstractPageMemoryTableStorage(
+            TableConfiguration tableCfg,
+            TablesConfiguration tablesCfg,
+            DistributionZoneConfiguration distributionZoneConfiguration
+    ) {
         this.tablesCfg = tablesCfg;
-        this.distributionZoneConfiguration = distributionZoneConfiguration;
+
+        tableDescriptor = new StorageTableDescriptor(tableCfg.id().value(), distributionZoneConfiguration.partitions().value());
     }
 
     /**
@@ -96,7 +99,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public void start() throws StorageException {
         busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages<>(tableCfg.id().value(), distributionZoneConfiguration.partitions().value());
+            mvPartitionStorages = new MvPartitionStorages<>(getTableId(), tableDescriptor.getPartitions());
 
             return null;
         });
@@ -117,7 +120,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
             IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
         } catch (Exception e) {
-            throw new StorageException("Failed to stop PageMemory table storage: " + getTableName(), e);
+            throw new StorageException("Failed to stop PageMemory table storage: " + getTableId(), e);
         }
     }
 
@@ -303,10 +306,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     abstract CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     /**
-     * Returns table name.
+     * Returns the table ID.
      */
-    public String getTableName() {
-        return tableCfg.name().value();
+    public int getTableId() {
+        return tableDescriptor.getId();
     }
 
     @Override
@@ -320,5 +323,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             return partitionStorage.getIndex(indexId);
         });
+    }
+
+    @Override
+    public StorageTableDescriptor getTableDescriptor() {
+        return tableDescriptor;
     }
 }
