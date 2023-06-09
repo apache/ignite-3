@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.deployment;
 
-import java.io.IOException;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,7 +31,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
     private DeployFiles files;
 
     @BeforeEach
-    public void generateDummy() throws IOException {
+    public void generateDummy() {
         files = new DeployFiles(workDir);
     }
 
@@ -49,16 +47,16 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
 
     @Test
     public void testDeployWithNodeStop() {
-        IgniteImpl node0 = cluster.node(8);
-        Unit mediumUnit = files.deployAndVerifyBig("id1", Version.parseVersion("1.0.0"), cluster.node(3));
+        IgniteImpl cmgNode = cluster.node(8);
+        Unit big = files.deployAndVerifyBig("id1", Version.parseVersion("1.0.0"), cluster.node(3));
 
         stopNode(8);
 
-        mediumUnit.waitUnitClean(node0);
-        mediumUnit.waitUnitReplica(cluster.node(6));
-        mediumUnit.waitUnitReplica(cluster.node(7));
+        big.waitUnitClean(cmgNode);
+        big.waitUnitReplica(cluster.node(6));
+        big.waitUnitReplica(cluster.node(7));
 
-        node0 = startNode(8);
-        mediumUnit.waitUnitReplica(node0);
+        cmgNode = startNode(8);
+        big.waitUnitReplica(cmgNode);
     }
 }

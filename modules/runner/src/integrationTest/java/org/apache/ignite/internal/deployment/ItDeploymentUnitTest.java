@@ -28,7 +28,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +48,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
 
     @BeforeEach
-    public void generateDummy() throws IOException {
+    public void generateDummy() {
         files = new DeployFiles(workDir);
     }
 

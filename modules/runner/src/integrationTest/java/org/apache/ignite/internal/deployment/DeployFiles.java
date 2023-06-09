@@ -56,18 +56,16 @@ class DeployFiles {
     private DeployFile bigFile;
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-19009
-    DeployFiles(Path workDir) throws IOException {
+    DeployFiles(Path workDir) {
         this.workDir = workDir;
     }
 
-    private DeployFile create(Path path, long size, int replicaTimeout) {
-        DeployFile deployFile = new DeployFile(path, size, replicaTimeout);
+    private static DeployFile create(Path path, long size, int replicaTimeout) {
         try {
-            deployFile.ensureExists();
+            return new DeployFile(path, size, replicaTimeout);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return deployFile;
     }
 
     DeployFile smallFile() {

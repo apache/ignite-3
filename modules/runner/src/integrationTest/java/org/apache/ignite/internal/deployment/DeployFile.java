@@ -29,19 +29,16 @@ class DeployFile {
 
     private final int replicaTimeout;
 
-    DeployFile(Path file, long expectedSize, int replicaTimeout) {
+    DeployFile(Path file, long expectedSize, int replicaTimeout) throws IOException {
         this.file = file;
         this.expectedSize = expectedSize;
         this.replicaTimeout = replicaTimeout;
+        ensureExists();
     }
 
-    void ensureExists() throws IOException {
-        ensureFile(file, expectedSize);
-    }
-
-    private static void ensureFile(Path path, long size) throws IOException {
-        if (!Files.exists(path)) {
-            IgniteUtils.fillDummyFile(path, size);
+    private void ensureExists() throws IOException {
+        if (!Files.exists(file)) {
+            IgniteUtils.fillDummyFile(file, expectedSize);
         }
     }
 
