@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distribution.zones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -250,12 +251,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
+        assertDataNodesFromManager(
+                distributionZoneManager,
                 1,
-                partialNode.logicalTopology().getLogicalTopology().version()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-
-        assertEquals(Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+                Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
 
         Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
