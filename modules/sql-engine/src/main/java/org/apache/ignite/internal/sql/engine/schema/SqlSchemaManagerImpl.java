@@ -504,9 +504,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private static Index<?> newIndex(TableImpl table, int indexId, IndexDescriptor descriptor) {
         if (descriptor instanceof SortedIndexDescriptor) {
-            return new SortedIndexImpl(indexId, table, (SortedIndexDescriptor) descriptor);
+            return new SortedIndexImpl(indexId, table.internalTable(), (SortedIndexDescriptor) descriptor);
         } else {
-            return new HashIndex(indexId, table, descriptor);
+            return new HashIndex(indexId, table.internalTable(), descriptor);
         }
     }
 

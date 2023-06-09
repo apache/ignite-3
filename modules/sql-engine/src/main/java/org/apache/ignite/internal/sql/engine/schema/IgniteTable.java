@@ -39,6 +39,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -196,6 +197,10 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
 
     /** Returns the internal table. */
     InternalTable table();
+
+    default TableRowConverter rowConverter() {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Converts a tuple to relational node row.

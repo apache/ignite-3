@@ -66,6 +66,8 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
+import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverter;
+import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverterImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -208,6 +210,11 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     @Override
     public InternalTable table() {
         return table;
+    }
+
+    @Override
+    public TableRowConverter rowConverter() {
+        return new TableRowConverterImpl(schemaRegistry, schemaDescriptor, desc);
     }
 
     /** {@inheritDoc} */

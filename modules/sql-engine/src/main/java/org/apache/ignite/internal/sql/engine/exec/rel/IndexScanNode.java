@@ -38,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -73,7 +73,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param schemaTable The table this node should scan.
+     * @param rowConverter Row converter.
+     * @param tableDescriptor Table descriptor.
      * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
@@ -85,7 +86,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
-            IgniteTable schemaTable,
+            TableRowConverter rowConverter,
+            TableDescriptor tableDescriptor,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
@@ -93,7 +95,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
+        super(ctx, rowFactory, rowConverter, filters, rowTransformer, requiredColumns);
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
@@ -104,7 +106,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.comp = comp;
         this.factory = rowFactory;
 
-        indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), schemaTable.descriptor());
+        indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), tableDescriptor);
     }
 
     /** {@inheritDoc} */

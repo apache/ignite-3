@@ -30,7 +30,6 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,7 +64,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param schemaTable The table this node should scan.
+     * @param rowConverter Row converter.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -73,7 +72,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     public StorageScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            IgniteTable schemaTable,
+            TableRowConverter rowConverter,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
@@ -82,7 +81,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
         assert ctx.txAttributes() != null : "Transaction not initialized.";
 
-        tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
+        tableRowConverter = row -> rowConverter.toRow(context(), row, rowFactory, requiredColumns);
 
         this.filters = filters;
         this.rowTransformer = rowTransformer;

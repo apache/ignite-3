@@ -68,6 +68,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.ProjectNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.SortAggregateNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.SortNode;
+import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableSpoolNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.UnionAllNode;
@@ -323,6 +324,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
+        TableRowConverter rowConverter = tbl.rowConverter();
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
 
@@ -366,7 +368,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
-                tbl,
+                rowConverter,
+                tbl.descriptor(),
                 group.partitionsWithTerms(ctx.localNode().name()),
                 comp,
                 ranges,
@@ -403,7 +406,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
-                tbl,
+                tbl.table(),
+                tbl.rowConverter(),
                 group.partitionsWithTerms(ctx.localNode().name()),
                 filters,
                 prj,

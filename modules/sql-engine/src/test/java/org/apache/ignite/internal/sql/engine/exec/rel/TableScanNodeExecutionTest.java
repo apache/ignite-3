@@ -96,7 +96,16 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, partsWithTerms, null, null, null);
+            InternalTable internalTable = tbl.table();
+            TableRowConverter rowConverter = new TableRowConverter() {
+                @Override
+                public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
+                        @Nullable BitSet requiredColumns) {
+                    return (RowT) TestTable.res;
+                }
+            };
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, internalTable, rowConverter,
+                    partsWithTerms, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 

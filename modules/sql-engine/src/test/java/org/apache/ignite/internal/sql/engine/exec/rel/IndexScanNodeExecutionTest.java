@@ -435,11 +435,15 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             when(rangeIterable.multiBounds()).thenReturn(false);
         }
 
+        TestTable testTable = new TestTable(rowType, schemaDescriptor);
+        TableRowConverter rowConverter = new TestRowConverter(testTable.descriptor(), schemaDescriptor);
+
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
-                new TestTable(rowType, schemaDescriptor),
+                rowConverter,
+                testTable.descriptor(),
                 List.of(new PartitionWithTerm(0, -1L), new PartitionWithTerm(2, -1L)),
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
@@ -601,4 +605,33 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             return row;
         }
     }
+
+    private static final class TestRowConverter implements TableRowConverter {
+
+        private final TableDescriptor descriptor;
+
+        private final SchemaDescriptor schemaDescriptor;
+
+        private TestRowConverter(TableDescriptor descriptor, SchemaDescriptor schemaDescriptor) {
+            this.descriptor = descriptor;
+            this.schemaDescriptor = schemaDescriptor;
+        }
+
+        @Override
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow,
+                RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
+
+            Row tableRow = new Row(schemaDescriptor, binaryRow);
+
+            RowT row = factory.create();
+            RowHandler<RowT> handler = factory.handler();
+
+            for (int i = 0; i < descriptor.columnsCount(); i++) {
+                handler.set(i, row, TypeUtils.toInternal(tableRow.value(descriptor.columnDescriptor(i).physicalIndex())));
+            }
+
+            return row;
+        }
+    }
+
 }

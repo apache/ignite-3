@@ -28,7 +28,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -51,7 +50,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param schemaTable The table this node should scan.
+     * @param internalTable Internal table.
+     * @param rowConverter Row converter.
      * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
@@ -60,17 +60,18 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     public TableScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            IgniteTable schemaTable,
+            InternalTable internalTable,
+            TableRowConverter rowConverter,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
+        super(ctx, rowFactory, rowConverter, filters, rowTransformer, requiredColumns);
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
-        this.physTable = schemaTable.table();
+        this.physTable = internalTable;
         this.partsWithTerms = partsWithTerms;
     }
 
