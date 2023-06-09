@@ -125,7 +125,7 @@ public class FilePageStoreManagerTest {
 
             IgniteInternalCheckedException exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> manager.initialize("test", groupPartitionId00)
+                    () -> manager.initialize(groupPartitionId00)
             );
 
             assertThat(exception.getMessage(), containsString("Failed to initialize group working directory"));
@@ -134,8 +134,8 @@ public class FilePageStoreManagerTest {
 
             GroupPartitionId groupPartitionId01 = new GroupPartitionId(0, 1);
 
-            assertDoesNotThrow(() -> manager.initialize("test", groupPartitionId00));
-            assertDoesNotThrow(() -> manager.initialize("test", groupPartitionId01));
+            assertDoesNotThrow(() -> manager.initialize(groupPartitionId00));
+            assertDoesNotThrow(() -> manager.initialize(groupPartitionId01));
 
             assertTrue(Files.isDirectory(testGroupDir));
 
@@ -167,7 +167,7 @@ public class FilePageStoreManagerTest {
         try {
             GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
 
-            manager0.initialize("test0", groupPartitionId00);
+            manager0.initialize(groupPartitionId00);
 
             manager0.getStore(groupPartitionId00).ensure();
 
@@ -191,7 +191,7 @@ public class FilePageStoreManagerTest {
         try {
             GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-            manager1.initialize("test1", groupPartitionId10);
+            manager1.initialize(groupPartitionId10);
 
             manager1.getStore(groupPartitionId10).ensure();
 
@@ -213,8 +213,8 @@ public class FilePageStoreManagerTest {
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
         GroupPartitionId groupPartitionId20 = new GroupPartitionId(2, 0);
 
-        manager.initialize("test0", groupPartitionId10);
-        manager.initialize("test1", groupPartitionId20);
+        manager.initialize(groupPartitionId10);
+        manager.initialize(groupPartitionId20);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -244,8 +244,8 @@ public class FilePageStoreManagerTest {
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
         GroupPartitionId groupPartitionId20 = new GroupPartitionId(2, 0);
 
-        manager.initialize("test0", groupPartitionId10);
-        manager.initialize("test1", groupPartitionId20);
+        manager.initialize(groupPartitionId10);
+        manager.initialize(groupPartitionId20);
 
         Path grpDir0 = workDir.resolve("db/table-1");
         Path grpDir1 = workDir.resolve("db/table-2");
@@ -325,8 +325,8 @@ public class FilePageStoreManagerTest {
 
         manager.start();
 
-        manager.initialize("test0", new GroupPartitionId(1, 0));
-        manager.initialize("test1", new GroupPartitionId(2, 0));
+        manager.initialize(new GroupPartitionId(1, 0));
+        manager.initialize(new GroupPartitionId(2, 0));
 
         List<Path> allPageStoreFiles = manager.allPageStores().stream()
                 .map(GroupPartitionPageStore::pageStore)
@@ -351,8 +351,8 @@ public class FilePageStoreManagerTest {
         GroupPartitionId groupPartitionId00 = new GroupPartitionId(0, 0);
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
 
-        manager.initialize("test0", groupPartitionId00);
-        manager.initialize("test1", groupPartitionId10);
+        manager.initialize(groupPartitionId00);
+        manager.initialize(groupPartitionId10);
 
         FilePageStore filePageStore0 = manager.getStore(groupPartitionId00);
         FilePageStore filePageStore1 = manager.getStore(groupPartitionId10);
@@ -396,10 +396,10 @@ public class FilePageStoreManagerTest {
         GroupPartitionId groupPartitionId10 = new GroupPartitionId(1, 0);
         GroupPartitionId groupPartitionId11 = new GroupPartitionId(1, 1);
 
-        manager.initialize("test0", groupPartitionId00);
-        manager.initialize("test0", groupPartitionId01);
-        manager.initialize("test1", groupPartitionId10);
-        manager.initialize("test1", groupPartitionId11);
+        manager.initialize(groupPartitionId00);
+        manager.initialize(groupPartitionId01);
+        manager.initialize(groupPartitionId10);
+        manager.initialize(groupPartitionId11);
 
         FilePageStore filePageStore00 = manager.getStore(groupPartitionId00);
         FilePageStore filePageStore01 = manager.getStore(groupPartitionId01);

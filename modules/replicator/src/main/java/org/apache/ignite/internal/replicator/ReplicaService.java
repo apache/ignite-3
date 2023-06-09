@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -30,6 +32,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableExcepti
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
+import org.apache.ignite.internal.replicator.message.AwaitReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -88,9 +91,7 @@ public class ReplicaService {
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
         messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
             if (throwable != null) {
-                if (throwable instanceof CompletionException) {
-                    throwable = throwable.getCause();
-                }
+                throwable = unwrapCause(throwable);
 
                 if (throwable instanceof TimeoutException) {
                     res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
@@ -127,27 +128,44 @@ public class ReplicaService {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
 
                             if (throwable0 != null) {
-                                if (throwable0 instanceof CompletionException) {
-                                    throwable0 = throwable0.getCause();
-                                }
+                                throwable0 = unwrapCause(throwable0);
 
                                 if (throwable0 instanceof TimeoutException) {
-                                    res.completeExceptionally(errResp.throwable());
+                                    res.completeExceptionally(withCause(
+                                            ReplicationTimeoutException::new,
+                                            REPLICA_TIMEOUT_ERR,
+                                            format(
+                                                    "Could not wait for the replica readiness due to timeout [replicaGroupId={}, req={}]",
+                                                    req.groupId(),
+                                                    req.getClass().getSimpleName()
+                                            ),
+                                            throwable0));
                                 } else {
                                     res.completeExceptionally(withCause(
                                             ReplicationException::new,
                                             REPLICA_COMMON_ERR,
-                                            "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                                            format(
+                                                    "Failed to process replica request [replicaGroupId={}, req={}]",
+                                                    req.groupId(),
+                                                    req.getClass().getSimpleName()
+                                            ),
                                             throwable0));
                                 }
                             } else {
-                                sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
-                                    if (e != null) {
-                                        res.completeExceptionally(e);
-                                    } else {
-                                        res.complete((R) r);
-                                    }
-                                });
+                                if (response0 instanceof ErrorReplicaResponse) {
+                                    res.completeExceptionally(((ErrorReplicaResponse) response0).throwable());
+                                } else {
+                                    assert response0 instanceof AwaitReplicaResponse :
+                                            "Incorrect response type [type=" + response0.getClass().getSimpleName() + ']';
+
+                                    sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
+                                        if (e != null) {
+                                            res.completeExceptionally(e);
+                                        } else {
+                                            res.complete((R) r);
+                                        }
+                                    });
+                                }
                             }
 
                             return null;
