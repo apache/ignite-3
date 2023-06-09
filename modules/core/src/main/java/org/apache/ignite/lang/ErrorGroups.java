@@ -340,8 +340,11 @@ public class ErrorGroups {
         /** Distribution zone rename error. */
         public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(3);
 
-        /** Distribution zone is bound to table. */
-        public static final int ZONE_BIND_TABLE_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
+        /** Distribution zone is a default distribution zone or bound to table. */
+        public static final int ZONE_DROP_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
+
+        /** Distribution zone definition error. */
+        public static final int ZONE_DEFINITION_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Network error group. */

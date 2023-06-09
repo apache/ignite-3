@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -97,6 +98,26 @@ public class CatalogUtils {
                 .collect(Collectors.toList());
 
         return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.isUnique(), columnDescriptors);
+    }
+
+    /**
+     * Converts CreateZone command params to descriptor.
+     *
+     * @param id Distribution zone id.
+     * @param params Parameters.
+     * @return Distribution zone descriptor.
+     */
+    public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
+        return new CatalogZoneDescriptor(
+                id,
+                params.zoneName(),
+                params.partitions(),
+                params.replicas(),
+                params.dataNodesAutoAdjust(),
+                params.dataNodesAutoAdjustScaleUp(),
+                params.dataNodesAutoAdjustScaleDown(),
+                params.filter()
+        );
     }
 
     /**
