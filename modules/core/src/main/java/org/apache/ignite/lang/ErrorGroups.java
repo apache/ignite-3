@@ -303,6 +303,9 @@ public class ErrorGroups {
         /** Failed to close cursor. */
         public static final int CURSOR_CLOSE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(7);
 
+        /** Stopping replica exception code. */
+        public static final int REPLICA_STOPPING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(8);
+
     }
 
     /** Storage error group. */
