@@ -152,15 +152,7 @@ internal static class DataStreamer
             }
 
             batch = new Batch();
-            var buf = batch.Buffer;
-
-            var w = buf.MessageWriter;
-            w.Write(schema.TableId);
-            w.WriteTx(null);
-            w.Write(schema.Version);
-
-            batch.CountPos = buf.Position;
-            buf.Advance(5); // Reserve count.
+            InitBuffer(batch);
 
             batches.Add(partition, batch);
 
@@ -188,6 +180,7 @@ internal static class DataStreamer
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
+                InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
             }
 
@@ -222,6 +215,19 @@ internal static class DataStreamer
                     }
                 }
             }
+        }
+
+        void InitBuffer(Batch batch)
+        {
+            var buf = batch.Buffer;
+
+            var w = buf.MessageWriter;
+            w.Write(schema.TableId);
+            w.WriteTx(null);
+            w.Write(schema.Version);
+
+            batch.CountPos = buf.Position;
+            buf.Advance(5); // Reserve count.
         }
     }
 
