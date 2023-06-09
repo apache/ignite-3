@@ -116,22 +116,30 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageEngine storageEngine;
 
+    protected TablesConfiguration tablesConfig;
+
+    protected DistributionZoneConfiguration distributionZoneConfig;
+
     /**
      * Initializes the internal structures needed for tests.
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig,
-            DistributionZoneConfiguration distributionZoneConfiguration) {
+    protected final void initialize(
+            StorageEngine storageEngine,
+            TablesConfiguration tablesConfig,
+            DistributionZoneConfiguration distributionZoneConfig
+    ) {
         createTestTable(getTableConfig(tablesConfig));
         createTestIndexes(tablesConfig);
 
-        this.storageEngine = storageEngine;
+        this.tablesConfig = tablesConfig;
+        this.distributionZoneConfig = distributionZoneConfig;
 
+        this.storageEngine = storageEngine;
         this.storageEngine.start();
 
-        this.tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfiguration);
-
+        this.tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
         this.tableStorage.start();
 
         TablesView tablesView = tablesConfig.value();
@@ -577,8 +585,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
 
         // Let's check that after restarting the table we will have an empty partition.
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(),
-                tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
 
         tableStorage.start();
 
@@ -616,7 +623,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
 
         tableStorage.start();
 
@@ -760,7 +767,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
 
         tableStorage.start();
 
@@ -872,7 +879,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private int getPartitionIdOutOfRange() {
-        return tableStorage.distributionZoneConfiguration().partitions().value();
+        return tableStorage.getTableDescriptor().getPartitions();
     }
 
     private void startRebalanceWithChecks(

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -295,8 +295,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @BeforeEach
     public void beforeTest(
             @InjectConfiguration DataStorageConfiguration dsCfg,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig,
-            @InjectConfiguration DistributionZoneConfiguration distributionZoneConfig
+            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
     ) {
         lenient().when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
@@ -412,8 +411,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 schemas,
                 completedFuture(schemaManager),
                 localNode,
-                new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
-                mock(IndexBuilder.class)
+                new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT),
+                mock(IndexBuilder.class),
+                tablesConfig
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
