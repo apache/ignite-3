@@ -328,10 +328,14 @@ namespace Apache.Ignite.Internal.Table
         {
             await DataStreamer.StreamDataAsync(
                 data,
-                sender: async (batch, preferredNode) =>
+                sender: async (batch, preferredNode, retryPolicy) =>
                 {
-                    // TODO: Override retry policy with streamer-specific one.
-                    using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, null, batch, PreferredNode.FromName(preferredNode))
+                    using var resBuf = await DoOutInOpAsync(
+                            ClientOp.TupleUpsertAll,
+                            tx: null,
+                            batch,
+                            PreferredNode.FromName(preferredNode),
+                            retryPolicy)
                         .ConfigureAwait(false);
                 },
                 writer: _ser.Handler,
@@ -428,9 +432,11 @@ namespace Apache.Ignite.Internal.Table
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default)
+            PreferredNode preferredNode = default,
+            IRetryPolicy? retryPolicyOverride = null)
         {
-            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode, retryPolicyOverride)
+                .ConfigureAwait(false);
 
             return buf;
         }

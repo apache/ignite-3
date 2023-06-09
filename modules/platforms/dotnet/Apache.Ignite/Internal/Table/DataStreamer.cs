@@ -49,7 +49,7 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<PooledArrayBuffer, string, Task> sender,
+        Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
         IRecordSerializerHandler<T> writer,
         Func<Task<Schema>> schemaProvider,
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
@@ -63,6 +63,7 @@ internal static class DataStreamer
             options.PerNodeParallelOperations > 0,
             $"{nameof(options.PerNodeParallelOperations)} should be positive.");
 
+        var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
         var batches = new Dictionary<string, Batch>();
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
@@ -196,7 +197,7 @@ internal static class DataStreamer
         {
             using (buf)
             {
-                await sender(buf, partition).ConfigureAwait(false);
+                await sender(buf, partition, retryPolicy).ConfigureAwait(false);
             }
         }
 
