@@ -594,6 +594,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         int newVersion = catalog.version() + 1;
+        //TODO https://issues.apache.org/jira/browse/IGNITE-19209 Make activation time in the MS entry strictly equal to MS entry ts+DD
         long activationTimestamp = activationTimestamp();
 
         return updateLog.append(new VersionedUpdate(newVersion, activationTimestamp, updates))
@@ -646,7 +647,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
@@ -667,7 +668,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
@@ -698,7 +699,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
@@ -727,7 +728,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (entry instanceof NewIndexEntry) {
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
@@ -747,7 +748,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
@@ -765,7 +766,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (entry instanceof ObjectIdGenUpdateEntry) {
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
@@ -781,7 +782,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            activationTimestamp(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
                             new CatalogSchemaDescriptor(
                                     schema.id(),
