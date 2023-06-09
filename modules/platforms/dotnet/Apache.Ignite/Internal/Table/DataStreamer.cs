@@ -90,12 +90,11 @@ internal static class DataStreamer
                 }
             });
 
+            // TODO: Multithreaded iteration? Serialization and hashing in one thread can be a bottleneck. Do a benchmark first.
             await foreach (var item in data)
             {
                 await channel.Writer.WriteAsync(item).ConfigureAwait(false);
             }
-
-            channel.Writer.Complete();
 
             await iteratorTask.ConfigureAwait(false);
 
