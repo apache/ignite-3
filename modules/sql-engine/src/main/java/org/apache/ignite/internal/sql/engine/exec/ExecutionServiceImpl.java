@@ -43,8 +43,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -86,7 +88,6 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -793,8 +794,23 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     for (int p = 0; p < partsCnt; p++) {
                         NodeWithTerm leaderWithTerm = assignments.get(p);
 
-                        tx.enlist(new TablePartitionId(tableId, p),
-                                new IgniteBiTuple<>(topSrvc.getByConsistentId(leaderWithTerm.name()), leaderWithTerm.term()));
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 Placement driver should be used instead.
+                        tx.enlist(new TablePartitionId(tableId, p), new ReplicaMeta() {
+                            @Override
+                            public String getLeaseholder() {
+                                return leaderWithTerm.name();
+                            }
+
+                            @Override
+                            public HybridTimestamp getStartTime() {
+                                return HybridTimestamp.hybridTimestamp(leaderWithTerm.term());
+                            }
+
+                            @Override
+                            public HybridTimestamp getExpirationTime() {
+                                return HybridTimestamp.MAX_VALUE;
+                            }
+                        });
                     }
                 }
 

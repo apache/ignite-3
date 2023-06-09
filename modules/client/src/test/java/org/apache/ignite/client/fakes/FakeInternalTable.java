@@ -352,7 +352,8 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            PrimaryReplica recipient,
+            String recipient,
+            long enlistmentConsistencyToken,
             @Nullable UUID indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,

@@ -87,7 +87,17 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             } else {
                 PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.term());
 
-                pub = physTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
+                pub = physTable.scan(
+                        partWithTerm.partId(),
+                        txAttributes.id(),
+                        recipient.node().name(),
+                        recipient.term(),
+                        null,
+                        null,
+                        null,
+                        0,
+                        null
+                );
             }
 
             return convertPublisher(pub);

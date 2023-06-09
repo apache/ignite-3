@@ -321,7 +321,8 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            PrimaryReplica recipient,
+            String recipient,
+            long enlistmentConsistencyToken,
             @Nullable UUID indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -427,6 +428,8 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partition partition number
      * @return leader node of the partition group corresponding to the partition
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
+    @Deprecated
     ClusterNode leaderAssignment(int partition);
 
     /**

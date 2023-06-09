@@ -125,6 +125,6 @@ public class SortedIndexImpl implements SortedIndex {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return table.scan(partId, txId, recipient, id, leftBound, rightBound, flags, columnsToInclude);
+        return table.scan(partId, txId, recipient.node().name(), recipient.term(), id, leftBound, rightBound, flags, columnsToInclude);
     }
 }

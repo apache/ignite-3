@@ -867,7 +867,18 @@ public class InternalTableImpl implements InternalTable {
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, recipient, indexId, key, null, null, 0, columnsToInclude);
+        return scan(
+                partId,
+                txId,
+                recipient.node().name(),
+                recipient.term(),
+                indexId,
+                key,
+                null,
+                null,
+                0,
+                columnsToInclude
+        );
     }
 
     /** {@inheritDoc} */
@@ -990,20 +1001,33 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            PrimaryReplica recipient,
+            String recipient,
+            long enlistmentConsistencyToken,
             @Nullable UUID indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, recipient, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return scan(
+                partId,
+                txId,
+                recipient,
+                enlistmentConsistencyToken,
+                indexId,
+                null,
+                lowerBound,
+                upperBound,
+                flags,
+                columnsToInclude
+        );
     }
 
     private Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            PrimaryReplica recipient,
+            String recipient,
+            long enlistmentConsistencyToken,
             @Nullable UUID indexId,
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1027,10 +1051,10 @@ public class InternalTableImpl implements InternalTable {
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
-                            .enlistmentConsistencyToken(recipient.term()) // sanpwc:  getStartTime().longValue()
+                            .enlistmentConsistencyToken(enlistmentConsistencyToken)
                             .build();
 
-                    return replicaSvc.invoke(recipient.node(), request); // sanpwc: leaseholder
+                    return replicaSvc.invoke(recipient, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 Function.identity());

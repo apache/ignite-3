@@ -237,7 +237,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * Checks that exception from storage cursor creation properly propagates to subscriber.
      */
     @Test
-    public void testExceptionRowScan() throws Exception {
+        public void testExceptionRowScan() throws Exception {
         // The latch that allows to await Subscriber.onError() before asserting test invariants.
         CountDownLatch gotExceptionLatch = new CountDownLatch(1);
 

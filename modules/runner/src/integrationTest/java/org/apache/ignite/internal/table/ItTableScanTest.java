@@ -47,7 +47,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -64,8 +65,6 @@ import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -139,9 +138,19 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx1);
+        ReplicaMeta recipient = getLeaderRecipient(PART_ID, tx1);
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx1.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(
+                PART_ID,
+                tx1.id(),
+                recipient.getLeaseholder(),
+                recipient.getStartTime().longValue(),
+                sortedIndexId,
+                null,
+                null,
+                0,
+                null
+        );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -347,7 +356,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @param txOperationAction An closure to apply during the scan operation.
      * @throws Exception If failed.
      */
-    public void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
+    private void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
         InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
 
         log.info("Old transaction [id={}]", tx.id());
@@ -405,9 +414,19 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+        ReplicaMeta recipient = getLeaderRecipient(PART_ID, tx);
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = internalTable.scan(
+                PART_ID,
+                tx.id(),
+                recipient.getLeaseholder(),
+                recipient.getStartTime().longValue(),
+                sortedIndexId,
+                null,
+                null,
+                0,
+                null
+        );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -432,7 +451,17 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        Publisher<BinaryRow> publisher1 = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher1 = internalTable.scan(
+                PART_ID,
+                tx.id(),
+                recipient.getLeaseholder(),
+                recipient.getStartTime().longValue(),
+                sortedIndexId,
+                null,
+                null,
+                0,
+                null
+        );
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
 
@@ -457,12 +486,13 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         UUID soredIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+        ReplicaMeta recipient = getLeaderRecipient(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = internalTable.scan(
                 PART_ID,
                 tx.id(),
-                recipient,
+                recipient.getLeaseholder(),
+                recipient.getStartTime().longValue(),
                 soredIndexId,
                 lowBound,
                 upperBound,
@@ -485,7 +515,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         Publisher<BinaryRow> publisher1 = internalTable.scan(
                 PART_ID,
                 tx.id(),
-                recipient,
+                recipient.getLeaseholder(),
+                recipient.getStartTime().longValue(),
                 soredIndexId,
                 lowBound,
                 upperBound,
@@ -534,9 +565,19 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+                ReplicaMeta recipient = getLeaderRecipient(PART_ID, tx);
 
-                Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                Publisher<BinaryRow> publisher = internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        recipient.getLeaseholder(),
+                        recipient.getStartTime().longValue(),
+                        sortedIndexId,
+                        null,
+                        null,
+                        0,
+                        null
+                );
 
                 // Non-thread-safe collection is fine, HB is guaranteed by "Thread#join" inside of "runRace".
                 List<BinaryRow> scannedRows = new ArrayList<>();
@@ -559,7 +600,17 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         () -> scannedRows.addAll(scanAllRows(publisher))
                 );
 
-                Publisher<BinaryRow> publisher1 = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                Publisher<BinaryRow> publisher1 = internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        recipient.getLeaseholder(),
+                        recipient.getStartTime().longValue(),
+                        sortedIndexId,
+                        null,
+                        null,
+                        0,
+                        null
+                );
 
                 assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
             } finally {
@@ -629,9 +680,19 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
             } else {
-                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+                ReplicaMeta recipient = getLeaderRecipient(PART_ID, tx);
 
-                publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                publisher = internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        recipient.getLeaseholder(),
+                        recipient.getStartTime().longValue(),
+                        sortedIndexId,
+                        null,
+                        null,
+                        0,
+                        null
+                );
             }
 
             List<BinaryRow> scannedRows = scanAllRows(publisher);
@@ -643,10 +704,8 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private PrimaryReplica getLeaderRecipient(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
-
-        return new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+    private ReplicaMeta getLeaderRecipient(int partId, InternalTransaction tx) {
+        return tx.enlistedReplica(new TablePartitionId(table.tableId(), partId));
     }
 
     /**
@@ -852,11 +911,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
-        RaftGroupService raftSvc = table.partitionRaftGroupService(partId);
-        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
 
-        tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(table.leaderAssignment(partId), term));
+        PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
+        ReplicaMeta replica = IgniteTestUtils.await(placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now()));
+        tx.enlist(tblPartId, replica);
 
         return tx;
     }

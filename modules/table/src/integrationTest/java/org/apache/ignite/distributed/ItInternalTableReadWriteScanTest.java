@@ -18,15 +18,13 @@
 package org.apache.ignite.distributed;
 
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
@@ -38,10 +36,19 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
             return internalTbl.scan(part, null);
         }
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(internalTbl.tableId(), part));
-        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+        ReplicaMeta recipient = tx.enlistedReplica(new TablePartitionId(internalTbl.tableId(), part));
 
-        return internalTbl.scan(part, tx.id(), recipient, null, null, null, 0, null);
+        return internalTbl.scan(
+                part,
+                tx.id(),
+                recipient.getLeaseholder(),
+                recipient.getStartTime().longValue(),
+                null,
+                null,
+                null,
+                0,
+                null
+        );
     }
 
     @Override
@@ -53,7 +60,8 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
 
         tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.partitionId()), term));
+        // TODO: sanpwc Check and implement.
+//        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.partitionId()), term));
 
         return tx;
     }
