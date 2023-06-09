@@ -31,15 +31,22 @@ using NUnit.Framework;
 /// </summary>
 public class DataStreamerTests : IgniteTestsBase
 {
+    private const int Count = 100;
+
+    [SetUp]
+    public async Task SetUp() =>
+        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
+
     [Test]
     public async Task TestBasicStreaming()
     {
-        var data = Enumerable.Range(1, 10).Select(x => GetTuple(x, "t" + x)).ToList();
-        await Table.RecordBinaryView.StreamDataAsync(data.ToAsyncEnumerable());
+        var options = DataStreamerOptions.Default with { BatchSize = 10 };
+        var data = Enumerable.Range(1, Count).Select(x => GetTuple(x, "t" + x)).ToList();
+        await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
 
         foreach (var tuple in data)
         {
-            var (val, hasVal) = await Table.RecordBinaryView.GetAsync(null, tuple);
+            var (val, hasVal) = await TupleView.GetAsync(null, tuple);
             Assert.IsTrue(hasVal, tuple.ToString());
             Assert.AreEqual(val, tuple);
         }
@@ -50,17 +57,14 @@ public class DataStreamerTests : IgniteTestsBase
     {
         using var cts = new CancellationTokenSource();
 
-        _ = Table.RecordBinaryView.StreamDataAsync(
+        _ = TupleView.StreamDataAsync(
             GetTuplesWithDelay(cts.Token),
             new() { AutoFlushFrequency = TimeSpan.FromMilliseconds(50) });
 
         await Task.Delay(100);
 
-        var (_, hasVal1) = await Table.RecordBinaryView.GetAsync(null, GetTuple(0));
-        Assert.IsTrue(hasVal1);
-
-        var (_, hasVal2) = await Table.RecordBinaryView.GetAsync(null, GetTuple(1));
-        Assert.IsFalse(hasVal2);
+        Assert.IsTrue(await TupleView.ContainsKeyAsync(null, GetTuple(0)));
+        Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(1)));
 
         cts.Cancel();
 
@@ -76,6 +80,13 @@ public class DataStreamerTests : IgniteTestsBase
 
     [Test]
     public async Task TestOptionsValidation()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public async Task TestPartitionAssignmentUpdate()
     {
         await Task.Delay(1);
         Assert.Fail("TODO");
