@@ -1167,10 +1167,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     Set<Node> newDataNodes = null;
 
-                    long scaleUpRevision = 0;
-
-                    long scaleDownRevision = 0;
-
                     for (EntryEvent event : evt.entryEvents()) {
                         Entry e = event.newEntry();
 
@@ -1183,14 +1179,6 @@ public class DistributionZoneManager implements IgniteComponent {
                                 newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
                             } else {
                                 newDataNodes = emptySet();
-                            }
-                        } else if (startsWith(e.key(), zoneScaleUpChangeTriggerKey().bytes())) {
-                            if (e.value() != null) {
-                                scaleUpRevision = bytesToLong(e.value());
-                            }
-                        } else if (startsWith(e.key(), zoneScaleDownChangeTriggerKey().bytes())) {
-                            if (e.value() != null) {
-                                scaleDownRevision = bytesToLong(e.value());
                             }
                         }
                     }
