@@ -230,7 +230,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Alter the zone with not immediate timers.
+        // Alter the zone with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -254,7 +254,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
         assertThat(dataNodesFut1, willBe(twoNodesNames1));
 
-        // Alter the zones with not immediate scale up timers.
+        // Alter zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(1)
@@ -263,7 +263,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Alter the zone with not immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(1)
@@ -311,7 +310,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void topologyLeapUpdateScaleUpImmediateAndScaleDownNotImmediate() throws Exception {
         // Prerequisite.
 
-        // Create the zone with immediate timers.
+        // Create the zone with not immediate scale down timer.
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -320,7 +319,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Alter the zone with not immediate timers.
+        // Alter the zone with not immediate scale down timer.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -384,7 +383,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void dataNodesUpdatedAfterScaleUpChanged() throws Exception {
         // Prerequisite.
 
-        // Create the zone with immediate scale up timer and immediate scale down timer.
+        // Create the zone with immediate timers.
         distributionZoneManager.createZone(
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -397,7 +396,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<LogicalNode> oneNode = Set.of(NODE_0);
         Set<String> oneNodeName = Set.of(NODE_0.name());
 
-        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, oneNode);
+        long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, oneNode);
 
         // Check that data nodes value of the the zone is NODE_0.
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
@@ -465,20 +464,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Test steps.
 
-        // Change logical topology. NODE_1 is added.
+        // Change logical topology. NODE_1 is left.
         Set<LogicalNode> oneNode = Set.of(NODE_0);
         Set<String> oneNodeName = Set.of(NODE_0.name());
 
         long topologyRevision2 = removeNodeInLogicalTopologyAndGetRevision(Set.of(NODE_1), oneNode);
 
-        // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale down timer has not fired yet.
+        // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
+        // because scale down timer has not fired yet.
         CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1);
         assertThat(dataNodesFut2, willBe(twoNodesNames));
 
         // Change scale down value to immediate.
         long scaleDownRevision = alterZoneScaleDownAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
 
-        // Check that data nodes value of the zone with the scale down update revision is NODE_0 and NODE_1.
+        // Check that data nodes value of the zone with the scale down update revision is NODE_0.
         CompletableFuture<Set<String>> dataNodesFut3 = distributionZoneManager.dataNodes(scaleDownRevision, ZONE_ID_1);
         assertThat(dataNodesFut3, willBe(oneNodeName));
     }
@@ -501,7 +501,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Alter the zone with not immediate timers.
+        // Alter the zone with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
@@ -510,19 +510,22 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Create logical topology with NODE_0 and NODE_1.
+        // Create logical topology with NODE_0.
         topology.putNode(NODE_0);
 
-        // Check that data nodes value of both zone is NODE_0 and NODE_1.
+        Set<LogicalNode> oneNode = Set.of(NODE_0);
+        Set<String> oneNodeName = Set.of(NODE_0.name());
+
+        // Check that data nodes value of both zone is NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, Set.of(NODE_0));
 
         CompletableFuture<Set<String>> dataNodesFut0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID);
-        assertThat(dataNodesFut0, willBe(NODE_0.name()));
+        assertThat(dataNodesFut0, willBe(oneNodeName));
 
         CompletableFuture<Set<String>> dataNodesFut1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1);
-        assertThat(dataNodesFut1, willBe(NODE_0.name()));
+        assertThat(dataNodesFut1, willBe(oneNodeName));
 
-        // Alter the zones with not immediate scale up timers.
+        // Alter the zones with not immediate scale up timer.
         distributionZoneManager.alterZone(ZONE_NAME_1,
                         new DistributionZoneConfigurationParameters.Builder(ZONE_NAME_1)
                                 .dataNodesAutoAdjustScaleUp(10000)
@@ -531,7 +534,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 )
                 .get(3, SECONDS);
 
-        // Alter the zone with not immediate timers.
+        // Alter the zone with not immediate scale up timer.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(10000)
@@ -607,7 +610,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long dropRevision0 = dropZoneAndGetRevision(DEFAULT_ZONE_NAME);
         long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
 
-        // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale down timer has not fired.
+        // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
+        // because scale down timer has not fired.
         CompletableFuture<Set<String>> dataNodesFut2 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID);
         assertThat(dataNodesFut2, willBe(twoNodesNames));
 
@@ -630,15 +634,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     @Test
     void createThenDropZone() throws Exception {
         // Prerequisite.
-
-        // Alter the zone with not immediate timers.
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(3, SECONDS);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -698,7 +693,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     void simpleTopologyChanges() throws Exception {
         // Prerequisite.
 
-        // Create zones with not immediate timers.
+        // Create zones with immediate timers.
         distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
                         new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
                                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)

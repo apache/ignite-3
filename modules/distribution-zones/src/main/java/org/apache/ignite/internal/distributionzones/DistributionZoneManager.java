@@ -805,6 +805,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Zone id.
      * @return The future which will be completed with data nodes for the zoneId or with exception.
      */
+    // TODO: Will be implemented in IGNITE-19506.
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         return null;
     }
