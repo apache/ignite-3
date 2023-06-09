@@ -1321,7 +1321,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     topVerTracker.update(topVer, null);
 
-                    saveLogicalTopologyNodeAttributesToVault(newLogicalTopology);
+                    updateLogicalTopologyNodeAttributesAndSaveToVault(newLogicalTopology);
 
                     NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
                             zonesConfiguration.distributionZones();
@@ -1350,12 +1350,12 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Saves logical topology and nodes' attributes map to vault atomically in one batch.
+     * Updates local representation of logical topology and nodes' attributes map and saves it to vault atomically in one batch.
      * After restart it could be used to restore these fields.
      *
      * @param newLogicalTopology Logical topology.
      */
-    private void saveLogicalTopologyNodeAttributesToVault(Set<NodeWithAttributes> newLogicalTopology) {
+    private void updateLogicalTopologyNodeAttributesAndSaveToVault(Set<NodeWithAttributes> newLogicalTopology) {
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
 
         logicalTopology = newLogicalTopology;

@@ -1122,7 +1122,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> tablesConfigurations.stream()
                         .map(cfg -> cfg.indexes().get(indexName.toUpperCase()))
                         .allMatch(Objects::nonNull),
-                10_000
+                TIMEOUT_MILLIS
         ));
     }
 

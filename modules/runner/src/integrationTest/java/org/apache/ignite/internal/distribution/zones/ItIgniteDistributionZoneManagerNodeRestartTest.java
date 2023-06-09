@@ -21,8 +21,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -246,12 +248,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                         .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                         .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                         .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
                 1,
                 partialNode.logicalTopology().getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         assertEquals(Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
 
@@ -274,30 +276,19 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testLogicalTopologyRestoredAfterRestart() throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        Set<NodeWithAttributes> logicalTopology = Set.of(A, B, C).stream()
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
+                .collect(Collectors.toSet());
 
-        Set<String> nodes = distributionZoneManager.topologyVersionedDataNodes(
-                1,
-                partialNode.logicalTopology().getLogicalTopology().version()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        assertEquals(Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        DistributionZoneManager finalDistributionZoneManager = distributionZoneManager;
 
-        assertEquals(
-                Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                distributionZoneManager.logicalTopology().stream().map(NodeWithAttributes::nodeName).collect(Collectors.toSet())
-        );
+        assertTrue(waitForCondition(() -> logicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
 
         partialNode.stop();
 
@@ -305,9 +296,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        assertEquals(
-                Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
-                distributionZoneManager.logicalTopology().stream().map(NodeWithAttributes::nodeName).collect(Collectors.toSet())
-        );
+        assertEquals(logicalTopology, distributionZoneManager.logicalTopology());
     }
 }

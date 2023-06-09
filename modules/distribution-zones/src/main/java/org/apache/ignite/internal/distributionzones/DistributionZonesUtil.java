@@ -76,11 +76,11 @@ public class DistributionZonesUtil {
     /** Key value for zones' nodes' attributes in vault. */
     private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT = "vault.distributionZones.nodesAttributes";
 
-    /** Key prefix for zones' logical topology nodes in vault. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault.distributionZones.logicalTopology.nodes";
-
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
+
+    /** Key prefix for zones' logical topology nodes in vault. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
