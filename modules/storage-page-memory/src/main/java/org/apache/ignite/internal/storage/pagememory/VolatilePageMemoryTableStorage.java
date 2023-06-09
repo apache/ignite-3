@@ -158,7 +158,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     true
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating TableTree [tableId={}, partitionId={}]", e, getTableId(), partId);
+            throw new StorageException("Error creating TableTree: [tableId={}, partitionId={}]", e, getTableId(), partId);
         }
     }
 

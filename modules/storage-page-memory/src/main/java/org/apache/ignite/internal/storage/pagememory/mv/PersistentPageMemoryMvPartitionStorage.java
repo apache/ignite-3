@@ -131,7 +131,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 dataRegion.pageMemory(),
-                tableStorage.getTableDescriptor().getId(),
+                tableStorage.getTableId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -259,7 +259,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
+                throw new StorageException(
+                        "Failed to read group config: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
             }
         });
     }
@@ -292,7 +296,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
             }
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+            throw new StorageException(
+                    "Cannot save committed group configuration: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
         } finally {
             replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
         }
@@ -395,7 +403,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
-                tableStorage.getTableDescriptor().getId(),
+                tableStorage.getTableId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );

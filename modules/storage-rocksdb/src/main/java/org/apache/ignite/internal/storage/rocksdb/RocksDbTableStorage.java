@@ -276,7 +276,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                             break;
 
                         default:
-                            throw new StorageException("Unidentified column family [name={}, tableId={}]", cf.name(), getTableId());
+                            throw new StorageException("Unidentified column family: [name={}, tableId={}]", cf.name(), getTableId());
                     }
                 }
 
@@ -338,12 +338,11 @@ public class RocksDbTableStorage implements MvTableStorage {
                 if (partition != null) {
                     try {
                         partition.refreshPersistedIndex();
-                    } catch (StorageException storageException) {
+                    } catch (StorageException e) {
                         LOG.error(
-                                "Filed to refresh persisted applied index value for table {} partition {}",
-                                storageException,
-                                getTableDescriptor().getId(),
-                                partitionId
+                                "Filed to refresh persisted applied index value: [tableId={}, partition={}]",
+                                e,
+                                getTableId(), partitionId
                         );
                     }
                 }
@@ -617,7 +616,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 
             default:
-                throw new StorageException("Unidentified column family [name={}, table={}]", cfName, tableView.name());
+                throw new StorageException("Unidentified column family: [name={}, table={}]", cfName, tableView.name());
         }
     }
 

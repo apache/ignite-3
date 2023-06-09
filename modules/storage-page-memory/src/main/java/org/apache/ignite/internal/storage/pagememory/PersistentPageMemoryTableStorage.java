@@ -162,7 +162,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             return filePageStore;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    "Error initializing file page store [tableId={}, partitionId={}]",
+                    "Error initializing file page store: [tableId={}, partitionId={}]",
                     e,
                     groupPartitionId.getGroupId(), groupPartitionId.getPartitionId()
             );
@@ -215,7 +215,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     IoStatisticsHolderNoOp.INSTANCE
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating RowVersionFreeList [tableId={}, partitionId={}]", e, getTableId(), partId);
+            throw new StorageException("Error creating RowVersionFreeList: [tableId={}, partitionId={}]", e, getTableId(), partId);
         }
     }
 
@@ -258,10 +258,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     IoStatisticsHolderNoOp.INSTANCE
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    String.format("Error creating IndexColumnsFreeList [tableId=%s, partitionId=%s]", getTableId(), partitionId),
-                    e
-            );
+            throw new StorageException("Error creating IndexColumnsFreeList: [tableId={}, partitionId={}]", e, getTableId(), partitionId);
         }
     }
 
@@ -303,7 +300,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     initNew
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating VersionChainTree [tableId={}, partitionId={}]", e, getTableId(), partId);
+            throw new StorageException("Error creating VersionChainTree: [tableId={}, partitionId={}]", e, getTableId(), partId);
         }
     }
 
@@ -345,7 +342,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     initNew
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating IndexMetaTree [tableId={}, partitionId={}]", e, getTableId(), partitionId);
+            throw new StorageException("Error creating IndexMetaTree: [tableId={}, partitionId={}]", e, getTableId(), partitionId);
         }
     }
 
@@ -387,7 +384,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     initNew
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating GarbageCollectionTree [tableId={}, partitionId={}]", e, getTableId(), partitionId);
+            throw new StorageException("Error creating GarbageCollectionTree: [tableId={}, partitionId={}]", e, getTableId(), partitionId);
         }
     }
 

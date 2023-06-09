@@ -112,8 +112,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final int partitionId;
 
-    protected final int groupId;
-
     protected final AbstractPageMemoryTableStorage tableStorage;
 
     protected volatile VersionChainTree versionChainTree;
@@ -174,9 +172,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        groupId = tableStorage.getTableDescriptor().getId();
-
-        rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
+        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
     }
 
     /**
@@ -277,11 +273,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             boolean initNew = indexMeta.metaPageId() == 0L;
 
             long metaPageId = initNew
-                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    ? pageMemory.allocatePage(tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
             HashIndexTree hashIndexTree = new HashIndexTree(
-                    groupId,
+                    tableStorage.getTableId(),
                     Integer.toString(tableStorage.getTableId()),
                     partitionId,
                     pageMemory,
@@ -320,11 +316,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             boolean initNew = indexMeta.metaPageId() == 0L;
 
             long metaPageId = initNew
-                    ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
+                    ? pageMemory.allocatePage(tableStorage.getTableId(), partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
             SortedIndexTree sortedIndexTree = new SortedIndexTree(
-                    groupId,
+                    tableStorage.getTableId(),
                     Integer.toString(tableStorage.getTableId()),
                     partitionId,
                     pageMemory,
