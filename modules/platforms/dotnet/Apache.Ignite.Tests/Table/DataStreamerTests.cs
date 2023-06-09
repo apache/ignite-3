@@ -98,4 +98,18 @@ public class DataStreamerTests : IgniteTestsBase
         await Task.Delay(1);
         Assert.Fail("TODO");
     }
+
+    [Test]
+    public async Task TestRetryLimitExhausted()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public async Task TestManyItemsWithDisconnectAndRetry()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
 }
