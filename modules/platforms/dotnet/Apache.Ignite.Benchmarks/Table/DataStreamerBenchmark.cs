@@ -52,10 +52,14 @@ public class DataStreamerBenchmark
     {
         _servers = Enumerable.Range(0, ServerCount).Select(_ => new FakeServer(disableOpsTracking: true)).ToList();
 
+        // 10 partitions per node.
+        var partitionAssignment = Enumerable.Range(1, 10).SelectMany(_ => _servers.Select(x => x.Node.Id)).ToArray();
+
         var cfg = new IgniteClientConfiguration();
         foreach (var server in _servers)
         {
             cfg.Endpoints.Add(server.Endpoint);
+            server.PartitionAssignment = partitionAssignment;
         }
 
         _client = await IgniteClient.StartAsync(cfg);
