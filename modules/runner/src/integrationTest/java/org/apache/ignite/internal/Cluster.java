@@ -146,7 +146,7 @@ public class Cluster {
     }
 
     /**
-     * Starts the cluster with the given number of nodes and initializes it.
+     * Starts the cluster with the given number of nodes and initializes it with CMG on first node.
      *
      * @param nodeCount Number of nodes in the cluster.
      * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started

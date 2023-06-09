@@ -96,7 +96,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     /**
      * Deploy tracker.
      */
-    private final DeployTracker tracker;
+    private final DownloadTracker tracker;
 
     /**
      * Failover.
@@ -124,7 +124,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         this.configuration = configuration;
         this.cmgManager = cmgManager;
         this.workDir = workDir;
-        tracker = new DeployTracker();
+        tracker = new DownloadTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
@@ -165,7 +165,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             LOG.error("Error reading deployment unit content", e);
             return failedFuture(e);
         }
-        return tracker.track(id, version, deployToLocalNode(id, version, unitContent)
+        return deployToLocalNode(id, version, unitContent)
                 .thenApply(completed -> {
                     if (completed) {
                         String localNodeId = getLocalNodeId();
@@ -176,8 +176,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         }));
                     }
                     return completed;
-                })
-        );
+                });
     }
 
     private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
@@ -302,7 +301,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public void start() {
-        DefaultNodeCallback callback = new DefaultNodeCallback(deploymentUnitStore, messaging, deployer, clusterService);
+        DefaultNodeCallback callback = new DefaultNodeCallback(deploymentUnitStore, messaging, deployer, clusterService, tracker);
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerListener(new NodeStatusWatchListener(
                 deploymentUnitStore,

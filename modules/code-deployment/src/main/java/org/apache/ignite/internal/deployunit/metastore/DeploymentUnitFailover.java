@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
@@ -67,8 +68,13 @@ public class DeploymentUnitFailover {
                     deploymentUnitStore.getNodeStatuses(consistentId)
                             .thenAccept(nodeStatuses -> nodeStatuses.forEach(nodeStatus -> {
                                 if (nodeStatus.status() == UPLOADING) {
-                                    deploymentUnitStore.getAllNodes(nodeStatus.id(), nodeStatus.version())
-                                            .thenAccept(nodes -> callback.onUploading(nodeStatus, nodes));
+                                    deploymentUnitStore.getClusterStatus(nodeStatus.id(), nodeStatus.version())
+                                            .thenAccept(clusterStatus -> {
+                                                if (clusterStatus.status() == UPLOADING || clusterStatus.status() == DEPLOYED) {
+                                                    deploymentUnitStore.getAllNodes(nodeStatus.id(), nodeStatus.version())
+                                                            .thenAccept(nodes -> callback.onUploading(nodeStatus, nodes));
+                                                }
+                                            });
                                 }
                             }));
                 }

@@ -38,6 +38,8 @@ public class DefaultNodeCallback implements NodeEventCallback {
 
     private final ClusterService clusterService;
 
+    private final DownloadTracker tracker;
+
     /**
      * Constructor.
      *
@@ -50,28 +52,32 @@ public class DefaultNodeCallback implements NodeEventCallback {
             DeploymentUnitStore deploymentUnitStore,
             DeployMessagingService messaging,
             FileDeployerService deployer,
-            ClusterService clusterService
+            ClusterService clusterService,
+            DownloadTracker tracker
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.messaging = messaging;
         this.deployer = deployer;
         this.clusterService = clusterService;
+        this.tracker = tracker;
     }
 
     @Override
     public void onUploading(UnitNodeStatus status, List<String> holders) {
-        messaging.downloadUnitContent(status.id(), status.version(), holders)
-                .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
-                .thenApply(deployed -> {
-                    if (deployed) {
-                        return deploymentUnitStore.updateNodeStatus(
-                                getLocalNodeId(),
-                                status.id(),
-                                status.version(),
-                                DEPLOYED);
-                    }
-                    return deployed;
-                });
+        tracker.track(status.id(), status.version(),
+                () -> messaging.downloadUnitContent(status.id(), status.version(), holders)
+                        .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
+                        .thenApply(deployed -> {
+                            if (deployed) {
+                                return deploymentUnitStore.updateNodeStatus(
+                                        getLocalNodeId(),
+                                        status.id(),
+                                        status.version(),
+                                        DEPLOYED);
+                            }
+                            return deployed;
+                        })
+        );
     }
 
     @Override

@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for {@link IgniteDeployment} for recovery logic.
  */
-@Disabled("IGNITE-19662")
 public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest {
     private DeployFiles files;
 
@@ -40,26 +39,26 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
 
     @Override
     protected int initialNodes() {
-        return 8;
+        return 9;
     }
 
     @Override
     protected int[] cmgMetastoreNodes() {
-        return new int[] {0, 1, 2};
+        return new int[] {6, 7, 8};
     }
 
     @Test
     public void testDeployWithNodeStop() {
-        IgniteImpl node0 = cluster.node(0);
+        IgniteImpl node0 = cluster.node(8);
         Unit mediumUnit = files.deployAndVerifyBig("id1", Version.parseVersion("1.0.0"), cluster.node(3));
 
-        stopNode(0);
+        stopNode(8);
 
         mediumUnit.waitUnitClean(node0);
-        mediumUnit.waitUnitReplica(cluster.node(1));
-        mediumUnit.waitUnitReplica(cluster.node(2));
+        mediumUnit.waitUnitReplica(cluster.node(6));
+        mediumUnit.waitUnitReplica(cluster.node(7));
 
-        node0 = startNode(0);
+        node0 = startNode(8);
         mediumUnit.waitUnitReplica(node0);
     }
 }

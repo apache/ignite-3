@@ -49,43 +49,46 @@ class DeployFiles {
 
     private final Path workDir;
 
-    private final DeployFile smallFile;
+    private DeployFile smallFile;
 
-    private final DeployFile mediumFile;
+    private DeployFile mediumFile;
 
     private DeployFile bigFile;
-
-    private final List<DeployFile> allFiles;
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-19009
     DeployFiles(Path workDir) throws IOException {
         this.workDir = workDir;
-        smallFile = create(workDir.resolve("small.txt"), SMALL_IN_BYTES, BASE_REPLICA_TIMEOUT);
-        mediumFile = create(workDir.resolve("medium.txt"), MEDIUM_IN_BYTES, BASE_REPLICA_TIMEOUT * 2);
-        bigFile = create(workDir.resolve("big.txt"), BIG_IN_BYTES, BASE_REPLICA_TIMEOUT * 3);
-        allFiles = List.of(smallFile, mediumFile);
     }
 
-    private DeployFile create(Path path, long size, int replicaTimeout) throws IOException {
+    private DeployFile create(Path path, long size, int replicaTimeout) {
         DeployFile deployFile = new DeployFile(path, size, replicaTimeout);
-        deployFile.ensureExists();
+        try {
+            deployFile.ensureExists();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return deployFile;
     }
 
     DeployFile smallFile() {
+        if (smallFile == null) {
+            smallFile = create(workDir.resolve("small.txt"), SMALL_IN_BYTES, BASE_REPLICA_TIMEOUT);
+        }
         return smallFile;
     }
 
     DeployFile mediumFile() {
+        if (mediumFile == null) {
+            mediumFile = create(workDir.resolve("medium.txt"), MEDIUM_IN_BYTES, BASE_REPLICA_TIMEOUT * 2);
+        }
         return mediumFile;
     }
 
     DeployFile bigFile() {
+        if (bigFile == null) {
+            bigFile = create(workDir.resolve("big.txt"), BIG_IN_BYTES, BASE_REPLICA_TIMEOUT * 3);
+        }
         return bigFile;
-    }
-
-    List<DeployFile> allFiles() {
-        return allFiles;
     }
 
     private Unit deployAndVerify(String id, Version version, DeployFile file, IgniteImpl entryNode) {

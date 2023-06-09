@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
-import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -72,7 +71,12 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     @Test
     public void deployDirectory() {
         String id = "test";
-        Unit unit = files.deployAndVerify(id, Version.parseVersion("1.1.0"), false, files.allFiles(), cluster.node(1));
+        Unit unit = files.deployAndVerify(id,
+                Version.parseVersion("1.1.0"),
+                false,
+                List.of(files.smallFile(), files.mediumFile()),
+                cluster.node(1)
+        );
 
         IgniteImpl cmg = cluster.node(0);
         unit.waitUnitReplica(cmg);
