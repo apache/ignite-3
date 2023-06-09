@@ -73,11 +73,11 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
 
-    /** QErt. */
+    /** Key value for zones' nodes' attributes in vault. */
     private static final String DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT = "vault.distributionZones.nodesAttributes";
 
-    /** Key prefix for zones' logical topology nodes and logical topology version. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault.distributionZones.logicalTopology.";
+    /** Key prefix for zones' logical topology nodes in vault. */
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault.distributionZones.logicalTopology.nodes";
 
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
@@ -91,11 +91,11 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
-    private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
-
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT);
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT}. */
+    private static final ByteArray DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY = new ByteArray(DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
@@ -206,19 +206,18 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * asdsa.
+     * The key that represents logical topology nodes in vault.
+     */
+    public static ByteArray zonesLogicalTopologyVault() {
+        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY;
+    }
+
+    /**
+     * The key that represents nodes' attributes in vault.
      */
     public static ByteArray zonesNodesAttributesVault() {
         return DISTRIBUTION_ZONES_NODES_ATTRIBUTES_VAULT_KEY;
     }
-
-    /**
-     * asdsa.
-     */
-    public static ByteArray zoneslogicalTopologyVault() {
-        return DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT_KEY;
-    }
-
 
     /**
      * The key prefix needed for processing an event about zone's data nodes.

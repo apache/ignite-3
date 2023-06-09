@@ -196,7 +196,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      *
      * @param idx Node index.
      * @param cfgString Configuration string or {@code null} to use the default configuration.
-     * @return List of started components.
+     * @return Partial node.
      */
     private PartialNode startPartialNode(int idx, @Nullable @Language("HOCON") String cfgString) {
         return startPartialNode(idx, cfgString, null);
@@ -208,7 +208,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param idx Node index.
      * @param cfgString Configuration string or {@code null} to use the default configuration.
      * @param revisionCallback Callback on storage revision update.
-     * @return List of started components.
+     * @return Partial node.
      */
     private PartialNode startPartialNode(
             int idx,

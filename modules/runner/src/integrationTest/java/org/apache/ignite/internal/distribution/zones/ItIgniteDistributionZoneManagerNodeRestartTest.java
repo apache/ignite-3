@@ -80,7 +80,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * These tests check node restart scenarios.
+ * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
@@ -102,11 +102,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends IgniteAbstra
 
     private static final LogicalNode C = new LogicalNode(
             new ClusterNode("3", "C", new NetworkAddress("localhost", 123)),
-            Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
-    );
-
-    private static final LogicalNode D = new LogicalNode(
-            new ClusterNode("4", "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 
@@ -138,7 +133,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends IgniteAbstra
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
      *
      * @param idx Node index.
-     * @return List of started components.
+     * @return Partial node.
      */
     private PartialNode startPartialNode(int idx) {
         String name = testNodeName(testInfo, idx);
@@ -297,15 +292,19 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends IgniteAbstra
 
         assertEquals(Set.of(A, B, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
 
+        Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
+
         partialNode.stop();
 
         partialNode = startPartialNode(0);
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        Map<String, Map<String, String>> nodeAttributes = distributionZoneManager.nodesAttributes();
+        Map<String, Map<String, String>> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
 
-        assertEquals(3, nodeAttributes.size());
+        assertEquals(3, nodeAttributesAfterRestart.size());
+
+        assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
     }
 
     @Test

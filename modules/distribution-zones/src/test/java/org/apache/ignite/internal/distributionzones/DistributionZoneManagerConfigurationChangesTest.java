@@ -29,7 +29,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneslogicalTopologyVault;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -116,7 +116,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         // Mock logical topology for distribution zone.
         vaultMgr = new VaultManager(new InMemoryVaultService());
-        assertThat(vaultMgr.put(zoneslogicalTopologyVault(), toBytes(nodes)), willCompleteSuccessfully());
+        assertThat(vaultMgr.put(zonesLogicalTopologyVault(), toBytes(nodes)), willCompleteSuccessfully());
 
         Map<String, Map<String, String>> nodesAttributes = new HashMap<>();
         nodes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));

@@ -46,7 +46,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneslogicalTopologyVault;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -1202,7 +1202,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 topVerTracker.update(bytesToLong(topVerEntry.value()), null);
             }
 
-            restoreGlobalStateFromVault(appliedRevision);
+            restoreGlobalStateFromVault();
 
             if (!logicalTopology.isEmpty()) {
                 // init keys and data nodes for default zone
@@ -1227,19 +1227,16 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * ss.
-     *
-     * @param appliedRevision sd.
+     * Restores from vault logical topology and nodes' attributes fields in {@link DistributionZoneManager} after restart.
      */
-    private void restoreGlobalStateFromVault(long appliedRevision) {
-        VaultEntry topologyEntry = vaultMgr.get(zoneslogicalTopologyVault()).join();
+    private void restoreGlobalStateFromVault() {
+        VaultEntry topologyEntry = vaultMgr.get(zonesLogicalTopologyVault()).join();
+
+        VaultEntry nodeAttributesEntry = vaultMgr.get(zonesNodesAttributesVault()).join();
 
         if (topologyEntry != null && topologyEntry.value() != null) {
-            assert  appliedRevision > 0 : "The meta storage last applied revision is 0 but the logical topology is not null.";
-
-            VaultEntry nodeAttributesEntry = vaultMgr.get(zonesNodesAttributesVault()).join();
-
-            assert nodeAttributesEntry.value() != null : "";
+            assert nodeAttributesEntry != null : "Nodes' attributes cannot be null when logical topology is not null.";
+            assert nodeAttributesEntry.value() != null : "Nodes' attributes cannot be null when logical topology is not null.";
 
             logicalTopology = fromBytes(topologyEntry.value());
 
@@ -1249,7 +1246,10 @@ public class DistributionZoneManager implements IgniteComponent {
         assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the vault manager.";
 
-        // assert from node attributes?
+        assert nodeAttributesEntry == null
+                || nodeAttributesEntry.value() == null
+                || nodesAttributes.equals(fromBytes(nodeAttributesEntry.value()))
+                : "Initial value of nodes' attributes was changed after initialization from the vault manager.";
     }
 
     /**
@@ -1350,9 +1350,10 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * ss.
+     * Saves logical topology and nodes' attributes map to vault atomically in one batch.
+     * After restart it could be used to restore these fields.
      *
-     * @param newLogicalTopology s.
+     * @param newLogicalTopology Logical topology.
      */
     private void saveLogicalTopologyNodeAttributesToVault(Set<NodeWithAttributes> newLogicalTopology) {
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
@@ -1361,7 +1362,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(2);
 
-        batch.put(zoneslogicalTopologyVault(), toBytes(newLogicalTopology));
+        batch.put(zonesLogicalTopologyVault(), toBytes(newLogicalTopology));
 
         batch.put(zonesNodesAttributesVault(), toBytes(nodesAttributes()));
 

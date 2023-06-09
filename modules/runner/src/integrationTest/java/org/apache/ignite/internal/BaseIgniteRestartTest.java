@@ -57,7 +57,7 @@ import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ss.
+ * Base class for node's restart tests.
  */
 public class BaseIgniteRestartTest extends IgniteAbstractTest {
     /** Default node port. */
@@ -132,6 +132,7 @@ public class BaseIgniteRestartTest extends IgniteAbstractTest {
 
     /**
      * Find component of a given type in list.
+     * Note that it could be possible that in a list of components are presented several instances of a one class.
      *
      * @param components Components list.
      * @param cls Class.
@@ -162,17 +163,18 @@ public class BaseIgniteRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * asd.
+     * Returns partial node. Chains deploying watches to configuration notifications and waits for it,
+     * so returned partial node is started and ready to work.
      *
-     * @param nodeCfgMgr asd.
-     * @param clusterCfgMgr asd.
-     * @param revisionCallback asd.
-     * @param components asd.
-     * @param localConfigurationGenerator asd.
-     * @param logicalTopology asd.
-     * @param cfgStorage asd.
-     * @param distributedConfigurationGenerator asd.
-     * @return asd.
+     * @param nodeCfgMgr Node configuration manager.
+     * @param clusterCfgMgr Cluster configuration manager..
+     * @param revisionCallback RevisionCallback Callback on storage revision update.
+     * @param components Started components of a node.
+     * @param localConfigurationGenerator Local configuration generator.
+     * @param logicalTopology Logical topology.
+     * @param cfgStorage Distributed configuration storage..
+     * @param distributedConfigurationGenerator Distributes configuration generator..
+     * @return Partial node.
      */
     public static PartialNode partialNode(
             ConfigurationManager nodeCfgMgr,
@@ -230,7 +232,7 @@ public class BaseIgniteRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * asd.
+     * Node with partially started components.
      */
     public static class PartialNode {
 
@@ -247,7 +249,7 @@ public class BaseIgniteRestartTest extends IgniteAbstractTest {
         }
 
         /**
-         * adsd.
+         * Stops node.
          */
         public void stop() {
             ListIterator<IgniteComponent> iter = startedComponents.listIterator(startedComponents.size());
@@ -301,7 +303,7 @@ public class BaseIgniteRestartTest extends IgniteAbstractTest {
          * @param cfgStorage Configuration storage.
          * @param catchUpFuture Catch-up future.
          */
-        public TestConfigurationCatchUpListener(
+        TestConfigurationCatchUpListener(
                 ConfigurationStorage cfgStorage,
                 CompletableFuture<Void> catchUpFuture,
                 Consumer<Long> revisionCallback
