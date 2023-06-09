@@ -51,7 +51,7 @@ public class DataStreamerSingleNodeBenchmark
         _server.Dispose();
     }
 
-    [Benchmark]
+    [Benchmark(Baseline = true)]
     public async Task DataStreamer() => await _table.RecordBinaryView.StreamDataAsync(_data.ToAsyncEnumerable());
 
     [Benchmark]
