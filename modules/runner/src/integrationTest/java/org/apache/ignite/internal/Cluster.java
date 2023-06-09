@@ -128,6 +128,7 @@ public class Cluster {
      * Starts the cluster with the given number of nodes and initializes it.
      *
      * @param nodeCount Number of nodes in the cluster.
+     * @param cmgNodes Indices of CMG nodes.
      */
     public void startAndInit(int nodeCount, int[] cmgNodes) {
         startAndInit(nodeCount, cmgNodes, builder -> {});
@@ -137,10 +138,11 @@ public class Cluster {
      * Starts the cluster with the given number of nodes and initializes it.
      *
      * @param nodeCount Number of nodes in the cluster.
+     * @param cmgNodes Indices of CMG nodes.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
     public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startAndInit(nodeCount, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
+        startAndInit(nodeCount, cmgNodes, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
     }
 
     /**
@@ -153,6 +155,24 @@ public class Cluster {
      */
     public void startAndInit(
             int nodeCount,
+            String nodeBootstrapConfigTemplate,
+            Consumer<InitParametersBuilder> initParametersConfigurator
+    ) {
+        startAndInit(nodeCount, new int[] { 0 }, nodeBootstrapConfigTemplate, initParametersConfigurator);
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param cmgNodes Indices of CMG nodes.
+     * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
+     *     with this call.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(
+            int nodeCount,
+            int[] cmgNodes,
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator
     ) {
