@@ -1037,6 +1037,19 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
+    public void testCreateIndexWithDuplicateColumns() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        CreateHashIndexParams params = CreateHashIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of("VAL", "VAL"))
+                .build();
+
+        assertThat(service.createIndex(params), willThrow(SqlException.class));
+    }
+
+    @Test
     public void operationWillBeRetriedFiniteAmountOfTimes() {
         UpdateLog updateLogMock = Mockito.mock(UpdateLog.class);
 

@@ -459,7 +459,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 if (columnDescriptor == null) {
                     throw new ColumnNotFoundException(columnName);
                 } else if (duplicateValidator.test(columnName)) {
-                    throw new IgniteInternalException(
+                    throw new SqlException(
                             ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
                             "Can't create index on duplicate columns: columnName=" + columnName
                     );
