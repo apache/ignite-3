@@ -70,7 +70,8 @@ public class DataStreamerSingleNodeBenchmark
         var batchSize = DataStreamerOptions.Default.BatchSize;
         var batch = new List<IIgniteTuple>(batchSize);
 
-        foreach (var tuple in _data)
+        // Use async enumerable for a fair comparison with DataStreamer.
+        await foreach (var tuple in _data.ToAsyncEnumerable())
         {
             batch.Add(tuple);
 
