@@ -22,6 +22,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.jetbrains.annotations.Nullable;
 
+// TODO: sanpwc Rework.
 /**
  * Response for the {@link TxStateReplicaRequest}. Can contain either the consistent ID of the Partition Group leader, which should be
  * queried for the TX Meta, or the TX Meta itself.
