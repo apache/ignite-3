@@ -26,12 +26,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -619,33 +621,80 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .check();
     }
 
+    /**
+     * Basic test that re-runs the same queries in multi-threaded mode to make sure that the cache of query plans works correctly.
+     *
+     * <ol>
+     *     <li>Run multi-threaded insert queries.</li>
+     *     <li>Run multiple times the same merge query.</li>
+     *     <li>Run multi-threaded select queries that check merge results.</li>
+     * </ol>
+     *
+     * @throws Exception If failed.
+     */
     @Test
-    public void testMultithreadedMerge() throws Exception {
-        //        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
-        //        sql("DROP TABLE IF EXISTS test1 ");
-        sql("CREATE TABLE test1 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
+    public void testQueryCacheMultithreaded() throws Exception {
+        sql("CREATE ZONE TEST_ZONE");
+        sql("CREATE TABLE test1 (a int primary key, b int) with primary_zone='TEST_ZONE'");
+        sql("CREATE TABLE test2 (a int primary key, b int) with primary_zone='TEST_ZONE'");
 
-        AtomicInteger cntr = new AtomicInteger();
-        final int step = 10;
-        int threads = 2;
+        int step = 10;
+        int threads = 4;
+        int opTimeoutSec = 10;
+
+        AtomicInteger cntr = new AtomicInteger(1);
         CyclicBarrier barrier = new CyclicBarrier(threads);
 
-        CompletableFuture<Long> fut = IgniteTestUtils.runMultiThreadedAsync(() -> {
+        SqlQueryProcessor queryProc = (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+        Map<?, ?> cache = IgniteTestUtils.getFieldValue(queryProc, "planCache");
+
+        assertEquals(0, cache.size());
+
+        CompletableFuture<Long> insertFut = IgniteTestUtils.runMultiThreadedAsync(() -> {
             int start = cntr.getAndAdd(step);
 
             barrier.await();
 
             for (int i = start; i < start + step; i++) {
-                sql("INSERT INTO test1 VALUES (?, ?, ?, ?, ?)", i * 111, i * 111, i, i * 100, String.valueOf(i));
-            }
+                sql("INSERT INTO test1 VALUES (?, ?)", i, i);
 
-            return step;
+                if (i % 2 == 0) {
+                    sql("INSERT INTO test2 VALUES (?, ?)", i, i);
+                }
+            }
+            return null;
         }, threads, "insert");
 
-        fut.get(60, TimeUnit.SECONDS);
+        insertFut.get(opTimeoutSec, TimeUnit.SECONDS);
 
-        assertQuery("SELECT count(*) FROM test1")
-                .returns((long) step * threads)
-                .check();
+        assertEquals(2, cache.size());
+
+        for (int i = 2; i < step; i++) {
+            sql("MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                    + "WHEN MATCHED THEN UPDATE SET b = dst.a * ? ", i);
+
+            sql("MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                    + "WHEN NOT MATCHED THEN INSERT (a, b) VALUES (src.a, src.b * ?)", i);
+
+            barrier.reset();
+
+            int n = i;
+            long max = step * threads;
+            long totalSum = (1 + max) * max / 2;
+
+            CompletableFuture<Long> selectFut = IgniteTestUtils.runMultiThreadedAsync(() -> {
+                barrier.await();
+
+                assertQuery("select sum(a), sum(b) from test2")
+                        .returns(totalSum, totalSum * n)
+                        .check();
+
+                return null;
+            }, threads, "select");
+
+            selectFut.get(opTimeoutSec, TimeUnit.SECONDS);
+        }
+
+        assertEquals(5, cache.size());
     }
 }
