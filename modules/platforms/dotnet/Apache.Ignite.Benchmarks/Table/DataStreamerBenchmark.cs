@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Benchmarks.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -35,18 +36,29 @@ using Tests;
 /// | UpsertAllBatched | 16.41 ms | 0.308 ms | 0.330 ms |  0.84 |    0.02 |       - |      4 MB |.
 /// </summary>
 [MemoryDiagnoser]
-public class DataStreamerSingleNodeBenchmark
+public class DataStreamerBenchmark
 {
-    private FakeServer _server = null!;
+    private IList<FakeServer> _servers = null!;
     private IIgniteClient _client = null!;
     private ITable _table = null!;
     private IReadOnlyList<IIgniteTuple> _data = null!;
 
+    [Params(1, 2, 4)]
+    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "Benchmark parameter")]
+    public int ServerCount { get; set; }
+
     [GlobalSetup]
     public async Task GlobalSetup()
     {
-        _server = new FakeServer(true);
-        _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_server.Endpoint));
+        _servers = Enumerable.Range(0, ServerCount).Select(_ => new FakeServer(disableOpsTracking: true)).ToList();
+
+        var cfg = new IgniteClientConfiguration();
+        foreach (var server in _servers)
+        {
+            cfg.Endpoints.Add(server.Endpoint);
+        }
+
+        _client = await IgniteClient.StartAsync(cfg);
         _table = (await _client.Tables.GetTableAsync(FakeServer.ExistingTableName))!;
         _data = Enumerable.Range(1, 100_000).Select(x => new IgniteTuple { ["id"] = x, ["name"] = "name " + x }).ToList();
     }
@@ -55,7 +67,11 @@ public class DataStreamerSingleNodeBenchmark
     public void GlobalCleanup()
     {
         _client.Dispose();
-        _server.Dispose();
+
+        foreach (var server in _servers)
+        {
+            server.Dispose();
+        }
     }
 
     [Benchmark(Baseline = true)]

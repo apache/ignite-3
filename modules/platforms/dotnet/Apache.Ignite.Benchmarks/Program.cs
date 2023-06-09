@@ -22,5 +22,5 @@ using Table;
 
 internal static class Program
 {
-    private static void Main() => BenchmarkRunner.Run<DataStreamerSingleNodeBenchmark>();
+    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
 }
