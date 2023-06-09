@@ -55,17 +55,22 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAutoFlushFrequency()
+    public async Task TestAutoFlushFrequency([Values(true, false)] bool enabled)
     {
         using var cts = new CancellationTokenSource();
 
         _ = TupleView.StreamDataAsync(
             GetTuplesWithDelay(cts.Token),
-            new() { AutoFlushFrequency = TimeSpan.FromMilliseconds(50) });
+            new()
+            {
+                AutoFlushFrequency = enabled
+                    ? TimeSpan.FromMilliseconds(50)
+                    : TimeSpan.MaxValue
+            });
 
         await Task.Delay(100);
 
-        Assert.IsTrue(await TupleView.ContainsKeyAsync(null, GetTuple(0)));
+        Assert.AreEqual(enabled, await TupleView.ContainsKeyAsync(null, GetTuple(0)));
         Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(1)));
 
         cts.Cancel();
