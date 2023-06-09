@@ -526,7 +526,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 completedFuture(schemaManager),
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
-                                                mock(IndexBuilder.class)
+                                                mock(IndexBuilder.class),
+                                                tablesConfig
                                         ),
                                         raftSvc,
                                         storageIndexTracker

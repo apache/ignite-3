@@ -223,7 +223,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 CompletableFuture.completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
-                mock(IndexBuilder.class)
+                mock(IndexBuilder.class),
+                tablesConfig
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

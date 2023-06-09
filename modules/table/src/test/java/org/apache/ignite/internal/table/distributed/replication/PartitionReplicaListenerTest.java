@@ -413,7 +413,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 completedFuture(schemaManager),
                 localNode,
                 new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig),
-                mock(IndexBuilder.class)
+                mock(IndexBuilder.class),
+                tablesConfig
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);

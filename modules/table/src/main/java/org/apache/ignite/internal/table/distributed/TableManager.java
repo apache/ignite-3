@@ -875,7 +875,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             schemaManager.schemaRegistry(causalityToken, tblId),
                                                             localNode(),
                                                             table.internalTable().storage(),
-                                                            indexBuilder
+                                                            indexBuilder,
+                                                            tablesCfg
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -2179,7 +2180,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             completedFuture(schemaManager.schemaRegistry(tbl.tableId())),
                                             localNode(),
                                             internalTable.storage(),
-                                            indexBuilder
+                                            indexBuilder,
+                                            tablesCfg
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                     storageIndexTracker
