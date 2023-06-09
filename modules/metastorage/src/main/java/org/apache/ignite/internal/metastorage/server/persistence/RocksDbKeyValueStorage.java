@@ -81,6 +81,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -214,6 +215,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
     public RocksDbKeyValueStorage(String nodeName, Path dbPath) {
@@ -228,7 +230,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void start() {
         try {
             // Delete existing data, relying on the raft's snapshot and log playback
-            recreateDb();
+            destroyRocksDb();
+
+            createDb();
         } catch (RocksDBException e) {
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         }
@@ -258,9 +262,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         );
     }
 
-    private void recreateDb() throws RocksDBException {
-        destroyRocksDb();
-
+    protected void createDb() throws RocksDBException {
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
         assert descriptors.size() == 4;
@@ -285,6 +287,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 List.of(fullRange(data), fullRange(index), fullRange(tsToRevision), fullRange(revisionToTs)),
                 snapshotExecutor
         );
+
+        byte[] revision = data.get(REVISION_KEY);
+
+        if (revision != null) {
+            rev = ByteUtils.bytesToLong(revision);
+        }
     }
 
     /**
@@ -294,7 +302,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      *
      * @throws RocksDBException If failed.
      */
-    private void destroyRocksDb() throws RocksDBException {
+    protected void destroyRocksDb() throws RocksDBException {
         try (Options opt = new Options()) {
             RocksDB.destroyDB(dbPath.toString(), opt);
         }
@@ -324,7 +332,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
             IgniteUtils.closeAll(db, options);
 
-            recreateDb();
+            destroyRocksDb();
+
+            createDb();
 
             snapshotManager.restoreSnapshot(path);
 

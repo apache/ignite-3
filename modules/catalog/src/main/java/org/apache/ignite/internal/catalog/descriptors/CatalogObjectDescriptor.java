@@ -25,13 +25,13 @@ import org.apache.ignite.internal.tostring.S;
  * Base class for catalog objects.
  * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
-public abstract class ObjectDescriptor implements Serializable {
+public abstract class CatalogObjectDescriptor implements Serializable {
     private static final long serialVersionUID = -6525237234280004860L;
     private final int id;
     private final String name;
     private final Type type;
 
-    ObjectDescriptor(int id, Type type, String name) {
+    CatalogObjectDescriptor(int id, Type type, String name) {
         this.id = id;
         this.type = Objects.requireNonNull(type, "type");
         this.name = Objects.requireNonNull(name, "name");

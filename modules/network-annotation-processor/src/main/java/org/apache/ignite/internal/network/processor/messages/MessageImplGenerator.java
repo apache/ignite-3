@@ -122,12 +122,12 @@ public class MessageImplGenerator {
 
             if (isMarshallable && !marshallableTypesBlackList.canBeMarshallable(getterType)) {
                 String error = String.format(
-                        "\"%s\" field is marked as @Marshallable but this type is supported by native serialization, "
-                                + "remove this annotation from the field",
+                        "\"%s\" field is marked as @Marshallable but this type is either directly supported by native serialization "
+                                + "or is prohibited by a blacklist, remove this annotation from the field",
                         getterName
                 );
 
-                throw new ProcessingException(error);
+                throw new ProcessingException(error, null, getter);
             }
 
             FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)

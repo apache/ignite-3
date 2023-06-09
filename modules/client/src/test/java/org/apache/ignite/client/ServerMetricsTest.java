@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -91,8 +92,8 @@ public class ServerMetricsTest extends AbstractClientTest {
         CompletableFuture computeFut = new CompletableFuture();
         FakeCompute.future = computeFut;
 
-        client.compute().execute(getClusterNodes("s1"), "job");
-        client.compute().execute(getClusterNodes("s1"), "job");
+        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
+        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 2, 1000),
@@ -109,7 +110,7 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsProcessed() throws Exception {
         long processed = testServer.metrics().requestsProcessed();
 
-        client.compute().execute(getClusterNodes("s1"), "job");
+        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
@@ -122,7 +123,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.future = CompletableFuture.failedFuture(new RuntimeException("test"));
 
-        client.compute().execute(getClusterNodes("s1"), "job");
+        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),
@@ -136,7 +137,7 @@ public class ServerMetricsTest extends AbstractClientTest {
         assertFalse(testServer.metrics().enabled());
         assertEquals(0, testServer.metrics().requestsProcessed());
 
-        client.compute().execute(getClusterNodes("s1"), "job").join();
+        client.compute().execute(getClusterNodes("s1"), List.of(), "job").join();
 
         assertEquals(0, testServer.metrics().requestsProcessed());
         assertFalse(testServer.metrics().enabled());

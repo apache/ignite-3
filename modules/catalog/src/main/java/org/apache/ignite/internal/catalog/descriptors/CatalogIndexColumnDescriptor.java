@@ -17,43 +17,31 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.util.List;
+import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Hash index descriptor.
+ * Indexed column descriptor.
  */
-public class HashIndexDescriptor extends IndexDescriptor {
-    private static final long serialVersionUID = -6784028115063219759L;
+public class CatalogIndexColumnDescriptor implements Serializable {
+    private static final long serialVersionUID = 5750677168056750717L;
 
-    private final List<String> columns;
+    private final String name;
 
-    /**
-     * Constructs a hash index descriptor.
-     *
-     * @param id Id of the index.
-     * @param name Name of the index.
-     * @param tableId Id of the table index belongs to.
-     * @param unique Unique flag.
-     * @param columns A list of indexed columns. Must not contains duplicates.
-     * @throws IllegalArgumentException If columns list contains duplicates.
-     */
-    public HashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        super(id, name, tableId, unique);
+    private final CatalogColumnCollation collation;
 
-        this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
+    public CatalogIndexColumnDescriptor(String name, CatalogColumnCollation collation) {
+        this.name = name;
+        this.collation = Objects.requireNonNull(collation, "collation");
     }
 
-    /** Returns indexed columns. */
-    public List<String> columns() {
-        return columns;
+    public String name() {
+        return name;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasColumn(String columnName) {
-        return columns.contains(columnName);
+    public CatalogColumnCollation collation() {
+        return collation;
     }
 
     /** {@inheritDoc} */
@@ -62,5 +50,3 @@ public class HashIndexDescriptor extends IndexDescriptor {
         return S.toString(this);
     }
 }
-
-

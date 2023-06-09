@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
@@ -92,6 +93,11 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(dropCommand))
                             .handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class))
+                    );
+        } else if (cmd instanceof AlterColumnCommand) {
+            return ddlCommandFuture
+                    .thenCompose(res -> catalogManager.alterColumn(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
+                            .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class))
                     );
         } else if (cmd instanceof CreateIndexCommand) {
             return ddlCommandFuture

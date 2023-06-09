@@ -32,7 +32,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -52,6 +51,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -75,10 +75,12 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
@@ -93,6 +95,8 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.SchemaNotFoundException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -211,6 +215,10 @@ public class DdlSqlToCommandConverter {
 
         if (ddlNode instanceof IgniteSqlAlterTableDropColumn) {
             return convertAlterTableDrop((IgniteSqlAlterTableDropColumn) ddlNode, ctx);
+        }
+
+        if (ddlNode instanceof IgniteSqlAlterColumn) {
+            return convertAlterColumn((IgniteSqlAlterColumn) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlCreateIndex) {
@@ -413,6 +421,39 @@ public class DdlSqlToCommandConverter {
         }
 
         return DefaultValueDefinition.constant(val);
+    }
+
+    private AlterColumnCommand convertAlterColumn(IgniteSqlAlterColumn alterColumnNode, PlanningContext ctx) {
+        AlterColumnCommand cmd = new AlterColumnCommand();
+
+        cmd.schemaName(deriveSchemaName(alterColumnNode.name(), ctx));
+        cmd.tableName(deriveObjectName(alterColumnNode.name(), ctx, "table name"));
+        cmd.ifTableExists(alterColumnNode.ifExists());
+        cmd.columnName(alterColumnNode.columnName().getSimple());
+
+        if (alterColumnNode.dataType() != null) {
+            cmd.type(ctx.planner().convert(alterColumnNode.dataType(), true));
+        }
+
+        if (alterColumnNode.notNull() != null) {
+            cmd.notNull(alterColumnNode.notNull());
+        }
+
+        if (alterColumnNode.expression() != null) {
+            SqlNode expr = alterColumnNode.expression();
+
+            Function<ColumnType, DefaultValue> resolveDfltFunc;
+
+            if (expr instanceof SqlLiteral) {
+                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr));
+            } else {
+                throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
+            }
+
+            cmd.defaultValueResolver(resolveDfltFunc);
+        }
+
+        return cmd;
     }
 
     /**
@@ -668,7 +709,7 @@ public class DdlSqlToCommandConverter {
 
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
-            throw new SqlException(SCHEMA_NOT_FOUND_ERR, "Schema with name " + schemaName + " not found");
+            throw new SchemaNotFoundException(schemaName);
         }
     }
 
@@ -834,6 +875,56 @@ public class DdlSqlToCommandConverter {
                     return literal.getValueAs(Float.class);
                 case BINARY:
                 case VARBINARY:
+                    return literal.getValueAs(byte[].class);
+                default:
+                    throw new IllegalStateException("Unknown type [type=" + columnType + ']');
+            }
+        } catch (Throwable th) {
+            // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
+            throw new SqlException(SQL_TO_REL_CONVERSION_ERR, "Unable co convert literal", th);
+        }
+    }
+
+    private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal) {
+        try {
+            switch (columnType) {
+                case NULL:
+                    return null;
+                case STRING:
+                    return literal.getValueAs(String.class);
+                case DATE: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.DATE);
+                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
+                }
+                case TIME: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIME);
+                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
+                }
+                case TIMESTAMP: {
+                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIMESTAMP);
+                    var tsString = literal0.getValueAs(TimestampString.class);
+
+                    return LocalDateTime.ofEpochSecond(
+                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
+                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
+                            ZoneOffset.UTC
+                    );
+                }
+                case INT32:
+                    return literal.getValueAs(Integer.class);
+                case INT64:
+                    return literal.getValueAs(Long.class);
+                case INT16:
+                    return literal.getValueAs(Short.class);
+                case INT8:
+                    return literal.getValueAs(Byte.class);
+                case DECIMAL:
+                    return literal.getValueAs(BigDecimal.class);
+                case DOUBLE:
+                    return literal.getValueAs(Double.class);
+                case FLOAT:
+                    return literal.getValueAs(Float.class);
+                case BYTE_ARRAY:
                     return literal.getValueAs(byte[].class);
                 default:
                     throw new IllegalStateException("Unknown type [type=" + columnType + ']');

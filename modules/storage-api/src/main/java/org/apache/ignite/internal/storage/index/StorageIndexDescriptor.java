@@ -18,20 +18,20 @@
 package org.apache.ignite.internal.storage.index;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 
 /**
  * Index descriptor.
  */
-public interface IndexDescriptor {
+public interface StorageIndexDescriptor {
     /**
      * Index column descriptor.
      */
-    interface ColumnDescriptor {
+    interface StorageColumnDescriptor {
         /**
          * Returns the name of an index column.
          */
@@ -56,26 +56,23 @@ public interface IndexDescriptor {
     /**
      * Returns index column descriptions.
      */
-    List<? extends ColumnDescriptor> columns();
+    List<? extends StorageColumnDescriptor> columns();
 
     /**
-     * Creates an index description based on the configuration.
+     * Creates an index description based on the catalog descriptors.
      *
-     * @param tablesView Tables configuration.
-     * @param indexId Index ID.
+     * @param table Catalog table descriptor.
+     * @param index Catalog index descriptor.
      */
-    static IndexDescriptor createIndexDescriptor(TablesView tablesView, int indexId) {
-        TableIndexView indexView = tablesView.indexes().stream()
-                .filter(tableIndexView -> indexId == tableIndexView.id())
-                .findFirst()
-                .orElse(null);
-
-        if (indexView instanceof HashIndexView) {
-            return new HashIndexDescriptor(indexId, tablesView);
-        } else if (indexView instanceof SortedIndexView) {
-            return new SortedIndexDescriptor(indexId, tablesView);
-        } else {
-            throw new AssertionError("Unknown type: " + indexView);
+    static StorageIndexDescriptor create(CatalogTableDescriptor table, CatalogIndexDescriptor index) {
+        if (index instanceof CatalogHashIndexDescriptor) {
+            return new StorageHashIndexDescriptor(table, (CatalogHashIndexDescriptor) index);
         }
+
+        if (index instanceof CatalogSortedIndexDescriptor) {
+            return new StorageSortedIndexDescriptor(table, ((CatalogSortedIndexDescriptor) index));
+        }
+
+        throw new IllegalArgumentException("Unknown type: " + index);
     }
 }

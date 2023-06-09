@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 
 /**
  * CREATE INDEX statement.
@@ -36,7 +36,7 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
     private List<String> columns;
 
     /** Columns collations. */
-    private List<ColumnCollation> collations;
+    private List<CatalogColumnCollation> collations;
 
     /** Unique index flag. */
     protected boolean unique;
@@ -58,7 +58,7 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
     /**
      * Gets columns collations.
      */
-    public List<ColumnCollation> collations() {
+    public List<CatalogColumnCollation> collations() {
         return collations;
     }
 
@@ -107,7 +107,7 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
          * @param collations Columns collations.
          * @return {@code this}.
          */
-        public Builder collations(List<ColumnCollation> collations) {
+        public Builder collations(List<CatalogColumnCollation> collations) {
             params.collations = collations;
 
             return this;

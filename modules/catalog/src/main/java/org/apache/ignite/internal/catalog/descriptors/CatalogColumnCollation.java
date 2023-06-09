@@ -21,7 +21,7 @@ package org.apache.ignite.internal.catalog.descriptors;
  * Enumeration of all supported collations.
  */
 //TODO: IGNITE-19082 drop similar classes in index and sql-engine modules.
-public enum ColumnCollation {
+public enum CatalogColumnCollation {
     ASC_NULLS_FIRST(true, true),
     ASC_NULLS_LAST(true, false),
     DESC_NULLS_FIRST(false, true),
@@ -37,7 +37,7 @@ public enum ColumnCollation {
      * @param asc Direction of the sorting.
      * @param nullsFirst Place of the null values in sorted range.
      */
-    ColumnCollation(boolean asc, boolean nullsFirst) {
+    CatalogColumnCollation(boolean asc, boolean nullsFirst) {
         this.asc = asc;
         this.nullsFirst = nullsFirst;
     }
@@ -49,7 +49,7 @@ public enum ColumnCollation {
      * @param nullsFirst Whether to put null values first.
      * @return A collation object.
      */
-    public static ColumnCollation get(boolean asc, boolean nullsFirst) {
+    public static CatalogColumnCollation get(boolean asc, boolean nullsFirst) {
         if (asc && nullsFirst) {
             return ASC_NULLS_FIRST;
         } else if (asc) {
