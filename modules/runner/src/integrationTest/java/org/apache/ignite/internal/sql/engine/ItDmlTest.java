@@ -646,7 +646,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         CyclicBarrier barrier = new CyclicBarrier(threads);
 
         SqlQueryProcessor queryProc = (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-        Map<?, ?> cache = IgniteTestUtils.getFieldValue(queryProc, "planCache");
+        Map<?, ?> cache = IgniteTestUtils.getFieldValue(queryProc, "queryCache");
 
         assertEquals(0, cache.size());
 

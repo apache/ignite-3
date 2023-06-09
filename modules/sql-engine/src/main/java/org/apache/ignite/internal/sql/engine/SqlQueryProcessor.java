@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.DML;
 import static org.apache.ignite.internal.sql.engine.SqlQueryType.QUERY;
-import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
@@ -31,10 +30,10 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +48,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -187,7 +185,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
-    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> planCache;
+    /** Query plan cache. */
+    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> queryCache;
 
     /** Constructor. */
     public SqlQueryProcessor(
@@ -217,7 +216,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.clock = clock;
         this.catalogManager = catalogManager;
 
-        this.planCache = Caffeine.newBuilder()
+        this.queryCache = Caffeine.newBuilder()
                 .maximumSize(PLAN_CACHE_SIZE)
                 .<CacheKey, CompletableFuture<QueryPlan>>build()
                 .asMap();
@@ -261,7 +260,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 busyLock
         );
 
-        sqlSchemaManager.registerListener(planCache::clear);
+        sqlSchemaManager.registerListener(queryCache::clear);
 
         this.prepareSvc = prepareSvc;
 
@@ -424,64 +423,57 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
+        boolean implicitTxRequired = outerTx == null;
         AtomicReference<InternalTransaction> tx = new AtomicReference<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenCompose(v -> {
-                    Class[] paramTypes = params.length == 0
-                            ? EMPTY_CLASS_ARRAY :
-                            Arrays.stream(params).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
-
-                    boolean implicitTxRequired = outerTx == null;
-
-                    Builder ctxBuilder = BaseQueryContext.builder()
+                    Builder contextBuilder = BaseQueryContext.builder()
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
                             .plannerTimeout(PLANNER_TIMEOUT);
 
-                    var cacheKey = new CacheKey(schemaName, sql, paramTypes);
+                    CompletableFuture<PlanWithContext>[] newPlanHolder = new CompletableFuture[1];
 
-                    AtomicReference<CompletableFuture<Pair<QueryPlan, BaseQueryContext>>> planWithCtxFutRef = new AtomicReference<>();
-
-                    CompletableFuture<QueryPlan> planFut = planCache.computeIfAbsent(cacheKey, (k) -> {
+                    CompletableFuture<QueryPlan> cachedPlan = queryCache.computeIfAbsent(new CacheKey(schemaName, sql, params), (k) -> {
+                        // Parse query.
                         StatementParseResult parseResult = IgniteSqlParser.parse(sql, StatementParseResult.MODE);
                         SqlNode sqlNode = parseResult.statement();
 
                         validateParsedStatement(context, outerTx, parseResult, sqlNode, params);
 
-                        boolean rwOp = dataModificationOp(sqlNode);
+                        // Build context.
+                        tx.set(implicitTxRequired ? txManager.begin(!dataModificationOp(sqlNode)) : outerTx);
+                        SchemaPlus schema = resolveSchema(schemaName);
+                        BaseQueryContext ctx = contextBuilder.frameworkConfig(
+                                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build()).build();
 
-                        tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
-
-                        BaseQueryContext ctx = ctxBuilder.frameworkConfig(buildConfig(schemaName)).build();
+                        CompletableFuture<QueryPlan> planFuture = prepareSvc.prepareAsync(sqlNode, ctx);
 
                         SqlQueryType queryType = Commons.getQueryType(sqlNode);
+                        boolean putPlanIntoCache = queryType == QUERY || queryType == DML;
 
-                        boolean cachedQuery = queryType == QUERY || queryType == DML;
+                        newPlanHolder[0] = planFuture.thenApply(plan -> new PlanWithContext(putPlanIntoCache ? plan.copy() : plan, ctx));
 
-                        CompletableFuture<QueryPlan> planFut0 = prepareSvc.prepareAsync(sqlNode, ctx);
-
-                        planWithCtxFutRef.set(planFut0.thenApply(plan -> new Pair<>(cachedQuery ? plan.copy() : plan, ctx)));
-
-                        return cachedQuery ? planFut0 : null;
+                        return putPlanIntoCache ? planFuture : null;
                     });
 
-                    CompletableFuture<Pair<QueryPlan, BaseQueryContext>> resFut = planWithCtxFutRef.get();
+                    return Objects.requireNonNullElseGet(
+                            newPlanHolder[0],
+                            () -> cachedPlan.thenApply(plan -> {
+                                // Build query context for execution.
+                                tx.set(implicitTxRequired ? txManager.begin(plan.type() != DML) : outerTx);
+                                SchemaPlus schema = resolveSchema(schemaName);
+                                BaseQueryContext ctx = contextBuilder.frameworkConfig(
+                                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build()).build();
 
-                    if (resFut == null) {
-                        assert planFut != null;
+                                return new PlanWithContext(plan.copy(), ctx);
+                            })
+                    ).thenApply(planWithContext -> {
+                        QueryPlan plan = planWithContext.plan;
+                        BaseQueryContext ctx = planWithContext.context;
 
-                        resFut = planFut.thenApply(plan -> {
-                            tx.set(implicitTxRequired ? txManager.begin(plan.type() != DML) : outerTx);
-
-                            return new Pair<>(plan.copy(), ctxBuilder.frameworkConfig(buildConfig(schemaName)).build());
-                        });
-                    }
-
-                    return resFut.thenApply(pair -> {
-                        QueryPlan plan = pair.getKey();
-                        BaseQueryContext ctx = pair.getValue();
                         var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 
                         SqlQueryType queryType = plan.type();
@@ -528,16 +520,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private FrameworkConfig buildConfig(String schemaName) {
+    private SchemaPlus resolveSchema(String schemaName) {
         SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
             throw new SchemaNotFoundException(schemaName);
         }
 
-        return Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                .defaultSchema(schema)
-                .build();
+        return schema;
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
@@ -695,6 +685,16 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 throw new SqlException(QUERY_INVALID_ERR, message);
             }
+        }
+    }
+
+    private static final class PlanWithContext {
+        private final QueryPlan plan;
+        private final BaseQueryContext context;
+
+        private PlanWithContext(QueryPlan plan, BaseQueryContext context) {
+            this.plan = plan;
+            this.context = context;
         }
     }
 }

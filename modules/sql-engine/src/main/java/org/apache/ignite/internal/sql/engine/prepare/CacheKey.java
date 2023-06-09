@@ -25,7 +25,7 @@ import java.util.Arrays;
  * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
-    public static final Class[] EMPTY_CLASS_ARRAY = {};
+    private static final Class[] EMPTY_CLASS_ARRAY = {};
 
     private final String schemaName;
 
@@ -38,12 +38,14 @@ public class CacheKey {
      *
      * @param schemaName Schema name.
      * @param query      Query string.
-     * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
+     * @param params     Dynamic parameters.
      */
-    public CacheKey(String schemaName, String query, Class[] paramTypes) {
+    public CacheKey(String schemaName, String query, Object[] params) {
         this.schemaName = schemaName;
         this.query = query;
-        this.paramTypes = paramTypes;
+        this.paramTypes = params.length == 0
+                ? EMPTY_CLASS_ARRAY
+                : Arrays.stream(params).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
     }
 
     /** {@inheritDoc} */
