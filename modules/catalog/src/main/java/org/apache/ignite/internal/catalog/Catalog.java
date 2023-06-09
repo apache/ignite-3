@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -33,11 +33,23 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * Catalog descriptor represents database schema snapshot.
  */
 public class Catalog {
+    private static <T extends CatalogObjectDescriptor> Collector<T, ?, Map<String, T>> toMapByName() {
+        return Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity());
+    }
+
+    private static <T extends CatalogObjectDescriptor> Collector<T, ?, Int2ObjectMap<T>> toMapById() {
+        return Collectors.collectingAndThen(
+                CollectionUtils.toIntMapCollector(CatalogObjectDescriptor::id, Function.identity()),
+                Int2ObjectMaps::unmodifiable
+        );
+    }
+
     private final int version;
     private final int objectIdGen;
     private final long activationTimestamp;
@@ -75,24 +87,12 @@ public class Catalog {
         Objects.requireNonNull(schemas, "schemas");
         Objects.requireNonNull(zones, "zones");
 
-        this.schemasByName = schemas.stream().collect(Collectors.toUnmodifiableMap(CatalogSchemaDescriptor::name, t -> t));
-        this.zonesByName = zones.stream().collect(Collectors.toUnmodifiableMap(CatalogZoneDescriptor::name, t -> t));
+        this.schemasByName = schemas.stream().collect(toMapByName());
+        this.zonesByName = zones.stream().collect(toMapByName());
 
-        tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables()))
-                .collect(intMapCollector(CatalogObjectDescriptor::id, Function.identity()));
-        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes()))
-                .collect(intMapCollector(CatalogObjectDescriptor::id, Function.identity()));
-        zonesById = zones.stream()
-                .collect(intMapCollector(CatalogObjectDescriptor::id, Function.identity()));
-    }
-
-    private static <T, V> Collector<T, ?, Int2ObjectArrayMap<V>> intMapCollector(
-            Function<T, Integer> keyMapper, Function<T, V> valueMapper) {
-        return Collectors.toMap(
-                keyMapper,
-                valueMapper,
-                (oldVal, newVal) -> newVal,
-                Int2ObjectArrayMap::new);
+        tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
+        indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
+        zonesById = zones.stream().collect(toMapById());
     }
 
     public int version() {
