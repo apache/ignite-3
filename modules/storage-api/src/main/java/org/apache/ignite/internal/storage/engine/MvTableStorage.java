@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -129,12 +128,6 @@ public interface MvTableStorage extends ManuallyCloseable {
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
      */
     boolean isVolatile();
-
-    /**
-     * Returns configuration for all tables and indices.
-     */
-    // TODO: IGNITE-19690 избавиться
-    TablesConfiguration tablesConfiguration();
 
     /**
      * Starts the storage.

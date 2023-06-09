@@ -209,11 +209,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public TablesConfiguration tablesConfiguration() {
-        return tablesCfg;
-    }
-
-    @Override
     public void start() throws StorageException {
         inBusyLock(busyLock, () -> {
             flusher = new RocksDbFlusher(
