@@ -33,7 +33,9 @@ public interface DeploymentUnitAccessor {
     /**
      * Acquires the deployment unit. Each call to this method must be matched with a call to {@link DisposableDeploymentUnit#release()}.
      */
-    CompletableFuture<DisposableDeploymentUnit> acquire(DeploymentUnit unit);
+    DisposableDeploymentUnit acquire(DeploymentUnit unit);
 
     boolean isAcquired(DeploymentUnit unit);
+
+    CompletableFuture<Void> onDemandDeploy(DeploymentUnit unit);
 }

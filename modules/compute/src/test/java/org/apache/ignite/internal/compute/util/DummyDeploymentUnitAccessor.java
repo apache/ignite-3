@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.compute.util;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +46,12 @@ public class DummyDeploymentUnitAccessor implements DeploymentUnitAccessor {
 
     @Override
     public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
-        return CompletableFuture.supplyAsync(() -> Arrays.stream(unitsPath.resolve(id).toFile().listFiles())
+        Path path = unitsPath.resolve(id);
+        if (!Files.exists(path)) {
+            return failedFuture(new DeploymentUnitNotFoundException(id));
+        }
+
+        return CompletableFuture.supplyAsync(() -> Arrays.stream(path.toFile().listFiles())
                 .filter(File::isDirectory)
                 .map(File::getName)
                 .map(Version::parseVersion)
@@ -52,21 +60,33 @@ public class DummyDeploymentUnitAccessor implements DeploymentUnitAccessor {
     }
 
     @Override
-    public CompletableFuture<DisposableDeploymentUnit> acquire(DeploymentUnit unit) {
-        return CompletableFuture.supplyAsync(() -> unitsPath.resolve(unit.name()).resolve(unit.version().toString()))
-                .thenApply(path -> {
-                    if (Files.exists(path)) {
-                        return pool.acquire(unit, () -> new DisposableDeploymentUnit(unit, path, () -> {
-                            pool.release(unit);
-                        }));
-                    } else {
-                        throw new DeploymentUnitNotFoundException(unit.name(), unit.version());
-                    }
-                });
+    public DisposableDeploymentUnit acquire(DeploymentUnit unit) {
+        return new DisposableDeploymentUnit(unit, path(unit), () -> pool.release(unit));
     }
 
     @Override
     public boolean isAcquired(DeploymentUnit unit) {
         return pool.isAcquired(unit);
+    }
+
+    @Override
+    public CompletableFuture<Void> onDemandDeploy(DeploymentUnit unit) {
+        return completedFuture(path(unit))
+                .thenCompose(path -> {
+                    if (Files.exists(path)) {
+                        return completedFuture(null);
+                    } else {
+                        return failedFuture(new DeploymentUnitNotFoundException(unit.name(), unit.version()));
+                    }
+                });
+    }
+
+    private Path path(DeploymentUnit unit) {
+        Path path = unitsPath.resolve(unit.name()).resolve(unit.version().toString());
+        if (Files.exists(path)) {
+            return path;
+        } else {
+            throw new DeploymentUnitNotFoundException(unit.name(), unit.version());
+        }
     }
 }

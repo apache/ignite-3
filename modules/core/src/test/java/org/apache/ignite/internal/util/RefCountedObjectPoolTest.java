@@ -21,22 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RefCountedObjectPoolTest {
-
-    @Spy
-    private final TestValueProvider<Integer> valueProvider = new TestValueProvider<>();
-
     private RefCountedObjectPool<Long, Integer> pool;
 
     @BeforeEach
@@ -47,82 +39,56 @@ class RefCountedObjectPoolTest {
     @Test
     public void acquireAndRelease() {
         long key = 1L;
-
         Integer toBeReturned = 100;
-        valueProvider.nextValue(toBeReturned);
 
-        Integer value = pool.acquire(key, valueProvider);
+        Integer value = pool.acquire(key, ignored -> toBeReturned);
         assertSame(toBeReturned, value);
         assertTrue(pool.isAcquired(key));
 
         assertTrue(pool.release(key));
         assertFalse(pool.isAcquired(key));
-
-        verify(valueProvider, times(1)).get();
     }
 
     @Test
     public void valueCached() {
         long key = 1L;
-        valueProvider.nextValue(100);
 
-        Integer val1 = pool.acquire(key, valueProvider);
-        Integer val2 = pool.acquire(key, valueProvider);
+        Integer val1 = pool.acquire(key, ignored -> 100);
+        Integer val2 = pool.acquire(key, ignored -> 300);
 
         assertSame(val1, val2);
-        verify(valueProvider, times(1)).get();
     }
 
     @Test
     public void valueRemovedFromCacheAfterRelease() {
         long key = 1L;
-        valueProvider.nextValue(100);
 
-        Integer val1 = pool.acquire(key, valueProvider);
+        Integer val1 = pool.acquire(key, ignored -> 100);
 
         assertTrue(pool.release(key));
 
-        valueProvider.nextValue(200);
-        Integer val2 = pool.acquire(key, valueProvider);
+        Integer val2 = pool.acquire(key, ignored -> 200);
 
         assertNotSame(val1, val2);
-        verify(valueProvider, times(2)).get();
     }
 
     @Test
     public void acquiredTwiceAndReleaseOnce() {
         long key = 1L;
-        valueProvider.nextValue(100);
-        Integer val1 = pool.acquire(key, valueProvider);
+        Integer val1 = pool.acquire(key, ignored -> 100);
 
-        valueProvider.nextValue(200);
-        Integer val2 = pool.acquire(key, valueProvider);
+        Integer val2 = pool.acquire(key, ignored -> 200);
         assertSame(val1, val2);
         assertFalse(pool.release(key));;
 
         assertTrue(pool.isAcquired(key));
 
-        Integer val3 = pool.acquire(key, valueProvider);
+        Integer val3 = pool.acquire(key, ignored -> 200);
         assertSame(val1, val3);
 
         assertFalse(pool.release(key));
         assertTrue(pool.release(key));
 
         assertFalse(pool.isAcquired(key));
-
-        verify(valueProvider, times(1)).get();
-    }
-
-    private static class TestValueProvider<T> implements Supplier<T> {
-        private T nextValue;
-
-        private void nextValue(T nextValue) {
-            this.nextValue = nextValue;
-        }
-
-        @Override
-        public T get() {
-            return nextValue;
-        }
     }
 }

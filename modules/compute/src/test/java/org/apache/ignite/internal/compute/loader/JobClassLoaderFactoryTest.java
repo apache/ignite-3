@@ -28,7 +28,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
@@ -215,7 +214,6 @@ class JobClassLoaderFactoryTest {
     private List<DisposableDeploymentUnit> toDisposableDeploymentUnits(DeploymentUnit... units) {
         return Arrays.stream(units)
                 .map(unitAccessor::acquire)
-                .map(CompletableFuture::join)
                 .collect(Collectors.toList());
     }
 }

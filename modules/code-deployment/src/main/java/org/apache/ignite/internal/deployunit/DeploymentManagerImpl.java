@@ -129,12 +129,16 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         if (status.status() == UPLOADING) {
             messaging.downloadUnitContent(status.id(), status.version(), new ArrayList<>(deployedNodes))
                     .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
-                    .thenAccept(v -> deploymentUnitStore.updateNodeStatus(
-                            getLocalNodeId(),
-                            status.id(),
-                            status.version(),
-                            DEPLOYED)
-                    );
+                    .thenApply(deployed -> {
+                        if (deployed) {
+                            return deploymentUnitStore.updateNodeStatus(
+                                    getLocalNodeId(),
+                                    status.id(),
+                                    status.version(),
+                                    DEPLOYED);
+                        }
+                        return deployed;
+                    });
         } else if (status.status() == DEPLOYED) {
             deploymentUnitStore.getClusterStatus(status.id(), status.version())
                     .thenApply(UnitClusterStatus::initialNodesToDeploy)
@@ -148,7 +152,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit) {
+    public CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit) {
         checkId(id);
         Objects.requireNonNull(version);
         Objects.requireNonNull(deploymentUnit);
@@ -173,7 +177,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 });
     }
 
-    private CompletableFuture<Void> doDeploy(String id, Version version, DeploymentUnit deploymentUnit) {
+    private CompletableFuture<Boolean> doDeploy(String id, Version version, DeploymentUnit deploymentUnit) {
         UnitContent unitContent;
         try {
             unitContent = UnitContent.readContent(deploymentUnit);
@@ -182,27 +186,32 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             return failedFuture(e);
         }
         return tracker.track(id, version, deployToLocalNode(id, version, unitContent)
-                .thenAccept(v -> {
-                    String localNodeId = getLocalNodeId();
-                    cmgManager.cmgNodes().thenAccept(nodes -> nodes.forEach(node -> {
-                        if (!node.equals(localNodeId)) {
-                            deploymentUnitStore.createNodeStatus(node, id, version);
-                        }
-                    }));
+                .thenApply(completed -> {
+                    if (completed) {
+                        String localNodeId = getLocalNodeId();
+                        cmgManager.cmgNodes().thenAccept(nodes -> nodes.forEach(node -> {
+                            if (!node.equals(localNodeId)) {
+                                deploymentUnitStore.createNodeStatus(node, id, version);
+                            }
+                        }));
+                    }
+                    return completed;
                 })
         );
     }
 
-    private CompletableFuture<Void> deployToLocalNode(String id, Version version, UnitContent unitContent) {
+    private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
         return deployer.deploy(id, version, unitContent)
-                .thenCompose(v -> deploymentUnitStore.createNodeStatus(getLocalNodeId(), id, version, DEPLOYED)
-                        .thenAccept(ignored -> {
-                            // do nothing
-                        }));
+                .thenCompose(deployed -> {
+                    if (deployed) {
+                        return deploymentUnitStore.createNodeStatus(getLocalNodeId(), id, version, DEPLOYED);
+                    }
+                    return completedFuture(false);
+                });
     }
 
     @Override
-    public CompletableFuture<Void> undeployAsync(String id, Version version) {
+    public CompletableFuture<Boolean> undeployAsync(String id, Version version) {
         checkId(id);
         Objects.requireNonNull(version);
 
@@ -219,17 +228,13 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     if (success) {
                         return cmgManager.logicalTopology();
                     }
-                    return failedFuture(new DeploymentUnitNotFoundException(id, version));
-                })
-                .thenCompose(logicalTopologySnapshot -> allOf(
+                    return failedFuture(new DeploymentUnitNotFoundException(
+                            "Unit " + id + " with version " + version + " doesn't exist"));
+                }).thenCompose(logicalTopologySnapshot -> allOf(
                         logicalTopologySnapshot.nodes().stream()
                                 .map(node -> messaging.undeploy(node, id, version))
                                 .toArray(CompletableFuture[]::new))
-                )
-                .thenCompose(unused -> deploymentUnitStore.remove(id, version))
-                .thenAccept(unused -> {
-                    // do nothing
-                });
+                ).thenCompose(unused -> deploymentUnitStore.remove(id, version));
     }
 
     @Override
@@ -289,26 +294,24 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Path> path(String id, Version version) {
-        return CompletableFuture.supplyAsync(() -> {
-            Path path = deployer.unitPath(id, version);
-            if (Files.exists(path)) {
-                return path;
-            } else {
-                throw new DeploymentUnitNotFoundException(id, version);
-            }
-        });
+    public Path path(String id, Version version) {
+        Path path = deployer.unitPath(id, version);
+        if (Files.exists(path)) {
+            return path;
+        } else {
+            throw new DeploymentUnitNotFoundException("Unit " + id + ":" + version + " not found");
+        }
     }
 
     @Override
-    public CompletableFuture<Void> onDemandDeploy(String id, Version version) {
+    public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
         return deploymentUnitStore.getAllNodes(id, version)
                 .thenCompose(nodes -> {
                     if (nodes.isEmpty()) {
-                        return failedFuture(new DeploymentUnitNotFoundException(id, version));
+                        return completedFuture(false);
                     }
                     if (nodes.contains(getLocalNodeId())) {
-                        return completedFuture(null);
+                        return completedFuture(true);
                     }
                     return messaging.downloadUnitContent(id, version, nodes)
                             .thenCompose(unitContent -> deployToLocalNode(id, version, unitContent));

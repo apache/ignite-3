@@ -25,11 +25,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 
-import java.nio.file.Path;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
@@ -96,58 +93,6 @@ class DeploymentUnitAccessorImplTest {
         assertThat(
                 unitAccessor.detectLatestDeployedVersion("unit"),
                 CompletableFutureExceptionMatcher.willThrow(DeploymentUnitNotFoundException.class)
-        );
-    }
-
-    @Test
-    public void acquireDeployedUnitToCluster() {
-        DeploymentUnit unit = new DeploymentUnit("unit", Version.parseVersion("4.0.0"));
-        Path toBeReturned = Path.of("/workDir/unit/4.0.0");
-        doReturn(completedFuture(toBeReturned)).when(deployment).path(unit.name(), unit.version());
-        doReturn(completedFuture(DeploymentStatus.DEPLOYED)).when(deployment).clusterStatusAsync(unit.name(), unit.version());
-
-        DisposableDeploymentUnit expected = new DisposableDeploymentUnit(unit, toBeReturned, () -> {});
-        assertThat(
-                unitAccessor.acquire(unit),
-                CompletableFutureMatcher.willBe(expected)
-        );
-    }
-
-    @Test
-    public void acquireUploadingUnitToCluster() {
-        DeploymentUnit unit = new DeploymentUnit("unit", Version.parseVersion("4.0.0"));
-        Path toBeReturned = Path.of("/workDir/unit/4.0.0");
-        doReturn(completedFuture(toBeReturned)).when(deployment).path(unit.name(), unit.version());
-        doReturn(completedFuture(DeploymentStatus.DEPLOYED)).when(deployment).clusterStatusAsync(unit.name(), unit.version());
-
-        DisposableDeploymentUnit expected = new DisposableDeploymentUnit(unit, toBeReturned, () -> {});
-        assertThat(
-                unitAccessor.acquire(unit),
-                CompletableFutureMatcher.willBe(expected)
-        );
-    }
-
-    @Test
-    public void acquireObsoleteUnit() {
-        DeploymentUnit unit = new DeploymentUnit("unit", Version.parseVersion("4.0.0"));
-        doReturn(completedFuture(DeploymentStatus.OBSOLETE)).when(deployment).clusterStatusAsync(unit.name(), unit.version());
-        doReturn(completedFuture(DeploymentStatus.OBSOLETE)).when(deployment).nodeStatusAsync(unit.name(), unit.version());
-
-        assertThat(
-                unitAccessor.acquire(unit),
-                CompletableFutureExceptionMatcher.willThrow(DeploymentUnitUnavailableException.class)
-        );
-    }
-
-    @Test
-    public void acquireRemovingUnit() {
-        DeploymentUnit unit = new DeploymentUnit("unit", Version.parseVersion("4.0.0"));
-        doReturn(completedFuture(DeploymentStatus.REMOVING)).when(deployment).clusterStatusAsync(unit.name(), unit.version());
-        doReturn(completedFuture(DeploymentStatus.REMOVING)).when(deployment).nodeStatusAsync(unit.name(), unit.version());
-
-        assertThat(
-                unitAccessor.acquire(unit),
-                CompletableFutureExceptionMatcher.willThrow(DeploymentUnitUnavailableException.class)
         );
     }
 }

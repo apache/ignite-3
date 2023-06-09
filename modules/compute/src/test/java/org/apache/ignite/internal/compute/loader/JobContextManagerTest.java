@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute.loader;
 import static org.apache.ignite.compute.version.Version.LATEST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -78,11 +77,10 @@ class JobContextManagerTest {
 
         List<DisposableDeploymentUnit> deploymentUnits = units.stream()
                 .map(unitAccessor::acquire)
-                .map(CompletableFuture::join)
                 .collect(Collectors.toList());
 
 
-        JobClassLoader toBeReturned = new JobClassLoader(new URL[0], deploymentUnits, getClass().getClassLoader());
+        JobClassLoader toBeReturned = new JobClassLoader(deploymentUnits, new URL[0], getClass().getClassLoader());
         doReturn(toBeReturned)
                 .when(jobClassLoaderFactory).createClassLoader(deploymentUnits);
 
@@ -109,12 +107,12 @@ class JobContextManagerTest {
         List<DisposableDeploymentUnit> disposableVersion2 = List.of(new DisposableDeploymentUnit(version2, version2path, () -> {}));
 
         try (JobClassLoader toBeReturned1 = new JobClassLoader(
-                extractUrls(disposableVersion1),
                 disposableVersion1,
+                extractUrls(disposableVersion1),
                 getClass().getClassLoader());
                 JobClassLoader toBeReturned2 = new JobClassLoader(
-                        extractUrls(disposableVersion2),
                         disposableVersion2,
+                        extractUrls(disposableVersion2),
                         getClass().getClassLoader())
         ) {
 
@@ -144,7 +142,7 @@ class JobContextManagerTest {
     @Test
     public void throwsExceptionOnOnDemandDeploy() {
         doReturn(CompletableFuture.failedFuture(new IOException("Failed to deploy")))
-                .when(unitAccessor).acquire(any());
+                .when(unitAccessor).onDemandDeploy(any());
 
         List<DeploymentUnit> units = List.of(
                 new DeploymentUnit("unit1", "1.0.0"),
@@ -191,36 +189,12 @@ class JobContextManagerTest {
         );
 
         doThrow(toBeThrown)
-                .when(unitAccessor).acquire(any());
+                .when(unitAccessor).onDemandDeploy(any());
 
         assertThat(
                 classLoaderManager.acquireClassLoader(List.of(new DeploymentUnit("unit", "1.0.0"))),
                 willThrowFast(DeploymentUnitUnavailableException.class, "Unit unit:1.0.0 is unavailable")
         );
-    }
-
-    @Test
-    public void unitsReleasedIfCantAcquireOnOfThem() {
-        List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", "1.0.0"),
-                new DeploymentUnit("unit1", "2.0.0"),
-                new DeploymentUnit("unit1", "3.0.1"),
-                new DeploymentUnit("unit1", "3.0.3"),
-                new DeploymentUnit("unit1", "4.0.0")
-        );
-
-        assertThat(
-                classLoaderManager.acquireClassLoader(units),
-                willThrowFast(DeploymentUnitNotFoundException.class, "Unit unit1:3.0.3 not found")
-        );
-
-        assertFalse(unitAccessor.isAcquired(units.get(0)));
-        assertFalse(unitAccessor.isAcquired(units.get(1)));
-        assertFalse(unitAccessor.isAcquired(units.get(2)));
-        assertFalse(unitAccessor.isAcquired(units.get(3)));
-        assertFalse(unitAccessor.isAcquired(units.get(4)));
-
-        verify(unitAccessor, times(5)).acquire(any());
     }
 
     private static URL[] extractUrls(List<DisposableDeploymentUnit> units) {

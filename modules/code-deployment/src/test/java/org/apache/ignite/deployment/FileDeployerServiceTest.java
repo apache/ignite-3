@@ -19,7 +19,6 @@ package org.apache.ignite.deployment;
 
 import static org.apache.ignite.compute.version.Version.parseVersion;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -65,8 +64,8 @@ public class FileDeployerServiceTest {
 
     @Test
     public void test() throws IOException {
-        CompletableFuture<Void> deployed = service.deploy("id", parseVersion("1.0.0"), content());
-        assertThat(deployed, willCompleteSuccessfully());
+        CompletableFuture<Boolean> deployed = service.deploy("id", parseVersion("1.0.0"), content());
+        assertThat(deployed, willBe(true));
 
         CompletableFuture<UnitContent> unitContent = service.getUnitContent("id", parseVersion("1.0.0"));
         assertThat(unitContent, willBe(equalTo(content())));

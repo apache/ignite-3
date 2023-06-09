@@ -51,7 +51,7 @@ public class JobClassLoader extends URLClassLoader {
      * @param units Units to load classes from.
      * @param parent Parent class loader.
      */
-    public JobClassLoader(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
+    public JobClassLoader(List<DisposableDeploymentUnit> units, URL[] urls, ClassLoader parent) {
         super(urls, parent);
         this.units = units;
         this.parent = parent;

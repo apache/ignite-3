@@ -57,7 +57,7 @@ public class JobClassLoaderFactory {
             LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
         }
 
-        return new JobClassLoader(classpath, units, getClass().getClassLoader());
+        return new JobClassLoader(units, classpath, getClass().getClassLoader());
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {

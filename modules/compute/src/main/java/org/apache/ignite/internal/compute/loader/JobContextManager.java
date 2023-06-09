@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.compute.loader;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -32,20 +30,13 @@ import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Manages job context.
  */
 public class JobContextManager {
     private static final IgniteLogger LOG = Loggers.forClass(JobContextManager.class);
-
-    private final Executor executorService = Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors() * 2,
-            new NamedThreadFactory("job-context-manager-pool", LOG)
-    );
 
     private final RefCountedObjectPool<List<DeploymentUnit>, JobClassLoader> classLoaderPool = new RefCountedObjectPool<>();
 
@@ -77,26 +68,24 @@ public class JobContextManager {
      * @return The class loader.
      */
     public CompletableFuture<JobContext> acquireClassLoader(List<DeploymentUnit> units) {
-        DeploymentUnit[] accumulator = new DeploymentUnit[units.size()];
-        return CompletableFuture.supplyAsync(() -> units, executorService)
-                .thenCompose(it -> mapList(it, this::normalizeVersion, accumulator))
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Couldn't normalize deployment units: {}, exception: ", units, e);
+        return normalizeVersions(units)
+                .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
+                .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
+                .whenComplete((ctx, err) -> {
+                    if (err != null) {
+                        LOG.error("Failed to acquire class loader for units: " + units, err);
+                    } else {
+                        LOG.debug("Acquired class loader for units: " + units);
                     }
                 })
-                .thenApply(v -> Arrays.asList(accumulator))
-                .thenApply(deploymentUnits -> classLoaderPool.acquire(deploymentUnits, () -> createClassLoader(deploymentUnits)))
                 .thenApply(loader -> new JobContext(loader, this::releaseClassLoader));
     }
 
-    private CompletableFuture<DeploymentUnit> normalizeVersion(DeploymentUnit unit) {
-        if (unit.version() == Version.LATEST) {
-            return deploymentUnitAccessor.detectLatestDeployedVersion(unit.name())
-                    .thenApply(version -> new DeploymentUnit(unit.name(), version));
-        } else {
-            return CompletableFuture.completedFuture(unit);
-        }
+    private JobClassLoader createClassLoader(List<DeploymentUnit> units) {
+        List<DisposableDeploymentUnit> disposableDeploymentUnits = units.stream()
+                .map(deploymentUnitAccessor::acquire)
+                .collect(Collectors.toList());
+        return classLoaderFactory.createClassLoader(disposableDeploymentUnits);
     }
 
     /**
@@ -111,36 +100,30 @@ public class JobContextManager {
         }
     }
 
-    private JobClassLoader createClassLoader(List<DeploymentUnit> units) {
-        DisposableDeploymentUnit[] accumulator = new DisposableDeploymentUnit[units.size()];
-        try {
-            return mapList(
-                    units,
-                    it -> deploymentUnitAccessor.acquire(it)
-                            .whenComplete((v, e) -> {
-                                        if (e != null) {
-                                            LOG.error("Couldn't acquire deployment unit: {}, exception: {}", it, e);
-                                        }
-                                    }
-                            ),
-                    accumulator
-            ).thenApply(v -> classLoaderFactory.createClassLoader(Arrays.asList(accumulator))).get();
-        } catch (ExecutionException | InterruptedException e) {
-            for (DisposableDeploymentUnit disposableDeploymentUnit : accumulator) {
-                if (disposableDeploymentUnit != null) {
-                    disposableDeploymentUnit.release();
-                }
-            }
+    private CompletableFuture<List<DeploymentUnit>> normalizeVersions(List<DeploymentUnit> units) {
+        return mapList(units, DeploymentUnit.class, this::normalizeVersion);
+    }
 
-            throw new IgniteInternalException(e);
+    private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {
+        return mapList(units, Void.class, deploymentUnitAccessor::onDemandDeploy)
+                .thenApply(ignored -> null);
+    }
+
+    private CompletableFuture<DeploymentUnit> normalizeVersion(DeploymentUnit unit) {
+        if (unit.version() == Version.LATEST) {
+            return deploymentUnitAccessor.detectLatestDeployedVersion(unit.name())
+                    .thenApply(version -> new DeploymentUnit(unit.name(), version));
+        } else {
+            return CompletableFuture.completedFuture(unit);
         }
     }
 
     private static <I, O> CompletableFuture<List<O>> mapList(
             List<I> list,
-            Function<I, CompletableFuture<O>> mapper,
-            O[] accumulator
+            Class<O> outputClass,
+            Function<I, CompletableFuture<O>> mapper
     ) {
+        O[] accumulator = (O[]) Array.newInstance(outputClass, list.size());
         CompletableFuture<Void>[] futures = IntStream.range(0, list.size())
                 .mapToObj(id -> mapper.apply(list.get(id))
                         .thenAccept(result -> accumulator[id] = result))

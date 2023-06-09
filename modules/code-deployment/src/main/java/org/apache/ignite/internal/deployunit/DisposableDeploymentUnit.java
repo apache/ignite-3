@@ -36,7 +36,7 @@ public class DisposableDeploymentUnit {
      * Constructor.
      *
      * @param unit Deployment unit.
-     * @param path Path.
+     * @param path Path to the deployment unit.
      * @param release Release.
      */
     public DisposableDeploymentUnit(DeploymentUnit unit, Path path, Runnable release) {
@@ -55,9 +55,9 @@ public class DisposableDeploymentUnit {
     }
 
     /**
-     * Returns path.
+     * Returns path to the deployment unit.
      *
-     * @return Path.
+     * @return Path to the deployment unit.
      */
     public Path path() {
         return path;
@@ -79,18 +79,18 @@ public class DisposableDeploymentUnit {
             return false;
         }
         DisposableDeploymentUnit that = (DisposableDeploymentUnit) o;
-        return Objects.equals(unit, that.unit) && Objects.equals(path, that.path);
+        return Objects.equals(unit, that.unit);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(unit, path);
+        return Objects.hash(unit);
     }
 
     @Override
     public String toString() {
         return "DisposableDeploymentUnit{"
                 + "unit=" + unit
-                + ", path=" + path + '}';
+                + ", release=" + release + '}';
     }
 }

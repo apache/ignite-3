@@ -18,22 +18,24 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
-import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 
 /**
  * Implementation of {@link DeploymentUnitAccessor}.
  */
 public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
+
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitAccessorImpl.class);
     private final RefCountedObjectPool<DeploymentUnit, DisposableDeploymentUnit> pool = new RefCountedObjectPool<>();
 
     private final IgniteDeployment deployment;
@@ -61,14 +63,12 @@ public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<DisposableDeploymentUnit> acquire(DeploymentUnit unit) {
-        return checkStatus(unit).thenCompose(v -> localPath(unit)
-                .thenApply(path -> pool.acquire(unit, () -> {
-                    return new DisposableDeploymentUnit(
-                            unit,
-                            path,
-                            () -> pool.release(unit));
-                }))
+    public DisposableDeploymentUnit acquire(DeploymentUnit unit) {
+        return pool.acquire(unit, ignored -> new DisposableDeploymentUnit(
+                        unit,
+                        deployment.path(unit.name(), unit.version()),
+                        () -> pool.release(unit)
+                )
         );
     }
 
@@ -81,33 +81,30 @@ public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
     /**
      * Deploys deployment unit to the cluster and returns path to the deployment unit.
      */
-    private CompletableFuture<Path> localPath(DeploymentUnit unit) {
+    @Override
+    public CompletableFuture<Void> onDemandDeploy(DeploymentUnit unit) {
         return deployment.onDemandDeploy(unit.name(), unit.version())
-                .thenCompose(v -> deployment.path(unit.name(), unit.version()));
-    }
-
-    /**
-     * Checks that deployment unit is deployed to the cluster and throws exception if it is not.
-     *
-     * @throws DeploymentUnitUnavailableException if deployment unit is not deployed to the cluster.
-     */
-    private CompletableFuture<Void> checkStatus(DeploymentUnit unit) {
-        return deployment.clusterStatusAsync(unit.name(), unit.version())
-                .thenCompose(clusterStatus -> {
-                    if (clusterStatus == null) {
-                        return failedFuture(new DeploymentUnitNotFoundException(unit.name(), unit.version()));
-                    } else if (clusterStatus == UPLOADING || clusterStatus == DEPLOYED) {
+                .thenCompose(result -> {
+                    if (result) {
                         return completedFuture(null);
                     } else {
-                        return deployment.nodeStatusAsync(unit.name(), unit.version())
-                                .thenCompose(nodeStatus -> failedFuture(
-                                        new DeploymentUnitUnavailableException(
-                                                unit.name(),
-                                                unit.version(),
-                                                clusterStatus,
-                                                nodeStatus
-                                        )
-                                ));
+                        LOG.error("Failed to deploy on demand deployment unit {}:{}", unit.name(), unit.version());
+                        return deployment.clusterStatusAsync(unit.name(), unit.version())
+                                .thenCombine(deployment.nodeStatusAsync(unit.name(), unit.version()), (clusterStatus, nodeStatus) -> {
+                                    if (clusterStatus == null) {
+                                        return CompletableFuture.<Void>failedFuture(
+                                                new DeploymentUnitNotFoundException(unit.name(), unit.version()));
+                                    } else {
+                                        return CompletableFuture.<Void>failedFuture(
+                                                new DeploymentUnitUnavailableException(
+                                                        unit.name(),
+                                                        unit.version(),
+                                                        clusterStatus,
+                                                        nodeStatus
+                                                )
+                                        );
+                                    }
+                                }).thenCompose(it -> it);
                     }
                 });
     }

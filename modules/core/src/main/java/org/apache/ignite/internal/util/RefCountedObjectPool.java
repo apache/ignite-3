@@ -19,7 +19,7 @@ package org.apache.ignite.internal.util;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * A pool of objects that are reference counted. Objects are created on demand and destroyed when the reference count
@@ -47,10 +47,10 @@ public class RefCountedObjectPool<K, V> {
      * @param objectSupplier The supplier used to create the object if it does not exist.
      * @return The object.
      */
-    public synchronized V acquire(K key, Supplier<? extends V> objectSupplier) {
+    public synchronized V acquire(K key, Function<K, ? extends V> objectSupplier) {
         int currentRefCount = refCount.getOrDefault(key, 0);
         refCount.put(key, currentRefCount + 1);
-        return refCountedObjects.computeIfAbsent(key, (ignoredVariable) -> objectSupplier.get());
+        return refCountedObjects.computeIfAbsent(key, objectSupplier);
     }
 
     /**

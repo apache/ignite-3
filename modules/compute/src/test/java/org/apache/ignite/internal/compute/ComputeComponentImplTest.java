@@ -130,7 +130,7 @@ class ComputeComponentImplTest {
 
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(new URL[0], List.of(), getClass().getClassLoader());
+        JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
         JobContext jobContext = new JobContext(classLoader, ignored -> {});
         lenient().when(jobContextManager.acquireClassLoader(anyList()))
                 .thenReturn(CompletableFuture.completedFuture(jobContext));

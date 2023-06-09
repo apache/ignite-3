@@ -111,7 +111,7 @@ class JobClassLoaderTest {
 
     private static class TestJobClassLoader extends JobClassLoader {
         TestJobClassLoader(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
-            super(urls, units, parent);
+            super(units, urls, parent);
         }
 
         @Override

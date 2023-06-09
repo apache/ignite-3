@@ -37,7 +37,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
-    default CompletableFuture<Void> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
+    default CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
         return deployAsync(id, version, false, deploymentUnit);
     }
 
@@ -51,7 +51,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
-    CompletableFuture<Void> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
+    CompletableFuture<Boolean> deployAsync(String id, Version version, boolean force, DeploymentUnit deploymentUnit);
 
     /**
      * Undeploys unit with corresponding identifier and version.
@@ -62,7 +62,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @return Future completed when unit will be undeployed.
      *      In case when specified unit not exist future will be failed.
      */
-    CompletableFuture<Void> undeployAsync(String id, Version version);
+    CompletableFuture<Boolean> undeployAsync(String id, Version version);
 
     /**
      * Lists all units statuses.
@@ -126,15 +126,17 @@ public interface IgniteDeployment extends IgniteComponent {
      *
      * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
-     * @return Future with path to unit. Future will be failed if unit with specified identifier and version not exist.
+     * @return Path to unit.
      */
-    CompletableFuture<Path> path(String id, Version version);
+    Path path(String id, Version version);
 
     /**
      * Requests on demand deploy to local node unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
+     * @return {@code true} if unit already deployed or deployed successfully.
+     *      {@code false} if deploy failed or unit with provided identifier and version doesn't exist.
      */
-    CompletableFuture<Void> onDemandDeploy(String id, Version version);
+    CompletableFuture<Boolean> onDemandDeploy(String id, Version version);
 }
