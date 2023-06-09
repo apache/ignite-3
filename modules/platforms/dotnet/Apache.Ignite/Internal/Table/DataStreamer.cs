@@ -70,6 +70,7 @@ internal static class DataStreamer
         {
             _ = AutoFlushAsync(cts.Token);
 
+            // TODO: There is no perf improvement with increased number of nodes - why? Double check the benchmark.
             await foreach (var item in data)
             {
                 var (batch, partition) = Add(item);
