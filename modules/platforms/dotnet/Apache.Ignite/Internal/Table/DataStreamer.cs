@@ -70,7 +70,6 @@ internal static class DataStreamer
         {
             _ = AutoFlushAsync(cts.Token);
 
-            // TODO: Multithreaded iteration? Serialization and hashing in one thread can be a bottleneck. Do a benchmark first.
             await foreach (var item in data)
             {
                 var (batch, partition) = Add(item);
