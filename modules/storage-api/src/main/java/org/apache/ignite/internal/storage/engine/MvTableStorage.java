@@ -274,8 +274,5 @@ public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Returns the table descriptor.
      */
-    // TODO: IGNITE-19690 реализовать
-    default StorageTableDescriptor getTableDescriptor() {
-        return new StorageTableDescriptor(0, 32);
-    }
+    StorageTableDescriptor getTableDescriptor();
 }

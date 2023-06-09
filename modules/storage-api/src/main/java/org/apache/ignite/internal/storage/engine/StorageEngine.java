@@ -53,7 +53,6 @@ public interface StorageEngine {
      * @param distributionZoneCfg Distribution zone configuration.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    // TODO: IGNITE-19690 нужно ли поменять?
     MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
             DistributionZoneConfiguration distributionZoneCfg) throws StorageException;
 }
