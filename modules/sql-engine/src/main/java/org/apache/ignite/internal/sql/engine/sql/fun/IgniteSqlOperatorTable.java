@@ -99,11 +99,14 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlFunctionCategory.SYSTEM);
 
     /**
-     * Generic {@code SUBSTR(string, position [, length]} function.
-     * This function works exactly the same as {@link SqlSubstringFunction SUSBSTRING(string, position [, length])}.
+     * Substring function.
      */
     public static final SqlFunction SUBSTRING = new SqlSubstringFunction();
 
+    /**
+     * Generic {@code SUBSTR(string, position [, length]} function.
+     * This function works exactly the same as {@link SqlSubstringFunction SUSBSTRING(string, position [, length])}.
+     */
     public static final SqlFunction SUBSTR =
             new SqlFunction(
                     "SUBSTR",
