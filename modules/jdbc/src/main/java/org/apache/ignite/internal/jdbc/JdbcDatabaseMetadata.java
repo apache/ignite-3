@@ -791,7 +791,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getProcedures(String catalog, String schemaPtrn,
-            String procedureNamePtrn) {
+            String procedureNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PROCEDURE_CAT", String.class),
                 new JdbcColumnMeta("PROCEDURE_SCHEM", String.class),
@@ -805,7 +805,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getProcedureColumns(String catalog, String schemaPtrn, String procedureNamePtrn,
-            String colNamePtrn) {
+            String colNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PROCEDURE_CAT", String.class),
                 new JdbcColumnMeta("PROCEDURE_SCHEM", String.class),
@@ -941,7 +941,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
-    public ResultSet getCatalogs() {
+    public ResultSet getCatalogs() throws SQLException {
         return new JdbcResultSet(singletonList(singletonList(CATALOG_NAME)),
                 asList(new JdbcColumnMeta("TABLE_CAT", String.class)));
     }
@@ -949,7 +949,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
-    public ResultSet getTableTypes() {
+    public ResultSet getTableTypes() throws SQLException {
         return new JdbcResultSet(
                 asList(singletonList(TYPE_TABLE)),
                 asList(new JdbcColumnMeta("TABLE_TYPE", String.class)));
@@ -1018,7 +1018,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getColumnPrivileges(String catalog, String schema, String tbl,
-            String colNamePtrn) {
+            String colNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", String.class),
                 new JdbcColumnMeta("TABLE_SCHEM", String.class),
@@ -1034,7 +1034,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getTablePrivileges(String catalog, String schemaPtrn,
-            String tblNamePtrn) {
+            String tblNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", String.class),
                 new JdbcColumnMeta("TABLE_SCHEM", String.class),
@@ -1049,7 +1049,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getBestRowIdentifier(String catalog, String schema, String tbl, int scope,
-            boolean nullable) {
+            boolean nullable) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("SCOPE", Short.class),
                 new JdbcColumnMeta("COLUMN_NAME", String.class),
@@ -1064,7 +1064,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getVersionColumns(String catalog, String schema, String tbl) {
+    public ResultSet getVersionColumns(String catalog, String schema, String tbl) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("SCOPE", Short.class),
                 new JdbcColumnMeta("COLUMN_NAME", String.class),
@@ -1119,7 +1119,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getImportedKeys(String catalog, String schema, String tbl) {
+    public ResultSet getImportedKeys(String catalog, String schema, String tbl) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PKTABLE_CAT", String.class),
                 new JdbcColumnMeta("PKTABLE_SCHEM", String.class),
@@ -1140,7 +1140,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getExportedKeys(String catalog, String schema, String tbl) {
+    public ResultSet getExportedKeys(String catalog, String schema, String tbl) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PKTABLE_CAT", String.class),
                 new JdbcColumnMeta("PKTABLE_SCHEM", String.class),
@@ -1162,7 +1162,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTbl,
-            String foreignCatalog, String foreignSchema, String foreignTbl) {
+            String foreignCatalog, String foreignSchema, String foreignTbl) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("PKTABLE_CAT", String.class),
                 new JdbcColumnMeta("PKTABLE_SCHEM", String.class),
@@ -1183,96 +1183,96 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getTypeInfo() {
+    public ResultSet getTypeInfo() throws SQLException {
         List<List<Object>> types = new ArrayList<>(21);
 
         types.add(Arrays.asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "BOOLEAN", 0, 0,
                 Types.BOOLEAN, 0, 10));
 
-        types.add(Arrays.asList("TINYINT", Types.TINYINT, 3, null, null, null,
+        types.add(asList("TINYINT", Types.TINYINT, 3, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "TINYINT", 0, 0,
                 Types.TINYINT, 0, 10));
 
-        types.add(Arrays.asList("SMALLINT", Types.SMALLINT, 5, null, null, null,
+        types.add(asList("SMALLINT", Types.SMALLINT, 5, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "SMALLINT", 0, 0,
                 Types.SMALLINT, 0, 10));
 
-        types.add(Arrays.asList("INTEGER", Types.INTEGER, 10, null, null, null,
+        types.add(asList("INTEGER", Types.INTEGER, 10, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "INTEGER", 0, 0,
                 Types.INTEGER, 0, 10));
 
-        types.add(Arrays.asList("BIGINT", Types.BIGINT, 19, null, null, null,
+        types.add(asList("BIGINT", Types.BIGINT, 19, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "BIGINT", 0, 0,
                 Types.BIGINT, 0, 10));
 
-        types.add(Arrays.asList("FLOAT", Types.FLOAT, 17, null, null, null,
+        types.add(asList("FLOAT", Types.FLOAT, 17, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "FLOAT", 0, 0,
                 Types.FLOAT, 0, 10));
 
-        types.add(Arrays.asList("REAL", Types.REAL, 7, null, null, null,
+        types.add(asList("REAL", Types.REAL, 7, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "REAL", 0, 0,
                 Types.REAL, 0, 10));
 
-        types.add(Arrays.asList("DOUBLE", Types.DOUBLE, 17, null, null, null,
+        types.add(asList("DOUBLE", Types.DOUBLE, 17, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "DOUBLE", 0, 0,
                 Types.DOUBLE, 0, 10));
 
-        types.add(Arrays.asList("NUMERIC", Types.NUMERIC, Integer.MAX_VALUE, null, null, "PRECISION,SCALE",
+        types.add(asList("NUMERIC", Types.NUMERIC, Integer.MAX_VALUE, null, null, "PRECISION,SCALE",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "NUMERIC", 0, 0,
                 Types.NUMERIC, 0, 10));
 
-        types.add(Arrays.asList("DECIMAL", Types.DECIMAL, Integer.MAX_VALUE, null, null, "PRECISION,SCALE",
+        types.add(asList("DECIMAL", Types.DECIMAL, Integer.MAX_VALUE, null, null, "PRECISION,SCALE",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "DECIMAL", 0, 0,
                 Types.DECIMAL, 0, 10));
 
-        types.add(Arrays.asList("DATE", Types.DATE, 8, "DATE '", "'", null,
+        types.add(asList("DATE", Types.DATE, 8, "DATE '", "'", null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "DATE", 0, 0,
                 Types.DATE, 0, null));
 
-        types.add(Arrays.asList("TIME", Types.TIME, 6, "TIME '", "'", null,
+        types.add(asList("TIME", Types.TIME, 6, "TIME '", "'", null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "TIME", 0, 0,
                 Types.TIME, 0, null));
 
-        types.add(Arrays.asList("TIMESTAMP", Types.TIMESTAMP, 23, "TIMESTAMP '", "'", null,
+        types.add(asList("TIMESTAMP", Types.TIMESTAMP, 23, "TIMESTAMP '", "'", null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "TIMESTAMP", 0, 10,
                 Types.TIMESTAMP, 0, null));
 
-        types.add(Arrays.asList("CHAR", Types.CHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("CHAR", Types.CHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, true, (short) typeSearchable, false, false, false, "CHAR", 0, 0,
                 Types.CHAR, 0, null));
 
-        types.add(Arrays.asList("VARCHAR", Types.VARCHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("VARCHAR", Types.VARCHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, true, (short) typeSearchable, false, false, false, "VARCHAR", 0, 0,
                 Types.VARCHAR, 0, null));
 
-        types.add(Arrays.asList("LONGVARCHAR", Types.LONGVARCHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("LONGVARCHAR", Types.LONGVARCHAR, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, true, (short) typeSearchable, false, false, false, "LONGVARCHAR", 0, 0,
                 Types.LONGVARCHAR, 0, null));
 
-        types.add(Arrays.asList("BINARY", Types.BINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("BINARY", Types.BINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "BINARY", 0, 0,
                 Types.BINARY, 0, null));
 
-        types.add(Arrays.asList("VARBINARY", Types.VARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("VARBINARY", Types.VARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "VARBINARY", 0, 0,
                 Types.VARBINARY, 0, null));
 
-        types.add(Arrays.asList("LONGVARBINARY", Types.LONGVARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("LONGVARBINARY", Types.LONGVARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "LONGVARBINARY", 0, 0,
                 Types.LONGVARBINARY, 0, null));
 
-        types.add(Arrays.asList("UUID", Types.OTHER, ColumnMetadata.UNDEFINED_PRECISION, "'", "'", null,
+        types.add(asList("UUID", Types.OTHER, ColumnMetadata.UNDEFINED_PRECISION, "'", "'", null,
                 (short) typeNullable, false, (short) typeSearchable, true, false, false, null, 0, 0,
                 Types.OTHER, null, 10));
 
         // IgniteCustomType: JDBC catalog level information for your type.
 
-        types.add(Arrays.asList("OTHER", Types.OTHER, Integer.MAX_VALUE, "'", "'", "LENGTH",
+        types.add(asList("OTHER", Types.OTHER, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "OTHER", 0, 0,
                 Types.OTHER, 0, null));
 
-        types.add(Arrays.asList("ARRAY", Types.ARRAY, 0, "(", "')", null,
+        types.add(asList("ARRAY", Types.ARRAY, 0, "(", "')", null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "ARRAY", 0, 0,
                 Types.ARRAY, 0, null));
 
@@ -1401,7 +1401,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getUDTs(String catalog, String schemaPtrn, String typeNamePtrn,
-            int[] types) {
+            int[] types) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TYPE_CAT", String.class),
                 new JdbcColumnMeta("TYPE_SCHEM", String.class),
@@ -1446,7 +1446,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getSuperTypes(String catalog, String schemaPtrn,
-            String typeNamePtrn) {
+            String typeNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TYPE_CAT", String.class),
                 new JdbcColumnMeta("TYPE_SCHEM", String.class),
@@ -1460,7 +1460,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getSuperTables(String catalog, String schemaPtrn,
-            String tblNamePtrn) {
+            String tblNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", String.class),
                 new JdbcColumnMeta("TABLE_SCHEM", String.class),
@@ -1472,7 +1472,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getAttributes(String catalog, String schemaPtrn, String typeNamePtrn,
-            String attributeNamePtrn) {
+            String attributeNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TYPE_CAT", String.class),
                 new JdbcColumnMeta("TYPE_SCHEM", String.class),
@@ -1572,7 +1572,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getClientInfoProperties() {
+    public ResultSet getClientInfoProperties() throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("NAME", String.class),
                 new JdbcColumnMeta("MAX_LEN", Integer.class),
@@ -1586,7 +1586,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getFunctions(String catalog, String schemaPtrn,
-            String functionNamePtrn) {
+            String functionNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("FUNCTION_CAT", String.class),
                 new JdbcColumnMeta("FUNCTION_SCHEM", String.class),
@@ -1600,7 +1600,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getFunctionColumns(String catalog, String schemaPtrn, String functionNamePtrn,
-            String colNamePtrn) {
+            String colNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("FUNCTION_CAT", String.class),
                 new JdbcColumnMeta("FUNCTION_SCHEM", String.class),
@@ -1641,7 +1641,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPtrn, String tblNamePtrn,
-            String colNamePtrn) {
+            String colNamePtrn) throws SQLException {
         return new JdbcResultSet(Collections.emptyList(), asList(
                 new JdbcColumnMeta("TABLE_CAT", String.class),
                 new JdbcColumnMeta("TABLE_SCHEM", String.class),

@@ -353,7 +353,6 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SLICE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SOME;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.STRUCT_ACCESS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBMULTISET_OF;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUM;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUM0;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SYSTEM_USER;
@@ -370,6 +369,8 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.NULL_BOUND;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTRING;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 
@@ -385,6 +386,7 @@ import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
  * 2. NotImplementor -> nullPolicy inheritance
  * 3. ExtractImplementor isIntervalType info
  * 4. DefaultImplementor DEFAULT_VALUE_PLACEHOLDER
+ * 5. Custom SUBSTRING and additional support for SUBSTR
  *
  * <p>Immutable.
  */
@@ -446,6 +448,7 @@ public class RexImpTable {
             defineMethod(MD5, BuiltInMethod.MD5.method, NullPolicy.STRICT);
             defineMethod(SHA1, BuiltInMethod.SHA1.method, NullPolicy.STRICT);
             defineMethod(SUBSTRING, BuiltInMethod.SUBSTRING.method, NullPolicy.STRICT);
+            defineMethod(SUBSTR, IgniteMethod.SUBSTR.method(), NullPolicy.STRICT);
             defineMethod(LEFT, BuiltInMethod.LEFT.method, NullPolicy.ANY);
             defineMethod(RIGHT, BuiltInMethod.RIGHT.method, NullPolicy.ANY);
             defineMethod(LPAD, BuiltInMethod.LPAD.method, NullPolicy.STRICT);
