@@ -25,11 +25,9 @@ using System;
 /// <param name="BatchSize">Batch size - the number of entries that will be sent to the cluster in one network call.</param>
 /// <param name="RetryLimit">Retry limit for a batch. If a batch fails to be sent to the cluster,
 /// the streamer will retry it a number of times.</param>
-/// <param name="PerNodeParallelOperations">Number of parallel operations per node
-/// (how many in-flight requests can be active for a given node).</param>
 /// <param name="AutoFlushFrequency">Auto flush frequency - the period of time after which the streamer
 /// will flush the per-node buffer even if it is not full.</param>
-public sealed record DataStreamerOptions(int BatchSize, int RetryLimit, int PerNodeParallelOperations, TimeSpan AutoFlushFrequency)
+public sealed record DataStreamerOptions(int BatchSize, int RetryLimit, TimeSpan AutoFlushFrequency)
 {
     /// <summary>
     /// Default streamer options.
@@ -40,7 +38,10 @@ public sealed record DataStreamerOptions(int BatchSize, int RetryLimit, int PerN
     /// Initializes a new instance of the <see cref="DataStreamerOptions"/> class.
     /// </summary>
     public DataStreamerOptions()
-        : this(1000, 16, 4, TimeSpan.FromSeconds(5))
+        : this(
+            BatchSize: 1000,
+            RetryLimit: 16,
+            AutoFlushFrequency: TimeSpan.FromSeconds(5))
     {
         // No-op.
     }
