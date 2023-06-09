@@ -32,7 +32,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_TO_REL_CONVERSION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
@@ -96,6 +95,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -709,7 +709,7 @@ public class DdlSqlToCommandConverter {
 
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
-            throw new SqlException(SCHEMA_NOT_FOUND_ERR, "Schema with name " + schemaName + " not found");
+            throw new SchemaNotFoundException(schemaName);
         }
     }
 

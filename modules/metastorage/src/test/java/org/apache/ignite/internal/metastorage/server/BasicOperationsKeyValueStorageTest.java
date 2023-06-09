@@ -2428,7 +2428,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         return resultFuture;
     }
 
-    private void putToMs(byte[] key, byte[] value) {
+    void putToMs(byte[] key, byte[] value) {
         storage.put(key, value, HybridTimestamp.MIN_VALUE);
     }
 

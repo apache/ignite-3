@@ -31,6 +31,8 @@ public class VersionedUpdate implements Serializable {
 
     private final int version;
 
+    private final long activationTimestamp;
+
     @IgniteToStringInclude
     private final List<UpdateEntry> entries;
 
@@ -38,10 +40,12 @@ public class VersionedUpdate implements Serializable {
      * Constructs the object.
      *
      * @param version A version the changes relate to.
+     * @param activationTimestamp Timestamp given changes become active at.
      * @param entries A list of changes.
      */
-    public VersionedUpdate(int version, List<UpdateEntry> entries) {
+    public VersionedUpdate(int version, long activationTimestamp, List<UpdateEntry> entries) {
         this.version = version;
+        this.activationTimestamp = activationTimestamp;
         this.entries = List.copyOf(
                 Objects.requireNonNull(entries, "entries")
         );
@@ -50,6 +54,11 @@ public class VersionedUpdate implements Serializable {
     /** Returns version. */
     public int version() {
         return version;
+    }
+
+    /** Returns activation timestamp. */
+    public long activationTimestamp() {
+        return activationTimestamp;
     }
 
     /** Returns list of changes. */

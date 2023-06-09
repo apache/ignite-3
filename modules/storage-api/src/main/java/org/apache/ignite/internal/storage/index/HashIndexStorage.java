@@ -32,7 +32,7 @@ public interface HashIndexStorage extends IndexStorage {
     /**
      * Returns the Index Descriptor of this storage.
      */
-    HashIndexDescriptor indexDescriptor();
+    StorageHashIndexDescriptor indexDescriptor();
 
     /**
      * Removes all data from this index.

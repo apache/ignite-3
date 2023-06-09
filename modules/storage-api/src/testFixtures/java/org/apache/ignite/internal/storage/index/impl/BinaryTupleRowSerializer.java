@@ -28,11 +28,10 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 
 /**
  * Class for converting an array of objects into a {@link BinaryTuple} and vice-versa using a given index schema.
@@ -56,7 +55,7 @@ public class BinaryTupleRowSerializer {
     /**
      * Creates a new instance for an index.
      */
-    public BinaryTupleRowSerializer(IndexDescriptor descriptor) {
+    public BinaryTupleRowSerializer(StorageIndexDescriptor descriptor) {
         this(descriptor.columns().stream()
                 .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
                 .collect(toUnmodifiableList()));
@@ -90,7 +89,7 @@ public class BinaryTupleRowSerializer {
             appendValue(builder, value);
         }
 
-        var tuple = new BinaryTuple(tupleSchema, builder.build());
+        var tuple = new BinaryTuple(tupleSchema.elementCount(), builder.build());
 
         return new IndexRowImpl(tuple, rowId);
     }
@@ -113,7 +112,7 @@ public class BinaryTupleRowSerializer {
             appendValue(builder, value);
         }
 
-        return new BinaryTuplePrefix(tupleSchema, builder.build());
+        return new BinaryTuplePrefix(tupleSchema.elementCount(), builder.build());
     }
 
     /**
@@ -122,14 +121,12 @@ public class BinaryTupleRowSerializer {
     public Object[] deserializeColumns(IndexRow indexRow) {
         BinaryTuple tuple = indexRow.indexColumns();
 
-        assert tuple.count() == schema.size();
+        assert tuple.elementCount() == schema.size();
 
         var result = new Object[schema.size()];
 
         for (int i = 0; i < result.length; i++) {
-            NativeTypeSpec typeSpec = schema.get(i).type.spec();
-
-            result[i] = typeSpec.objectValue(tuple, i);
+            result[i] = tupleSchema.value(tuple, i);
         }
 
         return result;

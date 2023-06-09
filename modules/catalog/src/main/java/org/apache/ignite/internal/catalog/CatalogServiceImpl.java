@@ -19,11 +19,11 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -38,38 +38,50 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
+import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
+import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Producer;
@@ -78,8 +90,12 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneBindTableException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -97,6 +113,9 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
+    /** Safe time to wait before new Catalog version activation. */
+    private static final int DEFAULT_DELAY_DURATION = 0;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
 
@@ -110,11 +129,24 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
 
+    private final HybridClock clock;
+
+    private final long delayDurationMs;
+
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog) {
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock) {
+        this(updateLog, clock, DEFAULT_DELAY_DURATION);
+    }
+
+    /**
+     * Constructor.
+     */
+    public CatalogServiceImpl(UpdateLog updateLog, HybridClock clock, long delayDurationMs) {
         this.updateLog = updateLog;
+        this.clock = clock;
+        this.delayDurationMs = delayDurationMs;
     }
 
     /** {@inheritDoc} */
@@ -122,8 +154,24 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     public void start() {
         int objectIdGen = 0;
 
-        SchemaDescriptor schemaPublic = new SchemaDescriptor(objectIdGen++, "PUBLIC", 0, new TableDescriptor[0], new IndexDescriptor[0]);
-        registerCatalog(new Catalog(0, 0L, objectIdGen, schemaPublic));
+        // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
+        CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
+                objectIdGen++,
+                "PUBLIC",
+                new CatalogTableDescriptor[0],
+                new CatalogIndexDescriptor[0]
+        );
+        CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
+                objectIdGen++,
+                CatalogService.DEFAULT_ZONE_NAME,
+                25,
+                1,
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                CreateZoneParams.DEFAULT_FILTER
+        );
+        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
@@ -138,37 +186,31 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
-    public TableDescriptor table(String tableName, long timestamp) {
+    public CatalogTableDescriptor table(String tableName, long timestamp) {
         return catalogAt(timestamp).schema(CatalogService.PUBLIC).table(tableName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableDescriptor table(int tableId, long timestamp) {
+    public CatalogTableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IndexDescriptor index(String indexName, long timestamp) {
+    public CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(CatalogService.PUBLIC).index(indexName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IndexDescriptor index(int indexId, long timestamp) {
+    public CatalogIndexDescriptor index(int indexId, long timestamp) {
         return catalogAt(timestamp).index(indexId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<IndexDescriptor> tableIndexes(int tableId, long timestamp) {
-        return catalogAt(timestamp).tableIndexes(tableId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable SchemaDescriptor schema(int version) {
+    public @Nullable CatalogSchemaDescriptor schema(int version) {
         Catalog catalog = catalog(version);
 
         if (catalog == null) {
@@ -180,7 +222,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaDescriptor schema(String schemaName, int version) {
+    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int version) {
         Catalog catalog = catalog(version);
 
         if (catalog == null) {
@@ -192,14 +234,32 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaDescriptor activeSchema(long timestamp) {
+    public CatalogZoneDescriptor zone(String zoneName, long timestamp) {
+        return catalogAt(timestamp).zone(zoneName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
+        return catalogAt(timestamp).zone(zoneId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
         return catalogAt(timestamp).schema(CatalogService.PUBLIC);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaDescriptor activeSchema(String schemaName, long timestamp) {
+    public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
         return catalogAt(timestamp).schema(schemaName == null ? CatalogService.PUBLIC : schemaName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int activeCatalogVersion(long timestamp) {
+        return catalogAt(timestamp).version();
     }
 
     private Catalog catalog(int version) {
@@ -222,13 +282,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
             if (schema.table(params.tableName()) != null) {
                 throw new TableAlreadyExistsException(schemaName, params.tableName());
             }
 
-            TableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewTableEntry(table),
@@ -243,9 +303,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
-            TableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
@@ -273,15 +333,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
-            TableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
             }
 
-            List<TableColumnDescriptor> columnDescriptors = new ArrayList<>();
+            List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 
             for (ColumnParams col : params.columns()) {
                 if (table.column(col.name()) != null) {
@@ -307,9 +367,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
-            TableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
@@ -336,7 +396,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                 throw new SqlException(
                                         Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
                                         "Can't drop indexed column: columnName=" + columnName + ", indexName="
-                                        + index.name()
+                                                + index.name()
                                 );
                             }));
 
@@ -352,9 +412,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
-            TableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
@@ -362,12 +422,12 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             String columnName = params.columnName();
 
-            TableColumnDescriptor origin = table.columns().stream()
+            CatalogTableColumnDescriptor origin = table.columns().stream()
                     .filter(desc -> desc.name().equals(columnName))
                     .findFirst()
-                    .orElseThrow(() ->  new ColumnNotFoundException(columnName));
+                    .orElseThrow(() -> new ColumnNotFoundException(columnName));
 
-            TableColumnDescriptor target = new TableColumnDescriptor(
+            CatalogTableColumnDescriptor target = new CatalogTableColumnDescriptor(
                     origin.name(),
                     Objects.requireNonNullElse(params.type(), origin.type()),
                     !Objects.requireNonNullElse(params.notNull(), !origin.nullable()),
@@ -431,13 +491,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
             if (schema.index(params.indexName()) != null) {
                 throw new IndexAlreadyExistsException(schemaName, params.indexName());
             }
 
-            TableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
@@ -453,7 +513,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
 
             for (String columnName : params.columns()) {
-                TableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+                CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
 
                 if (columnDescriptor == null) {
                     throw new ColumnNotFoundException(columnName);
@@ -465,7 +525,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -480,13 +540,13 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
             if (schema.index(params.indexName()) != null) {
                 throw new IndexAlreadyExistsException(schemaName, params.indexName());
             }
 
-            TableDescriptor table = schema.table(params.tableName());
+            CatalogTableDescriptor table = schema.table(params.tableName());
 
             if (table == null) {
                 throw new TableNotFoundException(schemaName, params.tableName());
@@ -507,7 +567,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
 
             for (String columnName : params.columns()) {
-                TableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
+                CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
 
                 if (columnDescriptor == null) {
                     throw new ColumnNotFoundException(columnName);
@@ -519,7 +579,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            IndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -534,9 +594,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         return saveUpdate(catalog -> {
             String schemaName = Objects.requireNonNullElse(params.schemaName(), CatalogService.PUBLIC);
 
-            SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+            CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
-            IndexDescriptor index = schema.index(params.indexName());
+            CatalogIndexDescriptor index = schema.index(params.indexName());
 
             if (index == null) {
                 throw new IndexNotFoundException(schemaName, params.indexName());
@@ -545,6 +605,154 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             return List.of(
                     new DropIndexEntry(index.id())
             );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> createDistributionZone(CreateZoneParams params) {
+        if (params.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
+                && (params.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE
+                || params.dataNodesAutoAdjustScaleDown() != INFINITE_TIMER_VALUE)
+        ) {
+            return failedFuture(new IgniteInternalException(
+                    DistributionZones.ZONE_DEFINITION_ERR,
+                    "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
+                            + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
+                            + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
+            ));
+        }
+
+        return saveUpdate(catalog -> {
+            String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
+
+            if (catalog.zone(params.zoneName()) != null) {
+                throw new DistributionZoneAlreadyExistsException(zoneName);
+            }
+
+            CatalogZoneDescriptor zone = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+
+            return List.of(
+                    new NewZoneEntry(zone),
+                    new ObjectIdGenUpdateEntry(1)
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> dropDistributionZone(DropZoneParams params) {
+        return saveUpdate(catalog -> {
+            String zoneName = Objects.requireNonNull(params.zoneName(), "zone");
+
+            CatalogZoneDescriptor zone = catalog.zone(zoneName);
+
+            if (zone == null) {
+                throw new DistributionZoneNotFoundException(zoneName);
+            }
+            if (zone.name().equals(CatalogService.DEFAULT_ZONE_NAME)) {
+                //TODO IGNITE-19082 Can default zone be dropped?
+                throw new IgniteInternalException(
+                        DistributionZones.ZONE_DROP_ERR,
+                        "Default distribution zone can't be dropped"
+                );
+            }
+
+            catalog.schemas().stream()
+                    .flatMap(s -> Arrays.stream(s.tables()))
+                    .filter(t -> t.zoneId() == zone.id())
+                    .findAny()
+                    .ifPresent(t -> {
+                        throw new DistributionZoneBindTableException(zoneName, t.name());
+                    });
+
+            return List.of(
+                    new DropZoneEntry(zone.id())
+            );
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> renameDistributionZone(RenameZoneParams params) {
+        return saveUpdate(catalog -> {
+            String zoneName = Objects.requireNonNull(params.newZoneName(), "newZoneName");
+
+            CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
+
+            if (zone == null) {
+                throw new DistributionZoneNotFoundException(zoneName);
+            }
+            if (catalog.zone(params.newZoneName()) != null) {
+                throw new DistributionZoneAlreadyExistsException(params.newZoneName());
+            }
+            if (zone.name().equals(CatalogService.DEFAULT_ZONE_NAME)) {
+                //TODO IGNITE-19082 Can default zone be renamed?
+                throw new IgniteInternalException(
+                        DistributionZones.ZONE_RENAME_ERR,
+                        "Default distribution zone can't be renamed"
+                );
+            }
+
+            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
+                    zone.id(),
+                    params.newZoneName(),
+                    zone.partitions(),
+                    zone.replicas(),
+                    zone.dataNodesAutoAdjust(),
+                    zone.dataNodesAutoAdjustScaleUp(),
+                    zone.dataNodesAutoAdjustScaleDown(),
+                    zone.filter()
+            );
+
+            return List.of(new AlterZoneEntry(descriptor));
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> alterDistributionZone(AlterZoneParams params) {
+        return saveUpdate(catalog -> {
+            CatalogZoneDescriptor zone = catalog.zone(params.zoneName());
+
+            if (zone == null) {
+                throw new DistributionZoneNotFoundException(params.zoneName());
+            }
+
+            Integer dataNodesAutoAdjust = params.dataNodesAutoAdjust();
+            Integer dataNodesAutoAdjustScaleUp = params.dataNodesAutoAdjustScaleUp();
+            Integer dataNodesAutoAdjustScaleDown = params.dataNodesAutoAdjustScaleDown();
+
+            if (dataNodesAutoAdjust == null && dataNodesAutoAdjustScaleUp == null && dataNodesAutoAdjustScaleDown == null) {
+                dataNodesAutoAdjust = zone.dataNodesAutoAdjust();
+                dataNodesAutoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
+                dataNodesAutoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
+            } else {
+                if (dataNodesAutoAdjust != null && (dataNodesAutoAdjustScaleUp != null || dataNodesAutoAdjustScaleDown != null)) {
+                    throw new IgniteInternalException(
+                            DistributionZones.ZONE_DEFINITION_ERR,
+                            "Not compatible parameters [dataNodesAutoAdjust=" + params.dataNodesAutoAdjust()
+                                    + ", dataNodesAutoAdjustScaleUp=" + params.dataNodesAutoAdjustScaleUp()
+                                    + ", dataNodesAutoAdjustScaleDown=" + params.dataNodesAutoAdjustScaleDown() + ']'
+                    );
+                }
+
+                dataNodesAutoAdjust = Objects.requireNonNullElse(params.dataNodesAutoAdjust(), INFINITE_TIMER_VALUE);
+                dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleUp(), INFINITE_TIMER_VALUE);
+                dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE);
+            }
+
+            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
+                    zone.id(),
+                    zone.name(),
+                    Objects.requireNonNullElse(params.partitions(), zone.partitions()),
+                    Objects.requireNonNullElse(params.replicas(), zone.replicas()),
+                    dataNodesAutoAdjust,
+                    dataNodesAutoAdjustScaleUp,
+                    dataNodesAutoAdjustScaleDown,
+                    Objects.requireNonNullElse(params.filter(), zone.filter())
+            );
+
+            return List.of(new AlterZoneEntry(descriptor));
         });
     }
 
@@ -576,8 +784,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         int newVersion = catalog.version() + 1;
+        //TODO https://issues.apache.org/jira/browse/IGNITE-19209 Make activation time in the MS entry strictly equal to MS entry ts+DD
+        long activationTimestamp = activationTimestamp();
 
-        return updateLog.append(new VersionedUpdate(newVersion, updates))
+        return updateLog.append(new VersionedUpdate(newVersion, activationTimestamp, updates))
                 .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                 .thenCompose(result -> {
                     if (result) {
@@ -592,6 +802,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
         @Override
         public void handle(VersionedUpdate update) {
             int version = update.version();
+            long activationTimestamp = update.activationTimestamp();
             Catalog catalog = catalogByVer.get(version - 1);
 
             assert catalog != null;
@@ -600,20 +811,20 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
             for (UpdateEntry entry : update.entries()) {
                 String schemaName = CatalogService.PUBLIC;
-                SchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
+                CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName), "No schema found: " + schemaName);
 
                 if (entry instanceof NewTableEntry) {
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     ArrayUtils.concat(schema.tables(), ((NewTableEntry) entry).descriptor()),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -626,15 +837,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
-                                    Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(TableDescriptor[]::new),
+                                    Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -643,29 +854,29 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                     ));
                 } else if (entry instanceof NewColumnsEntry) {
                     int tableId = ((NewColumnsEntry) entry).tableId();
-                    List<TableColumnDescriptor> columnDescriptors = ((NewColumnsEntry) entry).descriptors();
+                    List<CatalogTableColumnDescriptor> columnDescriptors = ((NewColumnsEntry) entry).descriptors();
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables())
                                             .map(table -> table.id() != tableId
                                                     ? table
-                                                    : new TableDescriptor(
+                                                    : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
                                                             CollectionUtils.concat(table.columns(), columnDescriptors),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )
-                                            .toArray(TableDescriptor[]::new),
+                                            .toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -678,16 +889,16 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables())
                                             .map(table -> table.id() != tableId
                                                     ? table
-                                                    : new TableDescriptor(
+                                                    : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
                                                             table.columns().stream().filter(col -> !columns.contains(col.name()))
@@ -695,9 +906,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )
-                                            .toArray(TableDescriptor[]::new),
+                                            .toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -707,15 +918,15 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (entry instanceof NewIndexEntry) {
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     schema.tables(),
                                     ArrayUtils.concat(schema.indexes(), ((NewIndexEntry) entry).descriptor())
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -727,50 +938,90 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     schema.tables(),
-                                    Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(IndexDescriptor[]::new)
-                            )
+                                    Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new)
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
                             CatalogEvent.INDEX_DROP,
                             new DropIndexEventParameters(version, indexId)
                     ));
-                } else if (entry instanceof ObjectIdGenUpdateEntry) {
+                } else if (entry instanceof NewZoneEntry) {
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
-                            catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
-                            new SchemaDescriptor(
-                                    schema.id(),
-                                    schema.name(),
-                                    version,
-                                    schema.tables(),
-                                    schema.indexes()
-                            )
+                            activationTimestamp,
+                            catalog.objectIdGenState(),
+                            CollectionUtils.concat(catalog.zones(), List.of(((NewZoneEntry) entry).descriptor())),
+                            catalog.schemas()
                     );
-                } else if (entry instanceof AlterColumnEntry) {
-                    int tableId = ((AlterColumnEntry) entry).tableId();
-                    TableColumnDescriptor target = ((AlterColumnEntry) entry).descriptor();
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ZONE_CREATE,
+                            new CreateZoneEventParameters(version, ((NewZoneEntry) entry).descriptor())
+                    ));
+                } else if (entry instanceof DropZoneEntry) {
+                    int zoneId = ((DropZoneEntry) entry).zoneId();
 
                     catalog = new Catalog(
                             version,
-                            System.currentTimeMillis(),
+                            activationTimestamp,
                             catalog.objectIdGenState(),
-                            new SchemaDescriptor(
+                            catalog.zones().stream().filter(z -> z.id() != zoneId).collect(Collectors.toList()),
+                            catalog.schemas()
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ZONE_DROP,
+                            new DropZoneEventParameters(version, zoneId)
+                    ));
+                } else if (entry instanceof AlterZoneEntry) {
+                    CatalogZoneDescriptor descriptor = ((AlterZoneEntry) entry).descriptor();
+
+                    catalog = new Catalog(
+                            version,
+                            activationTimestamp,
+                            catalog.objectIdGenState(),
+                            catalog.zones().stream()
+                                    .map(z -> z.id() == descriptor.id() ? descriptor : z)
+                                    .collect(Collectors.toList()),
+                            catalog.schemas()
+                    );
+
+                    eventFutures.add(fireEvent(
+                            CatalogEvent.ZONE_ALTER,
+                            new AlterZoneEventParameters(version, descriptor)
+                    ));
+                } else if (entry instanceof ObjectIdGenUpdateEntry) {
+                    catalog = new Catalog(
+                            version,
+                            activationTimestamp,
+                            catalog.objectIdGenState() + ((ObjectIdGenUpdateEntry) entry).delta(),
+                            catalog.zones(),
+                            catalog.schemas()
+                    );
+                } else if (entry instanceof AlterColumnEntry) {
+                    int tableId = ((AlterColumnEntry) entry).tableId();
+                    CatalogTableColumnDescriptor target = ((AlterColumnEntry) entry).descriptor();
+
+                    catalog = new Catalog(
+                            version,
+                            activationTimestamp,
+                            catalog.objectIdGenState(),
+                            catalog.zones(),
+                            List.of(new CatalogSchemaDescriptor(
                                     schema.id(),
                                     schema.name(),
-                                    version,
                                     Arrays.stream(schema.tables())
                                             .map(table -> table.id() != tableId
                                                     ? table
-                                                    : new TableDescriptor(
+                                                    : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
                                                             table.columns().stream()
@@ -780,9 +1031,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )
-                                            .toArray(TableDescriptor[]::new),
+                                            .toArray(CatalogTableDescriptor[]::new),
                                     schema.indexes()
-                            )
+                            ))
                     );
 
                     eventFutures.add(fireEvent(
@@ -797,15 +1048,22 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             registerCatalog(catalog);
 
             CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
-                    .thenRun(() -> versionTracker.update(version, null))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to apply catalog update.", err);
-                        } else {
-                            versionTracker.update(version, null);
+                            //TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
                         }
+
+                        versionTracker.update(version, null);
                     });
         }
+    }
+
+    /**
+     * Calculate catalog activation timestamp.
+     */
+    private long activationTimestamp() {
+        return clock.now().addPhysicalTime(delayDurationMs).longValue();
     }
 
     private static void throwUnsupportedDdl(String msg, Object... params) {

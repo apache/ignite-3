@@ -37,8 +37,8 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
@@ -287,7 +287,7 @@ public class TableImpl implements Table {
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerHashIndex(
-            HashIndexDescriptor indexDescriptor,
+            StorageHashIndexDescriptor indexDescriptor,
             boolean unique,
             Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
@@ -321,7 +321,7 @@ public class TableImpl implements Table {
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerSortedIndex(
-            SortedIndexDescriptor indexDescriptor,
+            StorageSortedIndexDescriptor indexDescriptor,
             Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
         int indexId = indexDescriptor.id();

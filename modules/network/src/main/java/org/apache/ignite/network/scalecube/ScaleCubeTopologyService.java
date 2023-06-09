@@ -86,12 +86,18 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         } else if (event.isUpdated()) {
             members.put(member.address(), member);
             consistentIdToMemberMap.put(member.name(), member);
-        } else if (event.isRemoved()) {
+        } else if (event.isRemoved() || event.isLeaving()) {
+            // We treat LEAVING as 'node left' because the node will not be back and we don't want to wait for the suspicion timeout.
+
             members.compute(member.address(), (addr, node) -> {
                 // Ignore stale remove event.
                 if (node == null || node.id().equals(member.id())) {
+                    LOG.info("Node left [member={}, eventType={}]", member, event.type());
+
                     return null;
                 } else {
+                    LOG.info("Node left (noop as it has already reappeared) [member={}, eventType={}]", member, event.type());
+
                     return node;
                 }
             });
@@ -104,8 +110,6 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                     return node;
                 }
             });
-
-            LOG.info("Node left [member={}]", member);
 
             fireDisappearedEvent(member);
         }

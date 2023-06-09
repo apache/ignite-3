@@ -22,6 +22,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -60,12 +61,13 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
 
         engine.start();
 
-        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZoneConfiguration);
+        TableConfiguration tableConfig = tablesConfig.tables().get("foo");
+
+        table = engine.createMvTable(tableConfig, tablesConfig, distributionZoneConfiguration);
 
         table.start();
 
-        initialize(table, tablesConfig, engineConfig);
+        initialize(table, tableConfig, tablesConfig, engineConfig);
     }
 
     @AfterEach

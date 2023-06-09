@@ -145,8 +145,8 @@ public class PlacementDriverReplicaSideTest {
     ) {
         PlacementDriverReplicaMessage msg = MSG_FACTORY.leaseGrantedMessage()
                 .groupId(GRP_ID)
-                .leaseStartTime(leaseStartTime)
-                .leaseExpirationTime(leaseExpirationTime)
+                .leaseStartTimeLong(leaseStartTime.longValue())
+                .leaseExpirationTimeLong(leaseExpirationTime.longValue())
                 .force(force)
                 .build();
 

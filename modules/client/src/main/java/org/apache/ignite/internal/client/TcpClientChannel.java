@@ -57,6 +57,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -296,11 +297,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
                     String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
-                    fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, msg, f.cause()));
+                    IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, f.cause());
+                    fut.completeExceptionally(ex);
                     log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
 
                     pendingReqs.remove(id);
                     metrics.requestsActiveDecrement();
+
+                    // Close immediately, do not wait for onDisconnected call from Netty.
+                    onDisconnected(ex);
                 } else {
                     metrics.requestsSentIncrement();
                 }
@@ -635,6 +640,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         } else {
             throw new IllegalArgumentException("Unsupported authentication object type: " + obj.getClass().getName());
         }
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(TcpClientChannel.class.getSimpleName(), "remoteAddress", sock.remoteAddress(), false);
     }
 
     /**

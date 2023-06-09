@@ -108,7 +108,7 @@ public class BinaryRowConverter {
                 }
             });
         }
-        return new BinaryTuple(dstSchema, builder.build());
+        return new BinaryTuple(dstSchema.elementCount(), builder.build());
     }
 
     /**
@@ -170,13 +170,13 @@ public class BinaryRowConverter {
     /** Helper method to convert from a full row or key-only row to the key-only tuple. */
     public static Function<BinaryRow, BinaryTuple> keyExtractor(SchemaDescriptor schema) {
         return binaryRow -> {
-            BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
-            BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
-
             if (binaryRow.hasValue()) {
+                BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
+                BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+
                 return new BinaryRowConverter(rowSchema, keySchema).toTuple(binaryRow);
             } else {
-                return new BinaryTuple(keySchema, binaryRow.tupleSlice());
+                return new BinaryTuple(schema.keyColumns().length(), binaryRow.tupleSlice());
             }
         };
     }
