@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.rel;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.BinaryRow;

@@ -68,7 +68,6 @@ import org.apache.ignite.internal.sql.engine.exec.rel.ProjectNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.SortAggregateNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.SortNode;
-import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableSpoolNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.UnionAllNode;
@@ -570,11 +569,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableModify rel) {
-        UpdateableTable table = rel.getTable().unwrap(UpdateableTable.class);
+        IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
+        UpdateableTable updateableTable = table.updatableTable();
 
-        assert table != null;
-
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, table, rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(ctx, updateableTable, rel.getOperation(), rel.getUpdateColumnList());
 
         Node<RowT> input = visit(rel.getInput());
 

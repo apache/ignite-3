@@ -64,10 +64,11 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
+import org.apache.ignite.internal.sql.engine.exec.TableRowConverterImpl;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.UpdatableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
-import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverter;
-import org.apache.ignite.internal.sql.engine.exec.rel.TableRowConverterImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -105,7 +106,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
     private final SchemaRegistry schemaRegistry;
 
-    public final SchemaDescriptor schemaDescriptor;
+    private final SchemaDescriptor schemaDescriptor;
 
     private final Statistic statistic;
 
@@ -114,6 +115,10 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
 
     private final PartitionExtractor partitionExtractor;
+
+    private final UpdateableTable updateableTable;
+
+    private final TableRowConverter rowConverter;
 
     /**
      * Constructor.
@@ -137,8 +142,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         this.schemaDescriptor = schemaRegistry.schema();
         this.partitionExtractor = table::partitionId;
 
-        assert schemaDescriptor != null;
-
         List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
         for (int i = 0; i < desc.columnsCount(); i++) {
             tmp.add(desc.columnDescriptor(i));
@@ -149,6 +152,10 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         columnsOrderedByPhysSchema = tmp;
 
         statistic = new StatisticsImpl();
+
+        rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, desc);
+        updateableTable = new UpdatableTableImpl(table.tableId(), desc, table.partitions(), replicaService, clock,
+                rowConverter, schemaDescriptor);
     }
 
     private IgniteTableImpl(IgniteTableImpl t) {
@@ -163,6 +170,8 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         this.columnsOrderedByPhysSchema = t.columnsOrderedByPhysSchema;
         this.partitionExtractor = t.partitionExtractor;
         this.indexes.putAll(t.indexes);
+        this.updateableTable = t.updateableTable;
+        this.rowConverter = t.rowConverter;
     }
 
     public static IgniteTableImpl copyOf(IgniteTableImpl v) {
@@ -214,7 +223,12 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
     @Override
     public TableRowConverter rowConverter() {
-        return new TableRowConverterImpl(schemaRegistry, schemaDescriptor, desc);
+        return rowConverter;
+    }
+
+    @Override
+    public UpdateableTable updatableTable() {
+        return updateableTable;
     }
 
     /** {@inheritDoc} */
