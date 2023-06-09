@@ -261,7 +261,7 @@ public class CatalogServiceSelfTest {
                 .build();
 
         assertThat(service.createTable(params), willThrowFast(IgniteInternalException.class,
-                "Can't create table with duplicate columns: columnName=val"));
+                "Can't create table with duplicate columns: key, val, val"));
     }
 
     @Test
@@ -1065,7 +1065,7 @@ public class CatalogServiceSelfTest {
                 .build();
 
         assertThat(service.createIndex(params),
-                willThrow(IgniteInternalException.class, "Can't create index on duplicate columns: columnName=VAL"));
+                willThrow(IgniteInternalException.class, "Can't create index on duplicate columns: VAL, VAL"));
     }
 
     @Test

@@ -94,6 +94,8 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Table;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -259,6 +261,15 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
+        cmd.columns().stream()
+                .map(ColumnDefinition::name)
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(col -> {
+                    throw new SqlException(Table.TABLE_DEFINITION_ERR, "Can't create table with duplicate columns: "
+                            + cmd.columns().stream().map(ColumnDefinition::name).collect(Collectors.joining(", ")));
+                });
+
         Consumer<TableChange> tblChanger = tableChange -> {
             tableChange.changeColumns(columnsChange -> {
                 for (var col : cmd.columns()) {
@@ -286,7 +297,7 @@ public class DdlCommandHandler {
             zoneName = DEFAULT_ZONE_NAME;
         }
 
-        return tableManager.createTableAsync(cmd.tableName(), zoneName,  tblChanger)
+        return tableManager.createTableAsync(cmd.tableName(), zoneName, tblChanger)
                 .thenApply(Objects::nonNull)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
@@ -341,7 +352,7 @@ public class DdlCommandHandler {
                 .findAny()
                 .ifPresent(col -> {
                     throw new SqlException(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: columnName=" + col);
+                            "Can't create index on duplicate columns: " + String.join(", ", cmd.columns()));
                 });
 
         Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
@@ -360,11 +371,11 @@ public class DdlCommandHandler {
         };
 
         return indexManager.createIndexAsync(
-                        cmd.schemaName(),
-                        cmd.indexName(),
-                        cmd.tableName(),
-                        !cmd.ifNotExists(),
-                        indexChanger);
+                cmd.schemaName(),
+                cmd.indexName(),
+                cmd.tableName(),
+                !cmd.ifNotExists(),
+                indexChanger);
     }
 
     /** Handles drop index command. */

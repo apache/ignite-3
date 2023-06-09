@@ -76,6 +76,7 @@ import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
@@ -232,8 +233,8 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             params.columns().stream().map(ColumnParams::name).filter(Predicate.not(new HashSet<>()::add))
                     .findAny().ifPresent(columnName -> {
                         throw new IgniteInternalException(
-                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                                "Can't create table with duplicate columns: columnName=" + columnName
+                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Can't create table with duplicate columns: "
+                                + params.columns().stream().map(ColumnParams::name).collect(Collectors.joining(", "))
                         );
                     });
 
@@ -344,8 +345,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             .ifPresent(columnName -> {
                                 throw new SqlException(
                                         Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR,
-                                        "Can't drop indexed column: columnName=" + columnName + ", indexName="
-                                        + index.name()
+                                        "Can't drop indexed column: columnName=" + columnName + ", indexName=" + index.name()
                                 );
                             }));
 
@@ -374,7 +374,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
             CatalogTableColumnDescriptor origin = table.columns().stream()
                     .filter(desc -> desc.name().equals(columnName))
                     .findFirst()
-                    .orElseThrow(() ->  new ColumnNotFoundException(columnName));
+                    .orElseThrow(() -> new ColumnNotFoundException(columnName));
 
             CatalogTableColumnDescriptor target = new CatalogTableColumnDescriptor(
                     origin.name(),
@@ -469,7 +469,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (duplicateValidator.test(columnName)) {
                     throw new IgniteInternalException(
                             ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: columnName=" + columnName
+                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
                     );
                 }
             }
@@ -523,7 +523,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 } else if (duplicateValidator.test(columnName)) {
                     throw new IgniteInternalException(
                             ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create index on duplicate columns: columnName=" + columnName
+                            "Can't create index on duplicate columns: " + String.join(", ", params.columns())
                     );
                 }
             }
