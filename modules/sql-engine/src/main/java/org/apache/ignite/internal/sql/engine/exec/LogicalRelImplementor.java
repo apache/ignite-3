@@ -112,6 +112,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
+import org.apache.ignite.internal.table.InternalTable;
 
 /**
  * Implements a query plan.
@@ -131,6 +132,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ExpressionFactory<RowT> expressionFactory;
 
+    private final ResolvedDependencies resolvedDependencies;
+
     /**
      * Constructor.
      *
@@ -138,17 +141,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
+     * @param resolvedDependencies  Dependencies required to execute this query.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
             HashFunctionFactory<RowT> hashFuncFactory,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSvc
-    ) {
+            ExchangeService exchangeSvc,
+            ResolvedDependencies resolvedDependencies) {
         this.hashFuncFactory = hashFuncFactory;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
+        this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
     }
@@ -323,7 +328,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
-        TableRowConverter rowConverter = tbl.rowConverter();
+        TableRowConverter rowConverter = resolvedDependencies.rowConverter(tbl.id());
 
         IgniteIndex idx = tbl.getIndex(rel.indexName());
 
@@ -385,9 +390,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         List<RexNode> projects = rel.projects();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
 
-        IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
-
-        assert tbl != null;
+        IgniteTable tbl = rel.getTable().unwrapOrThrow(IgniteTable.class);
+        InternalTable internalTable = resolvedDependencies.table(tbl.id());
+        TableRowConverter rowConverter = resolvedDependencies.rowConverter(tbl.id());
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
@@ -405,8 +410,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
-                tbl.table(),
-                tbl.rowConverter(),
+                internalTable,
+                rowConverter,
                 group.partitionsWithTerms(ctx.localNode().name()),
                 filters,
                 prj,
@@ -570,7 +575,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     @Override
     public Node<RowT> visit(IgniteTableModify rel) {
         IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
-        UpdateableTable updateableTable = table.updatableTable();
+        UpdateableTable updateableTable = resolvedDependencies.updatableTable(table.id());
 
         ModifyNode<RowT> node = new ModifyNode<>(ctx, updateableTable, rel.getOperation(), rel.getUpdateColumnList());
 

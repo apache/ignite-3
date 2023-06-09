@@ -45,4 +45,13 @@ public interface QueryTaskExecutor extends LifecycleAware, Executor {
      * @return the new CompletableFuture
      */
     CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask);
+
+    /**
+     * Returns an executor that is responsible for the given query fragment.
+     *
+     * @param qryId      Query ID.
+     * @param fragmentId Fragment ID.
+     * @return  An executor.
+     */
+    Executor fragmentExecutor(UUID qryId, long fragmentId);
 }

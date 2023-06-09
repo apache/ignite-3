@@ -44,13 +44,11 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.CompletableVersionedValue;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.HashIndex;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexImpl;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
@@ -80,8 +78,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final TableManager tableManager;
     private final SchemaManager schemaManager;
-    private final ReplicaService replicaService;
-    private final HybridClock clock;
 
     private final CompletableVersionedValue<SchemaPlus> calciteSchemaVv;
 
@@ -97,15 +93,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             TableManager tableManager,
             SchemaManager schemaManager,
-            ReplicaService replicaService,
-            HybridClock clock,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
-        this.replicaService = replicaService;
-        this.clock = clock;
 
         schemasVv = new IncrementalVersionedValue<>(registry, HashMap::new);
         tablesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
@@ -364,16 +356,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
         return schemaManager.schemaRegistry(causalityToken, table.tableId())
-                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry)));
+                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(table, schemaRegistry, causalityToken)));
     }
 
-    private IgniteTableImpl convert(TableImpl table) {
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
-
-        return convert(table, schemaRegistry);
-    }
-
-    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry) {
+    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry, long schemaVersion) {
         SchemaDescriptor descriptor = schemaRegistry.schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -403,10 +389,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),
                 table.internalTable(),
-                replicaService,
-                clock,
-                schemaRegistry
-        );
+                schemaRegistry.lastSchemaVersion());
     }
 
     private DefaultValueStrategy convertDefaultValueProvider(DefaultValueProvider defaultValueProvider) {

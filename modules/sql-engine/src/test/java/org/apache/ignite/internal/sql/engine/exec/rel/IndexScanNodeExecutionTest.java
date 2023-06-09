@@ -589,22 +589,6 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         public IgniteDistribution distribution() {
             return IgniteDistributions.broadcast();
         }
-
-        @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow binaryRow, RowFactory<RowT> factory,
-                @Nullable BitSet requiredColumns) {
-            TableDescriptor desc = descriptor();
-            Row tableRow = new Row(schemaDesc, binaryRow);
-
-            RowT row = factory.create();
-            RowHandler<RowT> handler = factory.handler();
-
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                handler.set(i, row, TypeUtils.toInternal(tableRow.value(desc.columnDescriptor(i).physicalIndex())));
-            }
-
-            return row;
-        }
     }
 
     private static final class TestRowConverter implements TableRowConverter {

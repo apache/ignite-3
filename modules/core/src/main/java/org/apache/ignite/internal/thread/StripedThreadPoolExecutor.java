@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -86,7 +87,7 @@ public class StripedThreadPoolExecutor implements ExecutorService {
      * @throws NullPointerException       If command is null
      */
     public void execute(Runnable task, int idx) {
-        execs[threadId(idx)].execute(task);
+        commandExecutor(idx).execute(task);
     }
 
     /** {@inheritDoc} */
@@ -105,7 +106,7 @@ public class StripedThreadPoolExecutor implements ExecutorService {
      * @throws NullPointerException       if the task is {@code null}.
      */
     public CompletableFuture<?> submit(Runnable task, int idx) {
-        return CompletableFuture.runAsync(task, execs[threadId(idx)]);
+        return CompletableFuture.runAsync(task, commandExecutor(idx));
     }
 
     /** {@inheritDoc} */
@@ -127,6 +128,15 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     @Override
     public Future<?> submit(Runnable task) {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Returns an executor that is responsible for executing the given command.
+     *
+     * @param idx Striped index.
+     */
+    public Executor getExecutor(int idx) {
+        return commandExecutor(idx);
     }
 
     /**
@@ -234,5 +244,9 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     @Override
     public String toString() {
         return S.toString(StripedThreadPoolExecutor.class, this);
+    }
+
+    private ExecutorService commandExecutor(int idx) {
+        return execs[threadId(idx)];
     }
 }

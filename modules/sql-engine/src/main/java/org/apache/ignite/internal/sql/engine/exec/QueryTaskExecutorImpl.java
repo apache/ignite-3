@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -74,6 +75,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     /** {@inheritDoc} */
     @Override
     public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
+        int commandIdx = hash(qryId, fragmentId);
         stripedThreadPoolExecutor.execute(
                 () -> {
                     try {
@@ -89,7 +91,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
                         uncaughtException(Thread.currentThread(), e);
                     }
                 },
-                hash(qryId, fragmentId)
+                commandIdx
         );
     }
 
@@ -107,6 +109,13 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     @Override
     public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Executor fragmentExecutor(UUID qryId, long fragmentId) {
+        int commandIdx = hash(qryId, fragmentId);
+        return stripedThreadPoolExecutor.getExecutor(commandIdx);
     }
 
     /** {@inheritDoc} */
