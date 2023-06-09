@@ -108,7 +108,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -123,11 +122,8 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -155,41 +151,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
-
-    private final List<String> clusterNodesNames = new ArrayList<>();
-
-    /** Cluster nodes. */
-    private List<PartialNode> partialNodes;
-
-    private TestInfo testInfo;
-
-    @BeforeEach
-    void setUp(TestInfo testInfo) {
-        this.testInfo = testInfo;
-        this.partialNodes = new ArrayList<>();
-    }
-
-    /**
-     * Stops all started nodes.
-     */
-    @AfterEach
-    public void afterEach() throws Exception {
-        var closeables = new ArrayList<AutoCloseable>();
-
-        for (String name : clusterNodesNames) {
-            if (name != null) {
-                closeables.add(() -> IgnitionManager.stop(name));
-            }
-        }
-
-        if (!partialNodes.isEmpty()) {
-            for (PartialNode partialNode : partialNodes) {
-                closeables.add(partialNode::stop);
-            }
-        }
-
-        IgniteUtils.closeAll(closeables);
-    }
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.

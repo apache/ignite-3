@@ -25,12 +25,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -55,11 +58,14 @@ import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Base class for node's restart tests.
  */
-public class BaseIgniteRestartTest extends IgniteAbstractTest {
+public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     protected static final int DEFAULT_NODE_PORT = 3344;
 
@@ -84,6 +90,41 @@ public class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  },\n"
             + "  raft: " + RAFT_CFG + "\n"
             + "}";
+
+    public TestInfo testInfo;
+
+    protected final List<String> clusterNodesNames = new ArrayList<>();
+
+    /** Cluster nodes. */
+    protected List<PartialNode> partialNodes;
+
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        this.testInfo = testInfo;
+        this.partialNodes = new ArrayList<>();
+    }
+
+    /**
+     * Stops all started nodes.
+     */
+    @AfterEach
+    public void afterEachTest() throws Exception {
+        var closeables = new ArrayList<AutoCloseable>();
+
+        for (String name : clusterNodesNames) {
+            if (name != null) {
+                closeables.add(() -> IgnitionManager.stop(name));
+            }
+        }
+
+        if (!partialNodes.isEmpty()) {
+            for (PartialNode partialNode : partialNodes) {
+                closeables.add(partialNode::stop);
+            }
+        }
+
+        IgniteUtils.closeAll(closeables);
+    }
 
     /**
      * Load configuration modules.

@@ -18,13 +18,8 @@
 package org.apache.ignite.internal.distribution.zones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.BaseIgniteRestartTest.configurationString;
-import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
-import static org.apache.ignite.internal.BaseIgniteRestartTest.findComponent;
-import static org.apache.ignite.internal.BaseIgniteRestartTest.partialNode;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
-import static org.apache.ignite.internal.runner.app.ItIgniteNodeRestartTest.loadConfigurationModules;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,7 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.BaseIgniteRestartTest.PartialNode;
+import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -64,19 +59,14 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -84,12 +74,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
-public class ItIgniteDistributionZoneManagerNodeRestartTest extends IgniteAbstractTest {
-    /** Cluster nodes. */
-    private List<PartialNode> partialNodes;
-
-    private TestInfo testInfo;
-
+public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
             new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
@@ -106,28 +91,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends IgniteAbstra
     );
 
     private static final String ZONE_NAME = "zone1";
-
-    @BeforeEach
-    void setUp(TestInfo testInfo) {
-        this.testInfo = testInfo;
-        this.partialNodes = new ArrayList<>();
-    }
-
-    /**
-     * Stops all started nodes.
-     */
-    @AfterEach
-    public void afterEach() throws Exception {
-        var closeables = new ArrayList<AutoCloseable>();
-
-        if (!partialNodes.isEmpty()) {
-            for (PartialNode partialNode : partialNodes) {
-                closeables.add(partialNode::stop);
-            }
-        }
-
-        IgniteUtils.closeAll(closeables);
-    }
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
