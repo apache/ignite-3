@@ -43,10 +43,10 @@ public class DataStreamerTests : IgniteTestsBase
         var options = DataStreamerOptions.Default with { BatchSize = 10 };
         var data = Enumerable.Range(1, Count).Select(x => GetTuple(x, "t" + x)).ToList();
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
+        var res = await TupleView.GetAllAsync(null, data);
 
-        foreach (var tuple in data)
+        foreach (var ((val, hasVal), tuple) in res.Zip(data))
         {
-            var (val, hasVal) = await TupleView.GetAsync(null, tuple);
             Assert.IsTrue(hasVal, tuple.ToString());
             Assert.AreEqual(val, tuple);
         }
