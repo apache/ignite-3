@@ -132,10 +132,14 @@ internal static class DataStreamer
                 : partitionAssignment[Math.Abs(tupleBuilder.Hash % partitionAssignment.Length)];
 
             var batch = GetOrCreateBatch(partition);
-            batch.Count++;
 
-            noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
-            batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+            lock (batch)
+            {
+                batch.Count++;
+
+                noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
+                batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+            }
 
             return (batch, partition);
         }
@@ -165,19 +169,30 @@ internal static class DataStreamer
 
         async Task SendAsync(Batch batch, string partition)
         {
-            var buf = batch.Buffer;
-            buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
-            buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
-
             var oldTask = batch.Task;
-            batch.Task = SendAndDisposeBufAsync(buf, partition);
+            var expectedSize = batch.Count;
+
+            lock (batch)
+            {
+                if (batch.Count != expectedSize || batch.Count == 0)
+                {
+                    // Concurrent update happened.
+                    return;
+                }
+
+                var buf = batch.Buffer;
+                buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
+                buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
+
+                batch.Task = SendAndDisposeBufAsync(buf, partition);
+
+                batch.Count = 0;
+                batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
+                batch.LastFlush = Stopwatch.GetTimestamp();
+            }
 
             // Wait for the previous batch for this node.
             await oldTask.ConfigureAwait(false);
-
-            batch.Count = 0;
-            batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-            batch.LastFlush = Stopwatch.GetTimestamp();
 
             // Refresh schema and assignment once per send.
             schema = await schemaProvider().ConfigureAwait(false);
@@ -203,7 +218,6 @@ internal static class DataStreamer
                 {
                     if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushFrequency.Ticks)
                     {
-                        // TODO: Thread synchronization.
                         await SendAsync(batch, partition).ConfigureAwait(false);
                     }
                 }
