@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Map;
@@ -34,6 +35,10 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME = "zone1";
+
+    private static final int ZONE_ID = 1;
+
+    private static final long TIMEOUT_MILLIS = 10_000L;
 
     private static final LogicalNode A = new LogicalNode(
             new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
@@ -59,33 +64,33 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
     void testFilterOnScaleUp() throws Exception {
         preparePrerequisites();
 
-        Set<String> nodes;
-
         topology.putNode(D);
 
-        nodes = distributionZoneManager.dataNodes(1);
-
-        assertEquals(Set.of(A, C, D).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                ZONE_ID,
+                Set.of(A, C, D).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
     }
 
     @Test
     void testFilterOnScaleDown() throws Exception {
         preparePrerequisites();
 
-        Set<String> nodes;
-
         topology.removeNodes(Set.of(C));
 
-        nodes = distributionZoneManager.dataNodes(1);
-
-        assertEquals(Set.of(A).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                ZONE_ID,
+                Set.of(A).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
     }
 
     @Test
     void testFilterOnScaleUpWithNewAttributesAfterRestart() throws Exception {
         preparePrerequisites();
-
-        Set<String> nodes;
 
         topology.removeNodes(Set.of(B));
 
@@ -96,9 +101,12 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(newB);
 
-        nodes = distributionZoneManager.dataNodes(1);
-
-        assertEquals(Set.of(A, newB, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                ZONE_ID,
+                Set.of(A, newB, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
     }
 
     /**
@@ -124,8 +132,11 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
                         .build()
         ).get(10_000, TimeUnit.MILLISECONDS);
 
-        Set<String> nodes = distributionZoneManager.dataNodes(1);
-
-        assertEquals(Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()), nodes);
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                ZONE_ID,
+                Set.of(A, C).stream().map(ClusterNode::name).collect(Collectors.toSet()),
+                TIMEOUT_MILLIS
+        );
     }
 }
