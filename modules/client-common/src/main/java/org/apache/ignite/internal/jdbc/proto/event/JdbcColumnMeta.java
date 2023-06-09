@@ -18,19 +18,19 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import static java.sql.Types.BIGINT;
-import static java.sql.Types.BINARY;
 import static java.sql.Types.BOOLEAN;
 import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
 import static java.sql.Types.DOUBLE;
-import static java.sql.Types.FLOAT;
 import static java.sql.Types.INTEGER;
 import static java.sql.Types.NULL;
 import static java.sql.Types.OTHER;
+import static java.sql.Types.REAL;
 import static java.sql.Types.SMALLINT;
 import static java.sql.Types.TIME;
 import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TINYINT;
+import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 
 import java.math.BigDecimal;
@@ -125,14 +125,33 @@ public class JdbcColumnMeta extends Response {
      */
     public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, String javaTypeName, int precision, int scale,
             boolean nullable) {
+        this(label, schemaName, tblName, colName, type(javaTypeName), typeName(javaTypeName), javaTypeName, precision, scale, nullable);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param label        Column label.
+     * @param schemaName   Schema.
+     * @param tblName      Table.
+     * @param colName      Column.
+     * @param dataType     JDBC datatype id.
+     * @param dataTypeName JDBC datatype name.
+     * @param javaTypeName Java type name.
+     * @param precision    Column precision.
+     * @param scale        Column scale.
+     * @param nullable     Nullable flag.
+     */
+    public JdbcColumnMeta(String label, String schemaName, String tblName, String colName, int dataType, String dataTypeName,
+            String javaTypeName, int precision, int scale, boolean nullable) {
         this.label = label;
         this.schemaName = schemaName;
         this.tblName = tblName;
         this.colName = colName;
         this.nullable = nullable;
 
-        this.dataType = type(javaTypeName);
-        this.dataTypeName = typeName(javaTypeName);
+        this.dataType = dataType;
+        this.dataTypeName = dataTypeName;
         this.dataTypeCls = javaTypeName;
         this.precision = precision;
         this.scale = scale;
@@ -345,13 +364,13 @@ public class JdbcColumnMeta extends Response {
         } else if (Long.class.getName().equals(cls) || long.class.getName().equals(cls)) {
             return BIGINT;
         } else if (Float.class.getName().equals(cls) || float.class.getName().equals(cls)) {
-            return FLOAT;
+            return REAL;
         } else if (Double.class.getName().equals(cls) || double.class.getName().equals(cls)) {
             return DOUBLE;
         } else if (String.class.getName().equals(cls)) {
             return VARCHAR;
         } else if (byte[].class.getName().equals(cls)) {
-            return BINARY;
+            return VARBINARY;
         } else if (Time.class.getName().equals(cls)) {
             return TIME;
         } else if (Timestamp.class.getName().equals(cls)) {
@@ -387,13 +406,13 @@ public class JdbcColumnMeta extends Response {
         } else if (Long.class.getName().equals(cls) || long.class.getName().equals(cls)) {
             return "BIGINT";
         } else if (Float.class.getName().equals(cls) || float.class.getName().equals(cls)) {
-            return "FLOAT";
+            return "REAL";
         } else if (Double.class.getName().equals(cls) || double.class.getName().equals(cls)) {
             return "DOUBLE";
         } else if (String.class.getName().equals(cls)) {
             return "VARCHAR";
         } else if (byte[].class.getName().equals(cls)) {
-            return "BINARY";
+            return "VARBINARY";
         } else if (Time.class.getName().equals(cls)) {
             return "TIME";
         } else if (Timestamp.class.getName().equals(cls)) {
