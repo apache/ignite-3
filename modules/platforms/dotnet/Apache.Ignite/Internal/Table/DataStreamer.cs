@@ -22,7 +22,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
@@ -70,33 +69,17 @@ internal static class DataStreamer
         try
         {
             _ = AutoFlushAsync(cts.Token);
-            var channel = Channel.CreateBounded<T>(options.BatchSize);
-
-            var iteratorTask = Task.Run(async () =>
-            {
-                var reader = channel.Reader;
-
-                while (await reader.WaitToReadAsync().ConfigureAwait(false))
-                {
-                    while (reader.TryRead(out var item))
-                    {
-                        var (batch, partition) = Add(item);
-
-                        if (batch.Count >= options.BatchSize)
-                        {
-                            await SendAsync(batch, partition).ConfigureAwait(false);
-                        }
-                    }
-                }
-            });
 
             // TODO: Multithreaded iteration? Serialization and hashing in one thread can be a bottleneck. Do a benchmark first.
             await foreach (var item in data)
             {
-                await channel.Writer.WriteAsync(item).ConfigureAwait(false);
-            }
+                var (batch, partition) = Add(item);
 
-            await iteratorTask.ConfigureAwait(false);
+                if (batch.Count >= options.BatchSize)
+                {
+                    await SendAsync(batch, partition).ConfigureAwait(false);
+                }
+            }
 
             // Iteration ended. Drain remaining batches.
             foreach (var (partition, batch) in batches)
