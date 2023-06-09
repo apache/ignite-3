@@ -27,12 +27,10 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -41,7 +39,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,11 +51,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final Map<Integer, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
-    private final TableConfiguration tableCfg;
-
-    private final DistributionZoneConfiguration distributionZoneCfg;
-
-    private final TablesConfiguration tablesCfg;
+    private final StorageTableDescriptor tableDescriptor;
 
     /**
      * Class for storing Sorted Indices for a particular partition.
@@ -95,13 +88,10 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     /** Constructor. */
-    public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneCfg) {
-        this.tableCfg = tableCfg;
-        this.tablesCfg = tablesCfg;
-        this.distributionZoneCfg = distributionZoneCfg;
+    public TestMvTableStorage(int tableId, int partitions) {
+        tableDescriptor = new StorageTableDescriptor(tableId, partitions);
 
-        mvPartitionStorages = new MvPartitionStorages<>(tableCfg.id().value(), distributionZoneCfg.partitions().value());
+        mvPartitionStorages = new MvPartitionStorages<>(tableId, partitions);
     }
 
     @Override
@@ -301,7 +291,8 @@ public class TestMvTableStorage implements MvTableStorage {
                 .filter(Objects::nonNull);
     }
 
-    private String createStorageInfo(int partitionId) {
-        return IgniteStringFormatter.format("table={}, partitionId={}", tableCfg.name().value(), partitionId);
+    @Override
+    public StorageTableDescriptor getTableDescriptor() {
+        return tableDescriptor;
     }
 }
