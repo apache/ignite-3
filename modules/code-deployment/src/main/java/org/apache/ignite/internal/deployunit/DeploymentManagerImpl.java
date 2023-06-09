@@ -228,8 +228,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     if (success) {
                         return cmgManager.logicalTopology();
                     }
-                    return failedFuture(new DeploymentUnitNotFoundException(
-                            "Unit " + id + " with version " + version + " doesn't exist"));
+                    return failedFuture(new DeploymentUnitNotFoundException(id, version));
                 }).thenCompose(logicalTopologySnapshot -> allOf(
                         logicalTopologySnapshot.nodes().stream()
                                 .map(node -> messaging.undeploy(node, id, version))

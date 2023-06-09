@@ -25,7 +25,6 @@ import org.apache.ignite.compute.DeploymentUnit;
  * Disposable deployment unit.
  */
 public class DisposableDeploymentUnit {
-
     private final DeploymentUnit unit;
 
     private final Path path;

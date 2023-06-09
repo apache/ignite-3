@@ -29,7 +29,6 @@ import java.util.function.Function;
  * @param <V> The type of the object.
  */
 public class RefCountedObjectPool<K, V> {
-
     /**
      * The number of references to each object.
      */
@@ -73,7 +72,10 @@ public class RefCountedObjectPool<K, V> {
     public synchronized boolean release(K key) {
         int currentRefCount = refCount.getOrDefault(key, 0);
         int newRefCount = currentRefCount - 1;
-        if (newRefCount > 0) {
+
+        if (newRefCount < 0) {
+            throw new IllegalStateException("Object " + key + " is not acquired");
+        } else if (newRefCount > 0) {
             refCount.put(key, newRefCount);
             return false;
         } else {

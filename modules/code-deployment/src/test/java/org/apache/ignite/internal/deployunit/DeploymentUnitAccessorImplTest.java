@@ -38,7 +38,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class DeploymentUnitAccessorImplTest {
-
     @Mock
     private IgniteDeployment deployment;
 

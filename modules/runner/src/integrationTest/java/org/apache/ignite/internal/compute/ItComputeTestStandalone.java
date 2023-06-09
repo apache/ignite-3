@@ -125,13 +125,13 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     private static void deployJar(IgniteImpl node, String unitId, Version unitVersion, String jarName) throws IOException {
         try (InputStream jarStream = ItComputeTestStandalone.class.getClassLoader().getResourceAsStream("units/" + jarName)) {
-            CompletableFuture<Void> deployed = node.deployment().deployAsync(
+            CompletableFuture<Boolean> deployed = node.deployment().deployAsync(
                     unitId,
                     unitVersion,
                     () -> Map.of(jarName, jarStream)
             );
 
-            assertThat(deployed, willCompleteSuccessfully());
+            assertThat(deployed, willBe(true));
         }
     }
 }

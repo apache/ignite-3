@@ -24,7 +24,6 @@ import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundExc
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 
 class ClassLoaderExceptionsMapper {
-
     // <class_fqdn>. Deployment unit <deployment_unit_id_and ver> doesn’t exist.
     private static final String DEPLOYMENT_UNIT_DOES_NOT_EXIST_MSG = "%s. Deployment unit %s:%s doesn’t exist";
 

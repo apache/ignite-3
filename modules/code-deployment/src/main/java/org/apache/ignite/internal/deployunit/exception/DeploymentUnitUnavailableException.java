@@ -27,7 +27,6 @@ import org.apache.ignite.lang.IgniteException;
  * {@link DeploymentStatus#OBSOLETE} or {@link DeploymentStatus#REMOVING} or {@link DeploymentStatus#UPLOADING}.
  */
 public class DeploymentUnitUnavailableException extends IgniteException {
-
     /**
      * Unit id.
      */

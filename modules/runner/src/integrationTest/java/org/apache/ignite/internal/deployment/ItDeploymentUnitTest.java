@@ -22,7 +22,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -223,9 +222,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         waitUnitReplica(cmg, smallUnit);
 
         IgniteImpl onDemandDeployNode = cluster.node(2);
-        CompletableFuture<Void> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
 
-        assertThat(onDemandDeploy, willCompleteSuccessfully());
+        assertThat(onDemandDeploy, willBe(true));
         waitUnitReplica(onDemandDeployNode, smallUnit);
     }
 
@@ -239,9 +238,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         waitUnitReplica(cmg, smallUnit);
 
         IgniteImpl onDemandDeployNode = cluster.node(1);
-        CompletableFuture<Void> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
 
-        assertThat(onDemandDeploy, willCompleteSuccessfully());
+        assertThat(onDemandDeploy, willBe(true));
         waitUnitReplica(onDemandDeployNode, smallUnit);
     }
 
@@ -281,10 +280,10 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
                 .map(deployFile -> deployFile.file)
                 .collect(Collectors.toList());
 
-        CompletableFuture<Void> deploy = entryNode.deployment()
+        CompletableFuture<Boolean> deploy = entryNode.deployment()
                 .deployAsync(id, version, force, fromPaths(paths));
 
-        assertThat(deploy, willCompleteSuccessfully());
+        assertThat(deploy, willBe(true));
 
         Unit unit = new Unit(entryNode, id, version, files);
 
@@ -374,7 +373,7 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
             this.files = files;
         }
 
-        CompletableFuture<Void> undeployAsync() {
+        CompletableFuture<Boolean> undeployAsync() {
             return deployedNode.deployment().undeployAsync(id, version);
         }
 

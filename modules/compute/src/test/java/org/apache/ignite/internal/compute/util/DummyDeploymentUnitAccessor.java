@@ -61,7 +61,7 @@ public class DummyDeploymentUnitAccessor implements DeploymentUnitAccessor {
 
     @Override
     public DisposableDeploymentUnit acquire(DeploymentUnit unit) {
-        return new DisposableDeploymentUnit(unit, path(unit), () -> pool.release(unit));
+        return pool.acquire(unit, ignored -> new DisposableDeploymentUnit(unit, path(unit), () -> pool.release(unit)));
     }
 
     @Override
