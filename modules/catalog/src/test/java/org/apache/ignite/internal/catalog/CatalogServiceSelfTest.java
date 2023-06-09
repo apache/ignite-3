@@ -247,6 +247,24 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
+    public void testCreateTableWithDuplicateColumns() {
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .zone(ZONE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                ))
+                .primaryKeyColumns(List.of("key"))
+                .build();
+
+        assertThat(service.createTable(params), willThrowFast(IgniteInternalException.class,
+                "Can't create table with duplicate columns: columnName=val"));
+    }
+
+    @Test
     public void testDropTable() throws InterruptedException {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
@@ -1037,7 +1055,7 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
-    public void testCreateIndexWithDuplicateColumns() {
+    public void testCreateIndexOnDuplicateColumns() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
 
         CreateHashIndexParams params = CreateHashIndexParams.builder()
@@ -1046,7 +1064,8 @@ public class CatalogServiceSelfTest {
                 .columns(List.of("VAL", "VAL"))
                 .build();
 
-        assertThat(service.createIndex(params), willThrow(SqlException.class));
+        assertThat(service.createIndex(params),
+                willThrow(IgniteInternalException.class, "Can't create index on duplicate columns: columnName=VAL"));
     }
 
     @Test

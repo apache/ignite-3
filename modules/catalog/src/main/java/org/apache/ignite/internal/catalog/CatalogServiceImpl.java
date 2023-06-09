@@ -229,6 +229,14 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new TableAlreadyExistsException(schemaName, params.tableName());
             }
 
+            params.columns().stream().map(ColumnParams::name).filter(Predicate.not(new HashSet<>()::add))
+                    .findAny().ifPresent(columnName -> {
+                        throw new IgniteInternalException(
+                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
+                                "Can't create table with duplicate columns: columnName=" + columnName
+                        );
+                    });
+
             CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
 
             return List.of(
@@ -459,7 +467,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                 if (columnDescriptor == null) {
                     throw new ColumnNotFoundException(columnName);
                 } else if (duplicateValidator.test(columnName)) {
-                    throw new SqlException(
+                    throw new IgniteInternalException(
                             ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
                             "Can't create index on duplicate columns: columnName=" + columnName
                     );

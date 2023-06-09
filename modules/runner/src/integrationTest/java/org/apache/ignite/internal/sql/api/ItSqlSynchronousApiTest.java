@@ -149,6 +149,12 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+        checkError(
+                SqlException.class,
+                "Can't create index on duplicate columns: columnName=VAL0",
+                ses,
+                "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
+        );
 
         checkError(
                 SqlException.class,
