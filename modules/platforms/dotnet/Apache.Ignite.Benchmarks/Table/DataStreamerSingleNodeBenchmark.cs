@@ -70,6 +70,29 @@ public class DataStreamerSingleNodeBenchmark
         var batchSize = DataStreamerOptions.Default.BatchSize;
         var batch = new List<IIgniteTuple>(batchSize);
 
+        foreach (var tuple in _data)
+        {
+            batch.Add(tuple);
+
+            if (batch.Count == batchSize)
+            {
+                await _table.RecordBinaryView.UpsertAllAsync(null, batch);
+                batch.Clear();
+            }
+        }
+
+        if (batch.Count > 0)
+        {
+            await _table.RecordBinaryView.UpsertAllAsync(null, batch);
+        }
+    }
+
+    [Benchmark]
+    public async Task UpsertAllBatchedAsyncEnumerable()
+    {
+        var batchSize = DataStreamerOptions.Default.BatchSize;
+        var batch = new List<IIgniteTuple>(batchSize);
+
         // Use async enumerable for a fair comparison with DataStreamer.
         await foreach (var tuple in _data.ToAsyncEnumerable())
         {
