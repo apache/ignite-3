@@ -26,6 +26,13 @@ using Tests;
 
 /// <summary>
 /// Data streamer benchmark.
+/// <para />
+/// Results on i9-12900H, .NET SDK 6.0.408, Ubuntu 22.04:
+/// |           Method |     Mean |    Error |   StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
+/// |----------------- |---------:|---------:|---------:|------:|--------:|--------:|----------:|
+/// |     DataStreamer | 19.48 ms | 0.148 ms | 0.123 ms |  1.00 |    0.00 |       - |      4 MB |
+/// |        UpsertAll | 12.58 ms | 0.292 ms | 0.861 ms |  0.67 |    0.03 | 15.6250 |      4 MB |
+/// | UpsertAllBatched | 16.41 ms | 0.308 ms | 0.330 ms |  0.84 |    0.02 |       - |      4 MB |.
 /// </summary>
 [MemoryDiagnoser]
 public class DataStreamerSingleNodeBenchmark
