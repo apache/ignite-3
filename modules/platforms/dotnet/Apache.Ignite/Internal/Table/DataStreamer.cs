@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -63,7 +62,7 @@ internal static class DataStreamer
         IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");
 
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
-        var batches = new ConcurrentDictionary<string, Batch>();
+        var batches = new Dictionary<string, Batch>();
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         using var cts = new CancellationTokenSource();
@@ -161,8 +160,20 @@ internal static class DataStreamer
             return (batch, partition);
         }
 
-        Batch GetOrCreateBatch(string partition) =>
-            batches.GetOrAdd(partition, static (_, schema) => InitBuffer(new Batch(), schema), schema);
+        Batch GetOrCreateBatch(string partition)
+        {
+            if (batches.TryGetValue(partition, out var batch))
+            {
+                return batch;
+            }
+
+            batch = new Batch();
+            InitBuffer(batch);
+
+            batches.Add(partition, batch);
+
+            return batch;
+        }
 
         async Task SendAsync(Batch batch, string partition)
         {
@@ -185,7 +196,7 @@ internal static class DataStreamer
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch, schema);
+                InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
             }
 
@@ -222,7 +233,7 @@ internal static class DataStreamer
             }
         }
 
-        static Batch InitBuffer(Batch batch, Schema schema)
+        void InitBuffer(Batch batch)
         {
             var buf = batch.Buffer;
 
@@ -233,8 +244,6 @@ internal static class DataStreamer
 
             batch.CountPos = buf.Position;
             buf.Advance(5); // Reserve count.
-
-            return batch;
         }
     }
 
