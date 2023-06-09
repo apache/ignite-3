@@ -46,6 +46,8 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.Cloner;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -188,7 +190,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        assertEquals(2, plan.fragments().size());
+        assertEquals(2, plan.mappedFragments().size());
     }
 
     @Test
@@ -266,7 +268,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        assertEquals(1, plan.fragments().size());
+        assertEquals(1, plan.mappedFragments().size());
     }
 
     @Test
@@ -347,7 +349,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
-        assertEquals(3, plan.fragments().size());
+        assertEquals(3, plan.mappedFragments().size());
     }
 
     @Test
@@ -430,7 +432,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        assertEquals(3, plan.fragments().size());
+        assertEquals(3, plan.mappedFragments().size());
     }
 
     @Test
@@ -510,7 +512,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
-        assertEquals(3, plan.fragments().size());
+        assertEquals(3, plan.mappedFragments().size());
     }
 
     @Test
@@ -589,7 +591,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        assertEquals(2, plan.fragments().size());
+        assertEquals(2, plan.mappedFragments().size());
     }
 
     @Test
@@ -893,6 +895,19 @@ public class PlannerTest extends AbstractPlannerTest {
                 .and(t -> t.getHints().size() == 1)));
 
         assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, List.of());
+    }
+
+    @Test
+    public void testExpectOneFragment() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        IgniteRel phys = physicalPlan("SELECT SUBSTRING('text', 1, 3)", publicSchema);
+
+        IgniteRel rel = Cloner.clone(phys);
+
+        List<Fragment> fragments = new Splitter().go(rel);
+
+        assertEquals(1, fragments.size());
     }
 
     @Test

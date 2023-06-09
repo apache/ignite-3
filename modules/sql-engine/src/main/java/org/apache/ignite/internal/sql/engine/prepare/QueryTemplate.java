@@ -56,6 +56,10 @@ public class QueryTemplate {
         this.fragments = List.copyOf(frgs);
     }
 
+    public List<Fragment> fragments() {
+        return fragments;
+    }
+
     /**
      * Map.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859

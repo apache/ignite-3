@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
@@ -626,16 +627,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan plan) {
             taskExecutor.execute(() -> {
                 try {
-                    plan.init(new MappingQueryContext(localNode.name(), mappingSrvc));
-
                     List<Fragment> fragments = plan.fragments();
 
-                    // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
-                    // the case when a non-root fragment will fail before the root is processed.
-                    assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
+                    boolean localFragment = false;
+
+                    if (fragments.size() == 1) {
+                        Fragment fragment = fragments.get(0);
+
+                        assert fragment.rootFragment() && fragment.remotes().isEmpty();
+
+                        localFragment = true;
+                    }
+
+                    if (!localFragment) {
+                        plan.init(new MappingQueryContext(localNode.name(), mappingSrvc));
+
+                        fragments = plan.mappedFragments();
+
+                        // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
+                        // the case when a non-root fragment will fail before the root is processed.
+                        assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
+                    }
 
                     // first let's enlist all tables to the transaction.
-                    if (!tx.isReadOnly()) {
+                    if (tx != null && !tx.isReadOnly()) {
                         for (Fragment fragment : fragments) {
                             enlistPartitions(fragment, tx);
                         }
@@ -643,7 +658,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     // now transaction is initialized for sure including assignment
                     // of the commit partition (if there is at least one table in the fragments)
-                    TxAttributes attributes = TxAttributes.fromTx(tx);
+                    TxAttributes attributes = tx == null ? null : TxAttributes.fromTx(tx);
 
                     List<CompletableFuture<?>> resultsOfFragmentSending = new ArrayList<>();
 
@@ -658,7 +673,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         FragmentDescription fragmentDesc = new FragmentDescription(
                                 fragment.fragmentId(),
                                 !fragment.correlated(),
-                                plan.mapping(fragment),
+                                localFragment ? FragmentMapping.create(localNode.name()) : plan.mapping(fragment),
                                 plan.target(fragment),
                                 plan.remotes(fragment)
                         );
@@ -687,8 +702,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                                 IgniteInternalException::new,
                                                 Common.INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
-                                                        nodeName, fragment.fragmentId(), t.getMessage()),
-                                                t
+                                                        nodeName, fragment.fragmentId(), t.getMessage()), t
                                         );
                                     })
                             );
