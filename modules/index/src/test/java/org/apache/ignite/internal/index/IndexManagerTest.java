@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.BitSetPartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -88,6 +89,16 @@ public class IndexManagerTest {
 
             return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
+
+        when(tableManagerMock.tbl(anyInt())).thenAnswer(inv -> {
+            InternalTable tbl = mock(InternalTable.class);
+
+            Mockito.doReturn(inv.getArgument(0)).when(tbl).tableId();
+
+            return new TableImpl(tbl, new HeapLockManager());
+        });
+
+        when(tableManagerMock.partitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(new BitSetPartitionSet()));
 
         SchemaManager schManager = mock(SchemaManager.class);
 
