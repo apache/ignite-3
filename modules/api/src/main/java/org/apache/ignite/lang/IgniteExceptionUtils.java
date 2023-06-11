@@ -52,8 +52,8 @@ public class IgniteExceptionUtils {
      * <p>
      *     For example, this method might be useful when you need to implement sync API over async one.
      * </p>
-     * <pre>
-     *     public CompletableFuture&#60Result&#62 asyncMethod {...}
+     * <pre><code>
+     *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
      *     public Result syncMethod() {
      *         try {
@@ -63,7 +63,7 @@ public class IgniteExceptionUtils {
      *         }
      *     }
      *
-     * </pre>
+     * </code></pre>
      *
      * @param exception Original completion exception.
      * @return Copy of an exception that is a cause of the given {@code CompletionException}.
@@ -79,8 +79,8 @@ public class IgniteExceptionUtils {
      * <p>
      *     For example, this method might be useful when you need to implement sync API over async one.
      * </p>
-     * <pre>
-     *     public CompletableFuture&#60Result&#62 asyncMethod {...}
+     * <pre><code>
+     *     public CompletableFuture&lt;Result&gt; asyncMethod {...}
      *
      *     public Result syncMethod() {
      *         try {
@@ -90,7 +90,7 @@ public class IgniteExceptionUtils {
      *         }
      *     }
      *
-     * </pre>
+     * </code></pre>
      *
      * @param exception Original execution exception.
      * @return Copy of an exception that is a cause of the given {@code ExecutionException}.
