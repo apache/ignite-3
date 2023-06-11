@@ -17,12 +17,14 @@
 
 package org.apache.ignite.sql;
 
+import static org.apache.ignite.lang.IgniteExceptionUtils.createCopyExceptionWithCause;
+import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
@@ -57,7 +59,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw sneakyThrow(createCopyExceptionWithCause(e));
         }
     }
 
@@ -75,7 +77,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw sneakyThrow(createCopyExceptionWithCause(e));
         }
     }
 
@@ -99,7 +101,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw sneakyThrow(createCopyExceptionWithCause(e));
         }
     }
 
@@ -123,7 +125,7 @@ public interface Session extends AutoCloseable {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw sneakyThrow(createCopyExceptionWithCause(e));
         }
     }
 
@@ -219,7 +221,7 @@ public interface Session extends AutoCloseable {
         try {
             return executeBatchAsync(transaction, dmlQuery, batch).join();
         } catch (CompletionException e) {
-            throw IgniteException.wrap(e);
+            throw sneakyThrow(createCopyExceptionWithCause(e));
         }
     }
 
