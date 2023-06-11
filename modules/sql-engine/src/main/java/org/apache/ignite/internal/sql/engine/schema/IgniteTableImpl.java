@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -31,7 +31,6 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -63,43 +62,40 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     private final int ver;
 
-    private final InternalTable table;
+    private final int id;
+
+    private final String name;
+
+    private final Supplier<ColocationGroup> colocationGroup;
 
     private final Statistic statistic;
 
     private final Map<String, IgniteIndex> indexes = new HashMap<>();
 
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
-
     /**
      * Constructor.
      *
      * @param desc Table descriptor.
-     * @param table Physical table this schema object created for.
+     * @param tableId Table id.
+     * @param name Table name.
      */
-    IgniteTableImpl(TableDescriptor desc, InternalTable table, int version) {
+    IgniteTableImpl(TableDescriptor desc, int tableId, String name, int version,
+            Supplier<ColocationGroup> colocationGroup, DoubleSupplier rowCount) {
         this.ver = version;
         this.desc = desc;
-        this.table = table;
-
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
-        for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
-        }
-
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
-
-        columnsOrderedByPhysSchema = tmp;
-
-        statistic = new StatisticsImpl();
+        this.id = tableId;
+        this.name = name;
+        this.colocationGroup = colocationGroup;
+        this.statistic = new IgniteStatistic(rowCount, desc.distribution());
     }
 
     private IgniteTableImpl(IgniteTableImpl t) {
         this.desc = t.desc;
         this.ver = t.ver;
-        this.table = t.table;
+        this.id = t.id;
+        this.name = t.name;
         this.statistic = t.statistic;
-        this.columnsOrderedByPhysSchema = t.columnsOrderedByPhysSchema;
+        this.colocationGroup = t.colocationGroup;
         this.indexes.putAll(t.indexes);
     }
 
@@ -110,7 +106,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     /** {@inheritDoc} */
     @Override
     public int id() {
-        return table.tableId();
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -122,7 +118,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return table.name();
+        return name;
     }
 
     /** {@inheritDoc} */
@@ -136,7 +132,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     public Statistic getStatistic() {
         return statistic;
     }
-
 
     /** {@inheritDoc} */
     @Override
@@ -227,25 +222,42 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     }
 
     private ColocationGroup partitionedGroup() {
-        List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
-                .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                .map(Collections::singletonList)
-                .collect(Collectors.toList());
-
-        return ColocationGroup.forAssignments(assignments);
+        return colocationGroup.get();
     }
 
-    private class StatisticsImpl implements Statistic {
-        private final int updateThreshold = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+    // TODO: should be moved to a separate component after https://issues.apache.org/jira/browse/IGNITE-18453
+    static Supplier<ColocationGroup> partitionedGroup(InternalTable table) {
+        return () -> {
+            List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
+                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                    .map(Collections::singletonList)
+                    .collect(Collectors.toList());
+
+            return ColocationGroup.forAssignments(assignments);
+        };
+    }
+
+    static DoubleSupplier rowCountStatistic(InternalTable table) {
+        return new RowCountStatistic(table);
+    }
+
+    private static final class RowCountStatistic implements DoubleSupplier {
+        private static final int UPDATE_THRESHOLD = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 
         private final AtomicLong lastUpd = new AtomicLong();
 
         private volatile long localRowCnt = 0L;
 
+        private final InternalTable table;
+
+        private RowCountStatistic(InternalTable table) {
+            this.table = table;
+        }
+
         /** {@inheritDoc} */
         @Override
         // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
-        public Double getRowCount() {
+        public double getAsDouble() {
             int parts = table.storage().getTableDescriptor().getPartitions();
 
             long partitionsRevisionCounter = 0L;
@@ -264,7 +276,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
             long prev = lastUpd.get();
 
-            if (partitionsRevisionCounter - prev > updateThreshold) {
+            if (partitionsRevisionCounter - prev > UPDATE_THRESHOLD) {
                 synchronized (this) {
                     if (lastUpd.compareAndSet(prev, partitionsRevisionCounter)) {
                         long size = 0L;
@@ -290,36 +302,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
             // Forbid zero result, to prevent zero cost for table and index scans.
             return Math.max(10_000.0, (double) localRowCnt);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isKey(ImmutableBitSet cols) {
-            return false; // TODO
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<ImmutableBitSet> getKeys() {
-            return null; // TODO
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelReferentialConstraint> getReferentialConstraints() {
-            return List.of();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelCollation> getCollations() {
-            return List.of(); // The method isn't used
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteDistribution getDistribution() {
-            return distribution();
         }
     }
 }

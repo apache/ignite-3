@@ -256,7 +256,8 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
      * Helper method to determine a {@link org.apache.calcite.rel.core.TableScan}'s collation.
      */
     public static List<RelCollation> table(RelOptTable table) {
-        return table.getCollationList();
+        List<RelCollation> collationList = table.getCollationList();
+        return collationList != null ? collationList : ImmutableList.of();
     }
 
     /**

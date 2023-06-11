@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import org.apache.ignite.internal.table.InternalTable;
 
 /**
- * A reference to a table.
+ * Execution related APIs of a table.
  */
 public interface ExecutableTable {
 
