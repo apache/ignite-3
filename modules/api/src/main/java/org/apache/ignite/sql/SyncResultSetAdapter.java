@@ -17,15 +17,13 @@
 
 package org.apache.ignite.sql;
 
-import static org.apache.ignite.lang.IgniteExceptionUtils.createCopyExceptionWithCause;
-import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
-
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -81,7 +79,7 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
         try {
             ars.closeAsync().toCompletableFuture().join();
         } catch (CompletionException e) {
-            sneakyThrow(createCopyExceptionWithCause(e));
+            throw IgniteExceptionUtils.wrap(e);
         }
     }
 
