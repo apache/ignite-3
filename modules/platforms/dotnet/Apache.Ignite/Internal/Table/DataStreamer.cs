@@ -184,6 +184,8 @@ internal static class DataStreamer
                 }
 
                 var buf = batch.Buffer;
+
+                // See RecordSerializer.WriteMultiple.
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
