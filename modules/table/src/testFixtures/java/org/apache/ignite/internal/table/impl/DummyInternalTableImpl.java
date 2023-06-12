@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -98,6 +100,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
+    private static final ClusterNode SCAN_RECIPIENT_NODE = new ClusterNode("node_0_id", "node_0_name", ADDR);
+
     private static final int PART_ID = 0;
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
@@ -139,17 +143,25 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
-     * @param placementDriver Placement driver.
+     * @param txnStateResolver Txn state resolver.
      * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            PlacementDriver txnStateResolver,
             SchemaDescriptor schema
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema);
+        this(
+                replicaSvc,
+                new TestMvPartitionStorage(0),
+                txManager,
+                crossTableUsage,
+                txnStateResolver,
+                schema,
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+        );
     }
 
     /**
@@ -159,8 +171,20 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param mvPartStorage Multi version partition storage.
      * @param schema Schema descriptor.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage, SchemaDescriptor schema) {
-        this(replicaSvc, mvPartStorage, null, false, null, schema);
+    public DummyInternalTableImpl(
+            ReplicaService replicaSvc,
+            MvPartitionStorage mvPartStorage,
+            SchemaDescriptor schema
+    ) {
+        this(
+                replicaSvc,
+                mvPartStorage,
+                null,
+                false,
+                null,
+                schema,
+                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+        );
     }
 
     /**
@@ -171,23 +195,25 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
-     * @param placementDriver Placement driver.
+     * @param txnStateResolver Txn state resolver.
      * @param schema Schema descriptor.
+     * @param placementDriver Placement driver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
-            SchemaDescriptor schema
+            PlacementDriver txnStateResolver,
+            SchemaDescriptor schema,
+            org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver
     ) {
         super(
                 "test",
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
-                name -> mock(ClusterNode.class),
+                name -> SCAN_RECIPIENT_NODE,
                 txManager == null
                         ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef))
                         : txManager,
@@ -195,8 +221,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK,
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         );
+        assert mockingDetails(placementDriver).isMock() : "Dummy internal table doesn't use placement driver mock.";
+
+        lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+                new TestReplicaMetaImpl(SCAN_RECIPIENT_NODE.name(), HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE)));
+
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
@@ -308,14 +339,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
-                placementDriver,
+                txnStateResolver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
                 completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         );
 
         partitionListener = new PartitionListener(
