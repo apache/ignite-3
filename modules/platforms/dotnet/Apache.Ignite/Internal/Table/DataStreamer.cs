@@ -160,6 +160,10 @@ internal static class DataStreamer
         {
             var expectedSize = batch.Count;
 
+            // Backpressure control.
+            // TODO: Do we even need this? Just wait for the previous batch to finish?
+            await batch.Semaphore.WaitAsync().ConfigureAwait(false);
+
             lock (batch)
             {
                 if (batch.Count != expectedSize || batch.Count == 0)
@@ -172,7 +176,7 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Semaphore);
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
@@ -185,13 +189,18 @@ internal static class DataStreamer
             partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, SemaphoreSlim semaphore)
         {
-            using (buf)
+            try
             {
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
                 await sender(buf, partition, retryPolicy).ConfigureAwait(false);
+            }
+            finally
+            {
+                semaphore.Release();
+                buf.Dispose();
             }
         }
 
@@ -228,6 +237,8 @@ internal static class DataStreamer
 
     private sealed record Batch
     {
+        public SemaphoreSlim Semaphore { get; } = new(initialCount: 4);
+
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
         public int Count { get; set; }
