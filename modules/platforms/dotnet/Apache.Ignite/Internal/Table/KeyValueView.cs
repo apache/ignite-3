@@ -26,7 +26,6 @@ using Common;
 using Ignite.Sql;
 using Ignite.Table;
 using Linq;
-using Proto;
 using Serialization;
 
 /// <summary>

@@ -28,6 +28,8 @@ using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="IDataStreamerTarget{T}.StreamDataAsync"/>.
+/// <para />
+/// See DataStreamer partition awareness tests in <see cref="PartitionAwarenessTests"/>.
 /// </summary>
 public class DataStreamerTests : IgniteTestsBase
 {
@@ -123,13 +125,6 @@ public class DataStreamerTests : IgniteTestsBase
 
             StringAssert.Contains(message, ex?.Message);
         }
-    }
-
-    [Test]
-    public async Task TestPartitionAssignmentUpdate()
-    {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
     }
 
     [Test]
