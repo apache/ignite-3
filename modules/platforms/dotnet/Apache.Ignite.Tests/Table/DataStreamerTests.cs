@@ -50,12 +50,9 @@ public class DataStreamerTests : IgniteTestsBase
 
         Assert.AreEqual(res.Count, data.Count);
 
-        foreach (var ((_, hasVal), tuple) in res.Zip(data))
+        foreach (var (_, hasVal) in res)
         {
-            Assert.IsTrue(hasVal, tuple.ToString());
-
-            // TODO: GetAll does not behave as documented
-            // Assert.AreEqual(val, tuple);
+            Assert.IsTrue(hasVal);
         }
     }
 
