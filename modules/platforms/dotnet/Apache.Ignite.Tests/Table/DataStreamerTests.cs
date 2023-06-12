@@ -135,9 +135,11 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestManyItemsWithDisconnectAndRetry()
     {
-        const int count = 10_000;
+        const int count = 100_000;
+        int upsertIdx = 0;
+
         using var server = new FakeServer(
-            shouldDropConnection: ctx => ctx.OpCode == ClientOp.TupleUpsertAll && ctx.RequestCount % 3 == 2);
+            shouldDropConnection: ctx => ctx.OpCode == ClientOp.TupleUpsertAll && Interlocked.Increment(ref upsertIdx) % 2 == 1);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
@@ -149,6 +151,7 @@ public class DataStreamerTests : IgniteTestsBase
         await table!.RecordBinaryView.StreamDataAsync(GetData());
 
         Assert.AreEqual(count, server.UpsertAllRowCount);
+        Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
 
         async IAsyncEnumerable<IIgniteTuple> GetData()
         {

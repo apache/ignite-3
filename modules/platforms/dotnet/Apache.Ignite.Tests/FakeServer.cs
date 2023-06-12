@@ -135,6 +135,8 @@ namespace Apache.Ignite.Tests
 
         public long UpsertAllRowCount { get; set; }
 
+        public long DroppedConnectionCount { get; set; }
+
         public bool DropNewConnections
         {
             get => _dropNewConnections;
@@ -513,6 +515,7 @@ namespace Apache.Ignite.Tests
 
                     if (_shouldDropConnection(new RequestContext(++requestCount, opCode, requestId)))
                     {
+                        DroppedConnectionCount++;
                         break;
                     }
 
