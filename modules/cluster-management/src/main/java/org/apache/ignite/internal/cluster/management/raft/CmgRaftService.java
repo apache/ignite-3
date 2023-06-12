@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -252,7 +254,7 @@ public class CmgRaftService implements ManuallyCloseable {
                 .map(Peer::consistentId)
                 .filter(consistentId -> !consistentId.equals(leaderId))
                 .limit(peersCount / 2)
-                .collect(toSet());
+                .collect(toCollection(HashSet::new));
 
         // Add the leader back so the resulting set is a majority of the peers and contains a leader.
         result.add(leaderId);
