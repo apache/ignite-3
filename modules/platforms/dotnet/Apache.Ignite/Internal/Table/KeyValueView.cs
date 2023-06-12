@@ -26,6 +26,7 @@ using Common;
 using Ignite.Sql;
 using Ignite.Table;
 using Linq;
+using Proto;
 using Serialization;
 
 /// <summary>
@@ -157,10 +158,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     }
 
     /// <inheritdoc/>
-    public Task StreamDataAsync(IAsyncEnumerable<KeyValuePair<TK, TV>> data, DataStreamerOptions? options = null)
-    {
-        throw new NotImplementedException();
-    }
+    public async Task StreamDataAsync(IAsyncEnumerable<KeyValuePair<TK, TV>> data, DataStreamerOptions? options = null) =>
+        await _recordView.StreamDataAsync(ToKv(data), options).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public override string ToString() =>
@@ -189,5 +188,13 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IgniteArgumentCheck.NotNull(v, "val");
 
         return new(k, v);
+    }
+
+    private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
+    {
+        await foreach (var pair in pairs)
+        {
+            yield return ToKv(pair);
+        }
     }
 }
