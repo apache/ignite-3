@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -222,9 +223,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         waitUnitReplica(cmg, smallUnit);
 
         IgniteImpl onDemandDeployNode = cluster.node(2);
-        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+        CompletableFuture<Void> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
 
-        assertThat(onDemandDeploy, willBe(true));
+        assertThat(onDemandDeploy, willCompleteSuccessfully());
         waitUnitReplica(onDemandDeployNode, smallUnit);
     }
 
@@ -238,9 +239,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         waitUnitReplica(cmg, smallUnit);
 
         IgniteImpl onDemandDeployNode = cluster.node(1);
-        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+        CompletableFuture<Void> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
 
-        assertThat(onDemandDeploy, willBe(true));
+        assertThat(onDemandDeploy, willCompleteSuccessfully());
         waitUnitReplica(onDemandDeployNode, smallUnit);
     }
 

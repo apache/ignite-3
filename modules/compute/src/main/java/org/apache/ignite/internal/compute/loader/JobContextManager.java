@@ -28,6 +28,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
@@ -40,6 +41,7 @@ public class JobContextManager {
 
     private final RefCountedObjectPool<List<DeploymentUnit>, JobClassLoader> classLoaderPool = new RefCountedObjectPool<>();
 
+    private final IgniteDeployment deployment;
     /**
      * The deployer service.
      */
@@ -53,10 +55,16 @@ public class JobContextManager {
     /**
      * Constructor.
      *
+     * @param deployment The deployment.
      * @param deploymentUnitAccessor The deployer service.
      * @param classLoaderFactory The class loader factory.
      */
-    public JobContextManager(DeploymentUnitAccessor deploymentUnitAccessor, JobClassLoaderFactory classLoaderFactory) {
+    public JobContextManager(
+            IgniteDeployment deployment,
+            DeploymentUnitAccessor deploymentUnitAccessor,
+            JobClassLoaderFactory classLoaderFactory
+    ) {
+        this.deployment = deployment;
         this.deploymentUnitAccessor = deploymentUnitAccessor;
         this.classLoaderFactory = classLoaderFactory;
     }
@@ -71,14 +79,14 @@ public class JobContextManager {
         return normalizeVersions(units)
                 .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
-                .whenComplete((ctx, err) -> {
-                    if (err != null) {
-                        LOG.error("Failed to acquire class loader for units: " + units, err);
+                .thenApply(loader -> new JobContext(loader, this::releaseClassLoader))
+                .whenComplete((context, error) -> {
+                    if (error != null) {
+                        LOG.error("Failed to acquire class loader for units: " + units, error);
                     } else {
                         LOG.debug("Acquired class loader for units: " + units);
                     }
-                })
-                .thenApply(loader -> new JobContext(loader, this::releaseClassLoader));
+                });
     }
 
     private JobClassLoader createClassLoader(List<DeploymentUnit> units) {
@@ -105,13 +113,13 @@ public class JobContextManager {
     }
 
     private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {
-        return mapList(units, Void.class, deploymentUnitAccessor::onDemandDeploy)
+        return mapList(units, Void.class, it -> deployment.onDemandDeploy(it.name(), it.version()))
                 .thenApply(ignored -> null);
     }
 
     private CompletableFuture<DeploymentUnit> normalizeVersion(DeploymentUnit unit) {
         if (unit.version() == Version.LATEST) {
-            return deploymentUnitAccessor.detectLatestDeployedVersion(unit.name())
+            return deployment.detectLatestDeployedVersion(unit.name())
                     .thenApply(version -> new DeploymentUnit(unit.name(), version));
         } else {
             return CompletableFuture.completedFuture(unit);

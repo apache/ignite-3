@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OB
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
@@ -101,6 +101,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      */
     private final DeployTracker tracker;
 
+    private final DeploymentUnitAccessor deploymentUnitAccessor;
+
     /**
      * Constructor.
      *
@@ -123,6 +125,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
+        deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
     }
 
     private void onUnitRegister(UnitNodeStatus status, Set<String> deployedNodes) {
@@ -293,17 +296,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public Path path(String id, Version version) {
-        Path path = deployer.unitPath(id, version);
-        if (Files.exists(path)) {
-            return path;
-        } else {
-            throw new DeploymentUnitNotFoundException("Unit " + id + ":" + version + " not found");
-        }
-    }
-
-    @Override
-    public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
+    public CompletableFuture<Void> onDemandDeploy(String id, Version version) {
         return deploymentUnitStore.getAllNodes(id, version)
                 .thenCompose(nodes -> {
                     if (nodes.isEmpty()) {
@@ -314,6 +307,41 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     }
                     return messaging.downloadUnitContent(id, version, nodes)
                             .thenCompose(unitContent -> deployToLocalNode(id, version, unitContent));
+                })
+                .thenCompose(result -> {
+                    if (result) {
+                        return completedFuture(null);
+                    } else {
+                        LOG.error("Failed to deploy on demand deployment unit {}:{}", id, version);
+                        return clusterStatusAsync(id, version)
+                                .thenCombine(nodeStatusAsync(id, version), (clusterStatus, nodeStatus) -> {
+                                    if (clusterStatus == null) {
+                                        return CompletableFuture.<Void>failedFuture(
+                                                new DeploymentUnitNotFoundException(id, version));
+                                    } else {
+                                        return CompletableFuture.<Void>failedFuture(
+                                                new DeploymentUnitUnavailableException(
+                                                        id,
+                                                        version,
+                                                        clusterStatus,
+                                                        nodeStatus
+                                                )
+                                        );
+                                    }
+                                }).thenCompose(it -> it);
+                    }
+                });
+    }
+
+    @Override
+    public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
+        return clusterStatusesAsync(id)
+                .thenApply(statuses -> {
+                    return statuses.versions()
+                            .stream()
+                            .filter(version -> statuses.status(version) == DEPLOYED || statuses.status(version) == UPLOADING)
+                            .max(Version::compareTo)
+                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id));
                 });
     }
 
@@ -370,5 +398,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     @Nullable
     private static DeploymentStatus extractDeploymentStatus(UnitStatus status) {
         return status != null ? status.status() : null;
+    }
+
+    public DeploymentUnitAccessor deploymentUnitAccessor() {
+        return deploymentUnitAccessor;
     }
 }

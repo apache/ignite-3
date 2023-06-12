@@ -43,9 +43,7 @@ public class DeploymentUnitNotFoundException extends IgniteException {
      * @param id Unit id.
      */
     public DeploymentUnitNotFoundException(String id) {
-        super(CodeDeployment.UNIT_NOT_FOUND_ERR, message(id, null));
-        this.id = id;
-        this.version = null;
+        this(id, null);
     }
 
 
@@ -55,7 +53,7 @@ public class DeploymentUnitNotFoundException extends IgniteException {
      * @param id Unit id.
      * @param version Unit version.
      */
-    public DeploymentUnitNotFoundException(String id, Version version) {
+    public DeploymentUnitNotFoundException(String id, @Nullable Version version) {
         super(CodeDeployment.UNIT_NOT_FOUND_ERR, message(id, version));
         this.id = id;
         this.version = version;

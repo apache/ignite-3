@@ -90,6 +90,6 @@ public class DisposableDeploymentUnit {
     public String toString() {
         return "DisposableDeploymentUnit{"
                 + "unit=" + unit
-                + ", release=" + release + '}';
+                + ", path=" + path + '}';
     }
 }

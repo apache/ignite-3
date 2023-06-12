@@ -17,46 +17,19 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
-
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 
 /**
  * Implementation of {@link DeploymentUnitAccessor}.
  */
 public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
-
-    private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitAccessorImpl.class);
     private final RefCountedObjectPool<DeploymentUnit, DisposableDeploymentUnit> pool = new RefCountedObjectPool<>();
 
-    private final IgniteDeployment deployment;
+    private final FileDeployerService deployer;
 
-    public DeploymentUnitAccessorImpl(IgniteDeployment deployment) {
-        this.deployment = deployment;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public CompletableFuture<Version> detectLatestDeployedVersion(String id) {
-        return deployment.clusterStatusesAsync(id)
-                .thenApply(statuses -> {
-                    return statuses.versions()
-                            .stream()
-                            .filter(version -> statuses.status(version) == DEPLOYED || statuses.status(version) == UPLOADING)
-                            .max(Version::compareTo)
-                            .orElseThrow(() -> new DeploymentUnitNotFoundException(id));
-                });
+    public DeploymentUnitAccessorImpl(FileDeployerService deployer) {
+        this.deployer = deployer;
     }
 
     /**
@@ -66,46 +39,17 @@ public class DeploymentUnitAccessorImpl implements DeploymentUnitAccessor {
     public DisposableDeploymentUnit acquire(DeploymentUnit unit) {
         return pool.acquire(unit, ignored -> new DisposableDeploymentUnit(
                         unit,
-                        deployment.path(unit.name(), unit.version()),
+                        deployer.unitPath(unit.name(), unit.version(), true),
                         () -> pool.release(unit)
                 )
         );
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean isAcquired(DeploymentUnit unit) {
         return pool.isAcquired(unit);
-    }
-
-
-    /**
-     * Deploys deployment unit to the cluster and returns path to the deployment unit.
-     */
-    @Override
-    public CompletableFuture<Void> onDemandDeploy(DeploymentUnit unit) {
-        return deployment.onDemandDeploy(unit.name(), unit.version())
-                .thenCompose(result -> {
-                    if (result) {
-                        return completedFuture(null);
-                    } else {
-                        LOG.error("Failed to deploy on demand deployment unit {}:{}", unit.name(), unit.version());
-                        return deployment.clusterStatusAsync(unit.name(), unit.version())
-                                .thenCombine(deployment.nodeStatusAsync(unit.name(), unit.version()), (clusterStatus, nodeStatus) -> {
-                                    if (clusterStatus == null) {
-                                        return CompletableFuture.<Void>failedFuture(
-                                                new DeploymentUnitNotFoundException(unit.name(), unit.version()));
-                                    } else {
-                                        return CompletableFuture.<Void>failedFuture(
-                                                new DeploymentUnitUnavailableException(
-                                                        unit.name(),
-                                                        unit.version(),
-                                                        clusterStatus,
-                                                        nodeStatus
-                                                )
-                                        );
-                                    }
-                                }).thenCompose(it -> it);
-                    }
-                });
     }
 }

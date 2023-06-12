@@ -17,25 +17,25 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.Version;
 
 /**
  * Interface for accessing deployment units.
  */
 public interface DeploymentUnitAccessor {
     /**
-     * Detects the latest version of the deployment unit.
-     */
-    CompletableFuture<Version> detectLatestDeployedVersion(String id);
-
-    /**
      * Acquires the deployment unit. Each call to this method must be matched with a call to {@link DisposableDeploymentUnit#release()}.
+     *
+     * @param unit Deployment unit.
+     * @return Disposable deployment unit.
      */
     DisposableDeploymentUnit acquire(DeploymentUnit unit);
 
+    /**
+     * Checks if the deployment unit is acquired.
+     *
+     * @param unit Deployment unit.
+     * @return {@code true} if the deployment unit is acquired.
+     */
     boolean isAcquired(DeploymentUnit unit);
-
-    CompletableFuture<Void> onDemandDeploy(DeploymentUnit unit);
 }

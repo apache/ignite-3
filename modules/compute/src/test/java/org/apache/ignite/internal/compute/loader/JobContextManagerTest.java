@@ -22,10 +22,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -40,7 +40,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.util.DummyDeploymentUnitAccessor;
+import org.apache.ignite.internal.compute.util.DummyIgniteDeployment;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
@@ -49,6 +51,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,7 +59,11 @@ class JobContextManagerTest {
 
     private final Path unitsDir = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
 
-    private final DummyDeploymentUnitAccessor unitAccessor = spy(new DummyDeploymentUnitAccessor(unitsDir));
+    @Spy
+    private final DummyDeploymentUnitAccessor unitAccessor = new DummyDeploymentUnitAccessor(unitsDir);
+
+    @Spy
+    private IgniteDeployment deployment = new DummyIgniteDeployment(unitsDir);
 
     @Mock
     private JobClassLoaderFactory jobClassLoaderFactory;
@@ -65,7 +72,7 @@ class JobContextManagerTest {
 
     @BeforeEach
     void setUp() {
-        classLoaderManager = new JobContextManager(unitAccessor, jobClassLoaderFactory);
+        classLoaderManager = new JobContextManager(deployment, unitAccessor, jobClassLoaderFactory);
     }
 
     @Test
@@ -142,7 +149,7 @@ class JobContextManagerTest {
     @Test
     public void throwsExceptionOnOnDemandDeploy() {
         doReturn(CompletableFuture.failedFuture(new IOException("Failed to deploy")))
-                .when(unitAccessor).onDemandDeploy(any());
+                .when(deployment).onDemandDeploy(anyString(), any());
 
         List<DeploymentUnit> units = List.of(
                 new DeploymentUnit("unit1", "1.0.0"),
@@ -189,7 +196,7 @@ class JobContextManagerTest {
         );
 
         doThrow(toBeThrown)
-                .when(unitAccessor).onDemandDeploy(any());
+                .when(deployment).onDemandDeploy(anyString(), any());
 
         assertThat(
                 classLoaderManager.acquireClassLoader(List.of(new DeploymentUnit("unit", "1.0.0"))),
