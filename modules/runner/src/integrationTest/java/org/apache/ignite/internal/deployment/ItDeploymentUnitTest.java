@@ -38,7 +38,6 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.InitialDeployMode;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -232,9 +231,13 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testDeployToSpecificNode() {
         String id = "test";
         Version version = Version.parseVersion("1.1.0");
-        Unit smallUnit = deployAndVerify(id, version, false, List.of(smallFile), 0, null, List.of(node(1).name()));
+        Unit smallUnit = files.deployAndVerify(
+                id, version, false, List.of(files.smallFile()),
+                null, List.of(node(1).name()),
+                node(0)
+        );
 
-        waitUnitReplica(cluster.node(1), smallUnit);
+        smallUnit.waitUnitReplica(node(1));
 
         await().untilAsserted(() -> {
             CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
@@ -246,10 +249,14 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     public void testDeployToAll() {
         String id = "test";
         Version version = Version.parseVersion("1.1.0");
-        Unit smallUnit = deployAndVerify(id, version, false, List.of(smallFile), 0, InitialDeployMode.ALL, List.of());
+        Unit smallUnit = files.deployAndVerify(
+                id, version, false, List.of(files.smallFile()),
+                InitialDeployMode.ALL, List.of(),
+                node(0)
+        );
 
-        waitUnitReplica(cluster.node(1), smallUnit);
-        waitUnitReplica(cluster.node(2), smallUnit);
+        smallUnit.waitUnitReplica(node(1));
+        smallUnit.waitUnitReplica(node(2));
 
         await().untilAsserted(() -> {
             CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
