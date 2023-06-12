@@ -143,18 +143,17 @@ internal static class DataStreamer
 
         Batch GetOrCreateBatch(string partition)
         {
-            // TODO: CollectionMarshal.GetValueRefOrAddDefault
-            if (batches.TryGetValue(partition, out var batch))
+            ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partition, out _);
+
+            if (batchRef != null)
             {
-                return batch;
+                return batchRef;
             }
 
-            batch = new Batch();
-            InitBuffer(batch);
+            batchRef = new Batch();
+            InitBuffer(batchRef);
 
-            batches.Add(partition, batch);
-
-            return batch;
+            return batchRef;
         }
 
         async Task SendAsync(Batch batch, string partition)
