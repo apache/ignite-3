@@ -65,7 +65,7 @@ public class DataStreamerBenchmark
         _servers = Enumerable.Range(0, ServerCount)
             .Select(_ => new FakeServer(disableOpsTracking: true)
             {
-                MultiRowOperationDelayPerRow = TimeSpan.FromMilliseconds(0.005) // 5 ms per batch
+                MultiRowOperationDelayPerRow = TimeSpan.FromMilliseconds(0.001) // 1 ms per 1000 rows
             })
             .ToList();
 
@@ -108,30 +108,6 @@ public class DataStreamerBenchmark
         var batch = new List<IIgniteTuple>(batchSize);
 
         foreach (var tuple in _data)
-        {
-            batch.Add(tuple);
-
-            if (batch.Count == batchSize)
-            {
-                await _table.RecordBinaryView.UpsertAllAsync(null, batch);
-                batch.Clear();
-            }
-        }
-
-        if (batch.Count > 0)
-        {
-            await _table.RecordBinaryView.UpsertAllAsync(null, batch);
-        }
-    }
-
-    [Benchmark]
-    public async Task UpsertAllBatchedAsyncEnumerable()
-    {
-        var batchSize = DataStreamerOptions.Default.BatchSize;
-        var batch = new List<IIgniteTuple>(batchSize);
-
-        // Use async enumerable for a fair comparison with DataStreamer.
-        await foreach (var tuple in _data.ToAsyncEnumerable())
         {
             batch.Add(tuple);
 
