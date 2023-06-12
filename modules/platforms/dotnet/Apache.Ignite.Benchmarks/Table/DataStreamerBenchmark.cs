@@ -30,22 +30,20 @@ using Tests;
 /// Data streamer benchmark.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.408, Ubuntu 22.04:
-/// |                          Method | ServerCount |     Mean |    Error |   StdDev |   Median | Ratio | RatioSD |   Gen 0 | Allocated |
-/// |-------------------------------- |------------ |---------:|---------:|---------:|---------:|------:|--------:|--------:|----------:|
-/// |                    DataStreamer |           1 | 20.63 ms | 0.157 ms | 0.131 ms | 20.64 ms |  1.00 |    0.00 |       - |      4 MB |
-/// |                       UpsertAll |           1 | 12.90 ms | 0.345 ms | 1.016 ms | 13.13 ms |  0.63 |    0.05 |       - |      4 MB |
-/// |                UpsertAllBatched |           1 | 16.78 ms | 0.325 ms | 0.477 ms | 16.83 ms |  0.81 |    0.03 |       - |      4 MB |
-/// | UpsertAllBatchedAsyncEnumerable |           1 | 22.62 ms | 0.429 ms | 0.459 ms | 22.72 ms |  1.09 |    0.03 |       - |      4 MB |
-/// |                                 |             |          |          |          |          |       |         |         |           |
-/// |                    DataStreamer |           2 | 19.92 ms | 0.292 ms | 0.259 ms | 19.90 ms |  1.00 |    0.00 |       - |      4 MB |
-/// |                       UpsertAll |           2 | 12.97 ms | 0.368 ms | 1.084 ms | 13.26 ms |  0.63 |    0.07 | 15.6250 |      4 MB |
-/// |                UpsertAllBatched |           2 | 17.10 ms | 0.334 ms | 0.627 ms | 17.06 ms |  0.87 |    0.03 |       - |      4 MB |
-/// | UpsertAllBatchedAsyncEnumerable |           2 | 23.32 ms | 0.450 ms | 0.500 ms | 23.41 ms |  1.18 |    0.03 |       - |      4 MB |
-/// |                                 |             |          |          |          |          |       |         |         |           |
-/// |                    DataStreamer |           4 | 20.01 ms | 0.396 ms | 0.407 ms | 19.98 ms |  1.00 |    0.00 |       - |      4 MB |
-/// |                       UpsertAll |           4 | 13.36 ms | 0.330 ms | 0.973 ms | 13.43 ms |  0.66 |    0.06 | 15.6250 |      4 MB |
-/// |                UpsertAllBatched |           4 | 16.40 ms | 0.319 ms | 0.327 ms | 16.43 ms |  0.82 |    0.03 |       - |      4 MB |
-/// | UpsertAllBatchedAsyncEnumerable |           4 | 23.42 ms | 0.466 ms | 0.992 ms | 23.30 ms |  1.20 |    0.03 |       - |      4 MB |.
+/// Delay: 1 ms per 1000 rows
+/// |           Method | ServerCount |      Mean |    Error |   StdDev | Ratio | RatioSD | Allocated |
+/// |----------------- |------------ |----------:|---------:|---------:|------:|--------:|----------:|
+/// |     DataStreamer |           1 | 113.98 ms | 1.000 ms | 0.935 ms |  1.00 |    0.00 |      4 MB |
+/// |        UpsertAll |           1 | 113.13 ms | 1.482 ms | 1.386 ms |  0.99 |    0.02 |      4 MB |
+/// | UpsertAllBatched |           1 | 156.66 ms | 3.073 ms | 2.874 ms |  1.37 |    0.03 |      4 MB |
+/// |                  |             |           |          |          |       |         |           |
+/// |     DataStreamer |           2 |  81.11 ms | 1.062 ms | 0.993 ms |  1.00 |    0.00 |      4 MB |
+/// |        UpsertAll |           2 | 113.55 ms | 1.569 ms | 1.468 ms |  1.40 |    0.03 |      4 MB |
+/// | UpsertAllBatched |           2 | 159.01 ms | 3.121 ms | 3.468 ms |  1.96 |    0.05 |      4 MB |
+/// |                  |             |           |          |          |       |         |           |
+/// |     DataStreamer |           4 |  81.89 ms | 0.729 ms | 0.682 ms |  1.00 |    0.00 |      4 MB |
+/// |        UpsertAll |           4 | 111.83 ms | 1.405 ms | 1.315 ms |  1.37 |    0.02 |      4 MB |
+/// | UpsertAllBatched |           4 | 155.45 ms | 2.750 ms | 2.438 ms |  1.90 |    0.03 |      4 MB |.
 /// </summary>
 [MemoryDiagnoser]
 public class DataStreamerBenchmark
