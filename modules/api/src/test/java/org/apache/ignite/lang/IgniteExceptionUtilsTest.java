@@ -87,85 +87,98 @@ public class IgniteExceptionUtilsTest {
         );
     }
 
-    // Test exception classes.
+    // Test exception class.
     public static class TestException extends IgniteException {
         public TestException() {
             super(NODE_STOPPING_ERR);
         }
     }
 
+    // Test exception class.
     public static class TestExceptionWithCode extends IgniteException {
         public TestExceptionWithCode(int code) {
             super(code);
         }
     }
 
+    // Test exception class.
     public static class TestExceptionWithMessage extends IgniteException {
         public TestExceptionWithMessage(String message) {
             super(NODE_STOPPING_ERR, message);
         }
     }
 
+    // Test exception class.
     public static class TestExceptionWithCause extends IgniteException {
         public TestExceptionWithCause(Throwable t) {
             super(NODE_STOPPING_ERR, t);
         }
     }
 
+    // Test exception class.
     public static class TestExceptionWithCodeAndMessage extends IgniteException {
         public TestExceptionWithCodeAndMessage(int code, String message) {
             super(code, message);
         }
     }
 
+    // Test exception class.
     public static class TestExceptionWithCodeAndCause extends IgniteException {
         public TestExceptionWithCodeAndCause(int code, Throwable cause) {
             super(code, cause);
         }
     }
 
+    // Test exception class.
     public static class TestExceptionWithCodeMessageAndCause extends IgniteException {
         public TestExceptionWithCodeMessageAndCause(int code, String message, Throwable cause) {
             super(code, message, cause);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedException extends IgniteCheckedException {
         public TestCheckedException() {
             super(NODE_STOPPING_ERR);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedExceptionWithCode extends IgniteCheckedException {
         public TestCheckedExceptionWithCode(int code) {
             super(code);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedExceptionWithMessage extends IgniteCheckedException {
         public TestCheckedExceptionWithMessage(String message) {
             super(NODE_STOPPING_ERR, message);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedExceptionWithCause extends IgniteCheckedException {
         public TestCheckedExceptionWithCause(Throwable t) {
             super(NODE_STOPPING_ERR, t);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedExceptionWithCodeAndMessage extends IgniteCheckedException {
         public TestCheckedExceptionWithCodeAndMessage(int code, String message) {
             super(code, message);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedExceptionWithCodeAndCause extends IgniteCheckedException {
         public TestCheckedExceptionWithCodeAndCause(int code, Throwable cause) {
             super(code, cause);
         }
     }
 
+    // Test exception class.
     public static class TestCheckedExceptionWithCodeMessageAndCause extends IgniteCheckedException {
         public TestCheckedExceptionWithCodeMessageAndCause(int code, String message, Throwable cause) {
             super(code, message, cause);
