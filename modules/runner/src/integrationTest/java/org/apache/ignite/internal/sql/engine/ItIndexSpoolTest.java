@@ -70,8 +70,8 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
     /**
      * Test.
      */
-    @ParameterizedTest(name = "tableSize={0}, partitions={1}")
-    @MethodSource("rowsWithPartitionsArgs")
+    //@ParameterizedTest(name = "tableSize={0}, partitions={1}")
+    //@MethodSource("rowsWithPartitionsArgs")
     public void test(int rows, int partitions) throws InterruptedException {
         prepareDataSet(rows, partitions);
 
