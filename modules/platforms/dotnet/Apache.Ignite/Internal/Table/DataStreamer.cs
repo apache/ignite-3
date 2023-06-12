@@ -36,6 +36,8 @@ using Serialization;
 /// </summary>
 internal static class DataStreamer
 {
+    private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
+
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -67,6 +69,7 @@ internal static class DataStreamer
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+        var lastPartitionsAssignmentUpdate = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource();
 
         try
@@ -81,17 +84,24 @@ internal static class DataStreamer
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
                 }
-            }
 
-            // Iteration ended. Drain remaining batches.
-            foreach (var (partition, batch) in batches)
-            {
-                if (batch.Count > 0)
+                if (lastPartitionsAssignmentUpdate.Elapsed > PartitionAssignmentUpdateFrequency)
                 {
-                    await SendAsync(batch, partition).ConfigureAwait(false);
-                    await batch.Task.ConfigureAwait(false);
+                    schema = await schemaProvider().ConfigureAwait(false);
+                    var newAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+
+                    if (newAssignment != partitionAssignment)
+                    {
+                        // Drain all batches to preserve order when partition assignment changes.
+                        await Drain().ConfigureAwait(false);
+                        partitionAssignment = newAssignment;
+                    }
+
+                    lastPartitionsAssignmentUpdate.Restart();
                 }
             }
+
+            await Drain().ConfigureAwait(false);
         }
         finally
         {
@@ -148,13 +158,11 @@ internal static class DataStreamer
         {
             ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partition, out _);
 
-            if (batchRef != null)
+            if (batchRef == null)
             {
-                return batchRef;
+                batchRef = new Batch();
+                InitBuffer(batchRef);
             }
-
-            batchRef = new Batch();
-            InitBuffer(batchRef);
 
             return batchRef;
         }
@@ -185,10 +193,6 @@ internal static class DataStreamer
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
             }
-
-            // Refresh schema and assignment once per send.
-            schema = await schemaProvider().ConfigureAwait(false);
-            partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         }
 
         async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask)
@@ -233,6 +237,18 @@ internal static class DataStreamer
 
             batch.CountPos = buf.Position;
             buf.Advance(5); // Reserve count.
+        }
+
+        async Task Drain()
+        {
+            foreach (var (partition, batch) in batches)
+            {
+                if (batch.Count > 0)
+                {
+                    await SendAsync(batch, partition).ConfigureAwait(false);
+                    await batch.Task.ConfigureAwait(false);
+                }
+            }
         }
     }
 
