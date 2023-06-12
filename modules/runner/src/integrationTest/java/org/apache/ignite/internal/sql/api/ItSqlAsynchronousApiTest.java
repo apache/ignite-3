@@ -132,6 +132,12 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                 ses,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
+        checkError(
+                IgniteException.class,
+                "Can't create table with duplicate columns: ID, VAL, VAL",
+                ses,
+                "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
+        );
         checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // ADD COLUMN
@@ -167,6 +173,12 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+        checkError(
+                SqlException.class,
+                "Can't create index on duplicate columns: VAL0, VAL0",
+                ses,
+                "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
+        );
 
         checkError(
                 SqlException.class,

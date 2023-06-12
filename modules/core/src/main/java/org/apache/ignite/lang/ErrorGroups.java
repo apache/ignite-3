@@ -65,6 +65,9 @@ public class ErrorGroups {
 
         /** Table is stopping. */
         public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
+
+        /** Table definition is incorrect. */
+        public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode(6);
     }
 
     /** Client error group. */
