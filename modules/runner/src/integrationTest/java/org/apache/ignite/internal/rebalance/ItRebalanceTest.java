@@ -45,6 +45,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
@@ -113,7 +114,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
         assertThat(
                 table.internalTable().get(key, clock.now(), cluster.node(3).node()),
-                willThrow(ReplicaUnavailableException.class, 10, TimeUnit.SECONDS)
+                willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
 
         cluster.stopNode(2);
@@ -142,7 +143,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
         assertThat(
                 table.internalTable().get(key, clock.now(), cluster.node(3).node()),
-                willThrow(ReplicaUnavailableException.class, 10, TimeUnit.SECONDS)
+                willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
     }
 

@@ -376,7 +376,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return True if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public boolean stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -394,7 +394,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param replicaGrpId Replication group id.
      * @return True if the replica is found and closed, false otherwise.
      */
-    private boolean stopReplicaInternal(ReplicationGroupId replicaGrpId) {
+    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId) {
         CompletableFuture<Replica> removed = replicas.remove(replicaGrpId);
 
         if (removed != null) {
@@ -406,13 +406,24 @@ public class ReplicaManager implements IgniteComponent {
             }
 
             if (!removed.isCompletedExceptionally()) {
-                removed.join().shutdown();
+                return removed
+                        .join()
+                        .shutdown()
+                        .handle((notUsed, throwable) -> {
+                            if (throwable == null) {
+                                return true;
+                            } else {
+                                LOG.error("Failed to stop replica [replicaGrpId={}]", replicaGrpId, throwable);
+
+                                return false;
+                            }
+                        });
             }
 
-            return true;
+            return completedFuture(true);
         }
 
-        return false;
+        return completedFuture(false);
     }
 
     /** {@inheritDoc} */

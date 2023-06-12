@@ -1069,7 +1069,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 stopping.add(() -> {
                     try {
-                        replicaMgr.stopReplica(replicationGroupId);
+                        replicaMgr.stopReplica(replicationGroupId).join();
                     } catch (Throwable t) {
                         handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
@@ -1291,9 +1291,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 raftMgr.stopRaftNodes(replicationGroupId);
 
-                replicaMgr.stopReplica(replicationGroupId);
-
-                removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
+                removeStorageFromGcFutures[p] = replicaMgr
+                        .stopReplica(replicationGroupId)
+                        .thenCompose((notUsed) -> mvGc.removeStorage(replicationGroupId));
             }
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
@@ -2424,24 +2424,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(null);
                     }
 
+
+                    CompletableFuture<Boolean> stopReplicaFut;
                     try {
                         raftMgr.stopRaftNodes(tablePartitionId);
 
-                        replicaMgr.stopReplica(tablePartitionId);
+                        stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
                     } catch (NodeStoppingException e) {
                         // No-op.
+                        stopReplicaFut = completedFuture(true);
                     }
+
+                    CompletableFuture<Boolean> finalStopReplicaFut = stopReplicaFut;
 
                     return tablesById(evt.revision())
                             // TODO: IGNITE-18703 Destroy raft log and meta
                             .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
                                 InternalTable internalTable = tables.get(tableId).internalTable();
 
-                                ((TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partitionId)).unsubscribeLeader();
-
                                 closePartitionTrackers(internalTable, partitionId);
 
                                 return allOf(
+                                        finalStopReplicaFut,
                                         internalTable.storage().destroyPartition(partitionId),
                                         runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
                                 );
