@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/odbc/config/settable_value.h"
+#include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/ssl_mode.h"
 
@@ -133,6 +134,14 @@ public:
      * @param res Resulting argument map.
      */
     void to_map(argument_map& res) const;
+
+    /**
+     * Fill from configuration params.
+     *
+     * @param config_params Configuration params
+     * @param diag Diagnostics collector.
+     */
+    void from_config_map(config_map config_params, diagnostic_record_storage *diag);
 
 private:
     /**

@@ -29,7 +29,6 @@ set(SOURCES
     config/config_tools.cpp
     config/configuration.cpp
     config/connection_info.cpp
-    config/connection_string_parser.cpp
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp

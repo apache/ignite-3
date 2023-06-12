@@ -18,7 +18,6 @@
 #include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
-#include "ignite/odbc/config/connection_string_parser.h"
 
 #include <string>
 #include <sstream>
@@ -97,9 +96,14 @@ int32_t configuration::get_page_size() const
 
 void configuration::to_map(argument_map& res) const
 {
-    add_to_map(res, connection_string_parser::key::driver, m_driver);
-    add_to_map(res, connection_string_parser::key::address, m_end_points);
-    add_to_map(res, connection_string_parser::key::page_size, m_page_size);
+    // TODO
+    add_to_map(res, "driver", m_driver);
+    add_to_map(res, "address", m_end_points);
+    add_to_map(res, "page_size", m_page_size);
+}
+
+void configuration::from_config_map(config_map config_params, diagnostic_record_storage *diag) {
+    // TODO
 }
 
 template<>

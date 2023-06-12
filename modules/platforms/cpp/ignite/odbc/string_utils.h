@@ -18,81 +18,79 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <sstream>
 
 namespace ignite {
 
 /**
- * Check if all characters are digits.
+ * Remove leading spaces.
  *
- * @param val Value to check.
+* @param str String view.
+* @return String view without leading spaces.
  */
-inline bool all_digits(const std::string &val)
+inline std::string_view strip_leading_spaces(std::string_view str)
 {
-    std::string::const_iterator i = val.begin();
-    while (i != val.end() && isdigit(*i))
-        ++i;
+    while (!str.empty() && std::isspace(str.front()))
+        str.remove_prefix(1);
 
-    return i == val.end();
+    return str;
 }
 
 /**
- * Skip leading spaces.
+ * Remove trailing spaces.
  *
- * @param begin Iterator to the beginning of the character sequence.
- * @param end Iterator to the end of the character sequence.
- * @return Iterator to first non-blanc character.
+* @param str String view.
+* @return String view without trailing spaces.
  */
-template<typename Iterator>
-Iterator skip_leading_spaces(Iterator begin, Iterator end)
+inline std::string_view strip_trailing_spaces(std::string_view str)
 {
-    Iterator res = begin;
-    while (isspace(*res) && res != end)
-        ++res;
+    while (!str.empty() && std::isspace(str.back()))
+        str.remove_suffix(1);
 
-    return res;
-}
-
-/**
- * Skip trailing spaces.
- *
- * @param begin Iterator to the beginning of the character sequence.
- * @param end Iterator to the end of the character sequence.
- * @return Iterator to last non-blanc character.
- */
-template<typename Iterator>
-Iterator skip_trailing_spaces(Iterator begin, Iterator end)
-{
-    Iterator res = end - 1;
-    while (isspace(*res) && res != begin - 1)
-        --res;
-
-    return res + 1;
+    return str;
 }
 
 /**
  * Remove leading and trailing spaces.
  *
- * @param begin Iterator to the beginning of the character sequence.
- * @param end Iterator to the end of the character sequence.
- * @return String without leading and trailing spaces.
+ * @param str String view.
+ * @return String view without leading and trailing spaces.
  */
-template<typename Iterator>
-std::string strip_surrounding_whitespaces(Iterator begin, Iterator end)
+inline std::string_view strip_surrounding_whitespaces(std::string_view str)
 {
-    std::string res;
+    return strip_leading_spaces(strip_trailing_spaces(str));
+}
 
-    if (begin >= end)
-        return res;
+/**
+ * Split string once by delimiter.
+ * If string has no delimiter, the second returned string is empty.
+ * @param delimiter Delimiter.
+ * @return Pair of values split by the first encountered delimiter. Delimiter itself is not included.
+ */
+inline std::pair<std::string_view, std::string_view> split_once(std::string_view str, char delimiter) {
+    auto delim_pos = str.find(delimiter);
+    if (delim_pos == decltype(str)::npos)
+        return {str, {}};
 
-    Iterator skipped_leading = skip_leading_spaces(begin, end);
-    Iterator skipped_trailing = skip_trailing_spaces(skipped_leading, end);
+    std::string_view first{str.data(), delim_pos};
+    std::string_view second{str};
+    second.remove_prefix(delim_pos + 1);
+    return {first, second};
+}
 
-    res.reserve(skipped_trailing - skipped_leading);
-
-    std::copy(skipped_leading, skipped_trailing, std::back_inserter(res));
-
-    return res;
+/**
+ * Call action for every substring separated by delimiter.
+ * @param str String.
+ * @param delimiter Delimiter.
+ * @param action Action to perform.
+ */
+inline void for_every_delimited(std::string_view str, char delimiter, const std::function<void(std::string_view)> &action) {
+    while (!str.empty()) {
+        auto res = split_once(str, delimiter);
+        action(res.first);
+        str = res.second;
+    }
 }
 
 

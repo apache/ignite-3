@@ -16,16 +16,16 @@
  */
 
 #include "ignite/odbc/sql_connection.h"
+#include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
-#include "ignite/odbc/config/connection_string_parser.h"
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/sql_environment.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/utility.h"
 
-#include <ignite/network/network.h>
 #include <ignite/common/bytes.h>
+#include <ignite/network/network.h>
 
 #include <algorithm>
 #include <cstring>
@@ -107,8 +107,8 @@ void sql_connection::establish(const std::string& connect_str, void* parent_wind
 
 sql_result sql_connection::internal_establish(const std::string& connect_str, void* parent_window)
 {
-    connection_string_parser parser(m_config);
-    parser.parse_connection_string(connect_str, &get_diagnostic_records());
+    auto config_params = parse_connection_string(connect_str);
+    m_config.from_config_map(config_params, &get_diagnostic_records());
 
     if (parent_window)
     {
