@@ -33,6 +33,9 @@ import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 
+/**
+ * Implementation of {@link IgniteDeployment} for tests.
+ */
 public class DummyIgniteDeployment implements IgniteDeployment {
     private final Path unitsPath;
 
