@@ -693,7 +693,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
-        // TODO: Process assignments and set partitions only for assigned partitions.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for assigned partitions.
         PartitionSet parts = new BitSetPartitionSet();
 
         for (int i = 0; i < futures.length; i++) {

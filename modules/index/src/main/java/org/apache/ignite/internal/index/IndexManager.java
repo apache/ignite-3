@@ -471,6 +471,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         assert table != null;
 
         CompletableFuture<SchemaRegistry> schemaRegistryFut = schemaManager.schemaRegistry(causalityToken, tableId);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19712 Listen to assignment changes and start new index storages
+        // For now we only create index storages once here.
         CompletableFuture<PartitionSet> tableStoragesFut = tableManager.partitionSetAsync(causalityToken, tableId);
 
         CompletableFuture<?> createIndexFuture = tableStoragesFut.thenAcceptBoth(schemaRegistryFut, (partitions, schemaRegistry) -> {
