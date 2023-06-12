@@ -59,10 +59,6 @@ public class DataStreamerBenchmark
     [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "Benchmark parameter")]
     public int ServerCount { get; set; }
 
-    [Params(0, 5)]
-    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "Benchmark parameter")]
-    public int OperationDelayMs { get; set; }
-
     [GlobalSetup]
     public async Task GlobalSetup()
     {
