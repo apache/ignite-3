@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-odbc)
+project(ignite3-odbc)
 
 set(TARGET ${PROJECT_NAME})
 
@@ -67,8 +67,6 @@ if (WIN32)
     if (MSVC_VERSION GREATER_EQUAL 1900)
         target_link_libraries(${TARGET} legacy_stdio_definitions)
     endif()
-
-    set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-odbc")
 else()
     target_link_libraries(${TARGET} odbcinst)
 endif()
