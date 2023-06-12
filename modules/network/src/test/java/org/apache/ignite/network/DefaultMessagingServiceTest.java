@@ -275,6 +275,7 @@ class DefaultMessagingServiceTest {
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
 
         DefaultMessagingService messagingService = new DefaultMessagingService(
+                node.name(),
                 networkMessagesFactory,
                 topologyService,
                 classDescriptorRegistry,

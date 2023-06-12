@@ -44,10 +44,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -71,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -252,9 +251,7 @@ public class StopCalciteModuleTest {
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
-        when(tbl.storage().distributionZoneConfiguration()).thenReturn(mock(DistributionZoneConfiguration.class));
-        when(tbl.storage().distributionZoneConfiguration().partitions()).thenReturn(mock(ConfigurationValue.class));
-        when(tbl.storage().distributionZoneConfiguration().partitions().value()).thenReturn(1);
+        when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1));
 
         when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
 

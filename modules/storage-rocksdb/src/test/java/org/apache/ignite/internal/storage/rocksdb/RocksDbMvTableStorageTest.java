@@ -125,7 +125,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
 
         tableStorage.start();
 
