@@ -179,7 +179,7 @@ if (${ENABLE_TESTS})
         add_subdirectory(tests/client-test)
     endif()
 
-    if (${ENABLE_CLIENT})
+    if (${ENABLE_ODBC})
         add_subdirectory(tests/odbc-test)
     endif()
 endif()
