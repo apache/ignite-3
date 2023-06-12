@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -26,19 +26,19 @@ import org.apache.ignite.internal.tostring.S;
 public class NewIndexEntry implements UpdateEntry {
     private static final long serialVersionUID = 6717363577013237711L;
 
-    private final IndexDescriptor descriptor;
+    private final CatalogIndexDescriptor descriptor;
 
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of an index to add.
      */
-    public NewIndexEntry(IndexDescriptor descriptor) {
+    public NewIndexEntry(CatalogIndexDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
     /** Gets descriptor of an index to add. */
-    public IndexDescriptor descriptor() {
+    public CatalogIndexDescriptor descriptor() {
         return descriptor;
     }
 

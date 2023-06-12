@@ -76,8 +76,8 @@ public class LeaseNegotiator {
                         lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
                                 .groupId(groupId)
-                                .leaseStartTime(lease.getStartTime())
-                                .leaseExpirationTime(lease.getExpirationTime())
+                                .leaseStartTimeLong(lease.getStartTime().longValue())
+                                .leaseExpirationTimeLong(lease.getExpirationTime().longValue())
                                 .force(force)
                                 .build(),
                         leaseInterval)

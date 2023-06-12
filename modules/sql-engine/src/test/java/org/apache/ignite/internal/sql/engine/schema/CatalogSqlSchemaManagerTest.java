@@ -46,14 +46,14 @@ import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.ColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.SortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -400,10 +400,10 @@ public class CatalogSqlSchemaManagerTest {
         TestIndex testIndex = new TestIndex("TEST_IDX");
         testIndex.table = testTable.name;
         testIndex.sortedColumns = Arrays.asList(
-                Map.entry("c1", ColumnCollation.ASC_NULLS_LAST),
-                Map.entry("c2", ColumnCollation.ASC_NULLS_FIRST),
-                Map.entry("c3", ColumnCollation.DESC_NULLS_LAST),
-                Map.entry("c4", ColumnCollation.DESC_NULLS_FIRST)
+                Map.entry("c1", CatalogColumnCollation.ASC_NULLS_LAST),
+                Map.entry("c2", CatalogColumnCollation.ASC_NULLS_FIRST),
+                Map.entry("c3", CatalogColumnCollation.DESC_NULLS_LAST),
+                Map.entry("c4", CatalogColumnCollation.DESC_NULLS_FIRST)
         );
 
         TestSchema testSchema = new TestSchema();
@@ -467,24 +467,25 @@ public class CatalogSqlSchemaManagerTest {
         int version = 1111;
 
         void init(CatalogManager catalogManager) {
-            SchemaDescriptor schemaDescriptor = newSchemaDescriptor(version);
-            when(catalogManager.activeSchema(name != null ? name : CatalogManager.PUBLIC, timestamp)).thenReturn(schemaDescriptor);
+            CatalogSchemaDescriptor schemaDescriptor = newSchemaDescriptor(version);
+            when(catalogManager.activeCatalogVersion(timestamp)).thenReturn(version);
+            when(catalogManager.schema(name != null ? name : CatalogManager.PUBLIC, version)).thenReturn(schemaDescriptor);
         }
 
-        SchemaDescriptor newSchemaDescriptor(int version) {
-            LinkedHashMap<String, TableDescriptor> tableDescriptors = new LinkedHashMap<>();
+        CatalogSchemaDescriptor newSchemaDescriptor(int version) {
+            LinkedHashMap<String, CatalogTableDescriptor> tableDescriptors = new LinkedHashMap<>();
 
             for (TestTable testTable : tables) {
                 testTable.version = version;
 
-                TableDescriptor descriptor = testTable.newDescriptor();
+                CatalogTableDescriptor descriptor = testTable.newDescriptor();
                 tableDescriptors.put(testTable.name, descriptor);
             }
 
-            LinkedHashMap<String, IndexDescriptor> indexDescriptorMap = new LinkedHashMap<>();
+            LinkedHashMap<String, CatalogIndexDescriptor> indexDescriptorMap = new LinkedHashMap<>();
 
             for (TestIndex testIndex : indexes) {
-                TableDescriptor tableDescriptor = tableDescriptors.get(testIndex.table);
+                CatalogTableDescriptor tableDescriptor = tableDescriptors.get(testIndex.table);
                 testIndex.version = version;
 
                 int tableId = tableDescriptor.id();
@@ -493,16 +494,16 @@ public class CatalogSqlSchemaManagerTest {
                 indexDescriptorMap.put(name, testIndex.newDescriptor(tableId));
             }
 
-            TableDescriptor[] tablesArray = tableDescriptors.values().toArray(new TableDescriptor[0]);
-            IndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new IndexDescriptor[0]);
+            CatalogTableDescriptor[] tablesArray = tableDescriptors.values().toArray(new CatalogTableDescriptor[0]);
+            CatalogIndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new CatalogIndexDescriptor[0]);
 
-            return new SchemaDescriptor(ID.incrementAndGet(), name, version, tablesArray, indexesArray);
+            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray);
         }
     }
 
     private static final class TestTable {
 
-        private final List<TableColumnDescriptor> columns = new ArrayList<>();
+        private final List<CatalogTableColumnDescriptor> columns = new ArrayList<>();
 
         private int id = ID.incrementAndGet();
 
@@ -524,13 +525,13 @@ public class CatalogSqlSchemaManagerTest {
 
         void addColumn(String name, ColumnType columnType) {
             DefaultValue defaultValue = DefaultValue.constant(null);
-            columns.add(new TableColumnDescriptor(name, columnType, true, 0, 0, 0, defaultValue));
+            columns.add(new CatalogTableColumnDescriptor(name, columnType, true, 0, 0, 0, defaultValue));
             setDefault(name, defaultValue);
         }
 
         void addColumn(String name, ColumnType columnType, int precision, int scale) {
             DefaultValue defaultValue = DefaultValue.constant(null);
-            columns.add(new TableColumnDescriptor(name, columnType, true, precision, scale, precision, defaultValue));
+            columns.add(new CatalogTableColumnDescriptor(name, columnType, true, precision, scale, precision, defaultValue));
             setDefault(name, defaultValue);
         }
 
@@ -554,10 +555,10 @@ public class CatalogSqlSchemaManagerTest {
             colocationKey = Arrays.asList(names);
         }
 
-        TableDescriptor newDescriptor() {
-            List<TableColumnDescriptor> columnDescriptors = new ArrayList<>();
+        CatalogTableDescriptor newDescriptor() {
+            List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 
-            for (TableColumnDescriptor col : columns) {
+            for (CatalogTableColumnDescriptor col : columns) {
                 String colName = col.name();
                 DefaultValue defaultValue = defaultValueMap.get(colName);
                 boolean nullable = !notNull.contains(colName);
@@ -565,12 +566,12 @@ public class CatalogSqlSchemaManagerTest {
                 int scale = col.scale();
                 int length = col.length();
 
-                TableColumnDescriptor newCol = new TableColumnDescriptor(colName, col.type(), nullable,
+                CatalogTableColumnDescriptor newCol = new CatalogTableColumnDescriptor(colName, col.type(), nullable,
                         precision, scale, length, defaultValue);
                 columnDescriptors.add(newCol);
             }
 
-            return new TableDescriptor(id, name, columnDescriptors, primaryKey, colocationKey);
+            return new CatalogTableDescriptor(id, name, columnDescriptors, primaryKey, colocationKey);
         }
     }
 
@@ -584,7 +585,7 @@ public class CatalogSqlSchemaManagerTest {
 
         private List<String> hashColumns;
 
-        private List<Map.Entry<String, ColumnCollation>> sortedColumns;
+        private List<Map.Entry<String, CatalogColumnCollation>> sortedColumns;
 
         private String table;
 
@@ -592,15 +593,15 @@ public class CatalogSqlSchemaManagerTest {
             this.name = name;
         }
 
-        IndexDescriptor newDescriptor(int tableId) {
+        CatalogIndexDescriptor newDescriptor(int tableId) {
             if (hashColumns != null) {
-                return new HashIndexDescriptor(id, name, tableId, false, hashColumns);
+                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns);
             } else if (sortedColumns != null) {
-                List<IndexColumnDescriptor> indexColumns = sortedColumns.stream()
-                        .map((e) -> new IndexColumnDescriptor(e.getKey(), e.getValue()))
+                List<CatalogIndexColumnDescriptor> indexColumns = sortedColumns.stream()
+                        .map((e) -> new CatalogIndexColumnDescriptor(e.getKey(), e.getValue()))
                         .collect(Collectors.toList());
 
-                return new SortedIndexDescriptor(id, name, tableId, false, indexColumns);
+                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns);
             } else {
                 throw new IllegalStateException("Unable to create index");
             }

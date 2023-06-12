@@ -56,6 +56,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
+import org.apache.ignite.internal.compute.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -340,12 +341,6 @@ public class IgniteImpl implements Ignite {
                 new VaultStateIds(vaultMgr)
         );
 
-        computeComponent = new ComputeComponentImpl(
-                this,
-                clusterSvc.messagingService(),
-                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY)
-        );
-
         clock = new HybridClockImpl();
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
@@ -486,7 +481,7 @@ public class IgniteImpl implements Ignite {
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
 
-        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr));
+        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr), clock);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -533,6 +528,24 @@ public class IgniteImpl implements Ignite {
 
         sql = new IgniteSqlImpl(qryEngine);
 
+        deploymentManager = new DeploymentManagerImpl(
+                clusterSvc,
+                metaStorageMgr,
+                logicalTopologyService,
+                workDir,
+                nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
+                cmgMgr
+        );
+
+        JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(deploymentManager);
+
+        computeComponent = new ComputeComponentImpl(
+                this,
+                clusterSvc.messagingService(),
+                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
+                jobClassLoaderFactory
+        );
+
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
         authenticationManager = createAuthenticationManager();
@@ -555,12 +568,6 @@ public class IgniteImpl implements Ignite {
                 authenticationManager,
                 authenticationConfiguration
                 );
-
-        deploymentManager = new DeploymentManagerImpl(clusterSvc,
-                metaStorageMgr,
-                workDir,
-                nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
-                cmgMgr);
 
         restComponent = createRestComponent(name);
     }

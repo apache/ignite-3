@@ -501,7 +501,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             for (int partition = 0; partition < partitions; partition++) {
                 GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, partition);
 
-                filePageStoreManager.initialize("Test", groupPartitionId);
+                filePageStoreManager.initialize(groupPartitionId);
 
                 FilePageStore filePageStore = filePageStoreManager.getStore(groupPartitionId);
 

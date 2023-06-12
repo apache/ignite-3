@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -28,7 +28,7 @@ public class AlterColumnEntry implements UpdateEntry {
 
     private final int tableId;
 
-    private final TableColumnDescriptor column;
+    private final CatalogTableColumnDescriptor column;
 
     /**
      * Constructs the object.
@@ -36,7 +36,7 @@ public class AlterColumnEntry implements UpdateEntry {
      * @param tableId An id the table to be modified.
      * @param column A modified descriptor of the column to be replaced.
      */
-    public AlterColumnEntry(int tableId, TableColumnDescriptor column) {
+    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
         this.tableId = tableId;
         this.column = column;
     }
@@ -47,7 +47,7 @@ public class AlterColumnEntry implements UpdateEntry {
     }
 
     /** Returns a descriptor for the column to be replaced. */
-    public TableColumnDescriptor descriptor() {
+    public CatalogTableColumnDescriptor descriptor() {
         return column;
     }
 

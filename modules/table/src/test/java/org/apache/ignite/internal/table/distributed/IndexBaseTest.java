@@ -39,10 +39,10 @@ import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -101,9 +101,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 PK_INDEX_BINARY_TUPLE_CONVERTER::toTuple
         );
 
-        sortedInnerStorage = new TestSortedIndexStorage(PARTITION_ID, new SortedIndexDescriptor(sortedIndexId, List.of(
-                new SortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                new SortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+        sortedInnerStorage = new TestSortedIndexStorage(PARTITION_ID, new StorageSortedIndexDescriptor(sortedIndexId, List.of(
+                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
+                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
         )));
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
@@ -112,9 +112,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
         );
 
-        hashInnerStorage = new TestHashIndexStorage(PARTITION_ID, new HashIndexDescriptor(hashIndexId, List.of(
-                new HashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
-                new HashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
+        hashInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(hashIndexId, List.of(
+                new StorageHashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
+                new StorageHashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
         )));
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(

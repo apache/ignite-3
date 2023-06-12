@@ -275,11 +275,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Initialization of the page storage for the group partition.
      *
-     * @param tableName Table name.
      * @param groupPartitionId Pair of group ID with partition ID.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void initialize(String tableName, GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
+    public void initialize(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
         initPartitionStripedLock.lock(groupPartitionId.hashCode());
 
         try {
@@ -298,8 +297,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
                     FilePageStore previous = groupPageStores.put(groupPartitionId, filePageStore);
 
                     assert previous == null : IgniteStringFormatter.format(
-                            "Parallel creation is not allowed: [tableName={}, tableId={}, partitionId={}]",
-                            tableName,
+                            "Parallel creation is not allowed: [tableId={}, partitionId={}]",
                             groupPartitionId.getGroupId(),
                             groupPartitionId.getPartitionId()
                     );

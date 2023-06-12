@@ -94,7 +94,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -179,6 +178,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -889,7 +889,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             schemaManager.schemaRegistry(causalityToken, tblId),
                                                             localNode(),
                                                             table.internalTable().storage(),
-                                                            indexBuilder
+                                                            indexBuilder,
+                                                            tablesCfg
                                                     ),
                                                     updatedRaftGroupService,
                                                     storageIndexTracker
@@ -2193,7 +2194,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             completedFuture(schemaManager.schemaRegistry(tbl.tableId())),
                                             localNode(),
                                             internalTable.storage(),
-                                            indexBuilder
+                                            indexBuilder,
+                                            tablesCfg
                                     ),
                                     (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
                                     storageIndexTracker

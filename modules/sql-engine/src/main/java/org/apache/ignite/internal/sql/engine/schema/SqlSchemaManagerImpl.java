@@ -149,10 +149,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
-        SchemaPlus schemaPlus = calciteSchemaVv.latest();
-
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
+
+        SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
     }
@@ -171,7 +171,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
         try {
             if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(null);
+                return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;

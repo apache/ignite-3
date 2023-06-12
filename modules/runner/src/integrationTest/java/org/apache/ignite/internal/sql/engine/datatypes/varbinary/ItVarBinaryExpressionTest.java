@@ -68,23 +68,25 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     }
 
     /** {@code LENGTH} expression. */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19668")
     @Test
     public void testLengthExpression() {
         checkQuery("SELECT LENGTH(x'010203')")
                 .withParams(varBinary(new byte[]{2}))
-                .returns(3);
+                .returns(3).check();
     }
 
     /** {@code LENGTH} expression. */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19668")
     @Test
     public void testLengthExpressionWithDynamicParameter() {
         checkQuery("SELECT LENGTH(?)")
                 .withParams(varBinary(new byte[]{1, 2, 3}))
-                .returns(3);
+                .returns(3).check();
 
         checkQuery("SELECT LENGTH(?)")
                 .withParams(varBinary(new byte[0]))
-                .returns(0);
+                .returns(0).check();
     }
 
     /**

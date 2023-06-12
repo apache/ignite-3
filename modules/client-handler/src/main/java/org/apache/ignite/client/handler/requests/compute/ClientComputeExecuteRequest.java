@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
@@ -57,7 +58,7 @@ public class ClientComputeExecuteRequest {
 
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        return compute.execute(Set.of(node), List.of(), jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 
     /**
