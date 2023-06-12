@@ -144,7 +144,9 @@ public class FileDeployerService {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
+     * @param checkExistence If {@code true} then check that unit exists.
      * @return Path to unit folder.
+     * @throws DeploymentUnitNotFoundException If unit doesn't exist and {@code checkExistence} is {@code true}.
      */
     Path unitPath(String id, Version version, boolean checkExistence) {
         Path path = unitPath(id, version);
