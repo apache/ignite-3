@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaConstructor;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -28,11 +29,22 @@ import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.client.IgniteClientAuthenticationException;
+import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.network.UnresolvableConsistentIdException;
+import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.security.UnknownAuthenticationTypeException;
+import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 
 /**
  * Tests that all public Ignite exceptions have correct definitions.
@@ -42,10 +54,11 @@ import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
         importOptions = ImportOption.DoNotIncludeTests.class,
         locations = RootLocationProvider.class)
 public class IgniteExceptionArchTest {
-    @SuppressWarnings("unused")
     @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
-            .that().areAssignableTo(IgniteException.class)
+            .that(new ExclusionPredicate())
+            .and()
+            .areAssignableTo(IgniteException.class)
             .or().areAssignableTo(IgniteCheckedException.class)
             .should(new ArchCondition<>("have standard IgniteException constructor") {
                 @Override
@@ -66,4 +79,28 @@ public class IgniteExceptionArchTest {
                     }
                 }
             });
+
+    private static final Set<String> exclusions = new HashSet<>();
+    static {
+        exclusions.add(IgniteClientAuthenticationException.class.getCanonicalName());
+        exclusions.add(IgniteClientConnectionException.class.getCanonicalName());
+        exclusions.add(IgniteClientFeatureNotSupportedByServerException.class.getCanonicalName());
+        exclusions.add(MarshallerException.class.getCanonicalName());
+        exclusions.add(UnresolvableConsistentIdException.class.getCanonicalName());
+        exclusions.add(AuthenticationException.class.getCanonicalName());
+        exclusions.add(UnknownAuthenticationTypeException.class.getCanonicalName());
+        exclusions.add(CursorClosedException.class.getCanonicalName());
+        exclusions.add(NoRowSetExpectedException.class.getCanonicalName());
+    }
+
+    private static class ExclusionPredicate extends DescribedPredicate<JavaClass> {
+        public ExclusionPredicate() {
+            super("Exclusion list");
+        }
+
+        @Override
+        public boolean test(JavaClass javaClass) {
+            return !exclusions.contains(javaClass.getFullName());
+        }
+    }
 }
