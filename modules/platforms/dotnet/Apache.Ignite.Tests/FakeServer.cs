@@ -578,13 +578,6 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleGetAndDelete:
                         case ClientOp.TupleGetAndReplace:
                         case ClientOp.TupleGetAndUpsert:
-                            if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
-                            {
-                                reader.Skip(3);
-                                var count = reader.ReadInt32();
-                                Thread.Sleep(MultiRowOperationDelayPerRow * count);
-                            }
-
                             Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
                             continue;
 
@@ -593,6 +586,13 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleUpsertAll:
                         case ClientOp.TupleDeleteAll:
                         case ClientOp.TupleDeleteAllExact:
+                            if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                            {
+                                reader.Skip(3);
+                                var count = reader.ReadInt32();
+                                Thread.Sleep(MultiRowOperationDelayPerRow * count);
+                            }
+
                             Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
                             continue;
 
