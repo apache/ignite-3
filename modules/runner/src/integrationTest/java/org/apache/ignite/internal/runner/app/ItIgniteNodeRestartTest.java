@@ -139,6 +139,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -919,6 +920,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
+    @RepeatedTest(100)
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
     }
@@ -927,6 +929,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
+    @RepeatedTest(100)
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
