@@ -324,8 +324,7 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null)
-        {
+        public async Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null) =>
             await DataStreamer.StreamDataAsync(
                 data,
                 sender: async (batch, preferredNode, retryPolicy) =>
@@ -342,7 +341,6 @@ namespace Apache.Ignite.Internal.Table
                 schemaProvider: () => _table.GetLatestSchemaAsync(),
                 partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default).ConfigureAwait(false);
-        }
 
         /// <inheritdoc/>
         public override string ToString() =>

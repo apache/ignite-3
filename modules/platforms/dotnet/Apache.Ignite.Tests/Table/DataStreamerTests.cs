@@ -108,10 +108,21 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestOptionsValidation()
+    public void TestOptionsValidation()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        AssertException(DataStreamerOptions.Default with { BatchSize = -10 }, "BatchSize should be positive.");
+        AssertException(DataStreamerOptions.Default with { RetryLimit = -1 }, "RetryLimit should be non-negative.");
+        AssertException(
+            DataStreamerOptions.Default with { AutoFlushFrequency = TimeSpan.FromDays(-1) },
+            "AutoFlushFrequency should be positive.");
+
+        void AssertException(DataStreamerOptions options, string message)
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Table.RecordBinaryView.StreamDataAsync(Array.Empty<IIgniteTuple>().ToAsyncEnumerable(), options));
+
+            StringAssert.Contains(message, ex?.Message);
+        }
     }
 
     [Test]

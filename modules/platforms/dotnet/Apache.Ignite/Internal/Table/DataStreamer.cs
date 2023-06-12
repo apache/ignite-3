@@ -59,6 +59,7 @@ internal static class DataStreamer
 
         IgniteArgumentCheck.Ensure(options.BatchSize > 0, $"{nameof(options.BatchSize)} should be positive.");
         IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");
+        IgniteArgumentCheck.Ensure(options.RetryLimit >= 0, $"{nameof(options.RetryLimit)} should be non-negative.");
 
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
         var batches = new Dictionary<string, Batch>();
