@@ -61,8 +61,10 @@ internal static class DataStreamer
         IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");
         IgniteArgumentCheck.Ensure(options.RetryLimit >= 0, $"{nameof(options.RetryLimit)} should be non-negative.");
 
-        var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
+        // ConcurrentDictionary is not necessary because we consume the source sequentially.
+        // However, locking for batches is required due to auto-flush background task.
         var batches = new Dictionary<string, Batch>();
+        var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         using var cts = new CancellationTokenSource();
