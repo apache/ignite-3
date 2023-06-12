@@ -30,7 +30,6 @@ using Tests;
 /// Data streamer benchmark.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.408, Ubuntu 22.04:
-/// Semaphore with 4 slots:
 /// |           Method | ServerCount |      Mean |    Error |   StdDev | Ratio | RatioSD | Allocated |
 /// |----------------- |------------ |----------:|---------:|---------:|------:|--------:|----------:|
 /// |     DataStreamer |           1 | 141.56 ms | 2.725 ms | 3.244 ms |  1.00 |    0.00 |      4 MB |

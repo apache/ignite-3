@@ -160,9 +160,8 @@ internal static class DataStreamer
         {
             var expectedSize = batch.Count;
 
-            // Backpressure control.
-            // TODO: Do we even need this? Just wait for the previous batch to finish?
-            await batch.Semaphore.WaitAsync().ConfigureAwait(false);
+            // Wait for the previous task for this batch to finish: preserve order, backpressure control.
+            await batch.Task.ConfigureAwait(false);
 
             lock (batch)
             {
@@ -176,7 +175,7 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Semaphore);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task);
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
@@ -189,7 +188,7 @@ internal static class DataStreamer
             partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, SemaphoreSlim semaphore)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask)
         {
             try
             {
@@ -199,7 +198,6 @@ internal static class DataStreamer
             }
             finally
             {
-                semaphore.Release();
                 buf.Dispose();
             }
         }
@@ -237,8 +235,6 @@ internal static class DataStreamer
 
     private sealed record Batch
     {
-        public SemaphoreSlim Semaphore { get; } = new(initialCount: 4);
-
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
         public int Count { get; set; }
