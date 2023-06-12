@@ -158,7 +158,6 @@ internal static class DataStreamer
 
         async Task SendAsync(Batch batch, string partition)
         {
-            var oldTask = batch.Task;
             var expectedSize = batch.Count;
 
             lock (batch)
@@ -173,7 +172,7 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task);
 
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
@@ -181,18 +180,17 @@ internal static class DataStreamer
                 batch.LastFlush = Stopwatch.GetTimestamp();
             }
 
-            // Wait for the previous batch for this node.
-            await oldTask.ConfigureAwait(false);
-
             // Refresh schema and assignment once per send.
             schema = await schemaProvider().ConfigureAwait(false);
             partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask)
         {
             using (buf)
             {
+                // Wait for the previous batch for this node to preserve item order.
+                await oldTask.ConfigureAwait(false);
                 await sender(buf, partition, retryPolicy).ConfigureAwait(false);
             }
         }
