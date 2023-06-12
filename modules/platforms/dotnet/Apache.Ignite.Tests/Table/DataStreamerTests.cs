@@ -128,8 +128,16 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestRetryLimitExhausted()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.TupleUpsertAll, RequestCount: > 7 });
+
+        using var client = await server.ConnectClientAsync();
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(GetData(10_000)));
+
+        StringAssert.StartsWith("Operation TupleUpsertAll failed after 16 retries", ex!.Message);
     }
 
     [Test]
@@ -148,18 +156,19 @@ public class DataStreamerTests : IgniteTestsBase
         });
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        await table!.RecordBinaryView.StreamDataAsync(GetData());
+        await table!.RecordBinaryView.StreamDataAsync(GetData(count));
 
+        // TODO: This is flaky! Sometimes we get 100_000, sometimes 99_000.
         Assert.AreEqual(count, server.UpsertAllRowCount);
         Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
+    }
 
-        async IAsyncEnumerable<IIgniteTuple> GetData()
+    private static async IAsyncEnumerable<IIgniteTuple> GetData(int count)
+    {
+        for (var i = 0; i < count; i++)
         {
-            for (var i = 0; i < count; i++)
-            {
-                yield return new IgniteTuple { ["ID"] = i };
-                await Task.Yield();
-            }
+            yield return new IgniteTuple { ["ID"] = i };
+            await Task.Yield();
         }
     }
 }
