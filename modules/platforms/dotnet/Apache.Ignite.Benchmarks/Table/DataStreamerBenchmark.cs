@@ -29,14 +29,25 @@ using Tests;
 /// Data streamer benchmark.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.408, Ubuntu 22.04:
-/// |           Method |     Mean |    Error |   StdDev | Ratio | RatioSD |   Gen 0 | Allocated |
-/// |----------------- |---------:|---------:|---------:|------:|--------:|--------:|----------:|
-/// |     DataStreamer | 19.48 ms | 0.148 ms | 0.123 ms |  1.00 |    0.00 |       - |      4 MB |
-/// |        UpsertAll | 12.58 ms | 0.292 ms | 0.861 ms |  0.67 |    0.03 | 15.6250 |      4 MB |
-/// | UpsertAllBatched | 16.41 ms | 0.308 ms | 0.330 ms |  0.84 |    0.02 |       - |      4 MB |.
+/// |                          Method | ServerCount |     Mean |    Error |   StdDev |   Median | Ratio | RatioSD |   Gen 0 | Allocated |
+/// |-------------------------------- |------------ |---------:|---------:|---------:|---------:|------:|--------:|--------:|----------:|
+/// |                    DataStreamer |           1 | 20.63 ms | 0.157 ms | 0.131 ms | 20.64 ms |  1.00 |    0.00 |       - |      4 MB |
+/// |                       UpsertAll |           1 | 12.90 ms | 0.345 ms | 1.016 ms | 13.13 ms |  0.63 |    0.05 |       - |      4 MB |
+/// |                UpsertAllBatched |           1 | 16.78 ms | 0.325 ms | 0.477 ms | 16.83 ms |  0.81 |    0.03 |       - |      4 MB |
+/// | UpsertAllBatchedAsyncEnumerable |           1 | 22.62 ms | 0.429 ms | 0.459 ms | 22.72 ms |  1.09 |    0.03 |       - |      4 MB |
+/// |                                 |             |          |          |          |          |       |         |         |           |
+/// |                    DataStreamer |           2 | 19.92 ms | 0.292 ms | 0.259 ms | 19.90 ms |  1.00 |    0.00 |       - |      4 MB |
+/// |                       UpsertAll |           2 | 12.97 ms | 0.368 ms | 1.084 ms | 13.26 ms |  0.63 |    0.07 | 15.6250 |      4 MB |
+/// |                UpsertAllBatched |           2 | 17.10 ms | 0.334 ms | 0.627 ms | 17.06 ms |  0.87 |    0.03 |       - |      4 MB |
+/// | UpsertAllBatchedAsyncEnumerable |           2 | 23.32 ms | 0.450 ms | 0.500 ms | 23.41 ms |  1.18 |    0.03 |       - |      4 MB |
+/// |                                 |             |          |          |          |          |       |         |         |           |
+/// |                    DataStreamer |           4 | 20.01 ms | 0.396 ms | 0.407 ms | 19.98 ms |  1.00 |    0.00 |       - |      4 MB |
+/// |                       UpsertAll |           4 | 13.36 ms | 0.330 ms | 0.973 ms | 13.43 ms |  0.66 |    0.06 | 15.6250 |      4 MB |
+/// |                UpsertAllBatched |           4 | 16.40 ms | 0.319 ms | 0.327 ms | 16.43 ms |  0.82 |    0.03 |       - |      4 MB |
+/// | UpsertAllBatchedAsyncEnumerable |           4 | 23.42 ms | 0.466 ms | 0.992 ms | 23.30 ms |  1.20 |    0.03 |       - |      4 MB |.
 /// </summary>
 [MemoryDiagnoser]
-public class DataStreamerBenchmark
+public class DataStreamerBenchmark // TODO: Why multi-node streamer is not faster?
 {
     private IList<FakeServer> _servers = null!;
     private IIgniteClient _client = null!;
