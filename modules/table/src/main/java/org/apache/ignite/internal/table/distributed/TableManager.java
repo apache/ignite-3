@@ -573,6 +573,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<Set<Assignment>> assignments;
 
+            // Check if the table already has assignments in the vault.
+            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
             if (partitionAssignments(vaultManager, ctx.newValue().id(), 0) != null) {
                 assignments = tableAssignments(vaultManager, ctx.newValue().id(), zone.partitions());
             } else {
