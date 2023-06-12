@@ -102,6 +102,7 @@ class DeployFiles {
     public Unit deployAndVerify(String id, Version version, boolean force, List<DeployFile> files, IgniteImpl entryNode) {
         return deployAndVerify(id, version, force, files, null, List.of(), entryNode);
     }
+
     public Unit deployAndVerify(
             String id,
             Version version,

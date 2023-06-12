@@ -58,25 +58,18 @@ public class DeploymentManagementController implements DeploymentCodeApi {
             String unitId,
             String unitVersion,
             Publisher<CompletedFileUpload> unitContent,
-            InitialDeployMode deployMode
+            Optional<InitialDeployMode> deployMode,
+            Optional<List<String>> initialNodes
     ) {
         CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
         unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit,
-                fromInitialDeployMode(deployMode)));
-    }
-
-    @Override
-    public CompletableFuture<Boolean> deploy(
-            String unitId,
-            String unitVersion,
-            Publisher<CompletedFileUpload> unitContent,
-            List<String> initialNodes
-    ) {
-        CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
-        unitContent.subscribe(new CompletedFileUploadSubscriber(result));
-        return result.thenCompose(deploymentUnit -> deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit,
-                initialNodes));
+        return result.thenCompose(deploymentUnit -> {
+            if (initialNodes.isPresent()) {
+                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, initialNodes.get());
+            } else {
+                return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), deploymentUnit, fromInitialDeployMode(deployMode));
+            }
+        });
     }
 
     @Override
@@ -188,8 +181,12 @@ public class DeploymentManagementController implements DeploymentCodeApi {
         }
     }
 
-    private static org.apache.ignite.internal.deployunit.InitialDeployMode fromInitialDeployMode(InitialDeployMode mode) {
-        switch (mode) {
+    private static org.apache.ignite.internal.deployunit.InitialDeployMode fromInitialDeployMode(Optional<InitialDeployMode> mode) {
+        if (mode.isEmpty()) {
+            return org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+        }
+
+        switch (mode.get()) {
             case ALL:
                 return org.apache.ignite.internal.deployunit.InitialDeployMode.ALL;
             case MAJORITY:

@@ -67,32 +67,6 @@ public interface DeploymentCodeApi {
             content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
     )
     @Consumes(FORM_DATA)
-    @Post("units/{unitId}/{unitVersion}/{deployMode}")
-    CompletableFuture<Boolean> deploy(
-            @Schema(name = "unitId", requiredMode = REQUIRED, description = "The ID of the deployment unit.")
-            String unitId,
-            @Schema(name = "unitVersion", requiredMode = REQUIRED, description = "The version of the deployment unit.")
-            String unitVersion,
-            @Schema(name = "unitContent", requiredMode = REQUIRED, description = "The code to deploy.")
-            Publisher<CompletedFileUpload> unitContent,
-            @Schema(name = "deployMode", requiredMode = REQUIRED, description = "ALL or MAJORITY.")
-            InitialDeployMode deployMode
-    );
-
-    /**
-     * Deploy unit to specified nodes REST method.
-     */
-    @Operation(operationId = "deployUnitToNodes", description = "Deploys provided unit to the cluster with specified initial nodes.")
-    @ApiResponse(responseCode = "200", description = "Unit deployed successfully.",
-            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(type = "boolean"))
-    )
-    @ApiResponse(responseCode = "409", description = "Unit with same identifier and version is already deployed.",
-            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
-    )
-    @ApiResponse(responseCode = "500", description = "Internal error.",
-            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
-    )
-    @Consumes(FORM_DATA)
     @Post("units/{unitId}/{unitVersion}")
     CompletableFuture<Boolean> deploy(
             @Schema(name = "unitId", requiredMode = REQUIRED, description = "The ID of the deployment unit.")
@@ -102,8 +76,11 @@ public interface DeploymentCodeApi {
             @Schema(name = "unitContent", requiredMode = REQUIRED, description = "The code to deploy.")
             Publisher<CompletedFileUpload> unitContent,
             @QueryValue
+            @Schema(name = "deployMode", requiredMode = REQUIRED, description = "ALL or MAJORITY.")
+            Optional<InitialDeployMode> deployMode,
+            @QueryValue
             @Schema(name = "initialNodes", requiredMode = REQUIRED, description = "List of node identifiers to deploy to.")
-            List<String> initialNodes
+            Optional<List<String>> initialNodes
     );
 
     /**

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import okhttp3.Call;
@@ -29,8 +30,10 @@ import org.apache.ignite.rest.client.invoker.ApiCallback;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.ApiResponse;
+import org.apache.ignite.rest.client.invoker.Pair;
 import org.apache.ignite.rest.client.invoker.ProgressRequestBody;
 import org.apache.ignite.rest.client.model.DeployMode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Temporary class for calling REST with list of files until underlying issue in the openapi-generator is fixed.
@@ -52,8 +55,14 @@ public class DeployUnitClient {
      * @return {@code true} if the call succeeded.
      * @throws ApiException if fail to call.
      */
-    public Boolean deployUnit(String unitId, List<File> unitContent, String unitVersion, DeployMode deployMode) throws ApiException {
-        Call call = deployUnitCall(unitId, unitContent, unitVersion, deployMode, null);
+    public Boolean deployUnit(
+            String unitId,
+            List<File> unitContent,
+            String unitVersion,
+            DeployMode deployMode,
+            List<String> initialNodes
+    ) throws ApiException {
+        Call call = deployUnitCall(unitId, unitContent, unitVersion, deployMode, initialNodes, null);
         ApiResponse<Boolean> response = apiClient.execute(call, Boolean.class);
         return response.getData();
     }
@@ -70,10 +79,11 @@ public class DeployUnitClient {
             String unitId,
             List<File> unitContent,
             String unitVersion,
-            DeployMode deployMode,
+            @Nullable DeployMode deployMode,
+            @Nullable List<String> initialNodes,
             ApiCallback<Boolean> callback
     ) {
-        Call call = deployUnitCall(unitId, unitContent, unitVersion, deployMode, callback);
+        Call call = deployUnitCall(unitId, unitContent, unitVersion, deployMode, initialNodes, callback);
         apiClient.executeAsync(call, Boolean.class, callback);
         return call;
     }
@@ -82,84 +92,8 @@ public class DeployUnitClient {
             String unitId,
             List<File> unitContent,
             String unitVersion,
-            DeployMode deployMode,
-            ApiCallback<Boolean> callback
-    ) {
-        String path = "/management/v1/deployment/units"
-                + "/" + apiClient.escapeString(unitId)
-                + "/" + apiClient.escapeString(unitVersion)
-                + "/" + apiClient.escapeString(deployMode.toString());
-
-        String url = apiClient.getBasePath() + path;
-
-        MultipartBody.Builder mpBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
-        for (File file : unitContent) {
-            RequestBody requestBody = RequestBody.create(file, MediaType.parse("application/octet-stream"));
-            mpBuilder.addFormDataPart("unitContent", file.getName(), requestBody);
-        }
-        MultipartBody body = mpBuilder.build();
-
-        Request.Builder reqBuilder = new Request.Builder()
-                .url(url)
-                .header("Accept", "application/json")
-                .header("Content-Type", "multipart/form-data");
-
-        if (callback != null) {
-            ProgressRequestBody progressRequestBody = new ProgressRequestBody(body, callback);
-            reqBuilder.tag(callback)
-                    .post(progressRequestBody);
-        } else {
-            reqBuilder.post(body);
-        }
-
-        return apiClient.getHttpClient().newCall(reqBuilder.build());
-    }
-
-    /**
-     * Deploy unit.
-     *
-     * @param unitId The ID of the deployment unit.
-     * @param unitContent The code to deploy.
-     * @param unitVersion The version of the deployment unit.
-     * @return {@code true} if the call succeeded.
-     * @throws ApiException if fail to call.
-     */
-    public Boolean deployUnitToNodes(
-            String unitId,
-            List<File> unitContent,
-            String unitVersion,
-            List<String> initialNodes
-    ) throws ApiException {
-        Call call = deployUnitToNodesCall(unitId, unitContent, unitVersion, initialNodes, null);
-        ApiResponse<Boolean> response = apiClient.execute(call, Boolean.class);
-        return response.getData();
-    }
-
-    /**
-     * Deploy unit asynchronously.
-     *
-     * @param unitId The ID of the deployment unit.
-     * @param unitContent The code to deploy.
-     * @param unitVersion The version of the deployment unit.
-     * @return Request call.
-     */
-    public Call deployUnitToNodesAsync(
-            String unitId,
-            List<File> unitContent,
-            String unitVersion,
-            List<String> initialNodes,
-            ApiCallback<Boolean> callback
-    ) {
-        Call call = deployUnitToNodesCall(unitId, unitContent, unitVersion, initialNodes, callback);
-        apiClient.executeAsync(call, Boolean.class, callback);
-        return call;
-    }
-
-    private Call deployUnitToNodesCall(
-            String unitId,
-            List<File> unitContent,
-            String unitVersion,
-            List<String> initialNodes,
+            @Nullable DeployMode deployMode,
+            @Nullable List<String> initialNodes,
             ApiCallback<Boolean> callback
     ) {
         StringBuilder url = new StringBuilder(apiClient.getBasePath());
@@ -168,9 +102,20 @@ public class DeployUnitClient {
                 .append("/").append(apiClient.escapeString(unitId))
                 .append("/").append(apiClient.escapeString(unitVersion));
 
-        if (!initialNodes.isEmpty()) {
-            url.append(initialNodes.stream()
-                    .map(node -> "initialNodes=" + node)
+        List<Pair> queryParams = new ArrayList<>();
+
+        if (deployMode != null) {
+            // parameterToPairs escape values while parameterToPair does not
+            queryParams.addAll(apiClient.parameterToPairs("multi", "deployMode", List.of(deployMode)));
+        }
+
+        if (initialNodes != null) {
+            queryParams.addAll(apiClient.parameterToPairs("multi", "initialNodes", initialNodes));
+        }
+
+        if (!queryParams.isEmpty()) {
+            url.append(queryParams.stream()
+                    .map(pair -> pair.getName() + "=" + pair.getValue())
                     .collect(Collectors.joining("&", "?", "")));
         }
 

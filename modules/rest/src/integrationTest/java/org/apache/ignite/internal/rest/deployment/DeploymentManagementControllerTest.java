@@ -199,7 +199,7 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
         }
 
         MutableHttpRequest<MultipartBody> post = HttpRequest
-                .POST("units/" + id + "/" + version + "/MAJORITY", body)
+                .POST("units/" + id + "/" + version, body)
                 .contentType(MediaType.MULTIPART_FORM_DATA);
 
         return client.toBlocking().exchange(post);

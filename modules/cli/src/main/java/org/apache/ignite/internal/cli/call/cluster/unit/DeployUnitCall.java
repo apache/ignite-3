@@ -77,12 +77,8 @@ public class DeployUnitCall implements AsyncCall<DeployUnitCallInput, String> {
         TrackingCallback<Boolean> callback = new TrackingCallback<>(tracker);
         String ver = input.version() == null ? "" : input.version();
         DeployMode deployMode = inferDeployMode(input.nodes());
-        Call call;
-        if (deployMode != null) {
-            call = api.deployUnitAsync(input.id(), files, ver, deployMode, callback);
-        } else {
-            call = api.deployUnitToNodesAsync(input.id(), files, ver, input.nodes(), callback);
-        }
+        List<String> initialNodes = deployMode == null ? input.nodes() : null;
+        Call call = api.deployUnitAsync(input.id(), files, ver, deployMode, initialNodes, callback);
 
         return CompletableFuture.supplyAsync(() -> {
             try {

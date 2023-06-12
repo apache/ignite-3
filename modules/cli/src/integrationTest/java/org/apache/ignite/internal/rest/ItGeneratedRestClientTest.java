@@ -394,7 +394,7 @@ public class ItGeneratedRestClientTest {
         String unitId = "test.unit.id";
         String unitVersion = "1.0.0";
 
-        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion, DeployMode.MAJORITY);
+        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion, DeployMode.MAJORITY, List.of());
 
         UnitStatus expectedStatus = new UnitStatus().id(unitId).putVersionToStatusItem(unitVersion, DEPLOYED);
 
