@@ -143,6 +143,7 @@ internal static class DataStreamer
 
         Batch GetOrCreateBatch(string partition)
         {
+            // TODO: CollectionMarshal.GetValueRefOrAddDefault
             if (batches.TryGetValue(partition, out var batch))
             {
                 return batch;
