@@ -421,9 +421,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv));
-
         partStoragesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(partStoragesByIdVv));
 
         txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
