@@ -33,6 +33,15 @@ using Serialization;
 
 /// <summary>
 /// Data streamer.
+/// <para />
+/// Implementation notes:
+/// * Hashing is combined with serialization (unlike Java client), so we write binary tuples to a per-node buffer right away.
+///   - Pros: cheaper happy path;
+///   - Cons: will require re-serialization on schema update.
+/// * Iteration and serialization are sequential.
+/// * Batches are sent asynchronously; we wait for the previous batch only when the next batch for the given node is full.
+/// * The more connections to different servers we have - the more parallelism we get (see benchmark).
+/// * There is no parallelism for the same node, because we need to guarantee ordering.
 /// </summary>
 internal static class DataStreamer
 {

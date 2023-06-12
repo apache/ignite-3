@@ -29,6 +29,10 @@ using Tests;
 /// <summary>
 /// Data streamer benchmark.
 /// <para />
+/// Server imitates work by doing Thread.Sleep based on the batch size, so UpsertAll wins in single-server scenario because it
+/// inserts everything in one batch, and streamer sends multiple batches. With multiple servers, streamer scales linearly because
+/// it sends batches to different nodes in parallel.
+/// <para />
 /// Results on i9-12900H, .NET SDK 6.0.408, Ubuntu 22.04:
 /// |           Method | ServerCount |      Mean |    Error |   StdDev | Ratio | RatioSD | Allocated |
 /// |----------------- |------------ |----------:|---------:|---------:|------:|--------:|----------:|
