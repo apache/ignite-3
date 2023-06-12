@@ -101,6 +101,7 @@ public class StripedThreadPoolExecutor implements ExecutorService {
      * same {@code index} will be executed in the same thread.
      *
      * @param task The task to submit.
+     * @param idx  Striped index.
      * @return a {@link Future} representing pending completion of the task.
      * @throws RejectedExecutionException if the task cannot be scheduled for execution.
      * @throws NullPointerException       if the task is {@code null}.
