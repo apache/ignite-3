@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.deployment;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -48,7 +51,21 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
     @Test
     public void testDeployWithNodeStop() {
         IgniteImpl cmgNode = cluster.node(8);
-        Unit big = files.deployAndVerifyBig("id1", Version.parseVersion("1.0.0"), cluster.node(3));
+
+        List<String> cmgNodes = Arrays.stream(cmgMetastoreNodes())
+                .mapToObj(i -> node(i).name())
+                .collect(Collectors.toList());
+
+        // Deploy to all CMG nodes, not only to majority
+        Unit big = files.deployAndVerify(
+                "id1",
+                Version.parseVersion("1.0.0"),
+                false,
+                List.of(files.bigFile()),
+                null,
+                cmgNodes,
+                cluster.node(3)
+        );
 
         stopNode(8);
 
