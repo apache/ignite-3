@@ -204,15 +204,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="recs">Records.</param>
         /// <param name="keyOnly">Key only columns.</param>
-        /// <param name="skipHash">Skip hash computation.</param>
         /// <returns>First record hash.</returns>
         public int WriteMultiple(
             PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             IEnumerator<T> recs,
-            bool keyOnly = false,
-            bool skipHash = false)
+            bool keyOnly = false)
         {
             var w = buf.MessageWriter;
 
@@ -233,7 +231,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     throw new ArgumentException("Record collection can't contain null elements.");
                 }
 
-                var hash = _handler.Write(ref w, schema, rec, keyOnly, computeHash: count == 0 && !skipHash);
+                var hash = _handler.Write(ref w, schema, rec, keyOnly, computeHash: count == 0);
 
                 if (count == 0)
                 {
