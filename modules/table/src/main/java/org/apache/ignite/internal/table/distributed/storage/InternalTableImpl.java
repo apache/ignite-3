@@ -57,7 +57,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -1113,21 +1112,23 @@ public class InternalTableImpl implements InternalTable {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
     public List<PrimaryReplica> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
-        List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
+        List<CompletableFuture<ReplicaMeta>> futs = new ArrayList<>();
 
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            futs.add(e.getValue().refreshAndGetLeaderWithTerm());
+            // TODO: sanpwc add timeout
+            futs.add(placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now()));
         }
 
         List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
 
-        for (CompletableFuture<LeaderWithTerm> fut : futs) {
-            LeaderWithTerm leaderWithTerm = fut.join();
-            ClusterNode primaryNode = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
+        for (CompletableFuture<ReplicaMeta> fut : futs) {
+            ReplicaMeta primaryReplica = fut.join();
+            // TODO: sanpwc Consider removing clusterNodeResolver usage.
+            ClusterNode primaryNode = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
 
-            primaryReplicas.add(new PrimaryReplica(primaryNode, leaderWithTerm.term()));
+            primaryReplicas.add(new PrimaryReplica(primaryNode, primaryReplica.getStartTime().longValue()));
         }
 
         return primaryReplicas;
