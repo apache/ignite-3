@@ -20,7 +20,10 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,14 +44,15 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
+import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -62,6 +67,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -139,7 +145,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRow(createKeyValueRow(1L, 1L))
+                .binaryRowBytes(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -171,6 +177,38 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testStopReplicaException() {
+        ClusterNode clusterNode = clusterService.topologyService().localMember();
+
+        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+
+        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId)
+                .timestampLong(clock.nowLong())
+                .binaryRowBytes(createKeyValueRow(1L, 1L))
+                .requestType(RequestType.RW_GET)
+                .build();
+
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
+                (message, sender, correlationId) -> {
+                    try {
+                        log.info("Replica msg " + message.getClass().getSimpleName());
+
+                        replicaManager.stopReplica(tablePartitionId);
+                    } catch (NodeStoppingException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        CompletableFuture<ReplicaResponse> respFur = replicaService.invoke(clusterNode, request);
+
+        assertThat(respFur, willThrow(Matchers.isA(ReplicaStoppingException.class)));
+    }
+
+    @Test
     public void testWithNotStartedReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
@@ -181,7 +219,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRow(createKeyValueRow(1L, 1L))
+                .binaryRowBytes(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -201,18 +239,66 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         }
 
         assertTrue(e0 != null);
-        assertTrue(e0.getCause() instanceof ReplicaUnavailableException, e0.toString());
+        assertTrue(unwrapCause(e0) instanceof ReplicationException, e0.toString());
 
         assertTrue(e1 != null);
-        assertTrue(e1.getCause() instanceof ReplicaUnavailableException, e1.toString());
+        assertTrue(unwrapCause(e1) instanceof ReplicationException, e1.toString());
     }
 
-    private static Row createKeyValueRow(long id, long value) {
+    @Test
+    public void testWithNotReadyReplica() {
+        ClusterNode clusterNode = clusterService.topologyService().localMember();
+
+        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
+                (message, sender, correlationId) -> {
+                    try {
+                        log.info("Replica msg " + message.getClass().getSimpleName());
+
+                        replicaManager.startReplica(
+                                tablePartitionId,
+                                new CompletableFuture<>(),
+                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                        .result(Integer.valueOf(5))
+                                        .build()),
+                                mock(TopologyAwareRaftGroupService.class),
+                                new PendingComparableValuesTracker<>(0L)
+                        );
+                    } catch (NodeStoppingException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId)
+                .timestampLong(clock.nowLong())
+                .binaryRowBytes(createKeyValueRow(1L, 1L))
+                .requestType(RequestType.RW_GET)
+                .build();
+
+        Exception e0 = null;
+
+        try {
+            replicaService.invoke(clusterNode, request).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e0 = e;
+        }
+
+        assertTrue(e0 != null);
+        assertTrue(unwrapCause(e0) instanceof ReplicationTimeoutException, e0.toString());
+        assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationTimeoutException) unwrapCause(e0)).code());
+    }
+
+    private static ByteBuffer createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return rowBuilder.build().byteBuffer();
     }
 }

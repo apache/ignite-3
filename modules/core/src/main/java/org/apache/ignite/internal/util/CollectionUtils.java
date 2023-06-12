@@ -24,6 +24,8 @@ import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
@@ -39,6 +41,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -621,5 +625,24 @@ public final class CollectionUtils {
         }
 
         return list.get(list.size() - 1);
+    }
+
+    /**
+     * Returns a {@code Collector} that accumulates elements into a {@link Int2ObjectOpenHashMap}.
+     *
+     * @param keyMapper Key mapper.
+     * @param valueMapper Value mapper.
+     * @param <T> the type of the input elements.
+     * @param <V> the output type of the value mapping function.
+     * @return Map collector.
+     */
+    public static <T, V> Collector<T, ?, Int2ObjectMap<V>> toIntMapCollector(
+            Function<T, Integer> keyMapper, Function<T, V> valueMapper) {
+        return Collectors.toMap(
+                keyMapper,
+                valueMapper,
+                (oldVal, newVal) -> newVal,
+                Int2ObjectOpenHashMap::new
+        );
     }
 }

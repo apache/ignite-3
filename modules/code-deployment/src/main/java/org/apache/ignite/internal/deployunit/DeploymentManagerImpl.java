@@ -23,33 +23,31 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitFailover;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -62,7 +60,6 @@ import org.jetbrains.annotations.Nullable;
  * Deployment manager implementation.
  */
 public class DeploymentManagerImpl implements IgniteDeployment {
-
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
     /**
@@ -103,7 +100,12 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     /**
      * Deploy tracker.
      */
-    private final DeployTracker tracker;
+    private final DownloadTracker tracker;
+
+    /**
+     * Failover.
+     */
+    private final DeploymentUnitFailover failover;
 
     /**
      * Constructor.
@@ -114,45 +116,23 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      * @param configuration Deployment configuration.
      * @param cmgManager Cluster management group manager.
      */
-    public DeploymentManagerImpl(ClusterService clusterService,
+    public DeploymentManagerImpl(
+            ClusterService clusterService,
             MetaStorageManager metaStorage,
+            LogicalTopologyService logicalTopology,
             Path workDir,
             DeploymentConfiguration configuration,
-            ClusterManagementGroupManager cmgManager) {
+            ClusterManagementGroupManager cmgManager
+    ) {
         this.clusterService = clusterService;
         this.configuration = configuration;
         this.cmgManager = cmgManager;
         this.workDir = workDir;
-        tracker = new DeployTracker();
+        tracker = new DownloadTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
-    }
-
-    private void onUnitRegister(UnitNodeStatus status, Set<String> deployedNodes) {
-        if (status.status() == UPLOADING) {
-            messaging.downloadUnitContent(status.id(), status.version(), new ArrayList<>(deployedNodes))
-                    .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
-                    .thenApply(deployed -> {
-                        if (deployed) {
-                            return deploymentUnitStore.updateNodeStatus(
-                                    getLocalNodeId(),
-                                    status.id(),
-                                    status.version(),
-                                    DEPLOYED);
-                        }
-                        return deployed;
-                    });
-        } else if (status.status() == DEPLOYED) {
-            deploymentUnitStore.getClusterStatus(status.id(), status.version())
-                    .thenApply(UnitClusterStatus::initialNodesToDeploy)
-                    .thenApply(deployedNodes::containsAll)
-                    .thenAccept(allRequiredDeployed -> {
-                        if (allRequiredDeployed) {
-                            deploymentUnitStore.updateClusterStatus(status.id(), status.version(), DEPLOYED);
-                        }
-                    });
-        }
+        failover = new DeploymentUnitFailover(logicalTopology, deploymentUnitStore, clusterService);
     }
 
     @Override
@@ -229,7 +209,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             LOG.error("Error reading deployment unit content", e);
             return failedFuture(e);
         }
-        return tracker.track(id, version, deployToLocalNode(id, version, unitContent)
+        return deployToLocalNode(id, version, unitContent)
                 .thenApply(completed -> {
                     if (completed) {
                         String localNodeId = getLocalNodeId();
@@ -240,8 +220,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         });
                     }
                     return completed;
-                })
-        );
+                });
     }
 
     private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
@@ -366,12 +345,14 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public void start() {
+        DefaultNodeCallback callback = new DefaultNodeCallback(deploymentUnitStore, messaging, deployer, clusterService, tracker);
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerListener(new NodeStatusWatchListener(
                 deploymentUnitStore,
                 this::getLocalNodeId,
-                this::onUnitRegister));
+                callback));
         messaging.subscribe();
+        failover.registerTopologyChangeCallback(callback);
     }
 
     @Override

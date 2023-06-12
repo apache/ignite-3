@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.empty;
 
 import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.storage.RowId;
@@ -51,12 +52,13 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
      */
     protected final void initialize(
             MvTableStorage tableStorage,
+            TableConfiguration tableConfig,
             TablesConfiguration tablesCfg,
             BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
     ) {
         this.baseEngineConfig = baseEngineConfig;
 
-        initialize(tableStorage, tablesCfg);
+        initialize(tableStorage, tableConfig, tablesCfg);
     }
 
     @Test

@@ -19,11 +19,9 @@ package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,15 +34,12 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @BeforeEach
     void setUp(
             @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { partitions = 10, dataStorage.name = " + TestStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
+            TablesConfiguration tablesConfig
     ) {
         TableConfiguration tableConfig = tablesConfig.tables().get("foo");
 
+        var storage = new TestMvTableStorage(tableConfig.id().value(), 10);
 
-        var storage = new TestMvTableStorage(tableConfig, tablesConfig, distributionZoneConfiguration);
-
-        initialize(storage, tablesConfig);
+        initialize(storage, tableConfig, tablesConfig);
     }
 }

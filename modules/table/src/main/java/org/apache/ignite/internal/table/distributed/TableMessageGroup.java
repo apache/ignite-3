@@ -34,6 +34,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
@@ -136,6 +137,11 @@ public interface TableMessageGroup {
      * Message type for {@link SnapshotTxDataResponse}.
      */
     short SNAPSHOT_TX_DATA_RESPONSE = 16;
+
+    /**
+     * Message type for {@link BinaryTupleMessage}.
+     */
+    short BINARY_TUPLE = 17;
 
     /**
      * Message types for Table module RAFT commands.

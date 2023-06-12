@@ -23,9 +23,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -48,7 +53,7 @@ public class ClientRecordView<R> implements RecordView<R> {
      * @param tbl Underlying table.
      * @param recMapper Mapper.
      */
-    public ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
+    ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
         this.tbl = tbl;
         ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper);
     }
@@ -350,5 +355,30 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
+
+        var provider = new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper());
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
+
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<R, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeRecs(null, items, s, w, TuplePart.KEY_AND_VAL),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        //noinspection resource
+        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
+        StreamerSubscriber<R, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
+        publisher.subscribe(subscriber);
+
+        return subscriber.completionFuture();
     }
 }

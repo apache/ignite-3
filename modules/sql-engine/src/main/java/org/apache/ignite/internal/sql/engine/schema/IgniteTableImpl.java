@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -356,7 +357,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRows(partToRows.getValue())
+                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
@@ -367,6 +368,16 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         }
 
         return CompletableFuture.allOf(futures);
+    }
+
+    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+        var result = new ArrayList<ByteBuffer>(rows.size());
+
+        for (BinaryRow row : rows) {
+            result.add(row.byteBuffer());
+        }
+
+        return result;
     }
 
     /** {@inheritDoc} */
@@ -401,7 +412,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRows(partToRows.getValue())
+                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
@@ -464,7 +475,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRows(partToRows.getValue())
+                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)
@@ -536,7 +547,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         @Override
         // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
         public Double getRowCount() {
-            int parts = table.storage().distributionZoneConfiguration().partitions().value();
+            int parts = table.storage().getTableDescriptor().getPartitions();
 
             long partitionsRevisionCounter = 0L;
 

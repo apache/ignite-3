@@ -19,12 +19,14 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Read only replica request.
  */
 public interface ReadOnlyReplicaRequest extends ReplicaRequest {
-    @Marshallable
-    HybridTimestamp readTimestamp();
+    long readTimestampLong();
+
+    default HybridTimestamp readTimestamp() {
+        return HybridTimestamp.hybridTimestamp(readTimestampLong());
+    }
 }

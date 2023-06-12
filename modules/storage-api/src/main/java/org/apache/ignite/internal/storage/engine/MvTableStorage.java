@@ -20,11 +20,8 @@ package org.apache.ignite.internal.storage.engine;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -133,21 +130,6 @@ public interface MvTableStorage extends ManuallyCloseable {
     boolean isVolatile();
 
     /**
-     * Returns the table configuration.
-     */
-    TableConfiguration configuration();
-
-    /**
-     * Returns configuration for all tables and indices.
-     */
-    TablesConfiguration tablesConfiguration();
-
-    /**
-     * Returns the distribution zone configuration.
-     */
-    DistributionZoneConfiguration distributionZoneConfiguration();
-
-    /**
      * Starts the storage.
      *
      * @throws StorageException If an error has occurred during the start of the storage.
@@ -180,7 +162,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
      *     {@link StorageRebalanceException} except:<ul>
-     *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
+     *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)};</li>
      *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
@@ -288,4 +270,9 @@ public interface MvTableStorage extends ManuallyCloseable {
      */
     // TODO: IGNITE-19112 Change or get rid of
     @Nullable IndexStorage getIndex(int partitionId, int indexId);
+
+    /**
+     * Returns the table descriptor.
+     */
+    StorageTableDescriptor getTableDescriptor();
 }

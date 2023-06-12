@@ -33,7 +33,6 @@ import org.apache.ignite.internal.tostring.S;
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -233494425779955410L;
 
-    private final int version;
     private final CatalogTableDescriptor[] tables;
     private final CatalogIndexDescriptor[] indexes;
 
@@ -47,21 +46,24 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
      *
      * @param id Schema id.
      * @param name Schema name.
-     * @param version Catalog version.
      * @param tables Tables description.
      * @param indexes Indexes description.
      */
-    public CatalogSchemaDescriptor(int id, String name, int version, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
+    public CatalogSchemaDescriptor(int id, String name, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
         super(id, Type.SCHEMA, name);
-        this.version = version;
         this.tables = Objects.requireNonNull(tables, "tables");
         this.indexes = Objects.requireNonNull(indexes, "indexes");
 
         rebuildMaps();
     }
 
-    public int version() {
-        return version;
+    private CatalogSchemaDescriptor(int id, String name, int version, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes,
+            Map<String, CatalogTableDescriptor> tablesMap, Map<String, CatalogIndexDescriptor> indexesMap) {
+        super(id, Type.SCHEMA, name);
+        this.tables = Objects.requireNonNull(tables, "tables");
+        this.indexes = Objects.requireNonNull(indexes, "indexes");
+        this.tablesMap = tablesMap;
+        this.indexesMap = indexesMap;
     }
 
     public CatalogTableDescriptor[] tables() {
@@ -87,8 +89,8 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     private void rebuildMaps() {
-        tablesMap = Arrays.stream(tables).collect(Collectors.toMap(CatalogObjectDescriptor::name, Function.identity()));
-        indexesMap = Arrays.stream(indexes).collect(Collectors.toMap(CatalogObjectDescriptor::name, Function.identity()));
+        tablesMap = Arrays.stream(tables).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        indexesMap = Arrays.stream(indexes).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
     }
 
     /** {@inheritDoc} */

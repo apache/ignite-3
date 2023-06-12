@@ -19,12 +19,11 @@ package org.apache.ignite.internal.cli.core.call;
 
 /** Progress tracker that will be called periodically during the call execution. */
 public interface ProgressTracker {
-    /** Tracks that the step is performed. */
-    void track();
-
     void track(long size);
 
     void maxSize(long size);
 
     void done();
+
+    void close();
 }
