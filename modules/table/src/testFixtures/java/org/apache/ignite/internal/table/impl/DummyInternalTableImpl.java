@@ -100,7 +100,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    private static final ClusterNode SCAN_RECIPIENT_NODE = new ClusterNode("node_0_id", "node_0_name", ADDR);
+    public static final ClusterNode SCAN_RECIPIENT_NODE = new ClusterNode("node_0_id", "node_0_name", ADDR);
 
     private static final int PART_ID = 0;
 
@@ -192,6 +192,31 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
+     * @param schema Schema descriptor.
+     * @param placementDriver Placement driver service.
+     */
+    public DummyInternalTableImpl(
+            ReplicaService replicaSvc,
+            MvPartitionStorage mvPartStorage,
+            SchemaDescriptor schema,
+            org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver
+    ) {
+        this(
+                replicaSvc,
+                mvPartStorage,
+                null,
+                false,
+                null,
+                schema,
+                placementDriver
+        );
+    }
+
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param mvPartStorage Multi version partition storage.
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
@@ -225,9 +250,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
         assert mockingDetails(placementDriver).isMock() : "Dummy internal table doesn't use placement driver mock.";
 
-        lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
-                new TestReplicaMetaImpl(SCAN_RECIPIENT_NODE.name(), HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE)));
-
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
@@ -239,6 +261,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
+            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
+                    .when(replicaSvc).invoke(any(String.class), any());
+
+            // TODO: sanpwc Remove duplication ClusterNode.class
             lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }

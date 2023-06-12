@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.table.impl.DummyInternalTableImpl.SCAN_RECIPIENT_NODE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,6 +47,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -79,12 +84,18 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             new Column[]{new Column("val", NativeTypes.stringOf(100), false)}
     );
 
+    private static final int PSEUDO_LEASE_INTERVAL = 10_000;
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
 
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
+
+    @Mock
+    /** Placement driver service. */
+    PlacementDriver placementDriver;
 
     final HybridClock clock = new HybridClockImpl();
 
@@ -95,7 +106,15 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     public void setUp(TestInfo testInfo) {
         when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
 
-        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA);
+        long physicalNow = clock.now().getPhysical();
+        HybridTimestamp leaseStartTime = new HybridTimestamp(physicalNow - PSEUDO_LEASE_INTERVAL, 0);
+        HybridTimestamp leaseExpirationTime = new HybridTimestamp(physicalNow + PSEUDO_LEASE_INTERVAL, 0);
+        ReplicaMeta primaryReplica = new TestReplicaMetaImpl(SCAN_RECIPIENT_NODE.name(), leaseStartTime, leaseExpirationTime);
+
+        lenient().when(placementDriver.awaitPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+        lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+
+        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA, placementDriver);
     }
 
     /**

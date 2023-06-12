@@ -19,7 +19,6 @@ package org.apache.ignite.distributed;
 
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
@@ -56,12 +55,10 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
         InternalTransaction tx = internalTbl.txManager().begin();
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
-        RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.partitionId());
-        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
+        ReplicaMeta primaryReplica = IgniteTestUtils.await(placementDriver.awaitPrimaryReplica(tblPartId, clock.now()));
 
         tx.assignCommitPartition(tblPartId);
-        // TODO: sanpwc Check and implement.
-//        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.partitionId()), term));
+        tx.enlist(tblPartId, primaryReplica);
 
         return tx;
     }
