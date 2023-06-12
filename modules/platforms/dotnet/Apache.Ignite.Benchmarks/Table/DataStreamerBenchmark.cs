@@ -53,6 +53,7 @@ public class DataStreamerBenchmark
     private ITable _table = null!;
     private IReadOnlyList<IIgniteTuple> _data = null!;
 
+    // TODO: Why no scale up beyond 2 servers? Do we need more per-node operations?
     [Params(1, 2, 4)]
     [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "Benchmark parameter")]
     public int ServerCount { get; set; }
