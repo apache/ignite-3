@@ -38,12 +38,15 @@ public class DataStreamerTests : IgniteTestsBase
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
 
     [Test]
-    public async Task TestBasicStreaming()
+    public async Task TestBasicStreamingRecordBinaryView()
     {
         var options = DataStreamerOptions.Default with { BatchSize = 10 };
         var data = Enumerable.Range(1, Count).Select(x => GetTuple(x, "t" + x)).ToList();
+
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
         var res = await TupleView.GetAllAsync(null, data);
+
+        Assert.AreEqual(res.Count, data.Count);
 
         foreach (var ((_, hasVal), tuple) in res.Zip(data))
         {
@@ -51,6 +54,25 @@ public class DataStreamerTests : IgniteTestsBase
 
             // TODO: GetAll does not behave as documented
             // Assert.AreEqual(val, tuple);
+        }
+    }
+
+    [Test]
+    public async Task TestBasicStreamingKeyValueBinaryView()
+    {
+        var options = DataStreamerOptions.Default with { BatchSize = 10 };
+        var data = Enumerable.Range(1, Count)
+            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x, "t" + x)))
+            .ToList();
+
+        await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);
+        var res = await TupleView.GetAllAsync(null, data.Select(x => x.Key));
+
+        Assert.AreEqual(res.Count, data.Count);
+
+        foreach (var (_, hasVal) in res)
+        {
+            Assert.IsTrue(hasVal);
         }
     }
 
