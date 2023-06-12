@@ -25,20 +25,33 @@ import java.util.stream.IntStream;
  */
 public class BitSetPartitionSet implements PartitionSet {
     /** Backing BitSet. */
-    private final BitSet set = new BitSet();
+    private final BitSet backingSet;
+
+    public BitSetPartitionSet() {
+        this.backingSet = new BitSet();
+    }
+
+    private BitSetPartitionSet(BitSet backingSet) {
+        this.backingSet = backingSet;
+    }
 
     @Override
     public void set(int bitIndex) {
-        set.set(bitIndex);
+        backingSet.set(bitIndex);
     }
 
     @Override
     public boolean get(int partitionIndex) {
-        return set.get(partitionIndex);
+        return backingSet.get(partitionIndex);
     }
 
     @Override
     public IntStream stream() {
-        return set.stream();
+        return backingSet.stream();
+    }
+
+    @Override
+    public PartitionSet copy() {
+        return new BitSetPartitionSet((BitSet) backingSet.clone());
     }
 }

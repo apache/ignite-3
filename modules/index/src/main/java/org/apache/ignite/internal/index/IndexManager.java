@@ -466,7 +466,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         CompletableFuture<?> fireEventFuture =
                 fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, tableId, indexId, eventIndexDescriptor));
 
-        TableImpl table = tableManager.tbl(tableId);
+        TableImpl table = tableManager.getTable(tableId);
 
         assert table != null;
 

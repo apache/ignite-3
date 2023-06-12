@@ -42,4 +42,6 @@ public interface PartitionSet {
      * The indices are returned in order, from lowest to highest.
      */
     IntStream stream();
+
+    PartitionSet copy();
 }

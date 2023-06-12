@@ -687,8 +687,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
         });
 
-        tblManagerFut.complete(tableManager);
-
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()

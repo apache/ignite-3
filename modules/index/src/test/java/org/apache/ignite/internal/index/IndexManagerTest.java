@@ -90,7 +90,7 @@ public class IndexManagerTest {
             return completedFuture(new TableImpl(tbl, new HeapLockManager()));
         });
 
-        when(tableManagerMock.tbl(anyInt())).thenAnswer(inv -> {
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
             InternalTable tbl = mock(InternalTable.class);
 
             Mockito.doReturn(inv.getArgument(0)).when(tbl).tableId();
