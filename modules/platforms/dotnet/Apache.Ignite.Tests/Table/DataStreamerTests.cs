@@ -136,7 +136,8 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestManyItemsWithDisconnectAndRetry()
     {
         const int count = 10_000;
-        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.TupleUpsertAll, RequestCount: > 5 });
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx.OpCode == ClientOp.TupleUpsertAll && ctx.RequestCount % 3 == 2);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
