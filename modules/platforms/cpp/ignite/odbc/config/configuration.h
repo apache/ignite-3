@@ -38,23 +38,23 @@ namespace ignite
 class configuration
 {
 public:
-    /** Argument map type. */
-    typedef std::map<std::string, std::string> argument_map;
-
     /** Default values for configuration. */
     struct default_value
     {
         /** Default value for Driver attribute. */
-        static const std::string driver;
+        static inline const std::string driver{"Apache Ignite"};
 
         /** Default value for address attribute. */
-        static const std::string address;
+        static inline const std::string address{};
 
         /** Default value for fetch results page size attribute. */
-        static const std::int32_t page_size;
+        static inline const std::int32_t page_size{1024};
+
+        /** Default value for Driver attribute. */
+        static inline const std::string host{"localhost"};
 
         /** Default value for TCP port attribute. */
-        static const std::uint16_t port;
+        static inline const std::uint16_t port{10800};
     };
 
     /**
@@ -64,13 +64,6 @@ public:
         : m_driver(default_value::driver)
         , m_page_size(default_value::page_size)
         , m_end_points({}) { }
-
-    /**
-     * Convert configure to connect string.
-     *
-     * @return Connect string.
-     */
-    [[nodiscard]] std::string to_connection_string() const;
 
     /**
      * Get Driver.
@@ -129,31 +122,14 @@ public:
     [[nodiscard]] bool is_page_size_set() const;
 
     /**
-     * Get argument map.
-     *
-     * @param res Resulting argument map.
-     */
-    void to_map(argument_map& res) const;
-
-    /**
      * Fill from configuration params.
      *
      * @param config_params Configuration params
      * @param diag Diagnostics collector.
      */
-    void from_config_map(config_map config_params, diagnostic_record_storage *diag);
+    void from_config_map(const config_map &config_params, diagnostic_record_storage *diag);
 
 private:
-    /**
-     * Add key and value to the argument map.
-     *
-     * @param map Map.
-     * @param key Key.
-     * @param value Value.
-     */
-    template<typename T>
-    static void add_to_map(argument_map& map, const std::string& key, const settable_value<T>& value);
-
     /** Driver name. */
     settable_value<std::string> m_driver;
 
@@ -163,17 +139,5 @@ private:
     /** Connection end-points. */
     settable_value< std::vector<end_point> > m_end_points;
 };
-
-template<>
-void configuration::add_to_map<std::string>(argument_map& map, const std::string& key,
-    const settable_value<std::string>& value);
-
-template<>
-void configuration::add_to_map<int32_t>(argument_map& map, const std::string& key,
-    const settable_value<int32_t>& value);
-
-template<>
-void configuration::add_to_map< std::vector<end_point> >(argument_map& map, const std::string& key,
-    const settable_value< std::vector<end_point> >& value);
 
 } // namespace ignite
