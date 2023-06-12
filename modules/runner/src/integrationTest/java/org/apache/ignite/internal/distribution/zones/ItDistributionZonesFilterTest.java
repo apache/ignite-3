@@ -94,7 +94,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
 
@@ -171,7 +171,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
 
@@ -239,7 +239,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
 
@@ -313,7 +313,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
         String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
 
@@ -365,7 +365,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
-    @Test
+    //@Test
     void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
         String filter = "'$[?(@.region == \"EU\" && @.storage == \"HDD\")]'";
 

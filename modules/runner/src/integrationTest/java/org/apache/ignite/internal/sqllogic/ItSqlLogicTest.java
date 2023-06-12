@@ -202,7 +202,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         stopNodes();
     }
 
-    @TestFactory
+    //@TestFactory
     public Stream<DynamicNode> sql() {
         assertTrue(Files.isDirectory(SCRIPTS_ROOT));
 

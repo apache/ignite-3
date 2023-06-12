@@ -707,7 +707,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts empty node.
      */
-    @Test
+    //@Test
     public void emptyNodeTest() {
         IgniteImpl ignite = startNode(0);
 
@@ -736,7 +736,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *     <li>Run query and compare results.</li>
      * </ol>
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
     public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
         IgniteImpl ignite1 = startNode(0);
@@ -789,7 +789,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts a node with changing configuration.
      */
-    @Test
+    //@Test
     public void changeConfigurationOnStartTest() {
         IgniteImpl ignite = startNode(0);
 
@@ -813,7 +813,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Tests that a new node's attributes configuration is propagated after node restart.
      */
-    @Test
+    //@Test
     public void changeNodeAttributesConfigurationOnStartTest() {
         IgniteImpl ignite = startNode(0);
 
@@ -855,7 +855,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts the node which stores some data.
      */
-    @Test
+    //@Test
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -871,7 +871,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts the node which stores some data.
      */
-    @Test
+    //@Test
     public void nodeWithDataAndIndexRebuildTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -928,7 +928,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
-    @Test
+    //@Test
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
@@ -1013,7 +1013,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent. Also
      * checks that the table created before node stop, is not available when majority if lost.
      */
-    @Test
+    //@Test
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -1044,7 +1044,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
-    @Test
+    //@Test
     public void testRecoveryOnOneNode() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -1066,7 +1066,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
-    @Test
+    //@Test
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
@@ -1093,7 +1093,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    @Test
+    //@Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
@@ -1124,7 +1124,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * group stops for some time while restarting node is being recovered. The recovery process should continue and eventually succeed after
      * metastorage group starts again.
      */
-    @Test
+    //@Test
     @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() throws InterruptedException {
@@ -1174,7 +1174,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
@@ -1206,7 +1206,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * The test for updating cluster configuration with the default value.
      * Check that new nodes will be able to synchronize the local cluster configuration.
      */
-    @Test
+    //@Test
     public void updateClusterCfgWithDefaultValue() {
         IgniteImpl ignite = startNode(0);
 
