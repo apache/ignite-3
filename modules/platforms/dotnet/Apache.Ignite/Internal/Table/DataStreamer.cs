@@ -67,9 +67,11 @@ internal static class DataStreamer
         // However, locking for batches is required due to auto-flush background task.
         var batches = new Dictionary<string, Batch>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
+
+        // TODO: IGNITE-19710 Data Streamer schema synchronization
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
-        var lastPartitionsAssignmentUpdate = Stopwatch.StartNew();
+        var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource();
 
         try
@@ -85,9 +87,8 @@ internal static class DataStreamer
                     await SendAsync(batch, partition).ConfigureAwait(false);
                 }
 
-                if (lastPartitionsAssignmentUpdate.Elapsed > PartitionAssignmentUpdateFrequency)
+                if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
                 {
-                    schema = await schemaProvider().ConfigureAwait(false);
                     var newAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
 
                     if (newAssignment != partitionAssignment)
@@ -97,7 +98,7 @@ internal static class DataStreamer
                         partitionAssignment = newAssignment;
                     }
 
-                    lastPartitionsAssignmentUpdate.Restart();
+                    lastPartitionsAssignmentCheck.Restart();
                 }
             }
 
