@@ -62,7 +62,7 @@ public class DataStreamerBenchmark
     public async Task GlobalSetup()
     {
         _servers = Enumerable.Range(0, ServerCount)
-            .Select(_ => new FakeServer(disableOpsTracking: true)
+            .Select(x => new FakeServer(disableOpsTracking: true, nodeName: "server-" + x)
             {
                 MultiRowOperationDelayPerRow = TimeSpan.FromMilliseconds(0.001) // 1 ms per 1000 rows
             })

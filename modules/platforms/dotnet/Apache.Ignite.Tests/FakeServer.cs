@@ -76,6 +76,12 @@ namespace Apache.Ignite.Tests
             // No-op.
         }
 
+        public FakeServer(bool disableOpsTracking, string nodeName = "fake-server")
+            : this(null, nodeName, disableOpsTracking: disableOpsTracking)
+        {
+            // No-op.
+        }
+
         internal FakeServer(
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
