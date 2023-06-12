@@ -158,7 +158,8 @@ public class DataStreamerTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         await table!.RecordBinaryView.StreamDataAsync(GetData(count));
 
-        // TODO: This is flaky! Sometimes we get 100_000, sometimes 99_000.
+        // TODO: This is flaky! Sometimes we get 100_000, sometimes 99_000. Thread.Sleep(1000) fixes it.
+        // Either UpsertAllRowCount needs synchronization, or the streamer does not wait for all batches correctly.
         Assert.AreEqual(count, server.UpsertAllRowCount);
         Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
     }
