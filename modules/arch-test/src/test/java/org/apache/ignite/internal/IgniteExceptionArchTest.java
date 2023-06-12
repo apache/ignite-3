@@ -81,6 +81,7 @@ public class IgniteExceptionArchTest {
             });
 
     private static final Set<String> exclusions = new HashSet<>();
+
     static {
         exclusions.add(IgniteClientAuthenticationException.class.getCanonicalName());
         exclusions.add(IgniteClientConnectionException.class.getCanonicalName());
