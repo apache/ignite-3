@@ -19,35 +19,49 @@ package org.apache.ignite.internal.cli.core.call;
 
 import java.util.concurrent.atomic.AtomicLong;
 import me.tongfei.progressbar.ProgressBar;
+import me.tongfei.progressbar.ProgressBarBuilder;
 
 /** {@link ProgressBar} based tracker. */
 public class ProgressBarTracker implements ProgressTracker {
-    private final ProgressBar progressBar;
+    private final ProgressBarBuilder progressBarBuilder;
+
     private final AtomicLong maxSize = new AtomicLong(0);
 
-    ProgressBarTracker(ProgressBar progressBar) {
-        this.progressBar = progressBar;
-    }
+    private volatile ProgressBar progressBar;
 
-    /** {@inheritDoc} */
-    @Override
-    public void track() {
-        progressBar.step();
+    ProgressBarTracker(ProgressBarBuilder progressBarBuilder) {
+        this.progressBarBuilder = progressBarBuilder;
     }
 
     @Override
     public synchronized void track(long size) {
+        ensureProgressBar();
         progressBar.stepTo(size);
     }
 
     @Override
     public void maxSize(long size) {
-        this.maxSize.compareAndSet(0, size);
-        this.progressBar.maxHint(size);
+        ensureProgressBar();
+        maxSize.compareAndSet(0, size);
+        progressBar.maxHint(size);
     }
 
     @Override
     public void done() {
-        progressBar.stepTo(this.maxSize.get());
+        ensureProgressBar();
+        progressBar.stepTo(maxSize.get());
+    }
+
+    @Override
+    public void close() {
+        if (progressBar != null) {
+            progressBar.close();
+        }
+    }
+
+    private void ensureProgressBar() {
+        if (progressBar == null) {
+            progressBar = progressBarBuilder.build();
+        }
     }
 }
