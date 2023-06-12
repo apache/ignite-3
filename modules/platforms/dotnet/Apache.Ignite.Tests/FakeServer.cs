@@ -133,6 +133,8 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
+        public long UpsertAllRowCount { get; set; }
+
         public bool DropNewConnections
         {
             get => _dropNewConnections;
@@ -592,11 +594,17 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleUpsertAll:
                         case ClientOp.TupleDeleteAll:
                         case ClientOp.TupleDeleteAllExact:
+                            reader.Skip(3);
+                            var count = reader.ReadInt32();
+
                             if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
                             {
-                                reader.Skip(3);
-                                var count = reader.ReadInt32();
                                 Thread.Sleep(MultiRowOperationDelayPerRow * count);
+                            }
+
+                            if (opCode == ClientOp.TupleUpsertAll)
+                            {
+                                UpsertAllRowCount += count;
                             }
 
                             Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());

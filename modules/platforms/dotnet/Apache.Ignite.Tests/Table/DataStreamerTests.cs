@@ -24,6 +24,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
+using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
@@ -134,7 +135,27 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestManyItemsWithDisconnectAndRetry()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        const int count = 10_000;
+        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.TupleUpsertAll, RequestCount: > 5 });
+
+        // Streamer has it's own retry policy, so we can disable retries on the client.
+        using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
+        {
+            RetryPolicy = new RetryNonePolicy()
+        });
+
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        await table!.RecordBinaryView.StreamDataAsync(GetData());
+
+        Assert.AreEqual(count, server.UpsertAllRowCount);
+
+        async IAsyncEnumerable<IIgniteTuple> GetData()
+        {
+            for (var i = 0; i < count; i++)
+            {
+                yield return new IgniteTuple { ["ID"] = i };
+                await Task.Yield();
+            }
+        }
     }
 }
