@@ -82,8 +82,8 @@ class UpdateLogImplTest {
         metastore.deployWatches();
 
         List<VersionedUpdate> expectedLog = List.of(
-                new VersionedUpdate(1, List.of(new TestUpdateEntry("foo"))),
-                new VersionedUpdate(2, List.of(new TestUpdateEntry("bar")))
+                new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
+                new VersionedUpdate(2, 2L, List.of(new TestUpdateEntry("bar")))
         );
 
         for (VersionedUpdate update : expectedLog) {
@@ -172,7 +172,7 @@ class UpdateLogImplTest {
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
-        return new VersionedUpdate(version, List.of(new TestUpdateEntry("foo_" + version)));
+        return new VersionedUpdate(version, version, List.of(new TestUpdateEntry("foo_" + version)));
     }
 
     static class TestUpdateEntry implements UpdateEntry {

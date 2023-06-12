@@ -83,6 +83,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -238,6 +239,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Flag indicates whether the current replica is the primary. */
     private volatile boolean primary;
 
+    private final TablesConfiguration tablesConfig;
+
     /**
      * The constructor.
      *
@@ -259,6 +262,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
      * @param indexBuilder Index builder.
+     * @param tablesConfig Tables configuration.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -280,7 +284,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             CompletableFuture<SchemaRegistry> schemaFut,
             ClusterNode localNode,
             MvTableStorage mvTableStorage,
-            IndexBuilder indexBuilder
+            IndexBuilder indexBuilder,
+            TablesConfiguration tablesConfig
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -299,6 +304,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.localNode = localNode;
         this.mvTableStorage = mvTableStorage;
         this.indexBuilder = indexBuilder;
+        this.tablesConfig = tablesConfig;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -2491,7 +2497,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         assert casResult : replicationGroupId;
 
-        mvTableStorage.tablesConfiguration().indexes().listenElements(listener);
+        tablesConfig.indexes().listenElements(listener);
     }
 
     private void startBuildIndex(StorageIndexDescriptor indexDescriptor) {
@@ -2529,7 +2535,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         registerIndexesListener();
 
         // Let's try to build an index for the previously created indexes for the table.
-        TablesView tablesView = mvTableStorage.tablesConfiguration().value();
+        TablesView tablesView = tablesConfig.value();
 
         for (TableIndexView indexView : tablesView.indexes()) {
             if (indexView.tableId() != tableId()) {
@@ -2551,7 +2557,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
 
         if (listener != null) {
-            mvTableStorage.tablesConfiguration().indexes().stopListenElements(listener);
+            tablesConfig.indexes().stopListenElements(listener);
         }
 
         indexBuilder.stopBuildIndexes(tableId(), partId());

@@ -15,35 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.exception;
+package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_DROP_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * This exception is thrown when a new distribution zone failed to be created,
- * because a distribution zone with same name already exists.
+ * Exception is thrown when the distribution zone cannot be dropped because there is a table bound to the distribution zone.
  */
-public class DistributionZoneAlreadyExistsException extends IgniteInternalException {
+public class DistributionZoneBindTableException extends IgniteInternalException {
     /**
      * The constructor.
      *
      * @param zoneName Zone name.
+     * @param tableName Table name.
      */
-    public DistributionZoneAlreadyExistsException(String zoneName) {
-        this(zoneName, null);
+    public DistributionZoneBindTableException(String zoneName, String tableName) {
+        this(zoneName, tableName, null);
     }
 
     /**
      * The constructor.
      *
      * @param zoneName Zone name.
+     * @param tableName Table name.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public DistributionZoneAlreadyExistsException(String zoneName, Throwable cause) {
-        super(ZONE_ALREADY_EXISTS_ERR, "Distribution zone already exists [zoneName=" + zoneName + ']', cause);
+    public DistributionZoneBindTableException(String zoneName, String tableName, @Nullable Throwable cause) {
+        super(ZONE_DROP_ERR, "Distribution zone is assigned to the table [zoneName=" + zoneName + ", tableName=" + tableName + ']',
+                cause);
     }
 
     /**
@@ -54,7 +56,7 @@ public class DistributionZoneAlreadyExistsException extends IgniteInternalExcept
      * @param message Error message.
      * @param cause Cause exception.
      */
-    public DistributionZoneAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {
+    public DistributionZoneBindTableException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

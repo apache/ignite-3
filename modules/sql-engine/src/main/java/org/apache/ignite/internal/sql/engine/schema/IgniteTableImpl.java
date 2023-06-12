@@ -547,7 +547,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         @Override
         // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
         public Double getRowCount() {
-            int parts = table.storage().distributionZoneConfiguration().partitions().value();
+            int parts = table.storage().getTableDescriptor().getPartitions();
 
             long partitionsRevisionCounter = 0L;
 

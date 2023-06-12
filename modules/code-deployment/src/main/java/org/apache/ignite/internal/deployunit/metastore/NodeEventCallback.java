@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.deployunit.metastore;
 
-import java.util.Set;
+import java.util.List;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /**
  * Listener of deployment unit node status changes.
  */
-@FunctionalInterface
 public interface NodeEventCallback {
     /**
      * Change event.
@@ -31,5 +30,38 @@ public interface NodeEventCallback {
      * @param status Deployment unit status.
      * @param holders Nodes consistent id.
      */
-    void onUpdate(UnitNodeStatus status, Set<String> holders);
+    default void onUpdate(UnitNodeStatus status, List<String> holders) {
+        switch (status.status()) {
+            case UPLOADING:
+                onUploading(status, holders);
+                break;
+            case DEPLOYED:
+                onDeploy(status, holders);
+                break;
+            case REMOVING:
+                onRemoving(status, holders);
+                break;
+            case OBSOLETE:
+                onObsolete(status, holders);
+                break;
+            default:
+                break;
+        }
+    }
+
+    default void onUploading(UnitNodeStatus status, List<String> holders) {
+
+    }
+
+    default void onDeploy(UnitNodeStatus status, List<String> holders) {
+
+    }
+
+    default void onObsolete(UnitNodeStatus status, List<String> holders) {
+
+    }
+
+    default void onRemoving(UnitNodeStatus status, List<String> holders) {
+
+    }
 }

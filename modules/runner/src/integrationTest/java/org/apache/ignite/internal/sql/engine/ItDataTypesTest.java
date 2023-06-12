@@ -309,10 +309,10 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
 
         assertQuery("SELECT val FROM tbl").returns(new BigDecimal("10.01000")).check();
 
-        assertQuery("SELECT id FROM tlb WHERE val = DECIMAL '10.0'").returns(1);
+        assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.01'").returns(1).check();
 
         sql("UPDATE tbl SET val=DECIMAL '10.20' WHERE id = 1");
-        assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.20'").returns(1);
+        assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.20'").returns(1).check();
     }
 
     private LocalDate sqlDate(String str) {
