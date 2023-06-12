@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
-import org.apache.ignite.lang.ByteArray;
 
 /**
  * Deploy actions tracker.
