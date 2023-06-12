@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when trying to deploy unit which already exist.
  */
 public class DeploymentUnitAlreadyExistsException extends IgniteException {
-
     /**
      * Unit identifier.
      */
@@ -44,5 +43,4 @@ public class DeploymentUnitAlreadyExistsException extends IgniteException {
     public String id() {
         return id;
     }
-
 }
