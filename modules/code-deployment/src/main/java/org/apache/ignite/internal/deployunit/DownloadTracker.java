@@ -32,7 +32,7 @@ public class DownloadTracker {
     /**
      * In flight futures tracker.
      */
-    private final Map<ByteArray, CompletableFuture<?>> inFlightFutures = new ConcurrentHashMap<>();
+    private final Map<ClusterStatusKey, CompletableFuture<?>> inFlightFutures = new ConcurrentHashMap<>();
 
     /**
      * Track deploy action.
@@ -44,7 +44,7 @@ public class DownloadTracker {
      * @return {@param trackableAction}.
      */
     public <T> CompletableFuture<T> track(String id, Version version, Supplier<CompletableFuture<T>> trackableAction) {
-        ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
+        ClusterStatusKey key = ClusterStatusKey.builder().id(id).version(version).build();
         return (CompletableFuture<T>) inFlightFutures.computeIfAbsent(key, k -> trackableAction.get());
     }
 
@@ -55,7 +55,7 @@ public class DownloadTracker {
      * @param version Deployment version identifier.
      */
     public void cancelIfDownloading(String id, Version version) {
-        ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
+        ClusterStatusKey key = ClusterStatusKey.builder().id(id).version(version).build();
         CompletableFuture<?> future = inFlightFutures.remove(key);
         if (future != null) {
             future.cancel(true);
