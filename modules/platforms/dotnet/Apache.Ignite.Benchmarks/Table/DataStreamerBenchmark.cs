@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Benchmarks.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -47,7 +48,7 @@ using Tests;
 /// | UpsertAllBatchedAsyncEnumerable |           4 | 23.42 ms | 0.466 ms | 0.992 ms | 23.30 ms |  1.20 |    0.03 |       - |      4 MB |.
 /// </summary>
 [MemoryDiagnoser]
-public class DataStreamerBenchmark // TODO: Why multi-node streamer is not faster?
+public class DataStreamerBenchmark
 {
     private IList<FakeServer> _servers = null!;
     private IIgniteClient _client = null!;
@@ -58,10 +59,16 @@ public class DataStreamerBenchmark // TODO: Why multi-node streamer is not faste
     [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "Benchmark parameter")]
     public int ServerCount { get; set; }
 
+    [Params(0, 5)]
+    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "Benchmark parameter")]
+    public int OperationDelayMs { get; set; }
+
     [GlobalSetup]
     public async Task GlobalSetup()
     {
-        _servers = Enumerable.Range(0, ServerCount).Select(_ => new FakeServer(disableOpsTracking: true)).ToList();
+        _servers = Enumerable.Range(0, ServerCount)
+            .Select(_ => new FakeServer(disableOpsTracking: true) { OperationDelay = TimeSpan.FromMilliseconds(OperationDelayMs) })
+            .ToList();
 
         // 10 partitions per node.
         var partitionAssignment = Enumerable.Range(1, 10).SelectMany(_ => _servers.Select(x => x.Node.Id)).ToArray();
