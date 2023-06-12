@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.TxManager;
@@ -51,7 +52,8 @@ public class InternalTableImplTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                mock(PlacementDriver.class)
         );
 
         // Let's check the empty table.
