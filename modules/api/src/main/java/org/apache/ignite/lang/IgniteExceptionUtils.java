@@ -245,11 +245,11 @@ public class IgniteExceptionUtils {
         if (t instanceof IgniteException) {
             return IgniteException.class;
         } else if (t instanceof IgniteCheckedException) {
-            return IgniteException.class;
+            return IgniteCheckedException.class;
         } else if (t instanceof IgniteInternalException) {
-            return IgniteException.class;
+            return IgniteInternalException.class;
         } else if (t instanceof IgniteInternalCheckedException) {
-            return IgniteException.class;
+            return IgniteInternalCheckedException.class;
         }
 
         return Throwable.class;
@@ -384,6 +384,10 @@ public class IgniteExceptionUtils {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
+                if (cause != null) {
+                    // Workaround to avoid error code duplication in exception message.
+                    cause = new UtilException(message, cause);
+                }
                 return (T) constructor.invokeWithArguments(traceId, code, cause);
             }
         });
@@ -416,6 +420,10 @@ public class IgniteExceptionUtils {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
+                if (cause != null) {
+                    // Workaround to avoid error code duplication in exception message.
+                    cause = new UtilException(message, cause);
+                }
                 return (T) constructor.invokeWithArguments(code, cause);
             }
         });
@@ -480,6 +488,10 @@ public class IgniteExceptionUtils {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
+                if (cause != null) {
+                    // Workaround to avoid error code duplication in exception message.
+                    cause = new UtilException(message, cause);
+                }
                 return (T) constructor.invokeWithArguments(cause);
             }
         });
@@ -499,5 +511,43 @@ public class IgniteExceptionUtils {
                 return copy;
             }
         });
+    }
+
+    /**
+     * This class is used as workaround to avoid error code and trace id duplication in the error message.
+     * The root cause of this issue is that the constructor Throwable(Throwable cause) uses cause.toString() method
+     * to create a detailedMessage instead of getMessage(), ans so this message will be enriched by class name, error code and trace id.
+     * For example,
+     * <pre><code>
+     *     class CustomException extends IgniteException {
+     *         public CustomException(Throwable cause) {
+     *             super(SPECIFIC_ERR_CODE, cause);
+     *         }
+     *     }
+     *
+     *     CustomException err = new new CustomException(new IllegalArgumentException("wrong argument));
+     *
+     *     // The following line prints: wrong argument - valid.
+     *     err.getMessage();
+     *
+     *     // The following line prints: IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument - valid.
+     *     err.toString();
+     *
+     *     CompletionException c = new CompletionException(err);
+     *
+     *     // The following line prints: IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument
+     *     c.getMessage();
+     *
+     *     CustomException copy = createCopyWithCause(c);
+     *
+     *     // The following line prints: CustomException IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument
+     *     copy.getMessage();
+     * </code></pre>
+     *
+     */
+    private static class UtilException extends Throwable {
+        public UtilException(String message, Throwable t) {
+            super(message, t, false, false);
+        }
     }
 }
