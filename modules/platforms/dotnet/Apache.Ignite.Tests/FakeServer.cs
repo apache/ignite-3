@@ -111,6 +111,8 @@ namespace Apache.Ignite.Tests
 
         public TimeSpan OperationDelay { get; set; }
 
+        public TimeSpan MultiRowOperationDelayPerRow { get; set; }
+
         public TimeSpan HeartbeatDelay { get; set; }
 
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
@@ -576,6 +578,13 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleGetAndDelete:
                         case ClientOp.TupleGetAndReplace:
                         case ClientOp.TupleGetAndUpsert:
+                            if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                            {
+                                reader.Skip(3);
+                                var count = reader.ReadInt32();
+                                Thread.Sleep(MultiRowOperationDelayPerRow * count);
+                            }
+
                             Send(handler, requestId, new byte[] { 1, MessagePackCode.Nil }.AsMemory());
                             continue;
 

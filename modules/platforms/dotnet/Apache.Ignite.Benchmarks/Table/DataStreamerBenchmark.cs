@@ -67,7 +67,10 @@ public class DataStreamerBenchmark
     public async Task GlobalSetup()
     {
         _servers = Enumerable.Range(0, ServerCount)
-            .Select(_ => new FakeServer(disableOpsTracking: true) { OperationDelay = TimeSpan.FromMilliseconds(OperationDelayMs) })
+            .Select(_ => new FakeServer(disableOpsTracking: true)
+            {
+                MultiRowOperationDelayPerRow = TimeSpan.FromMilliseconds(0.005) // 5 ms per batch
+            })
             .ToList();
 
         // 10 partitions per node.
