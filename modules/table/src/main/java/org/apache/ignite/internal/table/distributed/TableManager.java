@@ -2424,14 +2424,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(null);
                     }
 
+                    try {
+                        raftMgr.stopRaftNodes(tablePartitionId);
+                    } catch (NodeStoppingException e) {
+                        // No-op
+                    }
 
                     CompletableFuture<Boolean> stopReplicaFut;
                     try {
-                        raftMgr.stopRaftNodes(tablePartitionId);
-
                         stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
                     } catch (NodeStoppingException e) {
-                        // No-op.
                         stopReplicaFut = completedFuture(true);
                     }
 

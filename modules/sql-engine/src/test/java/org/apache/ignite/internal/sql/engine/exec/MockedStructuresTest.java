@@ -65,6 +65,7 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -155,6 +156,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
+
+    /** Replica manager. */
+    @Mock
+    ReplicaManager replicaManager;
 
     @Mock
     HybridClock clock;
@@ -555,6 +560,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
+         when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
+
         return createTableManager();
     }
 
@@ -566,7 +573,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 dstZnsCfg,
                 cs,
                 rm,
-                mock(ReplicaManager.class),
+                replicaManager,
                 null,
                 null,
                 bm,
