@@ -117,7 +117,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final int PLAN_CACHE_SIZE = 1024;
 
     /** Size of the table access cache. */
-    public static final int TABLE_CACHE_SIZE = 1024;
+    private static final int TABLE_CACHE_SIZE = 1024;
 
     /** Session expiration check period in milliseconds. */
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
