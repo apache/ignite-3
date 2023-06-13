@@ -132,6 +132,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
      * @return Proxy publisher with conversion from {@code BinaryRow} to {@code RowT}.
      */
     public static <RowT> Publisher<RowT> convertPublisher(Publisher<BinaryRow> pub, Function<BinaryRow, RowT> convert) {
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-19726 this method be moved to ScanableTableImpl
         Publisher<RowT> convPub = downstream -> {
             // BinaryRow -> RowT converter.
             Subscriber<BinaryRow> subs = new Subscriber<>() {
