@@ -52,6 +52,7 @@ public class StorageUpdateHandler {
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
+    // TODO: IGNITE-19483 вот тут надо подумать или тикет
     private final DataStorageConfiguration dsCfg;
 
     /** Low watermark. */
