@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -49,25 +48,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        try (InputStream jarStream = jobsResource.openStream()) {
-            CompletableFuture<Boolean> deployAsync = node(0).deployment().deployAsync(
-                    unitId,
-                    unitVersion,
-                    () -> Map.of("ignite-jobs-1.0-SNAPSHOT.jar", jarStream),
-                    MAJORITY
-            );
-            assertThat(deployAsync, willCompleteSuccessfully());
-        }
-
-        cluster.runningNodes().forEach(node -> {
-            CompletableFuture<Boolean> deployAsync = node.deployment().onDemandDeploy(
-                    unitId,
-                    unitVersion
-            );
-            assertThat(deployAsync, willCompleteSuccessfully());
-        });
         deployJar(node(0), unit.name(), unit.version(), "ignite-jobs-1.0-SNAPSHOT.jar");
-        await().until(() -> node(0).deployment().clusterStatusAsync(unit.name(), unit.version()), willBe(DEPLOYED));
     }
 
     @Override
@@ -134,7 +115,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         DeploymentUnit firstVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.0"));
         deployJar(entryNode, firstVersion.name(), firstVersion.version(), "unit1-1.0-SNAPSHOT.jar");
-        await().until(() -> entryNode.deployment().clusterStatusAsync(firstVersion.name(), firstVersion.version()), willBe(DEPLOYED));
 
         CompletableFuture<Integer> result1 = entryNode.compute()
                 .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
@@ -142,7 +122,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
         deployJar(entryNode, secondVersion.name(), secondVersion.version(), "unit2-1.0-SNAPSHOT.jar");
-        await().until(() -> entryNode.deployment().clusterStatusAsync(secondVersion.name(), secondVersion.version()), willBe(DEPLOYED));
 
         CompletableFuture<String> result2 = entryNode.compute()
                 .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
@@ -154,10 +133,12 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
             CompletableFuture<Boolean> deployed = node.deployment().deployAsync(
                     unitId,
                     unitVersion,
-                    () -> Map.of(jarName, jarStream)
+                    () -> Map.of(jarName, jarStream),
+                    MAJORITY
             );
 
             assertThat(deployed, willBe(true));
+            await().until(() -> node.deployment().clusterStatusAsync(unitId, unitVersion), willBe(DEPLOYED));
         }
     }
 }
