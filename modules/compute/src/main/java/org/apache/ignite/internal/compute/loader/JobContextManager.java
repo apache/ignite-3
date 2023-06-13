@@ -32,6 +32,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -132,15 +133,17 @@ public class JobContextManager {
 
     private CompletableFuture<Void> checkUnitStatus(DeploymentUnit unit) {
         return deployment.clusterStatusAsync(unit.name(), unit.version())
-                .thenCompose(status -> {
-                    if (status == DeploymentStatus.DEPLOYED) {
+                .thenCompose(clusterStatus -> {
+                    if (clusterStatus == DeploymentStatus.DEPLOYED) {
                         return completedFuture(null);
+                    } else if (clusterStatus == null) {
+                        return failedFuture(new DeploymentUnitNotFoundException(unit.name(), unit.version()));
                     } else {
                         return deployment.nodeStatusAsync(unit.name(), unit.version())
                                 .thenCompose(nodeStatus -> failedFuture(new DeploymentUnitUnavailableException(
                                         unit.name(),
                                         unit.version(),
-                                        status,
+                                        clusterStatus,
                                         nodeStatus
                                 )));
                     }
