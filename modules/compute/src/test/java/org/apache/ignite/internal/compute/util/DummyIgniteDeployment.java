@@ -92,13 +92,7 @@ public class DummyIgniteDeployment implements IgniteDeployment {
     @Override
     public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
         return completedFuture(path(id, version))
-                .thenCompose(path -> {
-                    if (Files.exists(path)) {
-                        return completedFuture(true);
-                    } else {
-                        return failedFuture(new DeploymentUnitNotFoundException(id, version));
-                    }
-                });
+                .thenCompose(path -> completedFuture(Files.exists(path)));
     }
 
     @Override

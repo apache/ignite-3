@@ -37,6 +37,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
+import org.apache.ignite.lang.ErrorGroups.Compute;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Manages job context.
@@ -82,8 +84,8 @@ public class JobContextManager {
      */
     public CompletableFuture<JobContext> acquireClassLoader(List<DeploymentUnit> units) {
         return normalizeVersions(units)
-                .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenCompose(normalizedUnits -> checkUnitStatuses(normalizedUnits).thenApply(v -> normalizedUnits))
+                .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
                 .thenApply(loader -> new JobContext(loader, this::releaseClassLoader))
                 .whenComplete((context, error) -> {
@@ -122,8 +124,9 @@ public class JobContextManager {
     /**
      * Check if the deployment units are deployed to the cluster. Only deployed units can be used in compute.
      */
-    private CompletableFuture<List<Void>> checkUnitStatuses(List<DeploymentUnit> units) {
-        return mapList(units, Void.class, this::checkUnitStatus);
+    private CompletableFuture<Void> checkUnitStatuses(List<DeploymentUnit> units) {
+        return mapList(units, Void.class, this::checkUnitStatus)
+                .thenApply(v -> null);
     }
 
 
@@ -149,9 +152,19 @@ public class JobContextManager {
         return mapList(units, DeploymentUnit.class, this::normalizeVersion);
     }
 
-    private CompletableFuture<Boolean> onDemandDeploy(List<DeploymentUnit> units) {
-        return mapList(units, Boolean.class, it -> deployment.onDemandDeploy(it.name(), it.version()))
-                .thenApply(ignored -> null);
+    private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {
+        return mapList(units, Void.class, it -> {
+            return deployment.onDemandDeploy(it.name(), it.version())
+                    .thenCompose(result -> {
+                        if (result) {
+                            return completedFuture(null);
+                        } else {
+                            return failedFuture(
+                                    new IgniteInternalException(Compute.CLASS_LOADER_ERR, "Failed to deploy on demand unit: " + it.render())
+                            );
+                        }
+                    });
+        }).thenApply(ignored -> null);
     }
 
     private CompletableFuture<DeploymentUnit> normalizeVersion(DeploymentUnit unit) {

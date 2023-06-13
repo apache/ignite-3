@@ -31,8 +31,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.internal.compute.util.DummyDeploymentUnitAccessor;
-import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,8 +40,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class JobClassLoaderFactoryTest {
     private final Path unitsDir = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
-
-    private final DeploymentUnitAccessor unitAccessor = new DummyDeploymentUnitAccessor(unitsDir);
 
     private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory();
 
@@ -213,7 +209,12 @@ class JobClassLoaderFactoryTest {
 
     private List<DisposableDeploymentUnit> toDisposableDeploymentUnits(DeploymentUnit... units) {
         return Arrays.stream(units)
-                .map(unitAccessor::acquire)
+                .map(it -> new DisposableDeploymentUnit(
+                        it,
+                        unitsDir.resolve(it.name()).resolve(it.version().toString()),
+                        () -> {
+                        }
+                ))
                 .collect(Collectors.toList());
     }
 }

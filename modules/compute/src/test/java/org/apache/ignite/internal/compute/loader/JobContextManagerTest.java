@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.compute.loader;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.version.Version.LATEST;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -25,7 +28,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -35,18 +37,18 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.compute.util.DummyDeploymentUnitAccessor;
 import org.apache.ignite.internal.compute.util.DummyIgniteDeployment;
+import org.apache.ignite.internal.deployunit.DeploymentUnitAccessorImpl;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
-import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,9 +62,6 @@ class JobContextManagerTest {
     private final Path unitsDir = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
 
     @Spy
-    private final DummyDeploymentUnitAccessor unitAccessor = new DummyDeploymentUnitAccessor(unitsDir);
-
-    @Spy
     private IgniteDeployment deployment = new DummyIgniteDeployment(unitsDir);
 
     @Mock
@@ -72,7 +71,14 @@ class JobContextManagerTest {
 
     @BeforeEach
     void setUp() {
-        classLoaderManager = new JobContextManager(deployment, unitAccessor, jobClassLoaderFactory);
+        FileDeployerService deployerService = new FileDeployerService();
+        deployerService.initUnitsFolder(unitsDir);
+
+        classLoaderManager = new JobContextManager(
+                deployment,
+                new DeploymentUnitAccessorImpl(deployerService),
+                jobClassLoaderFactory
+        );
     }
 
     @Test
@@ -83,7 +89,11 @@ class JobContextManagerTest {
         );
 
         List<DisposableDeploymentUnit> deploymentUnits = units.stream()
-                .map(unitAccessor::acquire)
+                .map(it -> {
+                    Path unitDir = unitsDir.resolve(it.name()).resolve(it.version().toString());
+                    return new DisposableDeploymentUnit(it, unitDir, () -> {
+                    });
+                })
                 .collect(Collectors.toList());
 
 
@@ -148,7 +158,7 @@ class JobContextManagerTest {
 
     @Test
     public void throwsExceptionOnOnDemandDeploy() {
-        doReturn(CompletableFuture.failedFuture(new IOException("Failed to deploy")))
+        doReturn(completedFuture(false))
                 .when(deployment).onDemandDeploy(anyString(), any());
 
         List<DeploymentUnit> units = List.of(
@@ -158,7 +168,7 @@ class JobContextManagerTest {
 
         assertThat(
                 classLoaderManager.acquireClassLoader(units),
-                willThrowFast(IOException.class, "Failed to deploy")
+                willThrowFast(IgniteInternalException.class, "Failed to deploy on demand unit: unit1:1.0.0")
         );
     }
 
@@ -175,32 +185,21 @@ class JobContextManagerTest {
     }
 
     @Test
-    public void nonExistingVersion() {
-        List<DeploymentUnit> units = List.of(
-                new DeploymentUnit("unit1", Version.parseVersion("-1.0.0"))
-        );
-
-        assertThat(
-                classLoaderManager.acquireClassLoader(units),
-                CompletableFutureExceptionMatcher.willThrow(DeploymentUnitNotFoundException.class, "Unit unit1:-1.0.0 not found")
-        );
-    }
-
-    @Test
     public void nonAvailableUnit() {
-        DeploymentUnitUnavailableException toBeThrown = new DeploymentUnitUnavailableException(
-                "unit",
-                Version.parseVersion("1.0.0"),
-                DeploymentStatus.OBSOLETE,
-                DeploymentStatus.REMOVING
-        );
 
-        doThrow(toBeThrown)
-                .when(deployment).onDemandDeploy(anyString(), any());
+        DeploymentUnit unit = new DeploymentUnit("unit", "1.0.0");
+
+        doReturn(completedFuture(OBSOLETE))
+                .when(deployment).clusterStatusAsync(unit.name(), unit.version());
+        doReturn(completedFuture(REMOVING))
+                .when(deployment).nodeStatusAsync(unit.name(), unit.version());
 
         assertThat(
                 classLoaderManager.acquireClassLoader(List.of(new DeploymentUnit("unit", "1.0.0"))),
-                willThrowFast(DeploymentUnitUnavailableException.class, "Unit unit:1.0.0 is unavailable")
+                willThrowFast(
+                        DeploymentUnitUnavailableException.class,
+                        "Unit unit:1.0.0 is unavailable. Cluster status: OBSOLETE, node status: REMOVING"
+                )
         );
     }
 

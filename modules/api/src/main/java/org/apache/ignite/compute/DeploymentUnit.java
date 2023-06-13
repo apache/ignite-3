@@ -94,4 +94,8 @@ public class DeploymentUnit {
                 + ", version=" + version
                 + '}';
     }
+
+    public String render() {
+        return name + ":" + version;
+    }
 }
