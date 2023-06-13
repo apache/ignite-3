@@ -587,7 +587,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas()
-            );}
+                );
+            }
 
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
