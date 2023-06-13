@@ -763,6 +763,7 @@ public class ItRebalanceDistributedTest {
                     name
             );
 
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -770,7 +771,7 @@ public class ItRebalanceDistributedTest {
                     zonesCfg,
                     clusterService,
                     raftManager,
-                    Mockito.mock(ReplicaManager.class),
+                    replicaManager,
                     Mockito.mock(LockManager.class),
                     replicaSvc,
                     baselineMgr,

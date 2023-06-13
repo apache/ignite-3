@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -119,27 +120,33 @@ public class Cluster {
         this.defaultNodeBootstrapConfigTemplate = defaultNodeBootstrapConfigTemplate;
     }
 
-    /**
-     * Starts the cluster with the given number of nodes and initializes it.
-     *
-     * @param nodeCount Number of nodes in the cluster.
-     */
     public void startAndInit(int nodeCount) {
-        startAndInit(nodeCount, builder -> {});
+        startAndInit(nodeCount, new int[] { 0 });
     }
 
     /**
      * Starts the cluster with the given number of nodes and initializes it.
      *
      * @param nodeCount Number of nodes in the cluster.
+     * @param cmgNodes Indices of CMG nodes.
+     */
+    public void startAndInit(int nodeCount, int[] cmgNodes) {
+        startAndInit(nodeCount, cmgNodes, builder -> {});
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param cmgNodes Indices of CMG nodes.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
-    public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startAndInit(nodeCount, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
+    public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        startAndInit(nodeCount, cmgNodes, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
     }
 
     /**
-     * Starts the cluster with the given number of nodes and initializes it.
+     * Starts the cluster with the given number of nodes and initializes it with CMG on first node.
      *
      * @param nodeCount Number of nodes in the cluster.
      * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
@@ -151,6 +158,24 @@ public class Cluster {
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator
     ) {
+        startAndInit(nodeCount, new int[] { 0 }, nodeBootstrapConfigTemplate, initParametersConfigurator);
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param cmgNodes Indices of CMG nodes.
+     * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
+     *     with this call.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(
+            int nodeCount,
+            int[] cmgNodes,
+            String nodeBootstrapConfigTemplate,
+            Consumer<InitParametersBuilder> initParametersConfigurator
+    ) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -159,11 +184,11 @@ public class Cluster {
                 .mapToObj(nodeIndex -> startNodeAsync(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
 
-        String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
+        List<String> metaStorageAndCmgNodeNames = Arrays.stream(cmgNodes).mapToObj(i -> testNodeName(testInfo, i)).collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeName)
-                .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                .destinationNodeName(metaStorageAndCmgNodeNames.get(0))
+                .metaStorageNodeNames(metaStorageAndCmgNodeNames)
                 .clusterName("cluster");
 
         initParametersConfigurator.accept(builder);
@@ -458,6 +483,8 @@ public class Cluster {
                     );
                 });
 
+        knockedOutNodesIndices.add(nodeIndex);
+
         LOG.info("Knocked out node " + nodeIndex + " with an artificial network partition");
     }
 
@@ -483,6 +510,8 @@ public class Cluster {
                         ignite.dropMessages(censor.prevPredicate);
                     }
                 });
+
+        knockedOutNodesIndices.remove(nodeIndex);
 
         LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
     }

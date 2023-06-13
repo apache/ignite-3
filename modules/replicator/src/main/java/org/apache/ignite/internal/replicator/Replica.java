@@ -273,7 +273,8 @@ public class Replica {
     /**
      * Shutdowns the replica.
      */
-    public void shutdown() {
+    public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
+        return raftClient.unsubscribeLeader();
     }
 }

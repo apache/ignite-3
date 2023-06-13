@@ -22,7 +22,6 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import me.tongfei.progressbar.DelegatingProgressBarConsumer;
-import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
@@ -55,19 +54,22 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
     public int runPipelineInternal() {
         I callInput = inputProvider.get();
 
-        progressBarBuilder.setConsumer(new DelegatingProgressBarConsumer(this::print));
+        progressBarBuilder.setConsumer(new DelegatingProgressBarConsumer(this::print) {
+            @Override
+            public void close() {
+                // move carriage to the next line
+                output.println();
+                output.flush();
+            }
+        });
         progressBarBuilder.setUpdateIntervalMillis(60);
-        ProgressBar progressBar = progressBarBuilder.build();
 
         try {
-            ProgressBarTracker tracker = new ProgressBarTracker(progressBar);
+            ProgressBarTracker tracker = new ProgressBarTracker(progressBarBuilder);
             CallOutput<T> result = callFactory.apply(tracker)
                     .execute(callInput)
-                    .whenComplete((el, err) -> progressBar.close())
+                    .whenComplete((el, err) -> tracker.close())
                     .join();
-
-            // move carriage to the next line
-            output.println();
 
             return handleResult(result);
         } catch (CompletionException e) {
