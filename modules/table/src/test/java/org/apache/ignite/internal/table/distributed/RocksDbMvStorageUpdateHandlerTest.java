@@ -39,9 +39,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class RocksDbMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
-    @InjectConfiguration
-    private RocksDbStorageEngineConfiguration storageEngineConfig;
-
     @WorkDirectory
     private Path workDir;
 
@@ -50,8 +47,11 @@ class RocksDbMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTe
     private RocksDbTableStorage table;
 
     @BeforeEach
-    void setUp(@InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig) {
-        engine = new RocksDbStorageEngine("test", storageEngineConfig, workDir);
+    void setUp(
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+    ) {
+        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
 
         engine.start();
 

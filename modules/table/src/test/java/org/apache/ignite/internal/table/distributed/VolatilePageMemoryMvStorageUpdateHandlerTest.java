@@ -37,22 +37,22 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 class VolatilePageMemoryMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
-    @InjectConfiguration
-    private VolatilePageMemoryStorageEngineConfiguration storageEngineConfig;
-
     private VolatilePageMemoryStorageEngine engine;
 
     private VolatilePageMemoryTableStorage table;
 
     @BeforeEach
-    void setUp(@InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig) {
+    void setUp(
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+    ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         String nodeName = "test";
 
-        engine = new VolatilePageMemoryStorageEngine("test", storageEngineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        engine = new VolatilePageMemoryStorageEngine("test", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();
 

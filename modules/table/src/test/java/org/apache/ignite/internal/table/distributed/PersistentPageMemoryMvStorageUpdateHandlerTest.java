@@ -41,9 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class PersistentPageMemoryMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTest {
-    @InjectConfiguration
-    private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
-
     @WorkDirectory
     private Path workDir;
 
@@ -52,7 +49,10 @@ class PersistentPageMemoryMvStorageUpdateHandlerTest extends AbstractMvStorageUp
     private PersistentPageMemoryTableStorage table;
 
     @BeforeEach
-    void setUp(@InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig) {
+    void setUp(
+            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+    ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -61,7 +61,7 @@ class PersistentPageMemoryMvStorageUpdateHandlerTest extends AbstractMvStorageUp
 
         engine = new PersistentPageMemoryStorageEngine(
                 nodeName,
-                storageEngineConfig,
+                engineConfig,
                 ioRegistry,
                 workDir,
                 new LongJvmPauseDetector(nodeName)
