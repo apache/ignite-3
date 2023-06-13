@@ -22,7 +22,8 @@ import java.util.Objects;
 import org.apache.ignite.compute.DeploymentUnit;
 
 /**
- * Disposable deployment unit.
+ * Disposable deployment unit. This class is used to track deployment units that are not needed any more.
+ * When the unit is not needed any more, {@link #release()} method should be called to release resources.
  */
 public class DisposableDeploymentUnit {
     private final DeploymentUnit unit;
@@ -36,7 +37,7 @@ public class DisposableDeploymentUnit {
      *
      * @param unit Deployment unit.
      * @param path Path to the deployment unit.
-     * @param release Release.
+     * @param release Release. This runnable will be called when the unit is not needed any more.
      */
     public DisposableDeploymentUnit(DeploymentUnit unit, Path path, Runnable release) {
         this.unit = unit;
