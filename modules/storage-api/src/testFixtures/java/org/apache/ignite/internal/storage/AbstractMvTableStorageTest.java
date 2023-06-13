@@ -54,7 +54,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -72,7 +71,6 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -114,32 +112,20 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageHashIndexDescriptor hashIdx;
 
-    protected StorageEngine storageEngine;
-
     protected TablesConfiguration tablesConfig;
-
-    protected DistributionZoneConfiguration distributionZoneConfig;
 
     /**
      * Initializes the internal structures needed for tests.
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(
-            StorageEngine storageEngine,
-            TablesConfiguration tablesConfig,
-            DistributionZoneConfiguration distributionZoneConfig
-    ) {
-        createTestTable(getTableConfig(tablesConfig));
+    protected final void initialize(TablesConfiguration tablesConfig) {
+        createTestTable(tablesConfig.tables().get("foo"));
         createTestIndexes(tablesConfig);
 
         this.tablesConfig = tablesConfig;
-        this.distributionZoneConfig = distributionZoneConfig;
 
-        this.storageEngine = storageEngine;
-        this.storageEngine.start();
-
-        this.tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
+        this.tableStorage = createMvTableStorage();
         this.tableStorage.start();
 
         TablesView tablesView = tablesConfig.value();
@@ -154,21 +140,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
-                storageEngine == null ? null : storageEngine::stop
-        );
+    protected void tearDown() throws Exception {
+        IgniteUtils.closeAllManually(tableStorage);
     }
 
-    protected MvTableStorage createMvTableStorage(TablesConfiguration tablesConfig,
-            DistributionZoneConfiguration distributionZoneConfiguration) {
-        return storageEngine.createMvTable(getTableConfig(tablesConfig), tablesConfig, distributionZoneConfiguration);
-    }
-
-    private TableConfiguration getTableConfig(TablesConfiguration tablesConfig) {
-        return tablesConfig.tables().get("foo");
-    }
+    protected abstract MvTableStorage createMvTableStorage();
 
     /**
      * Tests that {@link MvTableStorage#getMvPartition(int)} correctly returns an existing partition.
@@ -585,7 +561,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
 
         // Let's check that after restarting the table we will have an empty partition.
-        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 
@@ -623,7 +599,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 
@@ -767,7 +743,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Restart storages.
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
+        tableStorage = createMvTableStorage();
 
         tableStorage.start();
 
