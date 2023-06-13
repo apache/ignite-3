@@ -44,36 +44,22 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestBasicStreamingRecordBinaryView()
     {
         var options = DataStreamerOptions.Default with { BatchSize = 10 };
-        var data = Enumerable.Range(1, Count).Select(x => GetTuple(x, "t" + x)).ToList();
+        var data = Enumerable.Range(0, Count).Select(x => GetTuple(x, "t" + x)).ToList();
 
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
-        var res = await TupleView.GetAllAsync(null, data);
-
-        Assert.AreEqual(res.Count, data.Count);
-
-        foreach (var (_, hasVal) in res)
-        {
-            Assert.IsTrue(hasVal);
-        }
+        await CheckData();
     }
 
     [Test]
     public async Task TestBasicStreamingKeyValueBinaryView()
     {
         var options = DataStreamerOptions.Default with { BatchSize = 10 };
-        var data = Enumerable.Range(1, Count)
+        var data = Enumerable.Range(0, Count)
             .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x, "t" + x)))
             .ToList();
 
         await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);
-        var res = await TupleView.GetAllAsync(null, data.Select(x => x.Key));
-
-        Assert.AreEqual(res.Count, data.Count);
-
-        foreach (var (_, hasVal) in res)
-        {
-            Assert.IsTrue(hasVal);
-        }
+        await CheckData();
     }
 
     [Test]
@@ -182,6 +168,19 @@ public class DataStreamerTests : IgniteTestsBase
         {
             yield return GetTuple(i, "t" + i);
             await Task.Delay(15000, ct);
+        }
+    }
+
+    private async Task CheckData()
+    {
+        var data = Enumerable.Range(0, Count).Select(x => GetTuple(x));
+        var res = await TupleView.GetAllAsync(null, data);
+
+        Assert.AreEqual(Count, res.Count);
+
+        foreach (var (_, hasVal) in res)
+        {
+            Assert.IsTrue(hasVal);
         }
     }
 }
