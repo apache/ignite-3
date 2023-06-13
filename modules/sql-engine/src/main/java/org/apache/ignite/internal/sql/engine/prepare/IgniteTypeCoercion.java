@@ -55,8 +55,8 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
@@ -431,10 +431,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         ContextType ctxType = ctxStack.currentContext();
 
         if (ctxType == ContextType.SET_OP && originalDataType[0] != null) {
-            // Make coercion to between type families illegal for set operations.
+            // Make coercion to between type incompatible families illegal for set operations.
             // Returns false so that SetopOperandTypeChecker is going to raise appropriate exception,
             // when coercion fails.
-            return IgniteTypeSystem.INSTANCE.typeFamiliesAreCompatible(typeFactory, targetType, originalDataType[0]);
+            return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, originalDataType[0]);
         } else {
             return true;
         }
@@ -638,17 +638,18 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
         if (ctxType == ContextType.SET_OP) {
             RelDataType paramType = validator.getDynamicParamType(dynamicParam);
-            return IgniteTypeSystem.INSTANCE.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+            return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         } else {
             validateAssignment(dynamicParam, targetType, ctxType, validator);
             return true;
         }
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
     private void validateAssignment(SqlDynamicParam node, RelDataType targetType, ContextType ctxType, IgniteSqlValidator validator) {
 
         RelDataType paramType = validator.getDynamicParamType(node);
-        boolean compatible = IgniteTypeSystem.INSTANCE.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         if (compatible) {
             return;
         }
@@ -672,10 +673,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
     private void validateOperand(SqlDynamicParam node, RelDataType targetType, SqlOperator operator, IgniteSqlValidator validator) {
 
         RelDataType paramType = validator.getDynamicParamType(node);
-        boolean compatible = IgniteTypeSystem.INSTANCE.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         if (compatible) {
             return;
         }

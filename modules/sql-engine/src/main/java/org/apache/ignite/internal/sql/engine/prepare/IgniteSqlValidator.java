@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -387,8 +388,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // This check can be a part of some SqlOperandTypeChecker?
 
         if (lhs instanceof IgniteCustomType || rhs instanceof IgniteCustomType) {
-            boolean lhsRhsCompatible = IgniteTypeSystem.INSTANCE.typeFamiliesAreCompatible(typeFactory, lhs, rhs);
-            boolean rhsLhsCompatible = IgniteTypeSystem.INSTANCE.typeFamiliesAreCompatible(typeFactory, rhs, lhs);
+            boolean lhsRhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, lhs, rhs);
+            boolean rhsLhsCompatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, rhs, lhs);
 
             if (!lhsRhsCompatible && !rhsLhsCompatible) {
                 SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);

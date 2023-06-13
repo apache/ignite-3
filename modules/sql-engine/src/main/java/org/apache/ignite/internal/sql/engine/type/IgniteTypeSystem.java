@@ -19,13 +19,11 @@ package org.apache.ignite.internal.sql.engine.type;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Objects;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 
 /**
@@ -150,35 +148,4 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         return typeFactory.createTypeWithNullability(sumType, argumentType.isNullable());
     }
 
-    /**
-     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
-     * Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
-     *
-     * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
-     */
-    public boolean typeFamiliesAreCompatible(RelDataTypeFactory typeFactory, RelDataType toType, RelDataType fromType) {
-
-        // Same types are always compatible.
-        if (SqlTypeUtil.equalSansNullability(typeFactory, toType, fromType)) {
-            return true;
-        }
-
-        // NULL is compatible with all types.
-        if (fromType.getSqlTypeName() == SqlTypeName.NULL || toType.getSqlTypeName() == SqlTypeName.NULL) {
-            return true;
-        } else if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
-            IgniteCustomType fromCustom = (IgniteCustomType) fromType;
-            IgniteCustomType toCustom = (IgniteCustomType) toType;
-
-            // IgniteCustomType: different custom data types are not compatible.
-            return Objects.equals(fromCustom.getCustomTypeName(), toCustom.getCustomTypeName());
-        } else if (fromType instanceof IgniteCustomType || toType instanceof IgniteCustomType) {
-            // IgniteCustomType: custom data types are not compatible with other types.
-            return false;
-        } else if (SqlTypeUtil.canAssignFrom(toType, fromType)) {
-            return SqlTypeUtil.canAssignFrom(fromType, toType);
-        } else {
-            return false;
-        }
-    }
 }
