@@ -19,7 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-import static org.apache.ignite.lang.IgniteExceptionUtils.createCopyExceptionWithCause;
+import static org.apache.ignite.lang.IgniteExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import io.netty.buffer.ByteBuf;
@@ -430,7 +430,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             // TODO https://issues.apache.org/jira/browse/IGNITE-19539
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
             if (IgniteException.class.isAssignableFrom(errCls) || IgniteCheckedException.class.isAssignableFrom(errCls)) {
-                return createCopyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
+                return copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
             }
         } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.

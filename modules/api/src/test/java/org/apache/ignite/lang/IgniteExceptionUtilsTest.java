@@ -36,7 +36,7 @@ public class IgniteExceptionUtilsTest {
     public <T extends IgniteException> void testPublicException(T origin) {
         var completionErr = new CompletionException(origin);
 
-        Throwable tcopy = IgniteExceptionUtils.createCopyExceptionWithCause(completionErr);
+        Throwable tcopy = IgniteExceptionUtils.copyExceptionWithCause(completionErr);
 
         assertThat(tcopy, isA(origin.getClass()));
 
@@ -52,7 +52,7 @@ public class IgniteExceptionUtilsTest {
     public <T extends IgniteCheckedException> void testPublicCheckedException(T origin) {
         var completionErr = new CompletionException(origin);
 
-        Throwable tcopy = IgniteExceptionUtils.createCopyExceptionWithCause(completionErr);
+        Throwable tcopy = IgniteExceptionUtils.copyExceptionWithCause(completionErr);
 
         assertThat(tcopy, isA(origin.getClass()));
 

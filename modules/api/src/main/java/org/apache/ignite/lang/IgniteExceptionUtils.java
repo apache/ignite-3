@@ -68,8 +68,8 @@ public class IgniteExceptionUtils {
      * @param exception Original completion exception.
      * @return Copy of an exception that is a cause of the given {@code CompletionException}.
      */
-    public static Throwable createCopyExceptionWithCause(CompletionException exception) {
-        return createCopyExceptionWithCauseInternal(exception);
+    public static Throwable copyExceptionWithCause(CompletionException exception) {
+        return copyExceptionWithCauseInternal(exception);
     }
 
     /**
@@ -95,8 +95,8 @@ public class IgniteExceptionUtils {
      * @param exception Original execution exception.
      * @return Copy of an exception that is a cause of the given {@code ExecutionException}.
      */
-    public static Throwable createCopyExceptionWithCause(ExecutionException exception) {
-        return createCopyExceptionWithCauseInternal(exception);
+    public static Throwable copyExceptionWithCause(ExecutionException exception) {
+        return copyExceptionWithCauseInternal(exception);
     }
 
     /**
@@ -109,7 +109,7 @@ public class IgniteExceptionUtils {
      * @param cause Cause.
      * @return New exception of the given {@code clazz} and with the specified parameters.
      */
-    public static <T extends Throwable> T createCopyExceptionWithCause(
+    public static <T extends Throwable> T copyExceptionWithCause(
             Class<? extends Throwable> clazz,
             @Nullable UUID traceId,
             int code,
@@ -117,8 +117,8 @@ public class IgniteExceptionUtils {
             @Nullable Throwable cause
     ) {
         T copy = null;
-        for (int i = 0; i < exceptionFactories.size() && copy == null; ++i) {
-            copy = exceptionFactories.get(i).createCopy(clazz, traceId, code, message, cause);
+        for (int i = 0; i < EXCEPTION_FACTORIES.size() && copy == null; ++i) {
+            copy = EXCEPTION_FACTORIES.get(i).createCopy(clazz, traceId, code, message, cause);
         }
         return copy;
     }
@@ -194,7 +194,7 @@ public class IgniteExceptionUtils {
             IgniteException iex = (IgniteException) e;
 
             try {
-                return createCopyExceptionWithCause(e.getClass(), iex.traceId(), iex.code(), e.getMessage(), e);
+                return copyExceptionWithCause(e.getClass(), iex.traceId(), iex.code(), e.getMessage(), e);
             } catch (Exception ex) {
                 throw new RuntimeException("IgniteException-derived class does not have required constructor: "
                         + e.getClass().getName(), ex);
@@ -218,7 +218,7 @@ public class IgniteExceptionUtils {
      * @param exception Original exception.
      * @return Copy of an exception that is a cause of the given {@code exception}.
      */
-    private static <T extends Throwable> Throwable createCopyExceptionWithCauseInternal(T exception) {
+    private static <T extends Throwable> Throwable copyExceptionWithCauseInternal(T exception) {
         Throwable cause = exception.getCause();
 
         if (cause == null) {
@@ -228,7 +228,7 @@ public class IgniteExceptionUtils {
         UUID traceId = extractTraceIdFrom(cause);
         int code = extractCodeFrom(cause);
 
-        return createCopyExceptionWithCause(cause.getClass(), traceId, code, cause.getMessage(), exception);
+        return copyExceptionWithCause(cause.getClass(), traceId, code, cause.getMessage(), exception);
     }
 
     /**
@@ -349,14 +349,14 @@ public class IgniteExceptionUtils {
     }
 
     /** Ordered collection of all possible factories. */
-    private static final List<ExceptionFactory> exceptionFactories;
+    private static final List<ExceptionFactory> EXCEPTION_FACTORIES;
 
     static {
-        exceptionFactories = new ArrayList<>();
+        EXCEPTION_FACTORIES = new ArrayList<>();
 
         // The most specific signatures should go in the first place.
         // Exception(UUID traceId, int code, String message, Throwable cause)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class, Throwable.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class, Throwable.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -364,7 +364,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(UUID traceId, int code, String message)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, String.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -380,7 +380,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(UUID traceId, int code, Throwable cause)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, Throwable.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class, Throwable.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -392,7 +392,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(int code, String message, Throwable cause)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, int.class, String.class, Throwable.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, String.class, Throwable.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -400,7 +400,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(int code, String message)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, int.class, String.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, String.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -416,7 +416,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(int code, Throwable cause)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, int.class, Throwable.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class, Throwable.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -428,7 +428,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(UUID traceId, int code)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, UUID.class, int.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -444,7 +444,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(String msg, Throwable cause)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, String.class, Throwable.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, String.class, Throwable.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -452,7 +452,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(int code)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, int.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, int.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -468,7 +468,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(String msg)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, String.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, String.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -484,7 +484,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception(Throwable cause)
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class, Throwable.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class, Throwable.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
@@ -496,7 +496,7 @@ public class IgniteExceptionUtils {
             }
         });
         // Exception()
-        exceptionFactories.add(new ExceptionFactory(methodType(void.class)) {
+        EXCEPTION_FACTORIES.add(new ExceptionFactory(methodType(void.class)) {
             @Override
             <T extends Throwable> T copy(MethodHandle constructor, UUID traceId, int code, String message, Throwable cause)
                     throws Throwable {
