@@ -258,8 +258,9 @@ internal static class DataStreamer
                 if (batch.Count > 0)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
-                    await batch.Task.ConfigureAwait(false);
                 }
+
+                await batch.Task.ConfigureAwait(false);
             }
         }
     }
