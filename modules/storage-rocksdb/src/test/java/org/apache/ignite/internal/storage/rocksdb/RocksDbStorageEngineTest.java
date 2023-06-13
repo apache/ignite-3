@@ -52,7 +52,7 @@ public class RocksDbStorageEngineTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
-        engine = new RocksDbStorageEngine(engineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
 
         engine.start();
     }

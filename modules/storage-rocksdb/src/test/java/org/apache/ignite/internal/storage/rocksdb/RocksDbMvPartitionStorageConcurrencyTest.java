@@ -39,6 +39,6 @@ public class RocksDbMvPartitionStorageConcurrencyTest extends AbstractMvPartitio
 
     @Override
     protected StorageEngine createEngine() {
-        return new RocksDbStorageEngine(engineConfig, workDir);
+        return new RocksDbStorageEngine("test", engineConfig, workDir);
     }
 }

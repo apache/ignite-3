@@ -43,6 +43,9 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /** Nodes filer. */
     private final String filter;
 
+    /** Data storage descriptor. */
+    private CatalogDataStorageDescriptor dataStorage;
+
     /**
      * Constructs a distribution zone descriptor.
      *
@@ -73,6 +76,35 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
+    }
+
+    /**
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Amount of partitions in distributions zone.
+     * @param replicas Amount of partition replicas.
+     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
+     * @param dataStorage Data storage descriptor.
+     */
+    public CatalogZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int dataNodesAutoAdjust,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown,
+            String filter,
+            CatalogDataStorageDescriptor dataStorage
+    ) {
+        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
+
+        this.dataStorage = dataStorage;
     }
 
     /**
@@ -117,15 +149,20 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Gets nodes' filter.
-     *
-     * @return Nodes' filter.
+     * Returns the nodes filter.
      */
     public String filter() {
         return filter;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns the data storage descriptor.
+     */
+    // TODO: IGNITE-19483 может нужен будет нормальный тикет
+    public CatalogDataStorageDescriptor getDataStorage() {
+        return dataStorage;
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

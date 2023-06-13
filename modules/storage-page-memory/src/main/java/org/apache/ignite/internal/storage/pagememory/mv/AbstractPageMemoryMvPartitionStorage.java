@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -36,10 +32,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -50,9 +42,6 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -64,6 +53,7 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -183,38 +173,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwExceptionIfStorageNotInRunnableState();
 
             try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
-                TablesView tablesView = tableStorage.tablesConfiguration().value();
-
                 for (IndexMeta indexMeta : cursor) {
                     int indexId = indexMeta.indexId();
 
-                    TableIndexView indexView = findIndexView(tablesView, indexId);
+                    StorageIndexDescriptor indexDescriptor = tableStorage.getIndexDescriptorSupplier().get(indexId);
 
-                    assert indexView != null : indexId;
-
-                    TableView tableView = findTableView(tablesView, indexView.tableId());
-
-                    assert tableView != null : "indexId=" + indexId + ", tableId=" + indexView.tableId();
-
-                    CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-                    CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
-
-                    if (catalogIndexDescriptor instanceof CatalogHashIndexDescriptor) {
-                        StorageHashIndexDescriptor storageIndexDescriptor = new StorageHashIndexDescriptor(
-                                catalogTableDescriptor,
-                                (CatalogHashIndexDescriptor) catalogIndexDescriptor
-                        );
-
-                        hashIndexes.put(indexId, createOrRestoreHashIndex(indexMeta, storageIndexDescriptor));
-                    } else if (catalogIndexDescriptor instanceof CatalogSortedIndexDescriptor) {
-                        StorageSortedIndexDescriptor storageIndexDescriptor = new StorageSortedIndexDescriptor(
-                                catalogTableDescriptor,
-                                ((CatalogSortedIndexDescriptor) catalogIndexDescriptor)
-                        );
-
-                        sortedIndexes.put(indexId, createOrRestoreSortedIndex(indexMeta, storageIndexDescriptor));
+                    if (indexDescriptor instanceof StorageHashIndexDescriptor) {
+                        hashIndexes.put(indexId, createOrRestoreHashIndex(indexMeta, (StorageHashIndexDescriptor) indexDescriptor));
+                    } else if (indexDescriptor instanceof StorageSortedIndexDescriptor) {
+                        sortedIndexes.put(indexId, createOrRestoreSortedIndex(indexMeta, (StorageSortedIndexDescriptor) indexDescriptor));
                     } else {
-                        assert indexView == null;
+                        assert indexDescriptor == null;
 
                         //TODO: IGNITE-17626 Drop the index synchronously.
                     }

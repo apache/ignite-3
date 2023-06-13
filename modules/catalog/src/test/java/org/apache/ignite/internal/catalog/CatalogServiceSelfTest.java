@@ -238,7 +238,6 @@ public class CatalogServiceSelfTest {
 
         assertEquals(2L, table.id());
         assertEquals(TABLE_NAME, table.name());
-        assertEquals(0L, table.engineId());
         assertEquals(0L, table.zoneId());
 
         // Validate another table creation.

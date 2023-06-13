@@ -34,13 +34,11 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(DataStorageModule.class)
 public class RocksDbDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
@@ -52,6 +50,6 @@ public class RocksDbDataStorageModule implements DataStorageModule {
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(engineConfig, storagePath);
+        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storagePath);
     }
 }

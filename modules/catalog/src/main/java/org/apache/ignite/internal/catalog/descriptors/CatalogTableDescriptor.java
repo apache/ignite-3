@@ -36,7 +36,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -2021394971104316570L;
 
     private final int zoneId = 0;
-    private final int engineId = 0;
 
     private final List<CatalogTableColumnDescriptor> columns;
     private final List<String> primaryKeyColumns;
@@ -87,10 +86,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return zoneId;
     }
 
-    public int engineId() {
-        return engineId;
-    }
-
     public List<String> primaryKeyColumns() {
         return primaryKeyColumns;
     }
@@ -120,7 +115,6 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

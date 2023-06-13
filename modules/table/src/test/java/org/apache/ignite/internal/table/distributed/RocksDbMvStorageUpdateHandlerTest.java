@@ -36,6 +36,6 @@ class RocksDbMvStorageUpdateHandlerTest extends AbstractMvStorageUpdateHandlerTe
 
     @Override
     protected StorageEngine createStorageEngine() {
-        return new RocksDbStorageEngine(storageEngineConfig, workDir);
+        return new RocksDbStorageEngine("test", storageEngineConfig, workDir);
     }
 }

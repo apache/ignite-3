@@ -39,6 +39,6 @@ public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageG
 
     @Override
     protected StorageEngine createEngine() {
-        return new RocksDbStorageEngine(engineConfig, workDir);
+        return new RocksDbStorageEngine("test", engineConfig, workDir);
     }
 }

@@ -360,7 +360,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 .orElseGet(() -> {
                     TableConfiguration tableCfg = tablesCfg.tables().get("foo");
 
-                    RocksDbStorageEngine storageEngine = new RocksDbStorageEngine(engineConfig, path);
+                    RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
                     closeables.add(storageEngine::stop);

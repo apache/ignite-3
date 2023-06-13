@@ -21,8 +21,10 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 
 /**
  * Helper class for working with catalog descriptors.
@@ -148,6 +151,25 @@ public class CatalogDescriptorUtils {
         }
     }
 
+    /**
+     * Converts a distribution zone configuration to a Distribution zone descriptor.
+     *
+     * @param config Distribution zone configuration.
+     */
+    public static CatalogZoneDescriptor toZoneDescriptor(DistributionZoneView config) {
+        return new CatalogZoneDescriptor(
+                config.zoneId(),
+                config.name(),
+                config.partitions(),
+                config.replicas(),
+                config.dataNodesAutoAdjust(),
+                config.dataNodesAutoAdjustScaleUp(),
+                config.dataNodesAutoAdjustScaleDown(),
+                config.filter(),
+                toDataStorageDescriptor(config.dataStorage())
+        );
+    }
+
     private static CatalogTableColumnDescriptor toTableColumnDescriptor(ColumnView config) {
         ColumnTypeView typeConfig = config.type();
 
@@ -187,5 +209,21 @@ public class CatalogDescriptorUtils {
         CatalogColumnCollation collation = config.asc() ? ASC_NULLS_LAST : DESC_NULLS_FIRST;
 
         return new CatalogIndexColumnDescriptor(config.name(), collation);
+    }
+
+    private static CatalogDataStorageDescriptor toDataStorageDescriptor(DataStorageView config) {
+        String dataRegion;
+
+        try {
+            Method dataRegionMethod = config.getClass().getMethod("dataRegion");
+
+            dataRegionMethod.setAccessible(true);
+
+            dataRegion = (String) dataRegionMethod.invoke(config);
+        } catch (ReflectiveOperationException e) {
+            dataRegion = e.getMessage();
+        }
+
+        return new CatalogDataStorageDescriptor(config.name(), dataRegion);
     }
 }

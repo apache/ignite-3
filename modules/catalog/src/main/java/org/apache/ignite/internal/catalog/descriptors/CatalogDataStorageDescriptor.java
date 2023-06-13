@@ -15,49 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.engine;
+package org.apache.ignite.internal.catalog.descriptors;
+
+import java.io.Serializable;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Table descriptor.
+ * Data storage descriptor.
  */
-public class StorageTableDescriptor {
-    private final int id;
-
-    private final int partitions;
+public class CatalogDataStorageDescriptor implements Serializable {
+    private static final long serialVersionUID = -5268530663660582126L;
+    private final String engine;
 
     private final String dataRegion;
 
     /**
      * Constructor.
      *
-     * @param id Table ID.
-     * @param partitions Count of partitions.
-     * @param dataRegion Data region name.
+     * @param engine Storage engine name.
+     * @param dataRegion Data region name within the storage engine.
      */
-    public StorageTableDescriptor(int id, int partitions, String dataRegion) {
-        this.id = id;
-        this.partitions = partitions;
+    public CatalogDataStorageDescriptor(String engine, String dataRegion) {
+        this.engine = engine;
         this.dataRegion = dataRegion;
     }
 
     /**
-     * Returns the table ID.
+     * Returns the storage engine name.
      */
-    public int getId() {
-        return id;
+    public String getEngine() {
+        return engine;
     }
 
     /**
-     * Returns count of partitions.
-     */
-    public int getPartitions() {
-        return partitions;
-    }
-
-    /**
-     * Returns the data region name.
+     * Returns the data region name within the storage engine.
      */
     public String getDataRegion() {
         return dataRegion;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
