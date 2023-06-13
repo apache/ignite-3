@@ -326,11 +326,12 @@ public class TableImpl implements Table {
         completeWaitIndex(indexId);
     }
 
-    abstract class IndexWrapper {
-        protected final int indexId;
-        protected final Function<BinaryRow, BinaryTuple> indexRowResolver;
+    /** Class that creates index storage and locker decorators for given partition. */
+    private abstract static class IndexWrapper {
+        final int indexId;
+        final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
-        public IndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
+        private IndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
             this.indexId = indexId;
             this.indexRowResolver = indexRowResolver;
         }
@@ -338,11 +339,10 @@ public class TableImpl implements Table {
         abstract TableSchemaAwareIndexStorage getStorage(int partitionId);
 
         abstract IndexLocker getLocker(int partitionId);
-
     }
 
-    class SortedIndexWrapper extends IndexWrapper {
-        public SortedIndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
+    private class SortedIndexWrapper extends IndexWrapper {
+        SortedIndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
             super(indexId, indexRowResolver);
         }
 
@@ -370,7 +370,7 @@ public class TableImpl implements Table {
     class HashIndexWrapper extends IndexWrapper {
         private final boolean unique;
 
-        public HashIndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver, boolean unique) {
+        HashIndexWrapper(int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver, boolean unique) {
             super(indexId, indexRowResolver);
             this.unique = unique;
         }
@@ -430,18 +430,6 @@ public class TableImpl implements Table {
         pkId.completeExceptionally(closeTableException);
 
         indexesToWait.values().forEach(future -> future.completeExceptionally(closeTableException));
-    }
-
-    @FunctionalInterface
-    private interface IndexLockerFactory {
-        /** Creates the index decorator for given partition. */
-        IndexLocker create(int partitionId);
-    }
-
-    @FunctionalInterface
-    private interface IndexStorageAdapterFactory {
-        /** Creates the index decorator for given partition. */
-        TableSchemaAwareIndexStorage create(int partitionId);
     }
 
     /**
