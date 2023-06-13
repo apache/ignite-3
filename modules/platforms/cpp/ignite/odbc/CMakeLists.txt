@@ -55,6 +55,8 @@ endif ()
 add_library(${TARGET} SHARED ${SOURCES})
 target_link_libraries(${TARGET} ignite-common ignite-tuple ignite-network ignite-protocol ${ODBC_LIBRARIES})
 
+add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
+
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
