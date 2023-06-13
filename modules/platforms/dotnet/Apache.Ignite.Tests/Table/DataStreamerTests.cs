@@ -96,15 +96,20 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(1)));
 
         cts.Cancel();
+    }
 
-        async IAsyncEnumerable<IIgniteTuple> GetTuplesWithDelay([EnumeratorCancellation] CancellationToken ct = default)
-        {
-            for (var i = 0; i < 3; i++)
-            {
-                yield return GetTuple(i, "t" + i);
-                await Task.Delay(15000, ct);
-            }
-        }
+    [Test]
+    public async Task TestCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        var streamTask = TupleView.StreamDataAsync(GetTuplesWithDelay(), cancellationToken: cts.Token);
+
+        cts.Cancel();
+        Assert.ThrowsAsync<TaskCanceledException>(async () => await streamTask);
+
+        Assert.IsFalse(
+            await TupleView.ContainsKeyAsync(null, GetTuple(0)),
+            "No data was streamed - cancelled before any batches were full.");
     }
 
     [Test]
@@ -135,7 +140,7 @@ public class DataStreamerTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
-            async () => await table!.RecordBinaryView.StreamDataAsync(GetData(10_000)));
+            async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000)));
 
         StringAssert.StartsWith("Operation TupleUpsertAll failed after 16 retries", ex!.Message);
     }
@@ -156,18 +161,27 @@ public class DataStreamerTests : IgniteTestsBase
         });
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-        await table!.RecordBinaryView.StreamDataAsync(GetData(count));
+        await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
 
         Assert.AreEqual(count, server.UpsertAllRowCount);
         Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
     }
 
-    private static async IAsyncEnumerable<IIgniteTuple> GetData(int count)
+    private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
     {
         for (var i = 0; i < count; i++)
         {
             yield return new IgniteTuple { ["ID"] = i };
             await Task.Yield();
+        }
+    }
+
+    private static async IAsyncEnumerable<IIgniteTuple> GetTuplesWithDelay([EnumeratorCancellation] CancellationToken ct = default)
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            yield return GetTuple(i, "t" + i);
+            await Task.Delay(15000, ct);
         }
     }
 }
