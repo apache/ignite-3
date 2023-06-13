@@ -72,7 +72,7 @@ public class IgniteFragmentMapping {
      * @param mq  Metadata query instance.
      * @return Fragment meta information.
      */
-    public static FragmentMapping fragmentMappingForMetadataQuery(RelNode rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+    public static FragmentMapping calculateMapping(RelNode rel, RelMetadataQuery mq, MappingQueryContext ctx) {
         assert mq instanceof RelMetadataQueryEx;
 
         IgniteRelVisitor<FragmentMapping> visitor = new IgniteRelVisitor<>() {
@@ -232,7 +232,7 @@ public class IgniteFragmentMapping {
      * @return Nodes mapping, representing a list of nodes capable to execute a query over particular partitions.
      */
     private static FragmentMapping fragmentMapping(SingleRel rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return fragmentMappingForMetadataQuery(rel.getInput(), mq, ctx);
+        return calculateMapping(rel.getInput(), mq, ctx);
     }
 
     /**
@@ -247,8 +247,8 @@ public class IgniteFragmentMapping {
         RelNode left = rel.getLeft();
         RelNode right = rel.getRight();
 
-        FragmentMapping frgLeft = fragmentMappingForMetadataQuery(left, mq, ctx);
-        FragmentMapping frgRight = fragmentMappingForMetadataQuery(right, mq, ctx);
+        FragmentMapping frgLeft = calculateMapping(left, mq, ctx);
+        FragmentMapping frgRight = calculateMapping(right, mq, ctx);
 
         try {
             return frgLeft.colocate(frgRight);
@@ -283,14 +283,14 @@ public class IgniteFragmentMapping {
 
         if (TraitUtils.distribution(rel) == IgniteDistributions.random()) {
             for (RelNode input : rel.getInputs()) {
-                res = res == null ? fragmentMappingForMetadataQuery(input, mq, ctx) : res.combine(
-                        fragmentMappingForMetadataQuery(input, mq, ctx));
+                res = res == null ? calculateMapping(input, mq, ctx) : res.combine(
+                        calculateMapping(input, mq, ctx));
             }
         } else {
             for (RelNode input : rel.getInputs()) {
                 try {
-                    res = res == null ? fragmentMappingForMetadataQuery(input, mq, ctx) : res.colocate(
-                            fragmentMappingForMetadataQuery(input, mq, ctx));
+                    res = res == null ? calculateMapping(input, mq, ctx) : res.colocate(
+                            calculateMapping(input, mq, ctx));
                 } catch (ColocationMappingException e) {
                     throw new NodeMappingException("Failed to calculate physical distribution", input, e);
                 }
@@ -306,7 +306,7 @@ public class IgniteFragmentMapping {
      * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
     private static FragmentMapping fragmentMapping(IgniteFilter rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return fragmentMappingForMetadataQuery(rel.getInput(), mq, ctx).prune(rel);
+        return calculateMapping(rel.getInput(), mq, ctx).prune(rel);
     }
 
     /**
@@ -317,7 +317,7 @@ public class IgniteFragmentMapping {
     private static FragmentMapping fragmentMapping(IgniteTrimExchange rel, RelMetadataQuery mq, MappingQueryContext ctx) {
         try {
             return FragmentMapping.create(rel.sourceId())
-                    .colocate(fragmentMappingForMetadataQuery(rel.getInput(), mq, ctx));
+                    .colocate(calculateMapping(rel.getInput(), mq, ctx));
         } catch (ColocationMappingException e) {
             throw new AssertionError(e);
         }
@@ -358,7 +358,7 @@ public class IgniteFragmentMapping {
      */
     private static FragmentMapping fragmentMapping(IgniteTableModify rel, RelMetadataQuery mq, MappingQueryContext ctx) {
         RelNode input = rel.getInput();
-        FragmentMapping mapping = fragmentMappingForMetadataQuery(input, mq, ctx);
+        FragmentMapping mapping = calculateMapping(input, mq, ctx);
 
         // In case of the statement like UPDATE t SET a = a + 1
         // this will be the second call to the collation group, hence the result may differ.

@@ -111,7 +111,7 @@ public class Fragment {
 
     private FragmentMapping mapping(MappingQueryContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
         try {
-            FragmentMapping mapping = IgniteFragmentMapping.fragmentMappingForMetadataQuery(root, mq, ctx);
+            FragmentMapping mapping = IgniteFragmentMapping.calculateMapping(root, mq, ctx);
 
             if (rootFragment()) {
                 mapping = FragmentMapping.create(ctx.locNodeName()).colocate(mapping);
