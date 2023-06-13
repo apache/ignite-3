@@ -51,14 +51,36 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestBasicStreamingRecordView()
+    {
+        var options = DataStreamerOptions.Default with { BatchSize = 5 };
+        var data = Enumerable.Range(0, Count).Select(x => GetPoco(x, "t" + x)).ToList();
+
+        await Table.GetRecordView<Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
+        await CheckData();
+    }
+
+    [Test]
     public async Task TestBasicStreamingKeyValueBinaryView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 10 };
+        var options = DataStreamerOptions.Default with { BatchSize = 10_000 };
         var data = Enumerable.Range(0, Count)
             .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x, "t" + x)))
             .ToList();
 
         await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);
+        await CheckData();
+    }
+
+    [Test]
+    public async Task TestBasicStreamingKeyValueView()
+    {
+        var options = DataStreamerOptions.Default with { BatchSize = 1 };
+        var data = Enumerable.Range(0, Count)
+            .Select(x => new KeyValuePair<long, Poco>(x, GetPoco(x, "t" + x)))
+            .ToList();
+
+        await Table.GetKeyValueView<long, Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
         await CheckData();
     }
 
