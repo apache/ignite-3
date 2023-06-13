@@ -531,6 +531,7 @@ public class IgniteImpl implements Ignite {
         deploymentManager = new DeploymentManagerImpl(
                 clusterSvc,
                 metaStorageMgr,
+                logicalTopologyService,
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr
