@@ -600,16 +600,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             // Because fragment execution runs on specific thread selected by taskExecutor,
             // we should complete dependency resolution on the same thread
             // that is going to be used for fragment execution.
-            Executor executor = taskExecutor.fragmentExecutor(ctx.queryId(), desc.fragmentId());
+            ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
+            Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
                 long schemaVersion = ctx.schemaVersion();
-                ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
 
                 return dependencyResolver.resolveDependencies(treeRoot, schemaVersion).thenComposeAsync(deps -> {
                     return executeFragment(treeRoot, deps, context);
-                }, executor);
+                }, exec);
             }).exceptionally(ex -> {
                 handleError(ex, initiatorNode, desc.fragmentId());
 
