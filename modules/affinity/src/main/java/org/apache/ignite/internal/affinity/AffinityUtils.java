@@ -55,13 +55,13 @@ public class AffinityUtils {
      * Calculates affinity assignments for a single partition.
      *
      * @param dataNodes Data nodes.
-     * @param partition Partition id.
+     * @param partitionId Partition id.
      * @param replicas Replicas count.
      * @return Set of assignments.
      */
-    public static Set<Assignment> calculateAssignmentForPartition(Collection<String> dataNodes, int partition, int replicas) {
+    public static Set<Assignment> calculateAssignmentForPartition(Collection<String> dataNodes, int partitionId, int replicas) {
         Set<String> affinityNodes = RendezvousAffinityFunction.assignPartition(
-                partition,
+                partitionId,
                 new ArrayList<>(dataNodes),
                 replicas,
                 null,
