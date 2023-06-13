@@ -158,7 +158,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /**
      * Returns the data storage descriptor.
      */
-    // TODO: IGNITE-19483 может нужен будет нормальный тикет
+    // TODO: IGNITE-19719 Must be storage engine specific
     public CatalogDataStorageDescriptor getDataStorage() {
         return dataStorage;
     }

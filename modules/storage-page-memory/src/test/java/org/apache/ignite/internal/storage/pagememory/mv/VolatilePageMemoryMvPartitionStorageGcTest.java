@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -33,7 +34,9 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ConfigurationExtension.class)
 class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStorageGcTest {
     private VolatilePageMemoryStorageEngine engine;
 
@@ -41,10 +44,8 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo = {}")
-            TablesConfiguration tablesConfig
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 

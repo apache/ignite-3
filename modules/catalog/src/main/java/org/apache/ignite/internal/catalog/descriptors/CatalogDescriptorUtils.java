@@ -212,7 +212,7 @@ public class CatalogDescriptorUtils {
         return new CatalogIndexColumnDescriptor(config.name(), collation);
     }
 
-    // TODO: IGNITE-19483 создать какой-то тикект или вроде того
+    // TODO: IGNITE-19719 Fix it
     private static CatalogDataStorageDescriptor toDataStorageDescriptor(DataStorageView config) {
         String dataRegion;
 

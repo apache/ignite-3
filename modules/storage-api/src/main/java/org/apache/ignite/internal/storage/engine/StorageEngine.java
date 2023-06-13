@@ -50,6 +50,6 @@ public interface StorageEngine {
      * @param indexDescriptorSupplier Index descriptor supplier at table start.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    // TODO: IGNITE-19483 добавить тикет что это нужно выпилить
+    // TODO: IGNITE-19717 Get rid of indexDescriptorSupplier
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
 }

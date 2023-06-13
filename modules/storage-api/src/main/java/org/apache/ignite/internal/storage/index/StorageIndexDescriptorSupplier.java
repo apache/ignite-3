@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Index descriptor supplier.
  */
-// TODO: IGNITE-19483 добавить тикет что это нужно выпилить
+// TODO: IGNITE-19717 Get rid of it
 public class StorageIndexDescriptorSupplier {
     private final TablesConfiguration tablesConfig;
 
