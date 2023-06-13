@@ -313,7 +313,7 @@ public class DistributionZonesTestUtil {
             throws NodeStoppingException, InterruptedException {
         // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
         // distributionZoneManager's recovery.
-        var deployWatchesFut = metaStorageManager.deployWatches();
+        CompletableFuture<Void> deployWatchesFut = metaStorageManager.deployWatches();
 
         // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
         // Meta Storage revision is equal to 0.

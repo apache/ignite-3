@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -37,14 +39,38 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * There are tests of correctness invocation {@link MetaStorageManager#deployWatches()}.
+ * Tests that check correctness of an invocation {@link MetaStorageManager#deployWatches()}.
  */
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
-    @Test
-    public void tesMetaStorageManager() throws Exception {
+
+    /** Vault manager. */
+    private static VaultManager vaultManager;
+
+    @BeforeAll
+    public static void init() {
+        vaultManager = new VaultManager(new InMemoryVaultService());
+
+        vaultManager.start();
+    }
+
+    @AfterAll
+    public static void deInit() {
+        vaultManager.stop();
+    }
+
+    /**
+     * Returns a stream with test arguments.
+     *
+     * @return Stream of different types of Meta storages to to check.
+     * @throws Exception If failed.
+     */
+    private static Stream<MetaStorageManager> metaStorageProvider() throws Exception {
         HybridClock clock = new HybridClockImpl();
         String mcNodeName = "mc-node-1";
 
@@ -57,24 +83,18 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any())).thenReturn(completedFuture(null));
 
-        var metastore = new MetaStorageManagerImpl(
-                new VaultManager(new InMemoryVaultService()),
-                clusterService,
-                cmgManager,
-                logicalTopologyService,
-                raftManager,
-                new SimpleInMemoryKeyValueStorage(mcNodeName),
-                clock
+        return Stream.of(
+                new MetaStorageManagerImpl(
+                        vaultManager,
+                        clusterService,
+                        cmgManager,
+                        logicalTopologyService,
+                        raftManager,
+                        new SimpleInMemoryKeyValueStorage(mcNodeName),
+                        clock
+                ),
+                StandaloneMetaStorageManager.create(vaultManager)
         );
-
-        checkCorrectness(metastore);
-    }
-
-    @Test
-    public void tesStandaloneMetaStorageManager() throws Exception {
-        var metastore = StandaloneMetaStorageManager.create(new VaultManager(new InMemoryVaultService()));
-
-        checkCorrectness(metastore);
     }
 
     /**
@@ -83,13 +103,15 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
      * @param metastore Meta storage.
      * @throws NodeStoppingException If failed.
      */
-    private static void checkCorrectness(MetaStorageManager metastore) throws NodeStoppingException {
+    @ParameterizedTest
+    @MethodSource("metaStorageProvider")
+    public void testCheckCorrectness(MetaStorageManager metastore) throws NodeStoppingException {
         var deployWatchesFut = metastore.deployWatches();
 
         assertFalse(deployWatchesFut.isDone());
 
         metastore.start();
 
-        assertTrue(deployWatchesFut.isDone());
+        assertThat(deployWatchesFut, willSucceedFast());
     }
 }
