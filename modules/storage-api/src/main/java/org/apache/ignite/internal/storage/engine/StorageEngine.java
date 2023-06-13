@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
@@ -49,23 +46,10 @@ public interface StorageEngine {
     /**
      * Creates new table storage.
      *
-     * @param tableCfg Table configuration.
-     * @param tablesCfg Tables configuration.
-     * @param distributionZoneCfg Distribution zone configuration.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier at table start.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    // TODO: IGNITE-19483 удалить
-    default MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneCfg) throws StorageException {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Creates new table storage.
-     *
-     * @throws StorageException If an error has occurs while creating the table.
-     */
-    // TODO: IGNITE-19483 реализовать
     // TODO: IGNITE-19483 добавить тикет что это нужно выпилить
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
 }

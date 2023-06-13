@@ -65,6 +65,8 @@ import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -878,9 +880,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         ) {
 
             @Override
-            protected MvTableStorage createTableStorage(
-                    TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                mvTableStorage = spy(super.createTableStorage(tableCfg, tablesCfg, distributionZonesCfg));
+            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
                 return mvTableStorage;
             }
