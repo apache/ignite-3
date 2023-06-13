@@ -19,8 +19,6 @@ project(ignite-test-common)
 
 set(TARGET ${PROJECT_NAME})
 
-include_directories(include)
-
 set(SOURCES
     cmd_process.h
     ignite_runner.cpp ignite_runner.h

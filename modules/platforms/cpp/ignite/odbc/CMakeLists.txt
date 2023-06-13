@@ -51,11 +51,7 @@ add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 add_library(${TARGET}-obj OBJECT ${SOURCES})
 target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-if (WIN32)
-    list(APPEND SOURCES module.def)
-endif ()
-
-add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj>)
+add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def)
 
 set(LIBRARIES
     ignite-common
