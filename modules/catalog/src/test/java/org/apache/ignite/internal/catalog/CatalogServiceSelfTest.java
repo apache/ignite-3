@@ -267,6 +267,24 @@ public class CatalogServiceSelfTest {
     }
 
     @Test
+    public void testCreateTableWithDuplicateColumns() {
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .zone(ZONE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
+                ))
+                .primaryKeyColumns(List.of("key"))
+                .build();
+
+        assertThat(service.createTable(params), willThrowFast(IgniteInternalException.class,
+                "Can't create table with duplicate columns: key, val, val"));
+    }
+
+    @Test
     public void testDropTable() {
         assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
         assertThat(service.createTable(simpleTable(TABLE_NAME_2)), willBe((Object) null));
@@ -1042,6 +1060,20 @@ public class CatalogServiceSelfTest {
 
         assertThat(service.createIndex(params), willBe((Object) null));
         assertThat(service.createIndex(params), willThrow(IndexAlreadyExistsException.class));
+    }
+
+    @Test
+    public void testCreateIndexOnDuplicateColumns() {
+        assertThat(service.createTable(simpleTable(TABLE_NAME)), willBe((Object) null));
+
+        CreateHashIndexParams params = CreateHashIndexParams.builder()
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of("VAL", "VAL"))
+                .build();
+
+        assertThat(service.createIndex(params),
+                willThrow(IgniteInternalException.class, "Can't create index on duplicate columns: VAL, VAL"));
     }
 
     @Test

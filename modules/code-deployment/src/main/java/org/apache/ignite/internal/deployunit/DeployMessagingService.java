@@ -65,7 +65,7 @@ public class DeployMessagingService {
     /**
      * Tracker of deploy actions.
      */
-    private final DeployTracker tracker;
+    private final DownloadTracker tracker;
 
     /**
      * Constructor.
@@ -79,7 +79,7 @@ public class DeployMessagingService {
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
             FileDeployerService deployerService,
-            DeployTracker tracker
+            DownloadTracker tracker
     ) {
         this.clusterService = clusterService;
         this.cmgManager = cmgManager;
@@ -168,7 +168,7 @@ public class DeployMessagingService {
     }
 
     private void processStopDeployRequest(StopDeployRequest request, String senderConsistentId, long correlationId) {
-        tracker.cancelIfDeploy(request.id(), Version.parseVersion(request.version()));
+        tracker.cancelIfDownloading(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
                 .respond(senderConsistentId, StopDeployResponseImpl.builder().build(), correlationId);
 
