@@ -253,4 +253,32 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
 
         await().until(() -> node(0).deployment().clusterStatusesAsync(id), willBe(buildStatus(id, smallUnit)));
     }
+
+    @Test
+    public void testABAValidation() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = files.deployAndVerifySmall(id, version, cluster.node(1));
+
+        IgniteImpl cmg = node(0);
+        smallUnit.waitUnitReplica(cmg);
+
+        CompletableFuture<Boolean> onDemand = node(2).deployment().onDemandDeploy(id, version);
+        assertThat(onDemand, willBe(true));
+        smallUnit.waitUnitReplica(node(2));
+
+        IgniteImpl stoppedNode = node(2);
+        stopNode(2);
+
+        smallUnit.undeploy();
+        smallUnit.waitUnitClean(node(1));
+        smallUnit.waitUnitClean(node(0));
+        smallUnit.waitUnitReplica(stoppedNode);
+
+        Unit mediumUnit = files.deployAndVerifyMedium(id, version, cluster.node(1));
+
+        startNode(2);
+
+        smallUnit.waitUnitClean(node(2));
+    }
 }

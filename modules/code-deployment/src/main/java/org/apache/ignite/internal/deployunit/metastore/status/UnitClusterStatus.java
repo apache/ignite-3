@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.deployunit.metastore.status;
 
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.checkElement;
+
 import java.util.Collections;
 import java.util.Set;
 import org.apache.ignite.compute.version.Version;
@@ -35,10 +37,17 @@ public class UnitClusterStatus extends UnitStatus {
      * @param id Unit identifier.
      * @param version Unit version.
      * @param status Unit status.
+     * @param depOpId Operation identifier.
      * @param initialNodesToDeploy Nodes required for initial deploy.
      */
-    public UnitClusterStatus(String id, Version version, DeploymentStatus status, Set<String> initialNodesToDeploy) {
-        super(id, version, status);
+    public UnitClusterStatus(
+            String id,
+            Version version,
+            DeploymentStatus status,
+            long depOpId,
+            Set<String> initialNodesToDeploy
+    ) {
+        super(id, version, status, depOpId);
         this.initialNodesToDeploy = Collections.unmodifiableSet(initialNodesToDeploy);
     }
 
@@ -71,8 +80,20 @@ public class UnitClusterStatus extends UnitStatus {
         return result;
     }
 
+    /**
+     * Serialize unit cluster status to byte array.
+     *
+     * @param status Unit cluster status instance.
+     * @return Serialized unit cluster status as byte array.
+     */
     public static byte[] serialize(UnitClusterStatus status) {
-        return SerializeUtils.serialize(status.id(), status.version(), status.status(), status.initialNodesToDeploy);
+        return SerializeUtils.serialize(
+                status.id(),
+                status.version(),
+                status.status(),
+                status.depOpId(),
+                status.initialNodesToDeploy
+        );
     }
 
     /**
@@ -83,16 +104,18 @@ public class UnitClusterStatus extends UnitStatus {
      */
     public static UnitClusterStatus deserialize(byte[] value) {
         if (value == null || value.length == 0) {
-            return new UnitClusterStatus(null, null, null, Set.of());
+            return new UnitClusterStatus(null, null, null, 0, Set.of());
         }
 
         String[] values = SerializeUtils.deserialize(value);
 
-        String id = values.length > 0 ? SerializeUtils.decode(values[0]) : null;
-        Version version = values.length > 1 ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
-        DeploymentStatus status = values.length > 2 ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
-        Set<String> nodes = values.length > 3 ? SerializeUtils.decodeAsSet(values[3]) : Set.of();
+        String id = checkElement(values, 0) ? SerializeUtils.decode(values[0]) : null;
+        Version version = checkElement(values, 1) ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
+        DeploymentStatus status = checkElement(values, 2) ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
+        long depOpId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
+        Set<String> nodes = checkElement(values, 4) ? SerializeUtils.decodeAsSet(values[4]) : Set.of();
 
-        return new UnitClusterStatus(id, version, status, nodes);
+
+        return new UnitClusterStatus(id, version, status, depOpId, nodes);
     }
 }

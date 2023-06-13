@@ -118,7 +118,7 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status created successfully
      *          or with {@code false} if status with provided {@param id} and {@param version} already existed.
      */
-    CompletableFuture<Boolean> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
+    CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodesToDeploy);
 
     /**
      * Create new node status for deployment unit with {@link DeploymentStatus#UPLOADING} deployment status.
@@ -129,8 +129,8 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
      *         {@param version} and {@param nodeId} already existed.
      */
-    default CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version) {
-        return createNodeStatus(nodeId, id, version, UPLOADING);
+    default CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, long depOpId) {
+        return createNodeStatus(nodeId, id, version, depOpId, UPLOADING);
     }
 
     /**
@@ -143,7 +143,12 @@ public interface DeploymentUnitStore {
      * @return Future with {@code true} result if status created successfully or with {@code false} if status with provided {@param id} and
      *         {@param version} and {@param nodeId} already existed.
      */
-    CompletableFuture<Boolean> createNodeStatus(String nodeId, String id, Version version, DeploymentStatus status);
+    CompletableFuture<Boolean> createNodeStatus(
+            String nodeId,
+            String id,
+            Version version,
+            long depOpId,
+            DeploymentStatus status);
 
     /**
      * Updates cluster status for deployment unit.

@@ -208,9 +208,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Function<Boolean, CompletableFuture<Boolean>> retryDeploy
     ) {
         return deploymentUnitStore.createClusterStatus(id, version, nodesToDeploy)
-                .thenCompose(success -> {
-                    if (success) {
-                        return doDeploy(id, version, deploymentUnit, nodesToDeploy);
+                .thenCompose(clusterStatus -> {
+                    if (clusterStatus != null) {
+                        return doDeploy(clusterStatus, deploymentUnit, nodesToDeploy);
                     } else {
                         if (force) {
                             return undeployAsync(id, version)
@@ -225,7 +225,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 });
     }
 
-    private CompletableFuture<Boolean> doDeploy(String id, Version version, DeploymentUnit deploymentUnit, Set<String> nodesToDeploy) {
+    private CompletableFuture<Boolean> doDeploy(UnitClusterStatus clusterStatus, DeploymentUnit deploymentUnit, Set<String> nodesToDeploy) {
         UnitContent unitContent;
         try {
             unitContent = UnitContent.readContent(deploymentUnit);
@@ -233,12 +233,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             LOG.error("Error reading deployment unit content", e);
             return failedFuture(e);
         }
-        return deployToLocalNode(id, version, unitContent)
+        return deployToLocalNode(clusterStatus, unitContent)
                 .thenApply(completed -> {
                     if (completed) {
                         nodesToDeploy.forEach(node -> {
                             if (!node.equals(nodeName)) {
-                                deploymentUnitStore.createNodeStatus(node, id, version);
+                                deploymentUnitStore.createNodeStatus(
+                                        node,
+                                        clusterStatus.id(),
+                                        clusterStatus.version(),
+                                        clusterStatus.depOpId()
+                                );
                             }
                         });
                     }
@@ -246,11 +251,17 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 });
     }
 
-    private CompletableFuture<Boolean> deployToLocalNode(String id, Version version, UnitContent unitContent) {
-        return deployer.deploy(id, version, unitContent)
+    private CompletableFuture<Boolean> deployToLocalNode(UnitClusterStatus clusterStatus, UnitContent unitContent) {
+        return deployer.deploy(clusterStatus.id(), clusterStatus.version(), unitContent)
                 .thenCompose(deployed -> {
                     if (deployed) {
-                        return deploymentUnitStore.createNodeStatus(nodeName, id, version, DEPLOYED);
+                        return deploymentUnitStore.createNodeStatus(
+                                nodeName,
+                                clusterStatus.id(),
+                                clusterStatus.version(),
+                                clusterStatus.depOpId(),
+                                DEPLOYED
+                        );
                     }
                     return completedFuture(false);
                 });
@@ -355,7 +366,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         return completedFuture(true);
                     }
                     return messaging.downloadUnitContent(id, version, nodes)
-                            .thenCompose(unitContent -> deployToLocalNode(id, version, unitContent));
+                            .thenCompose(content -> deploymentUnitStore.getClusterStatus(id, version)
+                                    .thenCompose(status -> deployToLocalNode(status, content)));
+
                 });
     }
 

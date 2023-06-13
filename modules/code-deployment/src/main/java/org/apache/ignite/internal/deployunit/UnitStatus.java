@@ -38,17 +38,21 @@ public abstract class UnitStatus {
      */
     private DeploymentStatus status;
 
+    private final long depOpId;
+
     /**
      * Constructor.
      *
      * @param id Unit identifier.
      * @param version Unit version.
      * @param status Unit status.
+     * @param depOpId Deployment unit operation identifier.
      */
-    public UnitStatus(String id, Version version, DeploymentStatus status) {
+    public UnitStatus(String id, Version version, DeploymentStatus status, long depOpId) {
         this.id = id;
         this.version = version;
         this.status = status;
+        this.depOpId = depOpId;
     }
 
     /**
@@ -69,12 +73,26 @@ public abstract class UnitStatus {
         return version;
     }
 
+    /**
+     * Returns status of deployment unit.
+     *
+     * @return Status of deployment unit.
+     */
     public DeploymentStatus status() {
         return status;
     }
 
+    /**
+     * Update deployment status.
+     *
+     * @param status new deployment status.
+     */
     public void updateStatus(DeploymentStatus status) {
         this.status = status;
+    }
+
+    public long depOpId() {
+        return depOpId;
     }
 
     @Override

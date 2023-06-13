@@ -53,8 +53,12 @@ public class DeploymentUnitFailover {
      * @param deployer Deployment unit file system service.
      * @param nodeName Node consistent ID.
      */
-    public DeploymentUnitFailover(LogicalTopologyService logicalTopology, DeploymentUnitStore deploymentUnitStore,
-            FileDeployerService deployer, String nodeName) {
+    public DeploymentUnitFailover(
+            LogicalTopologyService logicalTopology,
+            DeploymentUnitStore deploymentUnitStore,
+            FileDeployerService deployer,
+            String nodeName
+    ) {
         this.logicalTopology = logicalTopology;
         this.deploymentUnitStore = deploymentUnitStore;
         this.deployer = deployer;
@@ -86,18 +90,17 @@ public class DeploymentUnitFailover {
     private void processStatus(UnitClusterStatus unitClusterStatus, UnitNodeStatus unitNodeStatus, NodeEventCallback nodeEventCallback) {
         String id = unitNodeStatus.id();
         Version version = unitNodeStatus.version();
-        if (unitClusterStatus == null) {
-            deployer.undeploy(id, version)
-                    .thenAccept(success -> {
-                        if (success) {
-                            deploymentUnitStore.removeNodeStatus(nodeName, id, version);
-                        }
-                    });
+
+        if (checkClusterNullStatus(id, version, unitClusterStatus)) {
             return;
         }
-        DeploymentStatus clusterStatus = unitClusterStatus.status();
+
+        if (checkABAProblem(unitClusterStatus, unitNodeStatus)) {
+            return;
+        }
+
         DeploymentStatus nodeStatus = unitNodeStatus.status();
-        switch (clusterStatus) {
+        switch (unitClusterStatus.status()) {
             case UPLOADING: // fallthrough
             case DEPLOYED:
                 if (nodeStatus == UPLOADING) {
@@ -113,12 +116,43 @@ public class DeploymentUnitFailover {
             case REMOVING:
                 deploymentUnitStore.getAllNodeStatuses(id, version)
                         .thenAccept(nodes -> {
-                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, nodeName);
+                            UnitNodeStatus status = new UnitNodeStatus(id, version, REMOVING, unitClusterStatus.depOpId(), nodeName);
                             nodeEventCallback.onUpdate(status, nodes);
                         });
                 break;
             default:
                 break;
         }
+    }
+
+    private boolean checkClusterNullStatus(String id, Version version, UnitClusterStatus clusterStatus) {
+        if (clusterStatus == null) {
+            deployer.undeploy(id, version)
+                    .thenAccept(success -> {
+                        if (success) {
+                            deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                        }
+                    });
+            return true;
+        }
+        return false;
+    }
+
+    private boolean checkABAProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
+        String id = nodeStatus.id();
+        Version version = nodeStatus.version();
+        if (clusterStatus.depOpId() != nodeStatus.depOpId()) {
+            if (nodeStatus.status() == DEPLOYED) {
+                deployer.undeploy(id, version).thenAccept(success -> {
+                    if (success) {
+                        deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                    }
+                });
+            } else {
+                deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+            }
+            return true;
+        }
+        return false;
     }
 }

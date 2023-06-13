@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.deployunit.metastore.status;
 
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.checkElement;
+
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.compute.version.VersionParseException;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
@@ -34,10 +36,11 @@ public class UnitNodeStatus extends UnitStatus {
      * @param id Deployment unit identifier.
      * @param version Deployment unit version.
      * @param status Deployment unit status.
+     * @param depOpId Deployment unit operation identifier.
      * @param nodeId Node consistent id.
      */
-    public UnitNodeStatus(String id, Version version, DeploymentStatus status, String nodeId) {
-        super(id, version, status);
+    public UnitNodeStatus(String id, Version version, DeploymentStatus status, long depOpId, String nodeId) {
+        super(id, version, status, depOpId);
         this.nodeId = nodeId;
     }
 
@@ -69,8 +72,20 @@ public class UnitNodeStatus extends UnitStatus {
         return result;
     }
 
+    /**
+     * Serialize unit node status to byte array.
+     *
+     * @param status Unit node status instance.
+     * @return Serialized unit node status as byte array.
+     */
     public static byte[] serialize(UnitNodeStatus status) {
-        return SerializeUtils.serialize(status.id(), status.version(), status.status(), status.nodeId);
+        return SerializeUtils.serialize(
+                status.id(),
+                status.version(),
+                status.status(),
+                status.depOpId(),
+                status.nodeId
+        );
     }
 
     /**
@@ -81,26 +96,29 @@ public class UnitNodeStatus extends UnitStatus {
      */
     public static UnitNodeStatus deserialize(byte[] value) {
         if (value == null || value.length == 0) {
-            return new UnitNodeStatus(null, null, null, null);
+            return new UnitNodeStatus(null, null, null, 0, null);
         }
 
         String[] values = SerializeUtils.deserialize(value);
 
-        String id = values.length > 0 ? SerializeUtils.decode(values[0]) : null;
+        String id = checkElement(values, 0) ? SerializeUtils.decode(values[0]) : null;
         Version version;
         try {
-            version = values.length > 1 ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
+            version = checkElement(values, 1) ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
         } catch (VersionParseException e) {
             version = null;
         }
         DeploymentStatus status;
         try {
-            status = values.length > 2 ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
+            status = checkElement(values, 2) ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
         } catch (IllegalArgumentException e) {
             status = null;
         }
-        String nodeId = values.length > 3 ? SerializeUtils.decode(values[3]) : null;
 
-        return new UnitNodeStatus(id, version, status, nodeId);
+        long depOpId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
+
+        String nodeId = checkElement(values, 4) ? SerializeUtils.decode(values[4]) : null;
+
+        return new UnitNodeStatus(id, version, status, depOpId, nodeId);
     }
 }
