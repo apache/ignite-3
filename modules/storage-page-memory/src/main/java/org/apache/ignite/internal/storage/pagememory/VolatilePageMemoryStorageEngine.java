@@ -29,7 +29,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -38,11 +37,10 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
@@ -90,7 +88,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         addDataRegion(DEFAULT_DATA_REGION_NAME);
@@ -117,7 +114,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         destructionExecutor = new GradualTaskExecutor(destructionThreadPool);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         destructionExecutor.close();
@@ -129,16 +125,16 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneCfg)
-            throws StorageException {
-        VolatilePageMemoryDataStorageView dataStorageView =
-                (VolatilePageMemoryDataStorageView) distributionZoneCfg.dataStorage().value();
+    public VolatilePageMemoryTableStorage createMvTable(
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier
+    ) throws StorageException {
+        VolatilePageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
 
-        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, distributionZoneCfg,
-                regions.get(dataStorageView.dataRegion()), destructionExecutor);
+        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
+
+        return new VolatilePageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, dataRegion, destructionExecutor);
     }
 
     /**

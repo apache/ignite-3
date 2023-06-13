@@ -70,6 +70,8 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -83,7 +85,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -112,7 +113,6 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
@@ -247,7 +247,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testOneRebalance() throws Exception {
+    void testOneRebalance() {
         createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -300,7 +300,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() throws Exception {
+    void testThreeQueuedRebalances() {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -393,7 +393,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testRebalanceRetryWhenCatchupFailed() throws Exception {
+    void testRebalanceRetryWhenCatchupFailed() {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -790,11 +790,13 @@ public class ItRebalanceDistributedTest {
                     distributionZoneManager
             ) {
                 @Override
-                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg,
-                        DistributionZoneConfiguration   distributionZoneCfg) {
+                protected TxStateTableStorage createTxStateTableStorage(
+                        CatalogTableDescriptor tableDescriptor,
+                        CatalogZoneDescriptor zoneDescriptor
+                ) {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
                             ? spy(new TestTxStateTableStorage())
-                            : super.createTxStateTableStorage(tableCfg, distributionZoneCfg);
+                            : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
                 }
 
                 @Override
@@ -848,7 +850,7 @@ public class ItRebalanceDistributedTest {
             nodeComponents.forEach(IgniteComponent::start);
 
             assertThat(
-                    CompletableFuture.allOf(
+                    allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                             clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
                     ),
@@ -1034,6 +1036,6 @@ public class ItRebalanceDistributedTest {
 
         assertThat(String.format("tableName=%s, partitionId=%s", tableName, partitionId), futures, not(empty()));
 
-        return CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new));
+        return allOf(futures.toArray(CompletableFuture<?>[]::new));
     }
 }

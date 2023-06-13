@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.storage.state;
 
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,11 +48,6 @@ public interface TxStateTableStorage extends ManuallyCloseable {
      * @throws IgniteInternalException In case when the operation has failed.
      */
     void destroyTxStateStorage(int partitionId);
-
-    /**
-     * Returns table configuration.
-     */
-    TableConfiguration configuration();
 
     /**
      * Starts the storage.

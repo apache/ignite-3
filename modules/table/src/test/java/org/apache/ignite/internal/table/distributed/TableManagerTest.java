@@ -65,6 +65,8 @@ import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -73,7 +75,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -92,7 +93,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -881,17 +881,18 @@ public class TableManagerTest extends IgniteAbstractTest {
         ) {
 
             @Override
-            protected MvTableStorage createTableStorage(
-                    TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                mvTableStorage = spy(super.createTableStorage(tableCfg, tablesCfg, distributionZonesCfg));
+            protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+                mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
                 return mvTableStorage;
             }
 
             @Override
             protected TxStateTableStorage createTxStateTableStorage(
-                    TableConfiguration tableCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableCfg, distributionZonesCfg));
+                    CatalogTableDescriptor tableDescriptor,
+                    CatalogZoneDescriptor zoneDescriptor
+            ) {
+                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
                 return txStateTableStorage;
             }

@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
 public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    @Override
-    protected StorageEngine createEngine() {
-        return new TestStorageEngine();
+    @BeforeEach
+    void setUp() {
+        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
     }
 }

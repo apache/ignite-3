@@ -648,7 +648,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     private String createStorageInfo() {
-        return "table=" + tableStorage.configuration().name().value() + ", partitionId=" + partitionId;
+        return "table=" + tableStorage.id + ", partitionId=" + partitionId;
     }
 
     private <V> V busy(Supplier<V> supplier) {

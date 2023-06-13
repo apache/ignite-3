@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -35,9 +34,9 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
@@ -62,19 +61,18 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /**
      * Constructor.
      *
-     * @param tableCfg Table configuration.
-     * @param tablesCfg Tables configuration.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier.
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
      */
     PersistentPageMemoryTableStorage(
-            TableConfiguration tableCfg,
-            TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneCfg,
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableCfg, tablesCfg, distributionZoneCfg);
+        super(tableDescriptor, indexDescriptorSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;

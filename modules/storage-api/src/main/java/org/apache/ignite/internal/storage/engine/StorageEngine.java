@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
 /**
  * General storage engine interface.
@@ -48,11 +46,10 @@ public interface StorageEngine {
     /**
      * Creates new table storage.
      *
-     * @param tableCfg Table configuration.
-     * @param tablesCfg Tables configuration.
-     * @param distributionZoneCfg Distribution zone configuration.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier at table start.
      * @throws StorageException If an error has occurs while creating the table.
      */
-    MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
-            DistributionZoneConfiguration distributionZoneCfg) throws StorageException;
+    // TODO: IGNITE-19717 Get rid of indexDescriptorSupplier
+    MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
 }
