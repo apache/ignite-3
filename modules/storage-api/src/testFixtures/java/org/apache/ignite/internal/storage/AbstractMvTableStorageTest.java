@@ -99,10 +99,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 0;
 
     /** Partition id for 0 storage. */
-    protected static final int PARTITION_ID_0 = 42;
+    protected static final int PARTITION_ID_0 = 10;
 
     /** Partition id for 1 storage. */
-    protected static final int PARTITION_ID_1 = 1 << 8;
+    protected static final int PARTITION_ID_1 = 9;
 
     protected static final int COMMIT_TABLE_ID = 999;
 

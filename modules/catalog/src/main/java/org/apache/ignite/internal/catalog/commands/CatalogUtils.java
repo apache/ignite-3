@@ -50,13 +50,16 @@ public class CatalogUtils {
     /**
      * Converts CreateTable command params to descriptor.
      *
-     * @param id Table id.
+     * @param id Table ID.
+     * @param zoneId Distributed zone ID.
      * @param params Parameters.
      * @return Table descriptor.
      */
-    public static CatalogTableDescriptor fromParams(int id, CreateTableParams params) {
-        return new CatalogTableDescriptor(id,
+    public static CatalogTableDescriptor fromParams(int id, int zoneId, CreateTableParams params) {
+        return new CatalogTableDescriptor(
+                id,
                 params.tableName(),
+                zoneId,
                 params.columns().stream().map(CatalogUtils::fromParams).collect(Collectors.toList()),
                 params.primaryKeyColumns(),
                 params.colocationColumns()

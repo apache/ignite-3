@@ -579,8 +579,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
-            // TODO: IGNITE-19483 вот тут ПИЗДЕЦ !!!
-
             CompletableFuture<?> createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     tableDescriptor,
@@ -1163,15 +1161,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
 
-        DistributionZoneConfiguration distributionZoneConfiguration =
-                getZoneById(zonesConfig, tableCfg.value().zoneId());
-
         MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
-        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg, distributionZoneConfiguration);
+        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
+
+        int partitions = zoneDescriptor.partitions();
 
         InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
-                new Int2ObjectOpenHashMap<>(zoneDescriptor.partitions()),
-                zoneDescriptor.partitions(), clusterNodeResolver, txManager, tableStorage,
+                new Int2ObjectOpenHashMap<>(partitions),
+                partitions, clusterNodeResolver, txManager, tableStorage,
                 txStateStorage, replicaSvc, clock);
 
         var table = new TableImpl(internalTable, lockMgr);
@@ -1196,6 +1193,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
+        // TODO: IGNITE-19483 исправить
         createTablePartitionsLocally(causalityToken, assignments, (ExtendedTableView) tableCfg.value(), table);
 
         pendingTables.put(tableId, table);
@@ -1238,23 +1236,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates transaction state storage for the provided table.
      *
-     * @param tableCfg Table configuration.
-     * @return Transaction state storage.
+     * @param tableDescriptor Catalog table descriptor.
+     * @param zoneDescriptor Catalog distributed zone descriptor.
      */
-    protected TxStateTableStorage createTxStateTableStorage(
-            TableConfiguration tableCfg, DistributionZoneConfiguration distributionZoneCfg) {
-        Path path = storagePath.resolve(TX_STATE_DIR + tableCfg.value().id());
+    protected TxStateTableStorage createTxStateTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+        int tableId = tableDescriptor.id();
+
+        Path path = storagePath.resolve(TX_STATE_DIR + tableId);
 
         try {
             Files.createDirectories(path);
         } catch (IOException e) {
-            throw new StorageException("Failed to create transaction state storage directory for " + tableCfg.value().name(), e);
+            throw new StorageException("Failed to create transaction state storage directory for table: " + tableId, e);
         }
 
-        // TODO: IGNITE-19483 исправить
         TxStateTableStorage txStateTableStorage = new TxStateRocksDbTableStorage(
-                tableCfg,
-                distributionZoneCfg,
+                tableId,
+                zoneDescriptor.partitions(),
                 path,
                 txStateStorageScheduledPool,
                 txStateStoragePool,

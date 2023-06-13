@@ -296,7 +296,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                         );
                     });
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            String zoneName = Objects.requireNonNullElse(params.zone(), CatalogService.DEFAULT_ZONE_NAME);
+
+            CatalogZoneDescriptor zone = Objects.requireNonNull(catalog.zone(zoneName), "No zone found: " + zoneName);
+
+            CatalogTableDescriptor table = CatalogUtils.fromParams(catalog.objectIdGenState(), zone.id(), params);
 
             return List.of(
                     new NewTableEntry(table),
@@ -877,6 +881,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                     : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
+                                                            table.zoneId(),
                                                             CollectionUtils.concat(table.columns(), columnDescriptors),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
@@ -908,7 +913,9 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                     : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
-                                                            table.columns().stream().filter(col -> !columns.contains(col.name()))
+                                                            table.zoneId(),
+                                                            table.columns().stream()
+                                                                    .filter(col -> !columns.contains(col.name()))
                                                                     .collect(Collectors.toList()),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
@@ -1031,10 +1038,10 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                     : new CatalogTableDescriptor(
                                                             table.id(),
                                                             table.name(),
+                                                            table.zoneId(),
                                                             table.columns().stream()
-                                                                    .map(source -> source.name().equals(target.name())
-                                                                            ? target
-                                                                            : source).collect(Collectors.toList()),
+                                                                    .map(source -> source.name().equals(target.name()) ? target : source)
+                                                                    .collect(Collectors.toList()),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )

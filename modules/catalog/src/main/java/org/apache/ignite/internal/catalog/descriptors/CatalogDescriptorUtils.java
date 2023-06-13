@@ -61,6 +61,7 @@ public class CatalogDescriptorUtils {
         return new CatalogTableDescriptor(
                 config.id(),
                 config.name(),
+                config.zoneId(),
                 config.columns().stream().map(CatalogDescriptorUtils::toTableColumnDescriptor).collect(toList()),
                 List.of(primaryKeyConfig.columns()),
                 List.of(primaryKeyConfig.colocationColumns())

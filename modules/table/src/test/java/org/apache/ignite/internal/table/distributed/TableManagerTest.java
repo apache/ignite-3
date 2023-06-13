@@ -75,7 +75,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -888,8 +886,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             @Override
             protected TxStateTableStorage createTxStateTableStorage(
-                    TableConfiguration tableCfg, DistributionZoneConfiguration distributionZonesCfg) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableCfg, distributionZonesCfg));
+                    CatalogTableDescriptor tableDescriptor,
+                    CatalogZoneDescriptor zoneDescriptor
+            ) {
+                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
                 return txStateTableStorage;
             }
