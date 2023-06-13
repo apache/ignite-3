@@ -179,6 +179,7 @@ public class TxManagerImpl implements TxManager {
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
+                .timestampLong(clock.nowLong())
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
@@ -207,6 +208,7 @@ public class TxManagerImpl implements TxManager {
                     recipientNode,
                     FACTORY.txCleanupReplicaRequest()
                             .groupId(tablePartitionIds.get(i).get1())
+                            .timestampLong(clock.nowLong())
                             .txId(txId)
                             .commit(commit)
                             .commitTimestampLong(hybridTimestampToLong(commitTimestamp))

@@ -39,6 +39,8 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
@@ -129,7 +131,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 dataRegion.pageMemory(),
-                tableStorage.configuration().value().tableId(),
+                tableStorage.getTableId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -257,7 +259,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
+                throw new StorageException(
+                        "Failed to read group config: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
             }
         });
     }
@@ -290,20 +296,24 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
             }
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+            throw new StorageException(
+                    "Cannot save committed group configuration: [tableId={}, partitionId={}]",
+                    e,
+                    tableStorage.getTableId(), partitionId
+            );
         } finally {
             replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
         }
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        return runConsistently(locker -> super.getOrCreateHashIndex(indexId));
+    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        return runConsistently(locker -> super.getOrCreateHashIndex(indexDescriptor));
     }
 
     @Override
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        return runConsistently(locker -> super.getOrCreateSortedIndex(indexId));
+    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        return runConsistently(locker -> super.getOrCreateSortedIndex(indexDescriptor));
     }
 
     @Override
@@ -393,7 +403,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
-                tableStorage.configuration().tableId().value(),
+                tableStorage.getTableId(),
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );

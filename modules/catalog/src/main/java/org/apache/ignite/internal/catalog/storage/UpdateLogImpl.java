@@ -87,7 +87,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             if (handler == null) {
                 throw new IgniteInternalException(
-                        Common.UNEXPECTED_ERR,
+                        Common.INTERNAL_ERR,
                         "Handler must be registered prior to component start"
                 );
             }

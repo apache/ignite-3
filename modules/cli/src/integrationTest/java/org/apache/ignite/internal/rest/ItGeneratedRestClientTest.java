@@ -20,6 +20,8 @@ package org.apache.ignite.internal.rest;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.rest.client.model.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.rest.client.model.DeploymentStatus.UPLOADING;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -29,7 +31,6 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +53,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.cli.call.unit.DeployUnitClient;
+import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitClient;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -386,19 +387,29 @@ public class ItGeneratedRestClientTest {
 
     @Test
     void deployUndeployUnitSync() throws ApiException {
-        assertThat(deploymentApi.units(), empty());
+        assertThat(deploymentApi.listClusterStatuses(null), empty());
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19295
-        new DeployUnitClient(apiClient).deployUnit("test.unit.id", List.of(emptyFile()), "1.0.0");
-        List<UnitStatus> units = deploymentApi.units();
-        assertThat(units, hasSize(1));
-        assertThat(units.get(0).getId(), equalTo("test.unit.id"));
-        assertThat(units.get(0).getVersionToDeploymentInfo().values(), not(empty()));
+        String unitId = "test.unit.id";
+        String unitVersion = "1.0.0";
 
-        assertThat(deploymentApi.versions("test.unit.id"), contains("1.0.0"));
+        new DeployUnitClient(apiClient).deployUnit(unitId, List.of(emptyFile()), unitVersion);
 
-        deploymentApi.undeployUnit("test.unit.id", "1.0.0");
-        await().untilAsserted(() -> assertThat(deploymentApi.units(), empty()));
+        UnitStatus expectedStatus = new UnitStatus().id(unitId).putVersionToStatusItem(unitVersion, DEPLOYED);
+
+        await().untilAsserted(() -> assertThat(deploymentApi.listClusterStatuses(null), contains(expectedStatus)));
+
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, "0.0.0", null), empty());
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, unitVersion, null), contains(expectedStatus));
+
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, null, List.of(UPLOADING)), empty());
+        assertThat(deploymentApi.listClusterStatusesByUnit(unitId, null, List.of(DEPLOYED)), contains(expectedStatus));
+
+        assertThat(deploymentApi.listClusterStatuses(List.of(UPLOADING)), empty());
+        assertThat(deploymentApi.listClusterStatuses(List.of(DEPLOYED)), contains(expectedStatus));
+
+        deploymentApi.undeployUnit(unitId, unitVersion);
+        await().untilAsserted(() -> assertThat(deploymentApi.listClusterStatuses(null), empty()));
     }
 
     @Test
@@ -431,4 +442,3 @@ public class ItGeneratedRestClientTest {
         return TestIgnitionManager.start(nodeName, buildConfig(index), WORK_DIR.resolve(nodeName));
     }
 }
-

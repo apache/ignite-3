@@ -36,7 +36,7 @@ public interface InternalTuple {
     /**
      * Returns a number of values in the tuple.
      */
-    int count();
+    int elementCount();
 
     /**
      * Checks whether the given column contains a null value.
@@ -146,9 +146,10 @@ public interface InternalTuple {
      * Reads value from specified column.
      *
      * @param col Column index.
+     * @param decimalScale Decimal scale.
      * @return Column value.
      */
-    BigDecimal decimalValue(int col);
+    BigDecimal decimalValue(int col, int decimalScale);
 
     /**
      * Reads value from specified column.

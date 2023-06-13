@@ -59,7 +59,7 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest {
-    private final UUID tableId = UUID.randomUUID();
+    private final int tableId = 1;
 
     protected TxStateTableStorage tableStorage;
 

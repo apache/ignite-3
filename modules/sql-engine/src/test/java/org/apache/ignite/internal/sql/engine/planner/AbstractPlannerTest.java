@@ -43,6 +43,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -119,6 +120,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -144,6 +146,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     protected static final int DEFAULT_ZONE_ID = 0;
+
+    private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
     /** Last error message. */
     String lastErrorMsg;
@@ -180,6 +184,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         v.visit(n, -1, null);
 
         n.childrenAccept(new TestRelVisitor(v));
+    }
+
+    protected static IgniteDistribution someAffinity() {
+        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+    }
+
+    protected static int nextTableId() {
+        return NEXT_TABLE_ID.getAndIncrement();
     }
 
     /**
@@ -809,7 +821,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final TableDescriptor desc;
 
-        private final UUID id = UUID.randomUUID();
+        private final int id = nextTableId();
 
         /** Constructor. */
         public TestTable(RelDataType type) {
@@ -837,7 +849,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1197,9 +1209,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     static class TestSortedIndex implements SortedIndex {
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
-        private final UUID tableId = UUID.randomUUID();
+        private final int tableId = 1;
 
         private final SortedIndexDescriptor descriptor;
 
@@ -1225,9 +1237,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.descriptor = descriptor;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1239,7 +1250,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 
@@ -1278,14 +1289,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     /** Test Hash index implementation. */
     public static class TestHashIndex implements Index<IndexDescriptor> {
-        private final UUID id = UUID.randomUUID();
+        private final int id = 1;
 
-        private UUID tableId = UUID.randomUUID();
+        private int tableId = 1;
 
         private final IndexDescriptor descriptor;
 
         /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name, UUID tableId) {
+        public static TestHashIndex create(List<String> indexedColumns, String name, int tableId) {
             var descriptor = new IndexDescriptor(name, indexedColumns);
 
             TestHashIndex idx = new TestHashIndex(descriptor);
@@ -1306,9 +1317,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this.descriptor = descriptor;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public UUID id() {
+        public int id() {
             return id;
         }
 
@@ -1320,7 +1330,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public UUID tableId() {
+        public int tableId() {
             return tableId;
         }
 

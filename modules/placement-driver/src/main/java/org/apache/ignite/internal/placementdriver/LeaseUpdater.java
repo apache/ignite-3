@@ -67,14 +67,14 @@ public class LeaseUpdater {
     private static final long UPDATE_LEASE_MS = 500L;
 
     /** Lease holding interval. */
-    public static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+    private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
 
     /** The lock is available when the actor is active. */
     private final IgniteSpinBusyLock stateActorLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean active = new AtomicBoolean();
 
-    /** Long lease interval. The interval is used between lease granting attempts. */
+    /** The interval in milliseconds that is used in the beginning of lease granting process. */
     private final long longLeaseInterval;
 
     /** Cluster service. */
@@ -133,8 +133,8 @@ public class LeaseUpdater {
         this.leaseTracker = leaseTracker;
         this.clock = clock;
 
-        this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000L);
-        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager, tablesConfiguration, distributionZonesConfiguration);
+        this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
+        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
 

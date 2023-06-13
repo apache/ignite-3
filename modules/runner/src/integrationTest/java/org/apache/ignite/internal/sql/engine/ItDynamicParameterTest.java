@@ -28,10 +28,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
+import org.apache.ignite.internal.sql.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -60,17 +58,16 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
-            //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
-            names = {"DECIMAL", "NUMBER", "BITMASK", "DURATION", "PERIOD"},
+            names = {"NUMBER", "BITMASK", "DURATION", "PERIOD"},
             mode = Mode.EXCLUDE
     )
     void testMetadataTypesForDynamicParameters(ColumnType type) {
-        Object param = generateValueByType(RND.nextInt(), type);
+        Object param = SqlTestUtils.generateValueByType(type);
         List<List<Object>> ret = sql("SELECT typeof(?)", param);
         String type0 = (String) ret.get(0).get(0);
 
-        assertTrue(type0.startsWith(toSqlType(type)));
+        assertTrue(type0.startsWith(SqlTestUtils.toSqlType(type)));
         assertQuery("SELECT ?").withParams(param).returns(param).columnMetadata(new MetadataMatcher().type(type)).check();
     }
 
@@ -261,47 +258,6 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     @Nullable
     private static Object generateValueByType(int i, ColumnType type) {
         return NativeTypeValues.value(i, type);
-    }
-
-    private static String toSqlType(ColumnType columnType) {
-        switch (columnType) {
-            case BOOLEAN:
-                return SqlTypeName.BOOLEAN.getName();
-            case INT8:
-                return SqlTypeName.TINYINT.getName();
-            case INT16:
-                return SqlTypeName.SMALLINT.getName();
-            case INT32:
-                return SqlTypeName.INTEGER.getName();
-            case INT64:
-                return SqlTypeName.BIGINT.getName();
-            case FLOAT:
-                return SqlTypeName.REAL.getName();
-            case DOUBLE:
-                return SqlTypeName.DOUBLE.getName();
-            case DECIMAL:
-                return SqlTypeName.DECIMAL.getName();
-            case DATE:
-                return SqlTypeName.DATE.getName();
-            case TIME:
-                return SqlTypeName.TIME.getName();
-            case DATETIME:
-                return SqlTypeName.TIMESTAMP.getName();
-            case TIMESTAMP:
-                return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName();
-            case UUID:
-                return UuidType.NAME;
-            case STRING:
-                return SqlTypeName.VARCHAR.getName();
-            case BYTE_ARRAY:
-                return SqlTypeName.VARBINARY.getName();
-            case NUMBER:
-                return SqlTypeName.INTEGER.getName();
-            case NULL:
-                return SqlTypeName.NULL.getName();
-            default:
-                throw new IllegalArgumentException("Unsupported type " + columnType);
-        }
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {

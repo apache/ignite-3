@@ -250,17 +250,6 @@ public class TransferableObjectProcessorTest {
     }
 
     /**
-     * Tests that compilation fails if message's field is both {@link NetworkMessage} and marked
-     * as {@link org.apache.ignite.network.annotations.Marshallable}.
-     */
-    @Test
-    void testFieldBothNetworkMessageAndMarkedMarshallable() {
-        Compilation compilation = compile("MessageWithMarshallableNetworkMessageField");
-
-        assertThat(compilation).hadErrorContaining("msgField is both NetworkMessage and @Marshallable");
-    }
-
-    /**
      * Compiles the given network message.
      */
     private Compilation compile(String messageSource) {

@@ -24,9 +24,9 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.descriptors.HashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.IndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.TableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Test;
 class FullTableSchemaTest {
     @Test
     void sameSchemasHaveEmptyDiff() {
-        TableColumnDescriptor column = someColumn("a");
-        IndexDescriptor index = someIndex(1, "ind_a");
+        CatalogTableColumnDescriptor column = someColumn("a");
+        CatalogIndexDescriptor index = someIndex(1, "ind_a");
 
         var schema1 = new FullTableSchema(1, 1, List.of(column), List.of(index));
         var schema2 = new FullTableSchema(2, 1, List.of(column), List.of(index));
@@ -46,20 +46,20 @@ class FullTableSchemaTest {
     }
 
     @NotNull
-    private static HashIndexDescriptor someIndex(int id, String name) {
-        return new HashIndexDescriptor(id, name, 1, List.of("a"));
+    private static CatalogHashIndexDescriptor someIndex(int id, String name) {
+        return new CatalogHashIndexDescriptor(id, name, 1, true, List.of("a"));
     }
 
     @NotNull
-    private static TableColumnDescriptor someColumn(String columnName) {
-        return new TableColumnDescriptor(columnName, ColumnType.INT32, true, DefaultValue.constant(null));
+    private static CatalogTableColumnDescriptor someColumn(String columnName) {
+        return new CatalogTableColumnDescriptor(columnName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
     }
 
     @Test
     void addedRemovedColumnsAreReflectedInDiff() {
-        TableColumnDescriptor column1 = someColumn("a");
-        TableColumnDescriptor column2 = someColumn("b");
-        TableColumnDescriptor column3 = someColumn("c");
+        CatalogTableColumnDescriptor column1 = someColumn("a");
+        CatalogTableColumnDescriptor column2 = someColumn("b");
+        CatalogTableColumnDescriptor column3 = someColumn("c");
 
         var schema1 = new FullTableSchema(1, 1, List.of(column1, column2), List.of());
         var schema2 = new FullTableSchema(2, 1, List.of(column2, column3), List.of());
@@ -74,11 +74,11 @@ class FullTableSchemaTest {
 
     @Test
     void changedColumnsAreReflectedInDiff() {
-        TableColumnDescriptor column1 = someColumn("a");
+        CatalogTableColumnDescriptor column1 = someColumn("a");
 
         var schema1 = new FullTableSchema(1, 1, List.of(column1), List.of());
         var schema2 = new FullTableSchema(2, 1,
-                List.of(new TableColumnDescriptor("a", ColumnType.STRING, true, DefaultValue.constant(null))),
+                List.of(new CatalogTableColumnDescriptor("a", ColumnType.STRING, true, 0, 0, 10, DefaultValue.constant(null))),
                 List.of()
         );
 
@@ -92,9 +92,9 @@ class FullTableSchemaTest {
 
     @Test
     void addedRemovedIndexesAreReflectedInDiff() {
-        IndexDescriptor index1 = someIndex(1, "a");
-        IndexDescriptor index2 = someIndex(2, "b");
-        IndexDescriptor index3 = someIndex(3, "c");
+        CatalogIndexDescriptor index1 = someIndex(1, "a");
+        CatalogIndexDescriptor index2 = someIndex(2, "b");
+        CatalogIndexDescriptor index3 = someIndex(3, "c");
 
         var schema1 = new FullTableSchema(1, 1, List.of(someColumn("a")), List.of(index1, index2));
         var schema2 = new FullTableSchema(2, 1, List.of(someColumn("a")), List.of(index2, index3));

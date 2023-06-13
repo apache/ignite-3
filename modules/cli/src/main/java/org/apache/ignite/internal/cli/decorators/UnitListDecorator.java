@@ -24,28 +24,38 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.rest.client.model.DeploymentInfo;
+import org.apache.ignite.internal.cli.util.PlainTableRenderer;
+import org.apache.ignite.rest.client.model.DeploymentStatus;
 
 /** Decorates list of units as a table. */
 public class UnitListDecorator implements Decorator<List<UnitStatusRecord>, TerminalOutput> {
 
     private static final String[] HEADERS = {"id", "version", "status"};
+    private final boolean plain;
 
-    private String[][] toContent(List<UnitStatusRecord> data) {
-        return data.stream().flatMap(this::unfoldRecordWithVersions).toArray(String[][]::new);
+    public UnitListDecorator(boolean plain) {
+        this.plain = plain;
     }
 
     @Override
     public TerminalOutput decorate(List<UnitStatusRecord> data) {
-        return () -> FlipTable.of(HEADERS, toContent(data));
+        if (plain) {
+            return () -> PlainTableRenderer.render(HEADERS, toContent(data));
+        } else {
+            return () -> FlipTable.of(HEADERS, toContent(data));
+        }
     }
 
-    private Stream<String[]> unfoldRecordWithVersions(UnitStatusRecord record) {
-        Map<String, DeploymentInfo> map = record.versionToDeploymentInfo();
+    private static String[][] toContent(List<UnitStatusRecord> data) {
+        return data.stream().flatMap(UnitListDecorator::unfoldRecordWithVersions).toArray(String[][]::new);
+    }
+
+    private static Stream<String[]> unfoldRecordWithVersions(UnitStatusRecord record) {
+        Map<String, DeploymentStatus> map = record.versionToStatus();
         return map.entrySet().stream().map(entry -> new String[]{
                 record.id(),
                 entry.getKey(),
-                entry.getValue().getStatus().getValue()
+                entry.getValue().getValue()
         });
     }
 }

@@ -39,16 +39,13 @@ import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import org.apache.ignite.configuration.ConfigurationValue;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -72,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -149,7 +147,7 @@ public class StopCalciteModuleTest {
 
     private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
 
-    private UUID tblId = UUID.randomUUID();
+    private final int tblId = 1;
 
     /**
      * Before.
@@ -172,7 +170,7 @@ public class StopCalciteModuleTest {
 
         when(tbl.name()).thenReturn("TEST");
 
-        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaReg));
+        when(schemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(schemaReg));
 
         // Mock create table (notify on register listener).
         doAnswer(invocation -> {
@@ -252,11 +250,10 @@ public class StopCalciteModuleTest {
         when(tbl.tableId()).thenReturn(tblId);
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
-        when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
-        when(tbl.storage().distributionZoneConfiguration()).thenReturn(mock(DistributionZoneConfiguration.class));
-        when(tbl.storage().distributionZoneConfiguration().partitions()).thenReturn(mock(ConfigurationValue.class));
-        when(tbl.storage().distributionZoneConfiguration().partitions().value()).thenReturn(1);
+        when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1));
+
+        when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 
@@ -317,17 +314,17 @@ public class StopCalciteModuleTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
+    private static class TestRevisionRegister implements Consumer<LongFunction<CompletableFuture<?>>> {
         /** Revision consumer. */
-        Function<Long, CompletableFuture<?>> moveRevision;
+        LongFunction<CompletableFuture<?>> moveRevision;
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Function<Long, CompletableFuture<?>> function) {
+        public void accept(LongFunction<CompletableFuture<?>> function) {
             if (moveRevision == null) {
                 moveRevision = function;
             } else {
-                Function<Long, CompletableFuture<?>> old = moveRevision;
+                LongFunction<CompletableFuture<?>> old = moveRevision;
 
                 moveRevision = rev -> allOf(
                         old.apply(rev),

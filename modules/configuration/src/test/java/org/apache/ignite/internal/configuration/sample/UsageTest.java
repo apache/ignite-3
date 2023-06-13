@@ -25,9 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,10 +50,9 @@ public class UsageTest {
     public void test() throws Exception {
         registry = new ConfigurationRegistry(
                 List.of(LocalConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(LocalConfiguration.KEY),
+                new TestConfigurationValidator()
         );
 
         registry.start();
@@ -111,10 +111,9 @@ public class UsageTest {
 
         registry = new ConfigurationRegistry(
                 List.of(NetworkConfiguration.KEY, LocalConfiguration.KEY),
-                Set.of(),
                 new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
+                new ConfigurationTreeGenerator(NetworkConfiguration.KEY, LocalConfiguration.KEY),
+                new TestConfigurationValidator()
         );
 
         registry.start();

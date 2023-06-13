@@ -49,16 +49,16 @@ class SchemaCompatValidator {
      * @param txId ID of the transaction that gets validated.
      * @param enlistedGroupIds IDs of the partitions that are enlisted with the transaction.
      * @param commitTimestamp Commit timestamp (or {@code null} if it's an abort).
-     * @return Future completed with validation result.
+     * @return Future of validation result.
      */
-    CompletableFuture<ForwardValidationResult> validateForwards(
+    CompletableFuture<CompatValidationResult> validateForward(
             UUID txId,
             List<TablePartitionId> enlistedGroupIds,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        Set<UUID> tableIds = enlistedGroupIds.stream()
+        Set<Integer> tableIds = enlistedGroupIds.stream()
                 .map(TablePartitionId::tableId)
                 .collect(toSet());
 
@@ -69,49 +69,100 @@ class SchemaCompatValidator {
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemas.waitForSchemasAvailability(commitTimestamp)
-                .thenApply(ignored -> validateSchemasCompatibility(tableIds, commitTimestamp, beginTimestamp));
+                .thenApply(ignored -> validateForwardSchemasCompatibility(tableIds, commitTimestamp, beginTimestamp));
     }
 
-    private ForwardValidationResult validateSchemasCompatibility(
-            Set<UUID> tableIds,
+    private CompatValidationResult validateForwardSchemasCompatibility(
+            Set<Integer> tableIds,
             HybridTimestamp commitTimestamp,
             HybridTimestamp beginTimestamp
     ) {
-        for (UUID tableId : tableIds) {
-            ForwardValidationResult validationResult = validateSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+        for (int tableId : tableIds) {
+            CompatValidationResult validationResult = validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
 
             if (!validationResult.isSuccessful()) {
                 return validationResult;
             }
         }
 
-        return ForwardValidationResult.success();
+        return CompatValidationResult.success();
     }
 
-    private ForwardValidationResult validateSchemaCompatibility(
+    private CompatValidationResult validateForwardSchemaCompatibility(
             HybridTimestamp beginTimestamp,
             HybridTimestamp commitTimestamp,
-            UUID tableId
+            int tableId
     ) {
         List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
 
         assert !tableSchemas.isEmpty();
 
         for (int i = 0; i < tableSchemas.size() - 1; i++) {
-            FullTableSchema from = tableSchemas.get(i);
-            FullTableSchema to = tableSchemas.get(i + 1);
-            if (!isCompatible(from, to)) {
-                return ForwardValidationResult.failure(tableId, from.schemaVersion(), to.schemaVersion());
+            FullTableSchema oldSchema = tableSchemas.get(i);
+            FullTableSchema newSchema = tableSchemas.get(i + 1);
+            if (!isForwardCompatible(oldSchema, newSchema)) {
+                return CompatValidationResult.failure(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
             }
         }
 
-        return ForwardValidationResult.success();
+        return CompatValidationResult.success();
     }
 
-    private boolean isCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+    private boolean isForwardCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
         TableDefinitionDiff diff = nextSchema.diffFrom(prevSchema);
 
-        // TODO: IGNITE-19229 - more sophisticated logic
+        // TODO: IGNITE-19229 - more sophisticated logic.
         return diff.isEmpty();
+    }
+
+    /**
+     * Performs backward compatibility validation of a tuple that was just read in the transaction.
+     *
+     * <ul>
+     *     <li>If the tuple was written with a schema version earlier or same as the initial schema version of the transaction,
+     *     the read is valid.</li>
+     *     <li>If the tuple was written with a schema version later than the initial schema version of the transaction,
+     *     the read is valid only if the initial schema version is backward compatible with the tuple schema version.</li>
+     * </ul>
+     *
+     * @param tupleSchemaVersion Schema version ID of the tuple.
+     * @param tableId ID of the table to which the tuple belongs.
+     * @param txId ID of the transaction that gets validated.
+     * @return Future of validation result.
+     */
+    CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
+        HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
+
+        return schemas.waitForSchemasAvailability(beginTimestamp)
+                .thenCompose(ignored -> schemas.waitForSchemaAvailability(tableId, tupleSchemaVersion))
+                .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
+    }
+
+    private CompatValidationResult validateBackwardSchemaCompatibility(
+            int tupleSchemaVersion,
+            int tableId,
+            HybridTimestamp beginTimestamp
+    ) {
+        List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, tupleSchemaVersion);
+
+        if (tableSchemas.isEmpty()) {
+            // The tuple was not written with a future schema.
+            return CompatValidationResult.success();
+        }
+
+        for (int i = 0; i < tableSchemas.size() - 1; i++) {
+            FullTableSchema oldSchema = tableSchemas.get(i);
+            FullTableSchema newSchema = tableSchemas.get(i + 1);
+            if (!isBackwardCompatible(oldSchema, newSchema)) {
+                return CompatValidationResult.failure(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+            }
+        }
+
+        return CompatValidationResult.success();
+    }
+
+    private boolean isBackwardCompatible(FullTableSchema oldSchema, FullTableSchema newSchema) {
+        // TODO: IGNITE-19229 - is backward compatibility always symmetric with the forward compatibility?
+        return isForwardCompatible(newSchema, oldSchema);
     }
 }

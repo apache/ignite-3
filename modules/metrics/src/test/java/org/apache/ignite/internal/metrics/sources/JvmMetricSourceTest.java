@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
-import java.util.concurrent.locks.LockSupport;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.junit.jupiter.api.Test;
@@ -36,15 +37,15 @@ public class JvmMetricSourceTest {
 
         var metricSet = metricSource.enable();
 
-        assertEquals(memoryBean.heapInit, metricSet.<LongMetric>get("memory.heap.init").value());
-        assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.used").value());
-        assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.committed").value());
-        assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.max").value());
+        assertEquals(memoryBean.heapInit, metricSet.<LongMetric>get("memory.heap.Init").value());
+        assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.Used").value());
+        assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.Committed").value());
+        assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.Max").value());
 
-        assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.init").value());
-        assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.used").value());
-        assertEquals(memoryBean.nonHeapCommitted, metricSet.<LongMetric>get("memory.non-heap.committed").value());
-        assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.max").value());
+        assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.Init").value());
+        assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
+        assertEquals(memoryBean.nonHeapCommitted, metricSet.<LongMetric>get("memory.non-heap.Committed").value());
+        assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.Max").value());
 
         memoryBean.heapUsed += 1;
         memoryBean.heapCommitted += 1;
@@ -53,19 +54,22 @@ public class JvmMetricSourceTest {
         memoryBean.nonHeapCommitted += 1;
 
         // wait for memory usage cache update
-        while (metricSet.<LongMetric>get("memory.heap.used").value() != memoryBean.heapUsed) {
-            LockSupport.parkNanos(100_000_000);
-        }
+        await()
+                .atMost(10, SECONDS)
+                .untilAsserted(() -> assertEquals(
+                        memoryBean.heapUsed,
+                        metricSet.<LongMetric>get("memory.heap.Used").value(),
+                        "The value of the memory.heap.Used metric was not updated in 10 sec."));
 
-        assertEquals(memoryBean.heapInit, metricSet.<LongMetric>get("memory.heap.init").value());
-        assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.used").value());
-        assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.committed").value());
-        assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.max").value());
+        assertEquals(memoryBean.heapInit, metricSet.<LongMetric>get("memory.heap.Init").value());
+        assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.Used").value());
+        assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.Committed").value());
+        assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.Max").value());
 
-        assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.init").value());
-        assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.used").value());
-        assertEquals(memoryBean.nonHeapCommitted, metricSet.<LongMetric>get("memory.non-heap.committed").value());
-        assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.max").value());
+        assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.Init").value());
+        assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
+        assertEquals(memoryBean.nonHeapCommitted, metricSet.<LongMetric>get("memory.non-heap.Committed").value());
+        assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.Max").value());
     }
 
     /**

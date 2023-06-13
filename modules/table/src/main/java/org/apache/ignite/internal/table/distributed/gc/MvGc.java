@@ -37,8 +37,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -49,7 +47,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
  *
- * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+ * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int)
  */
 public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
@@ -109,14 +107,14 @@ public class MvGc implements ManuallyCloseable {
      * Adds storage for background garbage collection when updating a low watermark.
      *
      * @param tablePartitionId Table partition ID.
-     * @param storageUpdateHandler Storage update handler.
+     * @param gcUpdateHandler Gc update handler.
      * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
      */
-    public void addStorage(TablePartitionId tablePartitionId, StorageUpdateHandler storageUpdateHandler) {
+    public void addStorage(TablePartitionId tablePartitionId, GcUpdateHandler gcUpdateHandler) {
         inBusyLock(() -> {
             GcStorageHandler previous = storageHandlerByPartitionId.putIfAbsent(
                     tablePartitionId,
-                    new GcStorageHandler(storageUpdateHandler)
+                    new GcStorageHandler(gcUpdateHandler)
             );
 
             // TODO: IGNITE-18939 Should be called once, you need to check that previous == null
@@ -239,22 +237,12 @@ public class MvGc implements ManuallyCloseable {
                     return;
                 }
 
-                StorageUpdateHandler storageUpdateHandler = storageHandler.storageUpdateHandler;
+                GcUpdateHandler gcUpdateHandler = storageHandler.gcUpdateHandler;
 
                 // We can only start garbage collection when the partition safe time is reached.
-                storageUpdateHandler.getSafeTimeTracker()
+                gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
-                        .thenApplyAsync(unused -> {
-                            for (int i = 0; i < GC_BATCH_SIZE; i++) {
-                                // If the storage has been deleted or there is no garbage, then we will stop.
-                                if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
-                                        || !storageUpdateHandler.vacuum(lowWatermark)) {
-                                    return false;
-                                }
-                            }
-
-                            return true;
-                        }, executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException

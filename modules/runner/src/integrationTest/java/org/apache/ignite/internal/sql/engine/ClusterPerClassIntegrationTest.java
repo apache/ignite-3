@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toIndexDescriptor;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,10 +36,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -46,17 +49,23 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -246,10 +255,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @return  An index configuration.
      */
     public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
+        return getTablesConfiguration(node).indexes().get(indexName.toUpperCase());
     }
 
     /**
@@ -483,16 +489,17 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param tableName Table name.
      * @param indexName Index name.
+     * @return Nodes on which the partition index was built.
      * @throws Exception If failed.
      */
-    public static void waitForIndexBuild(String tableName, String indexName) throws Exception {
+    protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
+        Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
+
         // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
-            CompletableFuture<Table> tableFuture = clusterNode.tables().tableAsync(tableName);
+            TableImpl tableImpl = getTableImpl(clusterNode, tableName);
 
-            assertThat(tableFuture, willCompleteSuccessfully());
-
-            TableImpl tableImpl = (TableImpl) tableFuture.join();
+            assertNotNull(tableImpl, clusterNode.name() + " : " + tableName);
 
             InternalTable internalTable = tableImpl.internalTable();
 
@@ -500,8 +507,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
                     String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
             );
-
-            UUID indexId = getIndexConfiguration(clusterNode, indexName).id().value();
 
             for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
                 RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
@@ -513,10 +518,82 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                IndexStorage index = internalTable.storage().getOrCreateIndex(partitionId, indexId);
+                TableView tableView = getTableConfiguration(clusterNode, tableName).value();
+                TableIndexView indexView = getIndexConfiguration(clusterNode, indexName).value();
+
+                CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
+                CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+
+                IndexStorage index = internalTable.storage().getOrCreateIndex(
+                        partitionId,
+                        StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
+                );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
+
+                partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
             }
         }
+
+        return partitionIdToNodes;
+    }
+
+    /**
+     * Returns tables configuration.
+     *
+     * @param node Node.
+     */
+    public static TablesConfiguration getTablesConfiguration(Ignite node) {
+        return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
+    }
+
+    /**
+     * Looks up a node by a consistent ID, {@code null} if absent.
+     *
+     * @param consistentId Node consistent ID.
+     */
+    static @Nullable IgniteImpl findByConsistentId(String consistentId) {
+        return CLUSTER_NODES.stream()
+                .map(IgniteImpl.class::cast)
+                .filter(ignite -> consistentId.equals(ignite.node().name()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Returns the table by name, {@code null} if absent.
+     *
+     * @param node Node.
+     * @param tableName Table name.
+     */
+    static @Nullable TableImpl getTableImpl(Ignite node, String tableName) {
+        CompletableFuture<Table> tableFuture = node.tables().tableAsync(tableName);
+
+        assertThat(tableFuture, willSucceedFast());
+
+        return (TableImpl) tableFuture.join();
+    }
+
+    /**
+     * Returns the index ID from the configuration, {@code null} if there is no index configuration.
+     *
+     * @param node Node.
+     * @param indexName Index name.
+     */
+    static @Nullable Integer indexId(Ignite node, String indexName) {
+        TableIndexConfiguration indexConfig = getIndexConfiguration(node, indexName);
+
+        return indexConfig == null ? null : indexConfig.id().value();
+    }
+
+    /**
+     * Returns table configuration of the given table at the given node, or {@code null} if no such table exists.
+     *
+     * @param node Node.
+     * @param tableName Table name.
+     * @return Table configuration.
+     */
+    private static @Nullable TableConfiguration getTableConfiguration(Ignite node, String tableName) {
+        return getTablesConfiguration(node).tables().get(tableName.toUpperCase());
     }
 }

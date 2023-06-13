@@ -170,7 +170,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         RocksDbDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
-        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.tableId().value());
+        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableCfg.id().value());
 
         try {
             Files.createDirectories(tablePath);

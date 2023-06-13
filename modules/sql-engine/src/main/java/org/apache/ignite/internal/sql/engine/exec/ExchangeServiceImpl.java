@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.List;
@@ -145,7 +145,7 @@ public class ExchangeServiceImpl implements ExchangeService {
 
             return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
         } else {
-            return new SqlException(UNEXPECTED_ERR, cause);
+            return new SqlException(INTERNAL_ERR, cause);
         }
     }
 
@@ -163,7 +163,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             } catch (Throwable e) {
                 outbox.onError(e);
 
-                throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         };
 
@@ -183,7 +183,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             } catch (Throwable e) {
                 inbox.onError(e);
 
-                throw new IgniteInternalException(UNEXPECTED_ERR, "Unexpected exception", e);
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",

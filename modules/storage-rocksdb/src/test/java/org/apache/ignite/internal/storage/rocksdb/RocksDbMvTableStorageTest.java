@@ -79,7 +79,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0);
+            return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
         MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID_1);
@@ -89,7 +89,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         partitionStorage1.runConsistently(locker -> {
             locker.lock(rowId1);
 
-            return partitionStorage1.addWrite(rowId1, testData, txId, UUID.randomUUID(), 0);
+            return partitionStorage1.addWrite(rowId1, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
         tableStorage.destroyPartition(PARTITION_ID_0).get(1, TimeUnit.SECONDS);
@@ -120,12 +120,12 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         partitionStorage0.runConsistently(locker -> {
             locker.lock(rowId0);
 
-            return partitionStorage0.addWrite(rowId0, testData, txId, UUID.randomUUID(), 0);
+            return partitionStorage0.addWrite(rowId0, testData, txId, COMMIT_TABLE_ID, 0);
         });
 
         tableStorage.stop();
 
-        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration(), tableStorage.distributionZoneConfiguration());
+        tableStorage = createMvTableStorage(tablesConfig, distributionZoneConfig);
 
         tableStorage.start();
 

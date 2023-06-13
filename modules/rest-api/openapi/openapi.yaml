@@ -321,13 +321,22 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units:
+  /management/v1/deployment/cluster/units:
     get:
       tags:
       - deployment
-      summary: All units status REST method.
-      description: All units statuses.
-      operationId: units
+      summary: Cluster unit statuses REST method.
+      description: Cluster unit statuses.
+      operationId: listClusterStatuses
+      parameters:
+      - name: statuses
+        in: query
+        schema:
+          type: array
+          description: Deployment status filter.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DeploymentStatus'
       responses:
         "200":
           description: All statuses returned successfully.
@@ -343,6 +352,124 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/cluster/units/{unitId}:
+    get:
+      tags:
+      - deployment
+      summary: Cluster unit statuses REST method.
+      description: Cluster unit statuses.
+      operationId: listClusterStatusesByUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The ID of the deployment unit.
+      - name: version
+        in: query
+        schema:
+          type: string
+          description: Unit version filter.
+          nullable: true
+      - name: statuses
+        in: query
+        schema:
+          type: array
+          description: Deployment status filter.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DeploymentStatus'
+      responses:
+        "200":
+          description: All statuses returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitStatus'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/node/units:
+    get:
+      tags:
+      - deployment
+      summary: Node unit statuses REST method.
+      description: Node unit statuses.
+      operationId: listNodeStatuses
+      parameters:
+      - name: statuses
+        in: query
+        schema:
+          type: array
+          description: Deployment status filter.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DeploymentStatus'
+      responses:
+        "200":
+          description: All statuses returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitStatus'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/node/units/{unitId}:
+    get:
+      tags:
+      - deployment
+      summary: Node unit statuses REST method.
+      description: Node unit statuses.
+      operationId: listNodeStatusesByUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The ID of the deployment unit.
+      - name: version
+        in: query
+        schema:
+          type: string
+          description: Unit version filter.
+          nullable: true
+      - name: statuses
+        in: query
+        schema:
+          type: array
+          description: Deployment status filter.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DeploymentStatus'
+      responses:
+        "200":
+          description: All statuses returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitStatus'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units:
     post:
       tags:
       - deployment
@@ -391,103 +518,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units/consistentId/{consistentId}:
-    get:
-      tags:
-      - deployment
-      summary: Find unit by node consistent id.
-      description: Returns the status of units that are deployed on the node.
-      operationId: byConsistentId
-      parameters:
-      - name: consistentId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: The consistent deployment unit identifier.
-      responses:
-        "200":
-          description: All statuses returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UnitStatus'
-        "500":
-          description: Internal error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units/{unitId}/status:
-    get:
-      tags:
-      - deployment
-      summary: Unit status REST method.
-      description: Returns the status of the unit with the provided identifier.
-      operationId: status
-      parameters:
-      - name: unitId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: The ID of the deployment unit.
-      responses:
-        "200":
-          description: Status returned successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UnitStatus'
-        "404":
-          description: Unit with provided identifier does not exist.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-        "500":
-          description: Internal error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-  /management/v1/deployment/units/{unitId}/versions:
-    get:
-      tags:
-      - deployment
-      summary: Versions of unit REST method.
-      description: Returns all versions of the unit with the provided unit identifier.
-      operationId: versions
-      parameters:
-      - name: unitId
-        in: path
-        required: true
-        schema:
-          type: string
-          description: The ID of the deployment unit.
-      responses:
-        "200":
-          description: Versions returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-        "404":
-          description: Unit with the provided identifier does not exist.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
-        "500":
-          description: Internal error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/Problem'
   /management/v1/deployment/units/{unitId}/{unitVersion}:
     delete:
       tags:
@@ -514,7 +544,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Void'
+                type: boolean
         "404":
           description: Unit with provided identifier and version does not exist.
           content:
@@ -723,27 +753,9 @@ components:
           type: string
           description: Unique cluster name.
       description: Unique tag that identifies the cluster.
-    DeploymentInfo:
-      required:
-      - consistentIds
-      - status
-      type: object
-      properties:
-        status:
-          allOf:
-          - $ref: '#/components/schemas/DeploymentStatus'
-          - type: object
-            description: Current unit status.
-        consistentIds:
-          type: array
-          items:
-            type: string
-            description: Map from unit version to node consistent id where unit is
-              deployed.
-      description: Rest representation of class with deployment unit information.
     DeploymentStatus:
       type: string
-      description: Current unit status.
+      description: Status of deployment process.
       enum:
       - UPLOADING
       - DEPLOYED
@@ -904,16 +916,16 @@ components:
     UnitStatus:
       required:
       - id
-      - versionToDeploymentInfo
+      - versionToStatus
       type: object
       properties:
         id:
           type: string
           description: Unit identifier.
-        versionToDeploymentInfo:
+        versionToStatus:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/DeploymentInfo'
+            $ref: '#/components/schemas/DeploymentStatus'
           description: Map from unit version to unit deployment status.
       description: Unit status.
     Void:

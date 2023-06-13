@@ -29,6 +29,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -151,7 +152,9 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
     /**
      * Rename column then add a new column with same name.
+     * TODO IGNITE-19486: Add similar test for KV view.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19486")
     @Test
     void testRenameThenAddColumnWithSameName() throws Exception {
         List<Ignite> grid = startGrid();

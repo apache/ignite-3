@@ -286,14 +286,39 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
+     * Tests for {@code SUBSTRING(str, start[, length])} function.
+     */
+    @Test
+    public void testSubstring() {
+        assertQuery("SELECT SUBSTRING('1234567', 1, 3)").returns("123").check();
+        assertQuery("SELECT SUBSTRING('1234567', 2)").returns("234567").check();
+        assertQuery("SELECT SUBSTRING('1234567', -1)").returns("1234567").check();
+        assertQuery("SELECT SUBSTRING(1000, 1, 3)").returns("100").check();
+
+        assertQuery("SELECT SUBSTRING(NULL FROM 1 FOR 2)").returns(null).check();
+        assertQuery("SELECT SUBSTRING('text' FROM 1 FOR null)").returns(null).check();
+        assertQuery("SELECT SUBSTRING('test' FROM null FOR 2)").returns(null).check();
+
+        // uncomment after https://issues.apache.org/jira/browse/IGNITE-19686 was implemented.
+        //assertQuery("select SUBSTRING(s from i for l) from (values ('abc', null, 2)) as t (s, i, l);").returns(null).check();
+
+        assertThrowsWithCause(() -> sql("SELECT SUBSTRING('abcdefg', 1, -3)"), IgniteException.class,
+                "negative substring length");
+        assertThrowsWithCause(() -> sql("SELECT SUBSTRING('abcdefg' FROM 1 FOR -1)"), IgniteException.class,
+                "negative substring length");
+    }
+
+    /**
      * Tests for {@code SUBSTR(str, start[, length])} function.
      */
     @Test
     public void testSubstr() {
-        assertQuery("SELECT SUBSTR('abcdefg', 1, 3)").returns("abc");
-        assertQuery("SELECT SUBSTR('abcdefg', 2)").returns("bcdefg");
-        assertQuery("SELECT SUBSTR('abcdefg', -1)").returns("abcdefg");
-        assertQuery("SELECT SUBSTR('abcdefg', 1, -3)").returns("");
+        assertQuery("SELECT SUBSTR('1234567', 1, 3)").returns("123").check();
+        assertQuery("SELECT SUBSTR('1234567', 2)").returns("234567").check();
+        assertQuery("SELECT SUBSTR('1234567', -1)").returns("1234567").check();
+        assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100").check();
+
+        assertThrowsWithCause(() -> sql("SELECT SUBSTR('1234567', 1, -3)"), IgniteException.class, "negative substring length");
     }
 
     /**

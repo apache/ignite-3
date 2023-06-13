@@ -19,17 +19,21 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
-import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -195,7 +199,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeKvTuples(tx, pairs, s, w),
+                (s, w) -> ser.writeKvTuples(tx, pairs.entrySet(), s, w),
                 r -> null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, pairs.keySet().iterator().next()));
     }
@@ -440,45 +444,26 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public <R extends Serializable> R invoke(
-            @Nullable Transaction tx,
-            @NotNull Tuple key,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
 
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull Tuple key,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+        var provider = new KeyValueTupleStreamerPartitionAwarenessProvider(tbl);
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
-    /** {@inheritDoc} */
-    @Override
-    public <R extends Serializable> Map<Tuple, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keys,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Entry<Tuple, Tuple>, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeKvTuples(null, items, s, w),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <R extends Serializable> CompletableFuture<Map<Tuple, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keys,
-            InvokeProcessor<Tuple, Tuple, R> proc,
-            Serializable... args
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        //noinspection resource
+        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
+        StreamerSubscriber<Entry<Tuple, Tuple>, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
+        publisher.subscribe(subscriber);
+
+        return subscriber.completionFuture();
     }
 }

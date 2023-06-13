@@ -45,11 +45,10 @@ public class CompletableFutureAssert {
             CompletableFuture<?> future,
             Class<X> expectedExceptionClass
     ) {
-        try {
-            Object normalResult = future.get(1, TimeUnit.SECONDS);
+        Object normalResult;
 
-            return fail("Expected the future to be completed with an exception of class " + expectedExceptionClass
-                    + ", but it completed normally with result " + normalResult);
+        try {
+            normalResult = future.get(1, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             return fail("Expected the future to be completed with an exception of class in 1 second, but it did not complete in time");
         } catch (Throwable e) {
@@ -65,6 +64,9 @@ public class CompletableFutureAssert {
                 );
             }
         }
+
+        return fail("Expected the future to be completed with an exception of class " + expectedExceptionClass
+                + ", but it completed normally with result " + normalResult);
     }
 
     private static Throwable unwrapThrowable(Throwable e) {

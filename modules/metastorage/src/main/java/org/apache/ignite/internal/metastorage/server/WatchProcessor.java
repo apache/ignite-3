@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -118,7 +119,10 @@ public class WatchProcessor implements ManuallyCloseable {
     /**
      * Notifies registered watch about an update event.
      */
-    public void notifyWatches(List<Entry> updatedEntries) {
+    @SuppressWarnings("unchecked")
+    public void notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
+        assert time != null;
+
         notificationFuture = notificationFuture
                 .thenComposeAsync(v -> {
                     // Revision must be the same for all entries.
@@ -130,7 +134,7 @@ public class WatchProcessor implements ManuallyCloseable {
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(notificationFutures)
-                            .thenComposeAsync(ignored -> invokeOnRevisionCallback(notificationFutures, newRevision), watchExecutor);
+                            .thenComposeAsync(ignored -> invokeOnRevisionCallback(notificationFutures, newRevision, time), watchExecutor);
                 }, watchExecutor);
     }
 
@@ -179,7 +183,11 @@ public class WatchProcessor implements ManuallyCloseable {
                 });
     }
 
-    private CompletableFuture<Void> invokeOnRevisionCallback(CompletableFuture<List<EntryEvent>>[] notificationFutures, long revision) {
+    private CompletableFuture<Void> invokeOnRevisionCallback(
+            CompletableFuture<List<EntryEvent>>[] notificationFutures,
+            long revision,
+            HybridTimestamp time
+    ) {
         try {
             // Only notify about entries that have been accepted by at least one Watch.
             var acceptedEntries = new HashSet<EntryEvent>();
@@ -193,7 +201,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
             var event = new WatchEvent(acceptedEntries, revision);
 
-            return revisionCallback.onRevisionApplied(event)
+            return revisionCallback.onRevisionApplied(event, time)
                     .whenComplete((ignored, e) -> {
                         if (e != null) {
                             LOG.error("Error occurred when notifying watches", e);

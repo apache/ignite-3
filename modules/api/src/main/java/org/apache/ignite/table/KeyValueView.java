@@ -17,9 +17,9 @@
 
 package org.apache.ignite.table;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * @apiNote 'Key/value class field' &gt;-&lt; 'table column' mapping laid down in implementation.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface KeyValueView<K, V> {
+public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Gets a value associated with a given key.
      *
@@ -492,68 +492,4 @@ public interface KeyValueView<K, V> {
      * @see #getAndReplace(Transaction, Object, Object)
      */
     @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
-
-    /**
-     * Executes the invoke processor code against a value associated with the provided key.
-     *
-     * @param tx Transaction or {@code null} to auto-commit.
-     * @param key Key associated with the value that the invoke processor will be applied to. The key cannot be {@code null}.
-     * @param proc Invocation processor.
-     * @param args Optional invoke processor arguments.
-     * @param <R> Invoke processor result type.
-     * @return Result of the processing.
-     * @see InvokeProcessor
-     */
-    <R extends Serializable> R invoke(@Nullable Transaction tx, @NotNull K key, InvokeProcessor<K, V, R> proc, Serializable... args);
-
-    /**
-     * Asynchronously executes the invoke processor code against a value associated with the provided key.
-     *
-     * @param tx Transaction or {@code null} to auto-commit.
-     * @param key Key associated with the value that the invoke processor will be applied to. The key cannot be {@code null}.
-     * @param proc Invocation processor.
-     * @param args Optional invoke processor arguments.
-     * @param <R> Invoke processor result type.
-     * @return Future that represents the pending completion of the operation.
-     * @see InvokeProcessor
-     */
-    @NotNull <R extends Serializable> CompletableFuture<R> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull K key,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args);
-
-    /**
-     * Executes the invoke processor code against values associated with the provided keys.
-     *
-     * @param tx Transaction or {@code null} to auto-commit.
-     * @param <R> Invoke processor result type.
-     * @param keys Ordered collection of keys whose values should be processed. The keys cannot be {@code null}.
-     * @param proc Invocation processor.
-     * @param args Optional invoke processor arguments.
-     * @return Results of the processing.
-     * @see InvokeProcessor
-     */
-    <R extends Serializable> Map<K, R> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args);
-
-    /**
-     * Asynchronously executes the invoke processor code against values associated with the provided keys.
-     *
-     * @param tx Transaction or {@code null} to auto-commit.
-     * @param <R> Invoke processor result type.
-     * @param keys Ordered collection of keys whose values should be processed. The keys cannot be {@code null}.
-     * @param proc Invocation processor.
-     * @param args Optional invoke processor arguments.
-     * @return Future that represents the pending completion of the operation.
-     * @see InvokeProcessor
-     */
-    @NotNull <R extends Serializable> CompletableFuture<Map<K, R>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<K> keys,
-            InvokeProcessor<K, V, R> proc,
-            Serializable... args);
 }

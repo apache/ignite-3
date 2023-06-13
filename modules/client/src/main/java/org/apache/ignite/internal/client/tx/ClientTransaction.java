@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -130,7 +130,7 @@ public class ClientTransaction implements Transaction {
      */
     public static ClientTransaction get(@NotNull Transaction tx) {
         if (!(tx instanceof ClientTransaction)) {
-            throw new IgniteException(UNEXPECTED_ERR, "Unsupported transaction implementation: '"
+            throw new IgniteException(INTERNAL_ERR, "Unsupported transaction implementation: '"
                     + tx.getClass()
                     + "'. Use IgniteClient.transactions() to start transactions.");
         }

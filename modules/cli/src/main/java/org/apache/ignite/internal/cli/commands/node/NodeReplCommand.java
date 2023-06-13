@@ -21,6 +21,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigReplCommand;
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
+import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitReplCommand;
 import org.apache.ignite.internal.cli.commands.node.version.NodeVersionReplCommand;
 import picocli.CommandLine.Command;
 
@@ -30,7 +31,8 @@ import picocli.CommandLine.Command;
                 NodeConfigReplCommand.class,
                 NodeStatusReplCommand.class,
                 NodeVersionReplCommand.class,
-                NodeMetricReplCommand.class
+                NodeMetricReplCommand.class,
+                NodeUnitReplCommand.class
         },
         description = "Node operations")
 public class NodeReplCommand extends BaseCommand {

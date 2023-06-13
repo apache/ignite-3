@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
 using Table;
@@ -211,6 +212,7 @@ public partial class LinqTests
     }
 
     [Test]
+    [SuppressMessage("Assertion", "NUnit2021:Incompatible types for EqualTo constraint", Justification = "Reviewed.")]
     public void TestAggregateNullableAllTypes()
     {
         Test(q => q.Sum(x => x.Int8));

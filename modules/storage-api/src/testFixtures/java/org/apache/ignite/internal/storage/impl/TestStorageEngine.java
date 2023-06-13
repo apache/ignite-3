@@ -39,19 +39,16 @@ public class TestStorageEngine implements StorageEngine {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public MvTableStorage createMvTable(TableConfiguration tableCfg, TablesConfiguration tablesCfg,
             DistributionZoneConfiguration distributionZoneCfg)
@@ -60,6 +57,6 @@ public class TestStorageEngine implements StorageEngine {
 
         assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 
-        return spy(new TestMvTableStorage(tableCfg, tablesCfg, distributionZoneCfg));
+        return spy(new TestMvTableStorage(tableCfg.id().value(), distributionZoneCfg.partitions().value()));
     }
 }

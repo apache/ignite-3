@@ -23,14 +23,16 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import java.util.UUID;
+import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,16 +43,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
     public void hashIndexIsAppliedForEquiCondition() throws Exception {
         var indexName = "VAL_HASH_IDX";
 
-        TestTable tbl = createTable(
-                "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
-                "ID", Integer.class,
-                "VAL", Integer.class
-        );
-
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL"), indexName)));
-
-        IgniteSchema schema = createSchema(tbl);
+        IgniteSchema schema = makeCommonSchema();
 
         String sql = "SELECT id FROM test_tbl WHERE val = 10";
 
@@ -66,18 +59,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void hashIndexIsNotAppliedForRangeCondition() throws Exception {
-        var indexName = "VAL_HASH_IDX";
-
-        TestTable tbl = createTable(
-                "TEST_TBL",
-                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
-                "ID", Integer.class,
-                "VAL", Integer.class
-        );
-
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL"), indexName)));
-
-        IgniteSchema schema = createSchema(tbl);
+        IgniteSchema schema = makeCommonSchema();
 
         String sql = "SELECT id FROM test_tbl WHERE val >= 10";
 
@@ -88,6 +70,52 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, scan, notNullValue());
+
+        // Can`t use hash index scan with range.
+        String sqlGt = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val >= 10";
+
+        IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlGt, schema), CannotPlanException.class,
+                "There are not enough rules");
+    }
+
+    @Test
+    // Can`t use hash index scan without condition.
+    public void testHashIndexIsNotAppliedWithoutConditions() {
+        IgniteSchema schema = makeCommonSchema();
+
+        String sqlNoCond = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ * FROM test_tbl";
+
+        IgniteTestUtils.assertThrowsWithCause(() -> physicalPlan(sqlNoCond, schema), CannotPlanException.class,
+                "There are not enough rules");
+    }
+
+    @Test
+    // Correct hash index scan usage with exact conditions.
+    public void testHashIndexAppliedForExactKey() throws Exception {
+        IgniteSchema schema = makeCommonSchema();
+
+        String sqlEqCond = "SELECT /*+ DISABLE_RULE('LogicalTableScanConverterRule')*/ id FROM test_tbl WHERE val = 10";
+
+        IgniteRel phys = physicalPlan(sqlEqCond, schema);
+
+        IgniteIndexScan idxScan = findFirstNode(phys, byClass(IgniteIndexScan.class));
+
+        assertThat("Invalid plan:\n" + RelOptUtil.toString(phys), idxScan, notNullValue());
+    }
+
+    private IgniteSchema makeCommonSchema() {
+        var indexName = "VAL_HASH_IDX";
+
+        TestTable tbl = createTable(
+                "TEST_TBL",
+                someAffinity(),
+                "ID", Integer.class,
+                "VAL", Integer.class
+        );
+
+        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL"), indexName)));
+
+        return createSchema(tbl);
     }
 
     @Test

@@ -99,7 +99,7 @@ public enum Options {
         public static final String NODE_URL_OPTION = "--node-url";
 
         /** Node URL option description. */
-        public static final String NODE_URL_OPTION_DESC = "URL of ignite node";
+        public static final String NODE_URL_OPTION_DESC = "URL of an Ignite node";
 
         /** Node URL or name option description. */
         public static final String NODE_URL_OR_NAME_DESC = "URL or name of an Ignite node";

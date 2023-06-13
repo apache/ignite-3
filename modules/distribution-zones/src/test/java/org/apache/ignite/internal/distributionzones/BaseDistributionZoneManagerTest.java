@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -25,7 +26,6 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -34,10 +34,12 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -60,6 +62,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;
+
+    private ConfigurationTreeGenerator generator;
 
     protected DistributionZonesConfiguration zonesConfiguration;
 
@@ -91,12 +95,16 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultMgr);
 
-        ConfigurationManager cfgMgr = new ConfigurationManager(
+        generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(),
-                cfgStorage,
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
+        );
+        ConfigurationManager cfgMgr = new ConfigurationManager(
+                List.of(DistributionZonesConfiguration.KEY),
+                cfgStorage,
+                generator,
+                new TestConfigurationValidator()
         );
 
         components.add(cfgMgr);
@@ -138,5 +146,13 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
         IgniteUtils.closeAll(components.stream().map(c -> c::stop));
+
+        generator.close();
+    }
+
+    void startDistributionZoneManager() throws Exception {
+        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
+
+        distributionZoneManager.start();
     }
 }

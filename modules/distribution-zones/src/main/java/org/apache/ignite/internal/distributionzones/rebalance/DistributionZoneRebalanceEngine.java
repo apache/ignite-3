@@ -22,8 +22,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.updatePendingAssignmentsKeys;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -31,13 +33,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -163,7 +164,7 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    Set<String> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
+                    Set<Node> dataNodes = dataNodes(ByteUtils.fromBytes(dataNodesBytes));
 
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);
@@ -173,42 +174,62 @@ public class DistributionZoneRebalanceEngine {
                         DistributionZoneConfiguration distributionZoneConfiguration =
                                 getZoneById(zonesConfiguration, tableZoneId);
 
+                        Set<String> filteredDataNodes = filterDataNodes(
+                                dataNodes,
+                                distributionZoneConfiguration.filter().value(),
+                                distributionZoneManager.nodesAttributes()
+                        );
+
+                        if (filteredDataNodes.isEmpty()) {
+                            continue;
+                        }
+
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
-                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
+                            int tableId = tableCfg.id().value();
 
-                            List<Set<Assignment>> tableAssignments = assignmentsBytes == null
-                                    ? Collections.emptyList()
-                                    : ByteUtils.fromBytes(assignmentsBytes);
+                            CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+                                    metaStorageManager,
+                                    tableId,
+                                    distributionZoneConfiguration.partitions().value()
+                            );
 
-                            for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+                            tableAssignmentsFut.thenAccept(tableAssignments -> {
 
-                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
+                                for (int part = 0; part < distributionZoneConfiguration.partitions().value(); part++) {
 
-                                int replicas = distributionZoneConfiguration.replicas().value();
+                                    TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
-                                int partId = part;
+                                    int replicas = distributionZoneConfiguration.replicas().value();
 
-                                updatePendingAssignmentsKeys(
-                                        tableView.name(),
-                                        replicaGrpId,
-                                        dataNodes,
-                                        replicas,
-                                        evt.entryEvent().newEntry().revision(),
-                                        metaStorageManager,
-                                        part,
-                                        tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(part)
-                                ).exceptionally(e -> {
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
-                                            partId
-                                    );
+                                    int partId = part;
 
-                                    return null;
-                                });
-                            }
+                                    updatePendingAssignmentsKeys(
+                                            tableView.name(),
+                                            replicaGrpId,
+                                            filteredDataNodes,
+                                            replicas,
+                                            evt.entryEvent().newEntry().revision(),
+                                            metaStorageManager,
+                                            partId,
+                                            tableAssignments.isEmpty() ? Collections.emptySet() : tableAssignments.get(partId)
+                                    ).exceptionally(e -> {
+                                        LOG.error(
+                                                "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                                partId
+                                        );
+
+                                        return null;
+                                    });
+
+                                }
+                            }).exceptionally(e -> {
+                                LOG.error("Exception on receiving table assignments from metastore for table={}",
+                                        e, tableView.name());
+
+                                return null;
+                            });
                         }
                     }
 
@@ -253,7 +274,6 @@ public class DistributionZoneRebalanceEngine {
                 int furCur = 0;
 
                 for (TableConfiguration tblCfg : tblsCfg) {
-
                     LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
                             tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
 
@@ -261,23 +281,38 @@ public class DistributionZoneRebalanceEngine {
 
                     int newReplicas = replicasCtx.newValue();
 
-                    byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+                    int tableId = tblCfg.id().value();
 
-                    List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+                    CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
+                            metaStorageManager,
+                            tableId,
+                            partCnt
+                    );
+
+                    Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+
+                    if (dataNodes.isEmpty()) {
+                        futs[furCur++] = completedFuture(null);
+
+                        continue;
+                    }
 
                     for (int i = 0; i < partCnt; i++) {
-                        TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
+                        TablePartitionId replicaGrpId = new TablePartitionId(tblCfg.id().value(), i);
 
-                        futs[furCur++] = updatePendingAssignmentsKeys(
-                                tblCfg.name().value(),
-                                replicaGrpId,
-                                distributionZoneManager.getDataNodesByZoneId(zoneCfg.zoneId()),
-                                newReplicas,
-                                replicasCtx.storageRevision(),
-                                metaStorageManager,
-                                i,
-                                tableAssignments.get(i)
-                        );
+                        int partId = i;
+
+                        futs[furCur++] = tableAssignmentsFut.thenCompose(tableAssignments ->
+                                updatePendingAssignmentsKeys(
+                                        tblCfg.name().value(),
+                                        replicaGrpId,
+                                        dataNodes,
+                                        newReplicas,
+                                        replicasCtx.storageRevision(),
+                                        metaStorageManager,
+                                        partId,
+                                        tableAssignments.get(partId)
+                                ));
                     }
                 }
                 return allOf(futs);

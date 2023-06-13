@@ -33,6 +33,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -110,8 +111,6 @@ public class MockNode {
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
-        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
@@ -119,15 +118,13 @@ public class MockNode {
                 clusterStateStorage,
                 logicalTopologyService,
                 cmgConfiguration,
-                distributedConfigurationUpdater,
-                nodeAttributes
-        );
+                nodeAttributes,
+                new TestConfigurationValidator());
 
         components.add(vaultManager);
         components.add(clusterService);
         components.add(raftManager);
         components.add(clusterStateStorage);
-        components.add(distributedConfigurationUpdater);
         components.add(clusterManager);
     }
 

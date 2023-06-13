@@ -484,12 +484,13 @@ public class SchemaConfigurationConverter {
      * Add index.
      *
      * @param idx Index to add.
-     * @param tableId Table id.
+     * @param tableId Table ID.
+     * @param indexId Index ID.
      * @param change Indexes change to fulfill.
      * @return TableChange to get result from.
      */
-    public static TableIndexChange addIndex(IndexDefinition idx, UUID tableId, TableIndexChange change) {
-        return convert(idx, change).changeTableId(tableId);
+    public static TableIndexChange addIndex(IndexDefinition idx, int tableId, int indexId, TableIndexChange change) {
+        return convert(idx, change).changeTableId(tableId).changeId(indexId);
     }
 
     /**

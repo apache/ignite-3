@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -55,21 +54,25 @@ import org.jetbrains.annotations.Nullable;
  * Client table API implementation.
  */
 public class ClientTable implements Table {
-    private final UUID id;
+    private final int id;
 
     private final String name;
 
     private final ReliableChannel ch;
 
-    private final ConcurrentHashMap<Integer, ClientSchema> schemas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, CompletableFuture<ClientSchema>> schemas = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
-    private volatile int latestSchemaVer = -1;
+    private static final int UNKNOWN_SCHEMA_VERSION = -1;
+
+    private volatile int latestSchemaVer = UNKNOWN_SCHEMA_VERSION;
 
     private final Object latestSchemaLock = new Object();
 
-    private volatile List<String> partitionAssignment = null;
+    private final Object partitionAssignmentLock = new Object();
+
+    private volatile CompletableFuture<List<String>> partitionAssignment = null;
 
     private volatile long partitionAssignmentVersion = -1;
 
@@ -80,9 +83,8 @@ public class ClientTable implements Table {
      * @param id   Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, UUID id, String name) {
+    public ClientTable(ReliableChannel ch, int id, String name) {
         assert ch != null;
-        assert id != null;
         assert name != null && !name.isEmpty();
 
         this.ch = ch;
@@ -96,8 +98,17 @@ public class ClientTable implements Table {
      *
      * @return Table id.
      */
-    public UUID tableId() {
+    public int tableId() {
         return id;
+    }
+
+    /**
+     * Gets the channel.
+     *
+     * @return Channel.
+     */
+    ReliableChannel channel() {
+        return ch;
     }
 
     /** {@inheritDoc} */
@@ -134,30 +145,30 @@ public class ClientTable implements Table {
         return new ClientKeyValueBinaryView(this);
     }
 
-    private CompletableFuture<ClientSchema> getLatestSchema() {
-        if (latestSchemaVer >= 0) {
-            return CompletableFuture.completedFuture(schemas.get(latestSchemaVer));
-        }
-
-        return loadSchema(null);
+    CompletableFuture<ClientSchema> getLatestSchema() {
+        // latestSchemaVer can be -1 (unknown) or a valid version.
+        // In case of unknown version, we request latest from the server and cache it with -1 key
+        // to avoid duplicate requests for latest schema.
+        return getSchema(latestSchemaVer);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
-        var schema = schemas.get(ver);
+        CompletableFuture<ClientSchema> fut = schemas.computeIfAbsent(ver, this::loadSchema);
 
-        if (schema != null) {
-            return CompletableFuture.completedFuture(schema);
+        if (fut.isCompletedExceptionally()) {
+            // Do not return failed future. Remove it from the cache and try again.
+            schemas.remove(ver, fut);
+            fut = schemas.computeIfAbsent(ver, this::loadSchema);
         }
 
-        return loadSchema(ver);
+        return fut;
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
-        // TODO IGNITE-19354 Same schema version is retrieved multiple times in concurrent scenarios
+    private CompletableFuture<ClientSchema> loadSchema(int ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
-            w.out().packUuid(id);
+            w.out().packInt(id);
 
-            if (ver == null) {
+            if (ver == UNKNOWN_SCHEMA_VERSION) {
                 w.out().packNil();
             } else {
                 w.out().packArrayHeader(1);
@@ -169,7 +180,7 @@ public class ClientTable implements Table {
             if (schemaCnt == 0) {
                 log.warn("Schema not found [tableId=" + id + ", schemaVersion=" + ver + "]");
 
-                throw new IgniteException(UNEXPECTED_ERR, "Schema not found: " + ver);
+                throw new IgniteException(INTERNAL_ERR, "Schema not found: " + ver);
             }
 
             ClientSchema last = null;
@@ -214,7 +225,7 @@ public class ClientTable implements Table {
 
         var schema = new ClientSchema(schemaVer, columns);
 
-        schemas.put(schemaVer, schema);
+        schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
         synchronized (latestSchemaLock) {
             if (schemaVer > latestSchemaVer) {
@@ -273,7 +284,8 @@ public class ClientTable implements Table {
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue),
                             null,
-                            preferredNodeId);
+                            preferredNodeId,
+                            null);
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader));
     }
@@ -293,6 +305,25 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, null);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable RetryPolicy retryPolicyOverride) {
 
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
@@ -312,7 +343,8 @@ public class ClientTable implements Table {
                                 return reader.apply(r.in());
                             },
                             null,
-                            preferredNodeId);
+                            preferredNodeId,
+                            retryPolicyOverride);
                 });
     }
 
@@ -372,37 +404,44 @@ public class ClientTable implements Table {
         if (schemas.get(schemaVer) == null) {
             // The schema is not needed for current response.
             // Load it in the background to keep the client up to date with the latest version.
-            loadSchema(schemaVer);
+            getSchema(schemaVer);
         }
     }
 
-    private CompletableFuture<List<String>> getPartitionAssignment() {
-        var cached = partitionAssignment;
+    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+        long currentVersion = ch.partitionAssignmentVersion();
 
-        if (cached != null && partitionAssignmentVersion == ch.partitionAssignmentVersion()) {
-            return CompletableFuture.completedFuture(cached);
+        if (partitionAssignmentVersion == currentVersion
+                && partitionAssignment != null
+                && !partitionAssignment.isCompletedExceptionally()) {
+            return partitionAssignment;
         }
 
-        return loadPartitionAssignment();
-    }
+        synchronized (partitionAssignmentLock) {
+            if (partitionAssignmentVersion == currentVersion
+                    && partitionAssignment != null
+                    && !partitionAssignment.isCompletedExceptionally()) {
+                return partitionAssignment;
+            }
 
-    private CompletableFuture<List<String>> loadPartitionAssignment() {
-        partitionAssignmentVersion = ch.partitionAssignmentVersion();
+            partitionAssignmentVersion = currentVersion;
 
-        return ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
-                w -> w.out().packUuid(id),
-                r -> {
-                    int cnt = r.in().unpackArrayHeader();
-                    List<String> res = new ArrayList<>(cnt);
+            // Load currentVersion or newer.
+            partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+                    w -> w.out().packInt(id),
+                    r -> {
+                        int cnt = r.in().unpackArrayHeader();
+                        List<String> res = new ArrayList<>(cnt);
 
-                    for (int i = 0; i < cnt; i++) {
-                        res.add(r.in().unpackString());
-                    }
+                        for (int i = 0; i < cnt; i++) {
+                            res.add(r.in().unpackString());
+                        }
 
-                    partitionAssignment = res;
+                        return res;
+                    });
 
-                    return res;
-                });
+            return partitionAssignment;
+        }
     }
 
     @Nullable
@@ -414,11 +453,10 @@ public class ClientTable implements Table {
             return null;
         }
 
-        @SuppressWarnings("resource")
-        ClientChannel ch = provider.channel();
+        String nodeId = provider.nodeId();
 
-        if (ch != null) {
-            return ch.protocolContext().clusterNode().id();
+        if (nodeId != null) {
+            return nodeId;
         }
 
         if (partitions == null || partitions.isEmpty()) {

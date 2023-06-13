@@ -24,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * CREATE TABLE statement.
  */
 public class CreateTableParams extends AbstractTableCommandParams {
+    /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
@@ -39,33 +40,29 @@ public class CreateTableParams extends AbstractTableCommandParams {
     /** Columns. */
     private List<ColumnParams> cols;
 
+    /** Distribution zone name. */
     @Nullable
     private String zone;
 
     private CreateTableParams() {
-
     }
 
     /**
-     * Get table columns.
-     *
-     * @return Columns.
+     * Gets table columns.
      */
     public List<ColumnParams> columns() {
         return cols;
     }
 
     /**
-     * Get primary key columns.
+     * Gets primary key columns.
      */
     public List<String> primaryKeyColumns() {
         return pkCols;
     }
 
     /**
-     * Get colocation column names.
-     *
-     * @return Collocation column names.
+     * Gets colocation column names.
      */
     @Nullable
     public List<String> colocationColumns() {
@@ -73,7 +70,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
     }
 
     /**
-     * Get zone name.
+     * Gets zone name.
      */
     @Nullable
     public String zone() {
@@ -89,7 +86,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
         }
 
         /**
-         * Set table columns.
+         * Sets table columns.
          *
          * @param cols Columns.
          * @return {@code this}.
@@ -101,7 +98,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
         }
 
         /**
-         * Set primary key columns.
+         * Sets primary key columns.
          *
          * @return {@code this}.
          */
@@ -124,7 +121,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
         }
 
         /**
-         * Set zone name.
+         * Sets zone name.
          *
          * @param zoneName Zone name.
          * @return {@code this}.

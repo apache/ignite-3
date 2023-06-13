@@ -19,6 +19,8 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -38,16 +40,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -121,7 +123,7 @@ public class DistributionZonesUtil {
      *
      * @return ByteArray representation.
      */
-    public static ByteArray zoneLogicalTopologyPrefix() {
+    public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -307,10 +309,14 @@ public class DistributionZonesUtil {
      * @param topologyVersion Logical topology version.
      * @return Update command for the meta storage.
      */
-    static Update updateLogicalTopologyAndVersion(Set<String> logicalTopology, long topologyVersion) {
+    public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
+        Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
+                .collect(toSet());
+
         return ops(
                 put(zonesLogicalTopologyVersionKey(), ByteUtils.longToBytes(topologyVersion)),
-                put(zonesLogicalTopologyKey(), ByteUtils.toBytes(logicalTopology))
+                put(zonesLogicalTopologyKey(), ByteUtils.toBytes(topologyFromCmg))
         ).yield(true);
     }
 
@@ -322,20 +328,20 @@ public class DistributionZonesUtil {
      *                     Joining increases the counter, leaving decreases.
      * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
      */
-    public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(Collectors.toSet());
+    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }
 
     /**
-     * Returns a map from a set of data nodes. This map has the following structure: node name is mapped to integer,
+     * Returns a map from a set of data nodes. This map has the following structure: node is mapped to integer,
      * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
      * that joined topology, so all mappings will be node -> 1.
      *
      * @param dataNodes Set of data nodes.
      * @return Returns a map from a set of data nodes.
      */
-    public static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
-        Map<String, Integer> dataNodesMap = new HashMap<>();
+    public static Map<Node, Integer> toDataNodesMap(Set<Node> dataNodes) {
+        Map<Node, Integer> dataNodesMap = new HashMap<>();
 
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
 
@@ -348,7 +354,7 @@ public class DistributionZonesUtil {
      * @param dataNodesEntry Meta storage entry with data nodes.
      * @return Data nodes.
      */
-    static Map<String, Integer> extractDataNodes(Entry dataNodesEntry) {
+    static Map<Node, Integer> extractDataNodes(Entry dataNodesEntry) {
         if (!dataNodesEntry.empty()) {
             return fromBytes(dataNodesEntry.value());
         } else {
@@ -453,6 +459,9 @@ public class DistributionZonesUtil {
      * @return True if {@code nodeAttributes} satisfy {@code filter}, false otherwise. Returns true if {@code nodeAttributes} is empty.
      */
     public static boolean filter(Map<String, String> nodeAttributes, String filter) {
+        if (filter.equals(DEFAULT_FILTER)) {
+            return true;
+        }
         // We need to convert numbers to Long objects, so they could be parsed to numbers in JSON.
         // nodeAttributes has String values of numbers because nodeAttributes come from configuration,
         // but configuration does not support Object as a configuration value.
@@ -475,5 +484,25 @@ public class DistributionZonesUtil {
         List<Map<String, Object>> res = JsonPath.read(convertedAttributes, filter);
 
         return !res.isEmpty();
+    }
+
+    /**
+     * Filters {@code dataNodes} according to the provided {@code filter}.
+     * Nodes' attributes are taken from {@code nodesAttributes} map.
+     *
+     * @param dataNodes Data nodes.
+     * @param filter Filter for data nodes.
+     * @param nodesAttributes Nodes' attributes which used for filtering.
+     * @return Filtered data nodes.
+     */
+    public static Set<String> filterDataNodes(
+            Set<Node> dataNodes,
+            String filter,
+            Map<String, Map<String, String>> nodesAttributes
+    ) {
+        return dataNodes.stream()
+                .filter(n -> filter(nodesAttributes.get(n.nodeId()), filter))
+                .map(Node::nodeName)
+                .collect(toSet());
     }
 }

@@ -48,7 +48,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -70,10 +69,12 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -153,6 +154,8 @@ public class ConfigurationListenerTest {
 
     private ConfigurationStorage storage;
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationRegistry registry;
 
     private ParentConfiguration config;
@@ -164,12 +167,16 @@ public class ConfigurationListenerTest {
     public void before() {
         storage = new TestConfigurationStorage(LOCAL);
 
-        registry = new ConfigurationRegistry(
+        generator = new ConfigurationTreeGenerator(
                 List.of(ParentConfiguration.KEY),
-                Set.of(),
-                storage,
                 List.of(InternalChildConfigurationSchema.class),
                 List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)
+        );
+        registry = new ConfigurationRegistry(
+                List.of(ParentConfiguration.KEY),
+                storage,
+                generator,
+                new TestConfigurationValidator()
         );
 
         registry.start();
@@ -182,6 +189,7 @@ public class ConfigurationListenerTest {
     @AfterEach
     public void after() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test

@@ -25,8 +25,11 @@ import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
@@ -43,6 +46,12 @@ import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyC
 import org.apache.ignite.internal.cli.commands.cluster.topology.LogicalTopologyReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyCommand;
 import org.apache.ignite.internal.cli.commands.cluster.topology.PhysicalTopologyReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitListReplCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
@@ -60,17 +69,17 @@ import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceListC
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricSourceListReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitListCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitListReplCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitStatusCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitUndeployCommand;
-import org.apache.ignite.internal.cli.commands.unit.UnitUndeployReplCommand;
+import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListCommand;
+import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListReplCommand;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -80,6 +89,7 @@ import picocli.CommandLine;
  * Tests error handling with various invalid URLs in CLI commands that use REST.
  */
 @MicronautTest
+@ExtendWith(WorkDirectoryExtension.class)
 public class UrlOptionsNegativeTest {
     private static final String NODE_URL = "http://localhost:10300";
 
@@ -102,6 +112,16 @@ public class UrlOptionsNegativeTest {
 
     @Inject
     NodeNameRegistry nodeNameRegistry;
+
+    @WorkDirectory
+    protected static Path WORK_DIR;
+
+    private static String TEMP_FILE_PATH;
+
+    @BeforeAll
+    static void beforeAll() throws IOException {
+        TEMP_FILE_PATH = Files.createFile(WORK_DIR.resolve("temp.txt")).toString();
+    }
 
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
@@ -137,11 +157,11 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeMetricSetListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(LogicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
-                // TODO https://issues.apache.org/jira/browse/IGNITE-19090
-                // arguments(UnitDeployCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(UnitStatusCommand.class, CLUSTER_URL_OPTION, List.of("id")),
-                arguments(UnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterUnitDeployCommand.class, CLUSTER_URL_OPTION,
+                        List.of("--path=" + TEMP_FILE_PATH, "id", "--version=1.0.0")),
+                arguments(ClusterUnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
+                arguments(ClusterUnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(NodeUnitListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
@@ -163,11 +183,11 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeMetricSetListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                // TODO https://issues.apache.org/jira/browse/IGNITE-19090
-                // arguments(UnitDeployReplCommand.class, CLUSTER_URL_OPTION, List.of("--path=" + TEMP_FILE_PATH, "id")),
-                arguments(UnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(UnitStatusReplCommand.class, CLUSTER_URL_OPTION, List.of("id")),
-                arguments(UnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterUnitDeployReplCommand.class, CLUSTER_URL_OPTION,
+                        List.of("--path=" + TEMP_FILE_PATH, "id", "--version=1.0.0")),
+                arguments(ClusterUnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
+                arguments(ClusterUnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(NodeUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378

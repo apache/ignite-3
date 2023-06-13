@@ -43,7 +43,7 @@ class OutgoingSnapshotsManagerTest {
     @Mock
     private PartitionAccess partitionAccess;
 
-    private final PartitionKey partitionKey = new PartitionKey(UUID.randomUUID(), 1);
+    private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
     @SuppressWarnings("EmptyTryBlock")
     @Test

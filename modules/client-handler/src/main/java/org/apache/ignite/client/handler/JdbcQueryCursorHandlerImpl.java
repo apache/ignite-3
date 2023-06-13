@@ -22,6 +22,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -159,7 +159,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
             schemaName,
             tblName,
             colName,
-            ColumnType.columnTypeToClass(fldMeta.type()),
+            JdbcConverterUtils.columnTypeToJdbcClass(fldMeta.type()),
             fldMeta.precision(),
             fldMeta.scale(),
             fldMeta.nullable()

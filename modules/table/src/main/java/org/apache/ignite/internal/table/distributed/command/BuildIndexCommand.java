@@ -36,7 +36,7 @@ public interface BuildIndexCommand extends WriteCommand {
     /**
      * Returns index ID.
      */
-    UUID indexId();
+    int indexId();
 
     /**
      * Returns row IDs for which to build indexes.

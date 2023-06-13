@@ -19,15 +19,17 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.table.InvokeProcessor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -358,39 +360,29 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> T invoke(@Nullable Transaction tx, @NotNull Tuple keyRec, InvokeProcessor<Tuple, Tuple, T> proc) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull <T extends Serializable> CompletableFuture<T> invokeAsync(
-            @Nullable Transaction tx,
-            @NotNull Tuple keyRec,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+        Objects.requireNonNull(publisher);
 
-    /** {@inheritDoc} */
-    @Override
-    public <T extends Serializable> Map<Tuple, T> invokeAll(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
+        var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
+        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
 
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull <T extends Serializable> CompletableFuture<Map<Tuple, T>> invokeAllAsync(
-            @Nullable Transaction tx,
-            @NotNull Collection<Tuple> keyRecs,
-            InvokeProcessor<Tuple, Tuple, T> proc
-    ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        // Partition-aware (best effort) sender with retries.
+        // The batch may go to a different node when a direct connection is not available.
+        StreamerBatchSender<Tuple, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_UPSERT_ALL,
+                (s, w) -> ser.writeTuples(null, items, s, w, false),
+                r -> null,
+                PartitionAwarenessProvider.of(nodeId),
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+
+        //noinspection resource
+        IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
+        StreamerSubscriber<Tuple, String> subscriber = new StreamerSubscriber<>(batchSender, provider, opts, log);
+        publisher.subscribe(subscriber);
+
+        return subscriber.completionFuture();
     }
 }

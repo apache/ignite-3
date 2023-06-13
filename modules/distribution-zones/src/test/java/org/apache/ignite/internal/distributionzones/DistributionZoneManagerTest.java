@@ -36,19 +36,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.FilterValidator;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.lang.DistributionZoneBindTableException;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +67,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private static final String NEW_ZONE_NAME = "zone2";
 
+    private ConfigurationTreeGenerator generator;
+
     private ConfigurationRegistry registry;
 
     private DistributionZoneManager distributionZoneManager;
@@ -74,12 +78,16 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        registry = new ConfigurationRegistry(
+        generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
-                Set.of(FilterValidator.INSTANCE),
-                new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(TestPersistStorageConfigurationSchema.class)
+        );
+        registry = new ConfigurationRegistry(
+                List.of(DistributionZonesConfiguration.KEY),
+                new TestConfigurationStorage(DISTRIBUTED),
+                generator,
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(FilterValidator.INSTANCE))
         );
 
         registry.start();
@@ -101,6 +109,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         registry.stop();
+        generator.close();
     }
 
     @Test
