@@ -26,9 +26,7 @@
 
 #include <cstdint>
 #include <string>
-#include <map>
 
-// TODO: IGNITE-19206 needs to be replaced. Every option should be represented by a class instance.
 namespace ignite
 {
 
@@ -41,12 +39,6 @@ public:
     /** Default values for configuration. */
     struct default_value
     {
-        /** Default value for Driver attribute. */
-        static inline const std::string driver{"Apache Ignite"};
-
-        /** Default value for address attribute. */
-        static inline const std::string address{};
-
         /** Default value for fetch results page size attribute. */
         static inline const std::int32_t page_size{1024};
 
@@ -55,89 +47,46 @@ public:
 
         /** Default value for TCP port attribute. */
         static inline const std::uint16_t port{10800};
+
+        /** Default value for address attribute. */
+        static inline const std::vector<end_point> address{{host, port}};
     };
 
-    /**
-     * Default constructor.
-     */
-    configuration()
-        : m_driver(default_value::driver)
-        , m_page_size(default_value::page_size)
-        , m_end_points({}) { }
-
-    /**
-     * Get Driver.
-     *
-     * @return Driver name.
-     */
-    [[nodiscard]] const std::string& get_driver() const;
-
-    /**
-     * Set driver.
-     *
-     * @param driver Driver.
-     */
-    void set_driver(const std::string& driver);
+    // Default.
+    configuration() = default;
 
     /**
      * Get addresses.
      *
      * @return Addresses.
      */
-    [[nodiscard]] const std::vector<end_point>& get_addresses() const;
-
-    /**
-     * Set addresses to connect to.
-     *
-     * @param end_points Addresses.
-     */
-    void set_addresses(const std::vector<end_point>& end_points);
-
-    /**
-     * Check if the value set.
-     *
-     * @return @true if the value set.
-     */
-    [[nodiscard]] bool is_addresses_set() const;
+    [[nodiscard]] const settable_value<std::vector<end_point>>& get_address() const {
+        return m_end_points;
+    }
 
     /**
      * Get fetch results page size.
      *
      * @return Fetch results page size.
      */
-    [[nodiscard]] std::int32_t get_page_size() const;
-
-    /**
-     * Set fetch results page size.
-     *
-     * @param size Fetch results page size.
-     */
-    void set_page_size(std::int32_t size);
-
-    /**
-     * Check if the value set.
-     *
-     * @return @true if the value set.
-     */
-    [[nodiscard]] bool is_page_size_set() const;
+    [[nodiscard]] settable_value<std::int32_t> get_page_size() const {
+        return m_page_size;
+    }
 
     /**
      * Fill from configuration params.
      *
+     * @throw odbc_error On parsing error.
      * @param config_params Configuration params
-     * @param diag Diagnostics collector.
      */
-    void from_config_map(const config_map &config_params, diagnostic_record_storage *diag);
+    void from_config_map(const config_map &config_params);
 
 private:
-    /** Driver name. */
-    settable_value<std::string> m_driver;
-
     /** Request and response page size. */
-    settable_value<int32_t> m_page_size;
+    settable_value<int32_t> m_page_size{default_value::page_size, false};
 
     /** Connection end-points. */
-    settable_value< std::vector<end_point> > m_end_points;
+    settable_value<std::vector<end_point>> m_end_points{default_value::address, false};
 };
 
 } // namespace ignite

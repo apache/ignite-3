@@ -34,38 +34,26 @@ public:
     /**
      * Constructor.
      *
-     * @param default_value Default value to return when is not set.
+     * @param value Value to return.
+     * @param set Flag indicating whether value was set by user or is default.
      */
-    explicit settable_value(const value_type& default_value)
-        : m_value(default_value) { }
-
-    /**
-     * Set non-default value.
-     *
-     * @param value Value.
-     * @param dflt Set value as default or not.
-     */
-    void set_value(const value_type& value, bool dflt = false)
-    {
-        m_value = value;
-        m_set = !dflt;
-    }
+    settable_value(value_type value, bool set)
+        : m_value(std::move(value))
+        , m_set(set) {}
 
     /**
      * Get value.
      *
      * @return Value or default value if not set.
      */
-    const value_type& get_value() const
-    {
+    const value_type& get_value() const {
         return m_value;
     }
 
     /**
      * Check whether value is set to non-default.
      */
-    [[nodiscard]] bool is_set() const
-    {
+    [[nodiscard]] bool is_set() const {
         return m_set;
     }
 

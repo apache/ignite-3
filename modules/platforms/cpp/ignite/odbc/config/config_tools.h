@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <optional>
 
 namespace ignite
 {
@@ -40,30 +41,53 @@ class diagnostic_record_storage;
 /**
  * Parse address.
  *
+ * @throw odbc_error on error.
  * @param value String value to parse.
- * @param diag Diagnostics collector.
  * @return End points list.
  */
-[[nodiscard]] std::vector<end_point> parse_address(std::string_view value, diagnostic_record_storage* diag);
+[[nodiscard]] std::vector<end_point> parse_address(std::string_view value);
 
 /**
  * Parse single address.
  *
- * @param value String value to parse.
+ * @throw odbc_error On error.
  * @param addr End pont.
- * @param diag Diagnostics collector.
- * @return @c true, if parsed successfully, and @c false otherwise.
  */
-[[nodiscard]] bool parse_single_address(std::string_view value, end_point& addr, diagnostic_record_storage* diag);
+[[nodiscard]] end_point parse_single_address(std::string_view value);
+
+/**
+ * Parse integer value.
+ *
+ * @param value String value to parse.
+ * @return @c Int value on success and std::nullopt on failure.
+ */
+[[nodiscard]] std::optional<std::int64_t> parse_int64(std::string_view value);
+
+/**
+ * Parse integer value.
+ *
+ * @param value String value to parse.
+ * @return @c Int value on success and std::nullopt on failure.
+ */
+template <typename T>
+[[nodiscard]] std::optional<T> parse_int(std::string_view value) {
+    auto i64 = parse_int64(value);
+    if (!i64)
+        return std::nullopt;
+
+    if (*i64 > std::numeric_limits<T>::max() || *i64 < std::numeric_limits<T>::min())
+        return std::nullopt;
+
+    return T(*i64);
+}
 
 /**
  * Parse single network port.
  *
  * @param value String value to parse.
- * @param diag Diagnostics collector.
  * @return @c Port value on success and zero on failure.
  */
-[[nodiscard]] std::uint16_t parse_port(std::string_view value, diagnostic_record_storage* diag);
+[[nodiscard]] std::uint16_t parse_port(std::string_view value);
 
 /** Configuration options map */
 typedef std::map<std::string, std::string> config_map;

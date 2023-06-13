@@ -18,53 +18,62 @@
 #include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
+#include "ignite/odbc/odbc_error.h"
 
 #include <string>
+#include <optional>
+
+/** Configuration keys . */
+namespace key {
+/** Key for fetch results page size attribute. */
+static inline const std::string page_size{"page_size"};
+
+/** Key for Driver attribute. */
+static inline const std::string host{"host"};
+
+/** Key for TCP port attribute. */
+static inline const std::string port{"port"};
+
+/** Key for address attribute. */
+static inline const std::string address{"address"};
+
+} // namespace key;
+
 
 namespace ignite {
 
-const std::string& configuration::get_driver() const
-{
-    return m_driver.get_value();
-}
+void configuration::from_config_map(const config_map &config_params) {
+    *this = configuration();
 
-void configuration::set_driver(const std::string& driver)
-{
-    m_driver.set_value(driver);
-}
+    auto page_size_it = config_params.find(key::page_size);
+    if (page_size_it != config_params.end()) {
+        auto page_size_opt = parse_int<std::int32_t>(page_size_it->second);
+        if (!page_size_opt)
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                "Invalid page size value: " + page_size_it->second);
 
-const std::vector<end_point>& configuration::get_addresses() const
-{
-    return m_end_points.get_value();
-}
+        m_page_size = {*page_size_opt, true};
+    }
 
-void configuration::set_addresses(const std::vector<end_point>& end_points)
-{
-    m_end_points.set_value(end_points);
-}
+    auto address_it = config_params.find(key::address);
+    if (address_it != config_params.end())
+        m_end_points = {parse_address(page_size_it->second), true};
+    else {
+        end_point ep;
+        auto host_it = config_params.find(key::host);
+        if (host_it == config_params.end())
+            throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
+                "No connection address is specified");
 
-bool configuration::is_addresses_set() const
-{
-    return m_end_points.is_set();
-}
+        auto host = host_it->second;
+        uint16_t port = default_value::port;
 
-void configuration::set_page_size(int32_t size)
-{
-    m_page_size.set_value(size);
-}
+        auto port_it = config_params.find(key::port);
+        if (port_it != config_params.end())
+            port = parse_port(port_it->second);
 
-bool configuration::is_page_size_set() const
-{
-    return m_page_size.is_set();
-}
-
-int32_t configuration::get_page_size() const
-{
-    return m_page_size.get_value();
-}
-
-void configuration::from_config_map(const config_map &config_params, diagnostic_record_storage *diag) {
-    // TODO
+        m_end_points = {{{host, port}}, true};
+    }
 }
 
 } // namespace ignite
