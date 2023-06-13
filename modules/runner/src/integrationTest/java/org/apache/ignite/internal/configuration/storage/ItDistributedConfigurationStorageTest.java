@@ -159,7 +159,7 @@ public class ItDistributedConfigurationStorageTest {
             });
 
             // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches();
+            metaStorageManager.deployWatches().join();
         }
 
         /**

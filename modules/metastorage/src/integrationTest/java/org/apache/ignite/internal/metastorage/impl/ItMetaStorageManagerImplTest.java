@@ -118,7 +118,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         raftManager.start();
         metaStorageManager.start();
 
-        metaStorageManager.deployWatches();
+        metaStorageManager.deployWatches().join();
     }
 
     @AfterEach

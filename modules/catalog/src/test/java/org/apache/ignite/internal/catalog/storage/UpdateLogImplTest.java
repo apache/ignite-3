@@ -79,7 +79,7 @@ class UpdateLogImplTest {
         updateLog.registerUpdateHandler(update -> {/* no-op */});
         updateLog.start();
 
-        metastore.deployWatches();
+        metastore.deployWatches().join();
 
         List<VersionedUpdate> expectedLog = List.of(
                 new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
@@ -138,7 +138,7 @@ class UpdateLogImplTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        metastore.deployWatches();
+        metastore.deployWatches().join();
 
         // first update should always be successful
         assertTrue(await(updateLog.append(singleEntryUpdateOfVersion(startVersion))));

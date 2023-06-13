@@ -98,7 +98,7 @@ public class PlacementDriverTest {
         metastore.start();
         placementDriver.startTrack();
 
-        metastore.deployWatches();
+        metastore.deployWatches().join();
     }
 
     @AfterEach

@@ -208,7 +208,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
             // deploy watches to propagate data from the metastore into the vault
             try {
-                metaStorageManager.deployWatches();
+                metaStorageManager.deployWatches().join();
             } catch (NodeStoppingException e) {
                 throw new RuntimeException(e);
             }

@@ -273,7 +273,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             registerWatchAction.accept(node, latch);
 
-            node.metaStorageManager.deployWatches();
+            node.metaStorageManager.deployWatches().join();
         }
 
         var key = new ByteArray("foo");
@@ -366,7 +366,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         nodes.forEach(node -> {
             try {
-                node.metaStorageManager.deployWatches();
+                node.metaStorageManager.deployWatches().join();
             } catch (NodeStoppingException e) {
                 throw new RuntimeException(e);
             }

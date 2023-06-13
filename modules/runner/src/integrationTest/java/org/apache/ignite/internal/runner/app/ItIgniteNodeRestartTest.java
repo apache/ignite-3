@@ -503,7 +503,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 .thenCompose(v -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     try {
-                        metaStorageMgr.deployWatches();
+                        metaStorageMgr.deployWatches().join();
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }

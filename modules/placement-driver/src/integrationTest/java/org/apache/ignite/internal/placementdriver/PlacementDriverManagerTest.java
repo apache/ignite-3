@@ -221,7 +221,7 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.start();
         placementDriverManager.start();
 
-        metaStorageManager.deployWatches();
+        metaStorageManager.deployWatches().join();
     }
 
     /**

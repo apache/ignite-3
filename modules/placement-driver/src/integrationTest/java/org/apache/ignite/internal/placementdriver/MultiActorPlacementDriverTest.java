@@ -305,7 +305,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             metaStorageManager.start();
             placementDriverManager.start();
 
-            metaStorageManager.deployWatches();
+            metaStorageManager.deployWatches().join();
 
             res.add(() -> {
                         try {

@@ -165,7 +165,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             components.forEach(IgniteComponent::start);
 
-            metaStorageManager.deployWatches();
+            metaStorageManager.deployWatches().join();
         }
 
         String name() {

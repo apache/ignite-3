@@ -87,7 +87,7 @@ public class DeploymentUnitStoreImplTest {
         vaultManager.start();
         metaStorageManager.start();
 
-        metaStorageManager.deployWatches();
+        metaStorageManager.deployWatches().join();
     }
 
     @Test

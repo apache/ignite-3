@@ -152,7 +152,7 @@ public class CatalogServiceSelfTest {
         metastore.start();
         service.start();
 
-        metastore.deployWatches();
+        metastore.deployWatches().join();
     }
 
     @AfterEach
@@ -1128,7 +1128,7 @@ public class CatalogServiceSelfTest {
         metaStorageManager.start();
         service.start();
 
-        metaStorageManager.deployWatches();
+        metaStorageManager.deployWatches().join();
 
         try {
             CreateTableParams params = CreateTableParams.builder()
