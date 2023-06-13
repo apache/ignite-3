@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.table.InternalTable;
 
 /** Stub implementation for {@link ExecutableTableRegistry}. */
 public final class NoOpExecutableTableRegistry implements ExecutableTableRegistry {
@@ -40,13 +39,13 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
 
         /** {@inheritDoc} */
         @Override
-        public InternalTable table() {
+        public ScanableTable scanableTable() {
             throw noDependency();
         }
 
         /** {@inheritDoc} */
         @Override
-        public UpdatableTable updates() {
+        public UpdatableTable updatableTable() {
             throw noDependency();
         }
 

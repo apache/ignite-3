@@ -79,8 +79,8 @@ public class ExecutableTableRegistrySelfTest {
         CompletableFuture<ExecutableTable> f = tester.getTable(tableId);
         ExecutableTable executableTable = f.join();
 
-        assertNotNull(executableTable.table());
-        assertNotNull(executableTable.updates());
+        assertNotNull(executableTable.scanableTable());
+        assertNotNull(executableTable.updatableTable());
         assertNotNull(executableTable.rowConverter());
     }
 

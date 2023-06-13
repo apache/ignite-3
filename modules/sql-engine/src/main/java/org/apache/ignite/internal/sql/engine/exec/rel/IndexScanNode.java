@@ -69,12 +69,13 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final @Nullable Comparator<RowT> comp;
 
+    private final Function<BinaryRow, RowT> tableRowConveter;
+
     /**
      * Constructor.
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param rowConverter Row converter.
      * @param tableDescriptor Table descriptor.
      * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param comp Rows comparator.
@@ -96,7 +97,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowFactory, rowConverter, filters, rowTransformer, requiredColumns);
+        super(ctx, filters, rowTransformer);
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
@@ -108,6 +109,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.factory = rowFactory;
 
         indexRowSchema = RowConverter.createIndexRowSchema(schemaIndex.columns(), tableDescriptor);
+        this.tableRowConveter = row -> rowConverter.toRow(ctx, row, factory, requiredColumns);
     }
 
     /** {@inheritDoc} */
@@ -119,6 +121,12 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         } else {
             return indexPublisher(partsWithTerms, null);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected RowT convert(BinaryRow binaryRow) {
+        return tableRowConveter.apply(binaryRow);
     }
 
     private Publisher<RowT> indexPublisher(Collection<PartitionWithTerm> partsWithTerms, @Nullable RangeCondition<RowT> cond) {
@@ -199,7 +207,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             }
         }
 
-        return convertPublisher(pub);
+        return convertPublisher(pub, tableRowConveter);
     }
 
     @Contract("null -> null")

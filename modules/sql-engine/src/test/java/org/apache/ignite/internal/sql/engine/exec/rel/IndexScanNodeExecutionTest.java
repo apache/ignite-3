@@ -72,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.InternalTable;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -336,6 +337,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
 
         Index<IndexDescriptor> hashIndexMock = mock(Index.class);
+        InternalTable table = mock(InternalTable.class);
 
         Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
         //CHECKSTYLE:OFF:Indentation

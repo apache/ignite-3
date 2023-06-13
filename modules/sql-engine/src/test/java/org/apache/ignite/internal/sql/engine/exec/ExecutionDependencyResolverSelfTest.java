@@ -43,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.table.InternalTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -60,7 +59,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     private ExecutableTableRegistry registry;
 
     @Mock(name = "table1")
-    private InternalTable table1;
+    private ScanableTable table1;
 
     @Mock(name = "update1")
     private UpdatableTable update1;
@@ -69,7 +68,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     private TableRowConverter rowConverter1;
 
     @Mock(name = "table2")
-    private InternalTable table2;
+    private ScanableTable table2;
 
     @Mock(name = "update2")
     private UpdatableTable update2;
@@ -208,7 +207,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             table.addIndex(index);
         }
 
-        void setDependencies(int tableId, InternalTable table, UpdatableTable updates, TableRowConverter rowConverter) {
+        void setDependencies(int tableId, ScanableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
             TestExecutableTable executableTable = new TestExecutableTable(table, updates, rowConverter);
 
             deps.put(tableId, executableTable);
@@ -241,33 +240,33 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {
             TestExecutableTable executableTable = deps.get(tableId);
 
-            assertEquals(executableTable.table(), dependencies.table(tableId));
-            assertEquals(executableTable.updates(), dependencies.updatableTable(tableId));
+            assertEquals(executableTable.scanableTable(), dependencies.scanableTable(tableId));
+            assertEquals(executableTable.updatableTable(), dependencies.updatableTable(tableId));
             assertEquals(executableTable.rowConverter(), dependencies.rowConverter(tableId));
         }
     }
 
     private static final class TestExecutableTable implements ExecutableTable {
 
-        private final InternalTable table;
+        private final ScanableTable table;
 
         private final UpdatableTable updates;
 
         private final TableRowConverter rowConverter;
 
-        TestExecutableTable(InternalTable table, UpdatableTable updates, TableRowConverter rowConverter) {
+        TestExecutableTable(ScanableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
             this.table = table;
             this.updates = updates;
             this.rowConverter = rowConverter;
         }
 
         @Override
-        public InternalTable table() {
+        public ScanableTable scanableTable() {
             return table;
         }
 
         @Override
-        public UpdatableTable updates() {
+        public UpdatableTable updatableTable() {
             return updates;
         }
 

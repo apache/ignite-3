@@ -41,6 +41,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScanableTableIml;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -98,7 +99,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, internalTable, rowConverter,
+            ScanableTableIml scanableTable = new ScanableTableIml(internalTable, rowConverter);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);

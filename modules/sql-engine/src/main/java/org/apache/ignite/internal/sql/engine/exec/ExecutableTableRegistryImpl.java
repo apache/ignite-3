@@ -82,41 +82,42 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
                 });
 
         return f.thenApply((table) -> {
-            InternalTable internalTable = table.getKey();
             SchemaRegistry schemaRegistry = table.getValue();
             SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
             TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
+            InternalTable internalTable = table.getKey();
+            ScanableTable scanableTable = new ScanableTableIml(internalTable, rowConverter);
 
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                     replicaService, clock, rowConverter, schemaDescriptor);
 
-            return new ExecutableTableImpl(internalTable, updatableTable, rowConverter);
+            return new ExecutableTableImpl(scanableTable, updatableTable, rowConverter);
         });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {
 
-        private final InternalTable table;
+        private final ScanableTable scanableTable;
 
         private final UpdatableTable updatableTable;
 
         private final TableRowConverter rowConverter;
 
-        private ExecutableTableImpl(InternalTable table, UpdatableTable updatableTable, TableRowConverter rowConverter) {
-            this.table = table;
+        private ExecutableTableImpl(ScanableTable scanableTable, UpdatableTable updatableTable, TableRowConverter rowConverter) {
+            this.scanableTable = scanableTable;
             this.updatableTable = updatableTable;
             this.rowConverter = rowConverter;
         }
 
         /** {@inheritDoc} */
         @Override
-        public InternalTable table() {
-            return table;
+        public ScanableTable scanableTable() {
+            return scanableTable;
         }
 
         /** {@inheritDoc} */
         @Override
-        public UpdatableTable updates() {
+        public UpdatableTable updatableTable() {
             return updatableTable;
         }
 

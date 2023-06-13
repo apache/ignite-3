@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Map;
-import org.apache.ignite.internal.table.InternalTable;
 
 /**
  * Provides access to resolved dependencies.
@@ -35,9 +34,9 @@ public class ResolvedDependencies {
     /**
      * Returns a table with the given id.
      */
-    public InternalTable table(int tableId) {
+    public ScanableTable scanableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
-        return executableTable.table();
+        return executableTable.scanableTable();
     }
 
     /**
@@ -45,7 +44,7 @@ public class ResolvedDependencies {
      */
     public UpdatableTable updatableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
-        return executableTable.updates();
+        return executableTable.updatableTable();
     }
 
     /**

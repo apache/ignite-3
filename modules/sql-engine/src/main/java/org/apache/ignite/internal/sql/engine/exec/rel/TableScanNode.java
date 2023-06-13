@@ -26,13 +26,11 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScanableTable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,10 +39,14 @@ import org.jetbrains.annotations.Nullable;
 public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     /** Table that provides access to underlying data. */
-    private final InternalTable physTable;
+    private final ScanableTable physTable;
 
     /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
     private final Collection<PartitionWithTerm> partsWithTerms;
+
+    private final RowFactory<RowT> rowFactory;
+
+    private final @Nullable BitSet requiredColumns;
 
     /**
      * Constructor.
@@ -52,7 +54,6 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param internalTable Internal table.
-     * @param rowConverter Row converter.
      * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
@@ -61,40 +62,37 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     public TableScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            InternalTable internalTable,
-            TableRowConverter rowConverter,
+            ScanableTable internalTable,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
-        super(ctx, rowFactory, rowConverter, filters, rowTransformer, requiredColumns);
+        super(ctx, filters, rowTransformer);
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
         this.physTable = internalTable;
         this.partsWithTerms = partsWithTerms;
+        this.rowFactory = rowFactory;
+        this.requiredColumns = requiredColumns;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        TxAttributes txAttributes = context().txAttributes();
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 partsWithTerms.iterator(), partWithTerm -> {
-            Publisher<BinaryRow> pub;
-
-            if (txAttributes.readOnly()) {
-                pub = physTable.scan(partWithTerm.partId(), txAttributes.time(), context().localNode());
-            } else {
-                PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.term());
-
-                pub = physTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
-            }
-
-            return convertPublisher(pub);
+            return physTable.scan(context(), partWithTerm, rowFactory, requiredColumns);
         });
 
         return SubscriptionUtils.concat(it);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected RowT convert(BinaryRow binaryRow) {
+        // Conversion is done in ScanableTable.
+        throw new UnsupportedOperationException();
     }
 }

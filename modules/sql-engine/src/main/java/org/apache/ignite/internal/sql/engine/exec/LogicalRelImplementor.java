@@ -112,7 +112,6 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
-import org.apache.ignite.internal.table.InternalTable;
 
 /**
  * Implements a query plan.
@@ -391,8 +390,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         ImmutableBitSet requiredColumns = rel.requiredColumns();
 
         IgniteTable tbl = rel.getTable().unwrapOrThrow(IgniteTable.class);
-        InternalTable internalTable = resolvedDependencies.table(tbl.id());
-        TableRowConverter rowConverter = resolvedDependencies.rowConverter(tbl.id());
+        ScanableTable scanableTable = resolvedDependencies.scanableTable(tbl.id());
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
@@ -410,8 +408,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
-                internalTable,
-                rowConverter,
+                scanableTable,
                 group.partitionsWithTerms(ctx.localNode().name()),
                 filters,
                 prj,

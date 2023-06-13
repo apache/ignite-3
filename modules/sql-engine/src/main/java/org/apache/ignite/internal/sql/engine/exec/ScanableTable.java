@@ -17,23 +17,28 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.BitSet;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.jetbrains.annotations.Nullable;
+
 /**
- * Execution related APIs of a table.
+ * Provides read operations on a table.
  */
-public interface ExecutableTable {
+public interface ScanableTable {
 
     /**
-     * Returns read API.
+     * Performs a scan over table.
+     *
+     * @param ctx  Execution context.
+     * @param partWithTerm  Partition.
+     * @param rowFactory  Row factory.
+     * @param requiredColumns  Required columns.
+     * @return  A publisher that produces rows.
+     * @param <RowT>  A type of row.
      */
-    ScanableTable scanableTable();
+    <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+            RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns);
 
-    /**
-     * Returns table modification API.
-     */
-    UpdatableTable updatableTable();
-
-    /**
-     * Returns a row converter that converts rows to execution engine representation.
-     */
-    TableRowConverter rowConverter();
 }
