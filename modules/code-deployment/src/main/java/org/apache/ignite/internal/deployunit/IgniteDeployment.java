@@ -128,7 +128,7 @@ public interface IgniteDeployment extends IgniteComponent {
      * @return {@code true} if unit already deployed or deployed successfully.
      *      {@code false} if deploy failed or unit with provided identifier and version doesn't exist.
      */
-    CompletableFuture<Void> onDemandDeploy(String id, Version version);
+    CompletableFuture<Boolean> onDemandDeploy(String id, Version version);
 
     /**
      * Detects the latest version of the deployment unit.

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
@@ -46,6 +48,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @BeforeEach
     void setUp() throws IOException {
         deployJar(node(0), unit.name(), unit.version(), "ignite-jobs-1.0-SNAPSHOT.jar");
+        await().until(() -> node(0).deployment().clusterStatusAsync(unit.name(), unit.version()), willBe(DEPLOYED));
     }
 
     @Override
@@ -110,16 +113,21 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         IgniteImpl entryNode = node(0);
 
-        deployJar(entryNode, "latest-unit", Version.parseVersion("1.0.0"), "unit1-1.0-SNAPSHOT.jar");
+        DeploymentUnit firstVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.0"));
+        deployJar(entryNode, firstVersion.name(), firstVersion.version(), "unit1-1.0-SNAPSHOT.jar");
+        await().until(() -> entryNode.deployment().clusterStatusAsync(firstVersion.name(), firstVersion.version()), willBe(DEPLOYED));
+
         CompletableFuture<Integer> result1 = entryNode.compute()
                 .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result1, willBe(1));
 
-        deployJar(entryNode, "latest-unit", Version.parseVersion("2.0.0"), "unit2-1.0-SNAPSHOT.jar");
+        DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
+        deployJar(entryNode, secondVersion.name(), secondVersion.version(), "unit2-1.0-SNAPSHOT.jar");
+        await().until(() -> entryNode.deployment().clusterStatusAsync(secondVersion.name(), secondVersion.version()), willBe(DEPLOYED));
+
         CompletableFuture<String> result2 = entryNode.compute()
                 .execute(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result2, willBe("Hello World!"));
-
     }
 
     private static void deployJar(IgniteImpl node, String unitId, Version unitVersion, String jarName) throws IOException {

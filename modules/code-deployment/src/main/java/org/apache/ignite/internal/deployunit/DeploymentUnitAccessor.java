@@ -25,6 +25,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 public interface DeploymentUnitAccessor {
     /**
      * Acquires the deployment unit. Each call to this method must be matched with a call to {@link DisposableDeploymentUnit#release()}.
+     * The acquired deployment unit must not be undeployed.
      *
      * @param unit Deployment unit.
      * @return Disposable deployment unit.

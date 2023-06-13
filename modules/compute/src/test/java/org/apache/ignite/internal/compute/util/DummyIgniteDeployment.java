@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -65,7 +66,7 @@ public class DummyIgniteDeployment implements IgniteDeployment {
 
     @Override
     public CompletableFuture<DeploymentStatus> clusterStatusAsync(String id, Version version) {
-        throw new UnsupportedOperationException("Not implemented");
+        return completedFuture(path(id, version)).thenApply(path -> DEPLOYED);
     }
 
     @Override
@@ -89,11 +90,11 @@ public class DummyIgniteDeployment implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> onDemandDeploy(String id, Version version) {
+    public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
         return completedFuture(path(id, version))
                 .thenCompose(path -> {
                     if (Files.exists(path)) {
-                        return completedFuture(null);
+                        return completedFuture(true);
                     } else {
                         return failedFuture(new DeploymentUnitNotFoundException(id, version));
                     }

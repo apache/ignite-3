@@ -76,6 +76,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -531,7 +532,7 @@ public class IgniteImpl implements Ignite {
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
-                metaStorageMgr,
+                new DeploymentUnitStoreImpl(metaStorageMgr),
                 logicalTopologyService,
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),

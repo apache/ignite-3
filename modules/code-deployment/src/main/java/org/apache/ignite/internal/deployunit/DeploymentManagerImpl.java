@@ -23,15 +23,12 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.REMOVING;
-import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.UPLOADING;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
@@ -42,16 +39,12 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentConfigurati
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitFailover;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
-import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -116,55 +109,29 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      * Constructor.
      *
      * @param clusterService Cluster service.
-     * @param metaStorage Meta storage.
+     * @param deploymentUnitStore Deployment units metastore service.
      * @param workDir Node working directory.
      * @param configuration Deployment configuration.
      * @param cmgManager Cluster management group manager.
      */
     public DeploymentManagerImpl(
             ClusterService clusterService,
-            MetaStorageManager metaStorage,
+            DeploymentUnitStore deploymentUnitStore,
             LogicalTopologyService logicalTopology,
             Path workDir,
             DeploymentConfiguration configuration,
             ClusterManagementGroupManager cmgManager
     ) {
         this.clusterService = clusterService;
+        this.deploymentUnitStore = deploymentUnitStore;
         this.configuration = configuration;
         this.cmgManager = cmgManager;
         this.workDir = workDir;
         tracker = new DownloadTracker();
         deployer = new FileDeployerService();
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
-        deploymentUnitStore = new DeploymentUnitStoreImpl(metaStorage);
         deploymentUnitAccessor = new DeploymentUnitAccessorImpl(deployer);
         failover = new DeploymentUnitFailover(logicalTopology, deploymentUnitStore, clusterService);
-    }
-
-    private void onUnitRegister(UnitNodeStatus status, Set<String> deployedNodes) {
-        if (status.status() == UPLOADING) {
-            messaging.downloadUnitContent(status.id(), status.version(), new ArrayList<>(deployedNodes))
-                    .thenCompose(content -> deployer.deploy(status.id(), status.version(), content))
-                    .thenApply(deployed -> {
-                        if (deployed) {
-                            return deploymentUnitStore.updateNodeStatus(
-                                    getLocalNodeId(),
-                                    status.id(),
-                                    status.version(),
-                                    DEPLOYED);
-                        }
-                        return deployed;
-                    });
-        } else if (status.status() == DEPLOYED) {
-            deploymentUnitStore.getClusterStatus(status.id(), status.version())
-                    .thenApply(UnitClusterStatus::initialNodesToDeploy)
-                    .thenApply(deployedNodes::containsAll)
-                    .thenAccept(allRequiredDeployed -> {
-                        if (allRequiredDeployed) {
-                            deploymentUnitStore.updateClusterStatus(status.id(), status.version(), DEPLOYED);
-                        }
-                    });
-        }
     }
 
     @Override
@@ -308,7 +275,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> onDemandDeploy(String id, Version version) {
+    public CompletableFuture<Boolean> onDemandDeploy(String id, Version version) {
         return deploymentUnitStore.getAllNodes(id, version)
                 .thenCompose(nodes -> {
                     if (nodes.isEmpty()) {
@@ -319,29 +286,6 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     }
                     return messaging.downloadUnitContent(id, version, nodes)
                             .thenCompose(unitContent -> deployToLocalNode(id, version, unitContent));
-                })
-                .thenCompose(result -> {
-                    if (result) {
-                        return completedFuture(null);
-                    } else {
-                        LOG.error("Failed to deploy on demand deployment unit {}:{}", id, version);
-                        return clusterStatusAsync(id, version)
-                                .thenCombine(nodeStatusAsync(id, version), (clusterStatus, nodeStatus) -> {
-                                    if (clusterStatus == null) {
-                                        return CompletableFuture.<Void>failedFuture(
-                                                new DeploymentUnitNotFoundException(id, version));
-                                    } else {
-                                        return CompletableFuture.<Void>failedFuture(
-                                                new DeploymentUnitUnavailableException(
-                                                        id,
-                                                        version,
-                                                        clusterStatus,
-                                                        nodeStatus
-                                                )
-                                        );
-                                    }
-                                }).thenCompose(it -> it);
-                    }
                 });
     }
 
@@ -351,7 +295,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 .thenApply(statuses -> {
                     return statuses.versions()
                             .stream()
-                            .filter(version -> statuses.status(version) == DEPLOYED || statuses.status(version) == UPLOADING)
+                            .filter(version -> statuses.status(version) == DEPLOYED)
                             .max(Version::compareTo)
                             .orElseThrow(() -> new DeploymentUnitNotFoundException(id));
                 });

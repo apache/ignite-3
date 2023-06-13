@@ -193,9 +193,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         smallUnit.waitUnitReplica(cmg);
 
         IgniteImpl onDemandDeployNode = cluster.node(2);
-        CompletableFuture<Void> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
 
-        assertThat(onDemandDeploy, willCompleteSuccessfully());
+        assertThat(onDemandDeploy, willBe(true));
         smallUnit.waitUnitReplica(onDemandDeployNode);
     }
 
@@ -209,9 +209,9 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         smallUnit.waitUnitReplica(cmg);
 
         IgniteImpl onDemandDeployNode = cluster.node(1);
-        CompletableFuture<Void> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
+        CompletableFuture<Boolean> onDemandDeploy = onDemandDeployNode.deployment().onDemandDeploy(id, version);
 
-        assertThat(onDemandDeploy, willCompleteSuccessfully());
+        assertThat(onDemandDeploy, willBe(true));
         smallUnit.waitUnitReplica(onDemandDeployNode);
     }
 

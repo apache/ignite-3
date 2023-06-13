@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.compute.loader;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
@@ -29,8 +32,10 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 
 /**
@@ -78,6 +83,7 @@ public class JobContextManager {
     public CompletableFuture<JobContext> acquireClassLoader(List<DeploymentUnit> units) {
         return normalizeVersions(units)
                 .thenCompose(normalizedUnits -> onDemandDeploy(normalizedUnits).thenApply(v -> normalizedUnits))
+                .thenCompose(normalizedUnits -> checkUnitStatuses(normalizedUnits).thenApply(v -> normalizedUnits))
                 .thenApply(normalizedUnits -> classLoaderPool.acquire(normalizedUnits, this::createClassLoader))
                 .thenApply(loader -> new JobContext(loader, this::releaseClassLoader))
                 .whenComplete((context, error) -> {
@@ -89,6 +95,10 @@ public class JobContextManager {
                 });
     }
 
+    /**
+     * Creates a class loader for the given deployment units. The units will be acquired.
+     * The class loader will be closed when it is not used by any other job.
+     */
     private JobClassLoader createClassLoader(List<DeploymentUnit> units) {
         List<DisposableDeploymentUnit> disposableDeploymentUnits = units.stream()
                 .map(deploymentUnitAccessor::acquire)
@@ -97,7 +107,8 @@ public class JobContextManager {
     }
 
     /**
-     * Releases a class loader for the given deployment units.
+     * Releases a class loader. If the class loader is not used by any other job,
+     * it will be closed and the deployment units will be released.
      */
     private void releaseClassLoader(JobContext jobContext) {
         List<DeploymentUnit> units = jobContext.classLoader().units().stream()
@@ -108,12 +119,38 @@ public class JobContextManager {
         }
     }
 
+    /**
+     * Check if the deployment units are deployed to the cluster. Only deployed units can be used in compute.
+     */
+    private CompletableFuture<List<Void>> checkUnitStatuses(List<DeploymentUnit> units) {
+        return mapList(units, Void.class, this::checkUnitStatus);
+    }
+
+
+    private CompletableFuture<Void> checkUnitStatus(DeploymentUnit unit) {
+        return deployment.clusterStatusAsync(unit.name(), unit.version())
+                .thenCompose(status -> {
+                    if (status == DeploymentStatus.DEPLOYED) {
+                        return completedFuture(null);
+                    } else {
+                        return deployment.nodeStatusAsync(unit.name(), unit.version())
+                                .thenCompose(nodeStatus -> failedFuture(new DeploymentUnitUnavailableException(
+                                        unit.name(),
+                                        unit.version(),
+                                        status,
+                                        nodeStatus
+                                )));
+                    }
+                });
+    }
+
+
     private CompletableFuture<List<DeploymentUnit>> normalizeVersions(List<DeploymentUnit> units) {
         return mapList(units, DeploymentUnit.class, this::normalizeVersion);
     }
 
-    private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {
-        return mapList(units, Void.class, it -> deployment.onDemandDeploy(it.name(), it.version()))
+    private CompletableFuture<Boolean> onDemandDeploy(List<DeploymentUnit> units) {
+        return mapList(units, Boolean.class, it -> deployment.onDemandDeploy(it.name(), it.version()))
                 .thenApply(ignored -> null);
     }
 
@@ -122,7 +159,7 @@ public class JobContextManager {
             return deployment.detectLatestDeployedVersion(unit.name())
                     .thenApply(version -> new DeploymentUnit(unit.name(), version));
         } else {
-            return CompletableFuture.completedFuture(unit);
+            return completedFuture(unit);
         }
     }
 
