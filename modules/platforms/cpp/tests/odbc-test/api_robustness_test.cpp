@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "ignite/common/config.h"
 #include "odbc_suite.h"
 
 #include <gtest/gtest.h>
@@ -113,12 +114,12 @@ TEST_F(api_robustness_test, sql_driver_connect)
     SQLDisconnect(m_conn);
 }
 
-TEST_F(api_robustness_test, sql_connect)
+TEST_F(api_robustness_test, sql_get_info)
 {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLSMALLINT resLen = 0;
@@ -162,7 +163,7 @@ TEST_F(api_robustness_test, sql_prepare)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
 
@@ -194,14 +195,16 @@ TEST_F(api_robustness_test, sql_exec_direct)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
 
     // Everything is ok.
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19212: Uncomment once query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -226,7 +229,7 @@ TEST_F(api_robustness_test, sql_tables)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR catalogName[] = "";
     SQLCHAR schemaName[] = "";
@@ -237,7 +240,9 @@ TEST_F(api_robustness_test, sql_tables)
     SQLRETURN ret = SQLTables(m_statement, catalogName, sizeof(catalogName), schemaName,
         sizeof(schemaName), tableName, sizeof(tableName), tableType, sizeof(tableType));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once table metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
     SQLTables(m_conn, catalogName, 0, schemaName, 0, tableName, 0, tableType, 0);
@@ -254,7 +259,7 @@ TEST_F(api_robustness_test, sql_columns)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR catalogName[] = "";
     SQLCHAR schemaName[] = "";
@@ -265,7 +270,9 @@ TEST_F(api_robustness_test, sql_columns)
     SQLRETURN ret = SQLColumns(m_statement, catalogName, sizeof(catalogName), schemaName,
         sizeof(schemaName), tableName, sizeof(tableName), columnName, sizeof(columnName));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
     SQLColumns(m_conn, catalogName, 0, schemaName, 0, tableName, 0, columnName, 0);
@@ -282,7 +289,7 @@ TEST_F(api_robustness_test, sql_bind_col)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLINTEGER ind1;
     SQLLEN len1 = 0;
@@ -323,7 +330,7 @@ TEST_F(api_robustness_test, sql_bind_parameter)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLINTEGER ind1;
     SQLLEN len1 = 0;
@@ -353,7 +360,8 @@ TEST_F(api_robustness_test, sql_bind_parameter)
             sql_type, 100, 100, &ind1, sizeof(ind1), &len1);
 
         ASSERT_EQ(ret, SQL_ERROR);
-        EXPECT_EQ(get_statement_error_state(), "HY105");
+        // TODO IGNITE-19212: Uncomment once column binding is implemented.
+        //EXPECT_EQ(get_statement_error_state(), "HY105");
     }
 
     // Size is null.
@@ -374,7 +382,7 @@ TEST_F(api_robustness_test, sql_native_sql)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
@@ -409,13 +417,15 @@ TEST_F(api_robustness_test, sql_col_attribute)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
 
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLSMALLINT resLen = 0;
@@ -424,12 +434,16 @@ TEST_F(api_robustness_test, sql_col_attribute)
     // Everything is ok. Character attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, &numericAttr);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Everything is ok. Numeric attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_DESC_COUNT, buffer, sizeof(buffer), &resLen, &numericAttr);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, 0);
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), 0, &numericAttr);
@@ -449,13 +463,15 @@ TEST_F(api_robustness_test, sql_describe_col)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
 
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCHAR columnName[ODBC_BUFFER_SIZE];
     SQLSMALLINT columnNameLen = 0;
@@ -468,7 +484,9 @@ TEST_F(api_robustness_test, sql_describe_col)
     ret = SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName),
         &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLDescribeCol(m_statement, 1, 0, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
     SQLDescribeCol(m_statement, 1, columnName, 0, &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
@@ -485,20 +503,24 @@ TEST_F(api_robustness_test, sql_row_count)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
 
     SQLRETURN ret = SQLExecDirect(m_statement, sql, sizeof(sql));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19212: Uncomment once query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLLEN rows = 0;
 
     // Everything is ok.
     ret = SQLRowCount(m_statement, &rows);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19212: Uncomment once query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLRowCount(m_statement, 0);
 }
@@ -508,7 +530,7 @@ TEST_F(api_robustness_test, sql_foreign_keys)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR catalogName[] = "";
     SQLCHAR schemaName[] = "cache";
@@ -519,7 +541,9 @@ TEST_F(api_robustness_test, sql_foreign_keys)
         tableName, sizeof(tableName), catalogName, sizeof(catalogName),
         schemaName, sizeof(schemaName), tableName, sizeof(tableName));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19217: Uncomment once foreign keys query is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -593,7 +617,7 @@ TEST_F(api_robustness_test, sql_get_stmt_attr)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLINTEGER resLen = 0;
@@ -614,7 +638,7 @@ TEST_F(api_robustness_test, sql_set_stmt_attr)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLULEN val = 1;
 
@@ -633,7 +657,7 @@ TEST_F(api_robustness_test, sql_primary_keys)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR catalogName[] = "";
     SQLCHAR schemaName[] = "cache";
@@ -643,7 +667,9 @@ TEST_F(api_robustness_test, sql_primary_keys)
     SQLRETURN ret = SQLPrimaryKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName),
         tableName, sizeof(tableName));
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19219: Uncomment once primary keys query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLPrimaryKeys(m_statement, 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
     SQLPrimaryKeys(m_statement, catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName));
@@ -659,7 +685,7 @@ TEST_F(api_robustness_test, sql_num_params)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT strField FROM TestType";
 
@@ -673,7 +699,9 @@ TEST_F(api_robustness_test, sql_num_params)
     // Everything is ok.
     ret = SQLNumParams(m_statement, &params);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19219: Uncomment once query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
@@ -683,7 +711,7 @@ TEST_F(api_robustness_test, sql_num_params_escaped)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR sql[] = "SELECT {fn NOW()}";
 
@@ -697,7 +725,9 @@ TEST_F(api_robustness_test, sql_num_params_escaped)
     // Everything is ok.
     ret = SQLNumParams(m_statement, &params);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19219: Uncomment once query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
@@ -707,7 +737,7 @@ TEST_F(api_robustness_test, sql_get_diag_field)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     // Should fail.
     SQLRETURN ret = SQLGetTypeInfo(m_statement, SQL_INTERVAL_MONTH);
@@ -730,7 +760,7 @@ TEST_F(api_robustness_test, sql_get_diag_field)
 
 TEST_F(api_robustness_test, sql_get_diag_rec)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR state[ODBC_BUFFER_SIZE];
     SQLINTEGER nativeError = 0;
@@ -768,7 +798,7 @@ TEST_F(api_robustness_test, sql_get_env_attr)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR buffer[ODBC_BUFFER_SIZE];
     SQLINTEGER resLen = 0;
@@ -789,7 +819,7 @@ TEST_F(api_robustness_test, sql_special_columns)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR catalogName[] = "";
     SQLCHAR schemaName[] = "cache";
@@ -799,7 +829,9 @@ TEST_F(api_robustness_test, sql_special_columns)
     SQLRETURN ret = SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName),
         schemaName, sizeof(schemaName), tableName, sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    UNUSED_VALUE ret;
+    // TODO IGNITE-19218: Uncomment once special columns query execution is implemented.
+    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -843,7 +875,7 @@ TEST_F(api_robustness_test, sql_error)
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLCHAR state[6] = { 0 };
     SQLINTEGER nativeCode = 0;
@@ -885,7 +917,7 @@ TEST_F(api_robustness_test, sql_error)
 
 TEST_F(api_robustness_test, sql_diagnostic_records)
 {
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     SQLHANDLE hnd;
 
@@ -895,7 +927,7 @@ TEST_F(api_robustness_test, sql_diagnostic_records)
 
     ret = SQLFreeStmt(m_statement, 4);
     ASSERT_EQ(ret, SQL_ERROR);
-    EXPECT_EQ(get_connection_error_state(), "HY092");
+    EXPECT_EQ(get_statement_error_state(), "HY092");
 }
 
 TEST_F(api_robustness_test, many_fds)
@@ -907,7 +939,7 @@ TEST_F(api_robustness_test, many_fds)
     for (auto &fd : fds)
         fd = tmpfile();
 
-    odbc_connect("DRIVER={Apache Ignite 3};address=127.0.0.1:11110;schema=cache");
+    odbc_connect(get_basic_connection_string());
 
     for (auto fd : fds)
     {
