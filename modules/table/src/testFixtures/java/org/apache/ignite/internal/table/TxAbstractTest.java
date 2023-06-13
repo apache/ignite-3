@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,6 +52,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -1966,5 +1974,21 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             assertTrue(CollectionUtils.nullOrEmpty(res));
         }
+    }
+
+    /**
+     * Prepares placement driver mock that responds with (-INF, +INF) lease for both awaitPrimaryReplica and getPrimaryReplica methods.
+     *
+     * @param leaseHolder The leaseholder.
+     * @return Placement driver mock.
+     */
+    protected static PlacementDriver preparePlacementDriverMock(String leaseHolder) {
+        PlacementDriver placementDriver = mock(PlacementDriver.class);
+
+        ReplicaMeta primaryReplica = new TestReplicaMetaImpl(leaseHolder, MIN_VALUE, MAX_VALUE);
+
+        when(placementDriver.awaitPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+        return placementDriver;
     }
 }

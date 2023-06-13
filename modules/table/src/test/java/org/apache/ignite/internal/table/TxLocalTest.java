@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.table.impl.DummyInternalTableImpl.SCAN_RECIPIENT_NODE;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -69,7 +70,7 @@ public class TxLocalTest extends TxAbstractTest {
         lockManager = new HeapLockManager();
 
         ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-        PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
+        PlacementDriver txnStateResolver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
 
         Map<ReplicationGroupId, DummyInternalTableImpl> tables = new HashMap<>();
 
@@ -80,6 +81,15 @@ public class TxLocalTest extends TxAbstractTest {
 
                     return replicaListener.invoke(request);
             }
+        ).when(replicaSvc).invoke(any(String.class), any());
+        // TODO: sanpwc Remove duplication.
+        lenient().doAnswer(
+                invocationOnMock -> {
+                    ReplicaRequest request = invocationOnMock.getArgument(1);
+                    ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
+
+                    return replicaListener.invoke(request);
+                }
         ).when(replicaSvc).invoke(any(ClusterNode.class), any());
 
         doAnswer(invocationOnMock -> {
@@ -87,17 +97,33 @@ public class TxLocalTest extends TxAbstractTest {
 
             return CompletableFuture.completedFuture(
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
-        }).when(placementDriver).sendMetaRequest(any(), any());
+        }).when(txnStateResolver).sendMetaRequest(any(), any());
 
         txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef));
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, ACCOUNTS_SCHEMA);
+        org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver = preparePlacementDriverMock(SCAN_RECIPIENT_NODE.name());
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                replicaSvc,
+                txManager,
+                true,
+                txnStateResolver,
+                ACCOUNTS_SCHEMA,
+                placementDriver
+        );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, CUSTOMERS_SCHEMA);
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(
+                replicaSvc,
+                txManager,
+                true,
+                txnStateResolver,
+                CUSTOMERS_SCHEMA,
+                placementDriver
+        );
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 

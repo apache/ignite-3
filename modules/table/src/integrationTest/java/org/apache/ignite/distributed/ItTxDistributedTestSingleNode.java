@@ -20,6 +20,9 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.table.impl.DummyInternalTableImpl.SCAN_RECIPIENT_NODE;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +63,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -184,6 +190,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
+    protected org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver;
+
     private ScheduledThreadPoolExecutor executor;
 
     private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
@@ -265,6 +273,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
+
+        placementDriver = preparePlacementDriverMock(cluster.get(0).nodeName());
 
         log.info("The cluster has been started");
 
@@ -385,7 +395,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName),
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -399,7 +409,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName),
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");
@@ -440,10 +450,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 var mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig, distributionZoneConfig);
                 var mvPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = txStateStorages.get(assignment);
-                var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
+                var txnStateResolver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
-                    placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
+                    txnStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
 
                 int partId = p;
@@ -521,14 +531,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
-                                                placementDriver,
+                                                txnStateResolver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
                                                 completedFuture(schemaManager),
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
-                                                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                                                placementDriver
                                         ),
                                         raftSvc,
                                         storageIndexTracker

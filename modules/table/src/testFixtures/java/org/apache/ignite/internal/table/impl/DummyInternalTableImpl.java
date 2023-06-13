@@ -145,13 +145,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *                        by itself.
      * @param txnStateResolver Txn state resolver.
      * @param schema Schema descriptor.
+     * @param placementDriver Placement driver service.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
             PlacementDriver txnStateResolver,
-            SchemaDescriptor schema
+            SchemaDescriptor schema,
+            org.apache.ignite.internal.placementdriver.PlacementDriver placementDriver
     ) {
         this(
                 replicaSvc,
@@ -160,7 +162,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 crossTableUsage,
                 txnStateResolver,
                 schema,
-                mock(org.apache.ignite.internal.placementdriver.PlacementDriver.class)
+                placementDriver
         );
     }
 
