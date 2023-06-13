@@ -56,6 +56,7 @@ internal static class DataStreamer
     /// <param name="schemaProvider">Schema provider.</param>
     /// <param name="partitionAssignmentProvider">Partitioner.</param>
     /// <param name="options">Options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
@@ -64,7 +65,8 @@ internal static class DataStreamer
         IRecordSerializerHandler<T> writer,
         Func<Task<Schema>> schemaProvider,
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
-        DataStreamerOptions options)
+        DataStreamerOptions options,
+        CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
 
@@ -81,13 +83,13 @@ internal static class DataStreamer
         var schema = await schemaProvider().ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
-        using var cts = new CancellationTokenSource();
+        using var flushCts = new CancellationTokenSource();
 
         try
         {
-            _ = AutoFlushAsync(cts.Token);
+            _ = AutoFlushAsync(flushCts.Token);
 
-            await foreach (var item in data)
+            await foreach (var item in data.WithCancellation(cancellationToken))
             {
                 var (batch, partition) = Add(item);
 
@@ -115,7 +117,7 @@ internal static class DataStreamer
         }
         finally
         {
-            cts.Cancel();
+            flushCts.Cancel();
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
@@ -221,11 +223,11 @@ internal static class DataStreamer
             }
         }
 
-        async Task AutoFlushAsync(CancellationToken cancellationToken)
+        async Task AutoFlushAsync(CancellationToken flushCt)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!flushCt.IsCancellationRequested)
             {
-                await Task.Delay(options.AutoFlushFrequency, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(options.AutoFlushFrequency, flushCt).ConfigureAwait(false);
                 var ts = Stopwatch.GetTimestamp();
 
                 foreach (var (partition, batch) in batches)

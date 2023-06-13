@@ -19,6 +19,7 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -32,6 +33,7 @@ public interface IDataStreamerTarget<T>
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null);
+    Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null, CancellationToken cancellationToken = default);
 }

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -324,7 +325,10 @@ namespace Apache.Ignite.Internal.Table
             await DeleteAllAsync(transaction, records, exact: true).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null) =>
+        public async Task StreamDataAsync(
+            IAsyncEnumerable<T> data,
+            DataStreamerOptions? options = null,
+            CancellationToken cancellationToken = default) =>
             await DataStreamer.StreamDataAsync(
                 data,
                 sender: async (batch, preferredNode, retryPolicy) =>
@@ -340,7 +344,8 @@ namespace Apache.Ignite.Internal.Table
                 writer: _ser.Handler,
                 schemaProvider: () => _table.GetLatestSchemaAsync(),
                 partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
-                options ?? DataStreamerOptions.Default).ConfigureAwait(false);
+                options ?? DataStreamerOptions.Default,
+                cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>
         public override string ToString() =>
