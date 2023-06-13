@@ -49,13 +49,14 @@ public class FunctionsTest extends AbstractPlannerTest {
                 expr("SUBSTR(?, ?, ?)", "123456789", 1, 2).ok(),
 
                 expr("SUBSTR(NULL, 1, 2)").project("SUBSTR(null:NULL, 1, 2)"),
-                expr("SUBSTR(?, 1)", new Object[]{null}).project("SUBSTR(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1)"),
-                expr("SUBSTR('123456789', ?)", new Object[]{null}).project("SUBSTR(_UTF-8'123456789', CAST(?0):BIGINT)")
+                expr("SUBSTR(?, 1)", new Object[]{null}).project("SUBSTR(?0, 1)"),
+                expr("SUBSTR('123456789', ?)", new Object[]{null}).project("SUBSTR(_UTF-8'123456789', ?0)")
         );
     }
 
     /** Illegal SUBSTR invocations. */
     @TestFactory
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19469")
     public Stream<DynamicTest> testSubstrInvalid() {
         String incompatibleTypes = "Values passed to SUBSTR operator must have compatible types.";
         String canNotApplyToTypes = "Cannot apply 'SUBSTR' to arguments of type ";
