@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -37,6 +38,8 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobContext;
+import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
@@ -78,7 +81,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     private final ComputeConfiguration configuration;
 
-    private final JobClassLoaderFactory jobClassLoaderFactory;
+    private final JobContextManager jobContextManager;
 
     private ExecutorService jobExecutorService;
 
@@ -89,11 +92,11 @@ public class ComputeComponentImpl implements ComputeComponent {
             Ignite ignite,
             MessagingService messagingService,
             ComputeConfiguration configuration,
-            JobClassLoaderFactory jobClassLoaderFactory) {
+            JobContextManager jobContextManager) {
         this.ignite = ignite;
         this.messagingService = messagingService;
         this.configuration = configuration;
-        this.jobClassLoaderFactory = jobClassLoaderFactory;
+        this.jobContextManager = jobContextManager;
     }
 
     /** {@inheritDoc} */
@@ -104,11 +107,10 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
 
         try {
-            return jobClassLoader(units)
-                    .<Class<? extends ComputeJob<R>>>thenApply(it -> jobClass(it, jobClassName))
-                    .thenCompose(it -> doExecuteLocally(it, args));
-        } catch (Exception e) {
-            return failedFuture(e);
+            return mapClassLoaderExceptions(jobClassLoader(units), jobClassName)
+                    .thenCompose(context -> doExecuteLocally(this.<R, ComputeJob<R>>jobClass(context.classLoader(), jobClassName), args)
+                            .whenComplete((r, e) -> context.close())
+                    );
         } finally {
             busyLock.leaveBusy();
         }
@@ -235,10 +237,13 @@ public class ComputeComponentImpl implements ComputeComponent {
         try {
             List<DeploymentUnit> units = toDeploymentUnit(executeRequest.deploymentUnits());
 
-            jobClassLoader(units)
-                    .thenApply(it -> jobClass(it, executeRequest.jobClassName()))
-                    .thenCompose(it -> doExecuteLocally(it, executeRequest.args()))
-                    .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
+            mapClassLoaderExceptions(jobClassLoader(units), executeRequest.jobClassName())
+                    .thenCompose(context -> {
+                        return doExecuteLocally(jobClass(context.classLoader(), executeRequest.jobClassName()), executeRequest.args())
+                                        .whenComplete((r, e) -> context.close())
+                                        .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
+                            }
+                    );
         } finally {
             busyLock.leaveBusy();
         }
@@ -264,8 +269,8 @@ public class ComputeComponentImpl implements ComputeComponent {
         }
     }
 
-    private CompletableFuture<JobClassLoader> jobClassLoader(List<DeploymentUnit> units) {
-        return jobClassLoaderFactory.createClassLoader(units);
+    private CompletableFuture<JobContext> jobClassLoader(List<DeploymentUnit> units) {
+        return jobContextManager.acquireClassLoader(units);
     }
 
     /** {@inheritDoc} */

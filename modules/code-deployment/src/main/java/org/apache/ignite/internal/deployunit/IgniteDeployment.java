@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
@@ -173,15 +172,6 @@ public interface IgniteDeployment extends IgniteComponent {
     CompletableFuture<DeploymentStatus> nodeStatusAsync(String id, Version version);
 
     /**
-     * Returns path to unit with provided identifier and version.
-     *
-     * @param id Unit identifier. Not empty and not null.
-     * @param version Unit version.
-     * @return Future with path to unit. Future will be failed if unit with specified identifier and version not exist.
-     */
-    CompletableFuture<Path> path(String id, Version version);
-
-    /**
      * Requests on demand deploy to local node unit with provided identifier and version.
      *
      * @param id Deployment unit identifier.
@@ -190,4 +180,12 @@ public interface IgniteDeployment extends IgniteComponent {
      *      {@code false} if deploy failed or unit with provided identifier and version doesn't exist.
      */
     CompletableFuture<Boolean> onDemandDeploy(String id, Version version);
+
+    /**
+     * Detects the latest version of the deployment unit.
+     *
+     * @param id Deployment unit identifier.
+     * @return Future with the latest version of the deployment unit.
+     */
+    CompletableFuture<Version> detectLatestDeployedVersion(String id);
 }

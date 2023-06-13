@@ -15,18 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.compute.loader;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayContaining;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.net.URL;
+import java.util.List;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.compute.JobExecutionContextImpl;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -55,7 +64,7 @@ class JobClassLoaderTest {
 
         doReturn(desiredClass).when(parentClassLoader).loadClass(className);
 
-        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], parentClassLoader))) {
+        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], List.of(), parentClassLoader))) {
             assertSame(desiredClass, jobClassLoader.loadClass(className));
             verify(jobClassLoader, never()).findClass(className);
         }
@@ -66,7 +75,7 @@ class JobClassLoaderTest {
     public void loadsOwnClassIfSystemAbsent(String className) throws Exception {
         doThrow(ClassNotFoundException.class).when(parentClassLoader).loadClass(className);
 
-        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], parentClassLoader))) {
+        try (TestJobClassLoader jobClassLoader = spy(new TestJobClassLoader(new URL[0], List.of(), parentClassLoader))) {
             Class<TestJobClassLoader> toBeReturned = TestJobClassLoader.class;
             doReturn(toBeReturned).when(jobClassLoader).findClass(className);
 
@@ -75,9 +84,34 @@ class JobClassLoaderTest {
         }
     }
 
+    @Test
+    public void unitsReleasedOnClose() {
+        DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
+        DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
+
+        try (TestJobClassLoader jobClassLoader = new TestJobClassLoader(new URL[0], List.of(unit1, unit2), parentClassLoader)) {
+            jobClassLoader.close();
+            verify(unit1, times(1)).release();
+            verify(unit2, times(1)).release();
+        }
+    }
+
+    @Test
+    public void exceptionsCaughtOnClose() {
+        DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
+        DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
+        RuntimeException toBeThrown = new RuntimeException("Expected exception");
+        doThrow(toBeThrown).when(unit1).release();
+
+        TestJobClassLoader jobClassLoader = new TestJobClassLoader(new URL[0], List.of(unit1, unit2), parentClassLoader);
+        IgniteException igniteException = assertThrows(IgniteException.class, jobClassLoader::close);
+        assertThat(igniteException.getSuppressed(), arrayContaining(toBeThrown));
+    }
+
+
     private static class TestJobClassLoader extends JobClassLoader {
-        TestJobClassLoader(URL[] urls, ClassLoader parent) {
-            super(urls, parent);
+        TestJobClassLoader(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
+            super(units, urls, parent);
         }
 
         @Override
