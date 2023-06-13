@@ -369,12 +369,6 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         rs.closeAsync();
 
-        rs = await(ses.executeAsync(null, "SELECT SUBSTRING('text', 1, 3)"));
-
-        assertEquals(1, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
-
-        rs.closeAsync();
-
         outerTx = igniteTx().begin();
 
         rs = await(ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0"));

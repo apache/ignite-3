@@ -27,9 +27,6 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
  */
 public interface MultiStepPlan extends QueryPlan {
     /** Get execution fragments. */
-    List<Fragment> mappedFragments();
-
-    /** Get query fragments. */
     List<Fragment> fragments();
 
     /**

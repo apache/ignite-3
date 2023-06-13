@@ -41,15 +41,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlSelect;
-import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
-import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -424,9 +419,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return sqlNode;
                 })
                 .thenCompose(sqlNode -> {
-                    Boolean rwOp = dataModificationOp(sqlNode);
+                    boolean rwOp = dataModificationOp(sqlNode);
 
-                    boolean implicitTxRequired = outerTx == null && rwOp != null;
+                    boolean implicitTxRequired = outerTx == null;
 
                     tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
 
@@ -521,11 +516,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableCreated(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -539,11 +534,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableUpdated(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -557,11 +552,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableDropped(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -575,12 +570,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexDropped(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.indexId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.indexId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -594,46 +589,17 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                    parameters.tableId(),
-                    parameters.indexId(),
-                    parameters.indexDescriptor(),
-                    parameters.causalityToken()
-            )
+                            parameters.tableId(),
+                            parameters.indexId(),
+                            parameters.indexDescriptor(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
 
-    private static boolean emptyFrom(SqlNode sqlNode) {
-        sqlNode.accept(new SqlBasicVisitor<>() {
-            @Override public @Nullable Object visit(SqlCall call) {
-                if (call instanceof SqlSelect) {
-                    SqlSelect sqlNode0 = (SqlSelect) call;
-
-                    SqlNode from = sqlNode0.getFrom();
-
-                    if (from != null) {
-                        throw Util.FoundOne.NULL;
-                    }
-                }
-                return call.getOperator().acceptCall(this, call);
-            }
-        });
-
-        return true;
-    }
-
-    /** Returns {@code true} if this is data modification operation, {@code false} if only read and
-     *  {@code null} if no outer data is touched, for example: SELECT SUBSTRING('text', 1, 3');.
-     */
-    private static @Nullable Boolean dataModificationOp(SqlNode sqlNode) {
-        if (sqlNode instanceof SqlSelect) {
-            try {
-                return emptyFrom(sqlNode) ? null : false;
-            } catch (ControlFlowException ignore) {
-                return false;
-            }
-        }
-
+    /** Returns {@code true} if this is data modification operation. */
+    private static boolean dataModificationOp(SqlNode sqlNode) {
         return SqlKind.DML.contains(sqlNode.getKind());
     }
 

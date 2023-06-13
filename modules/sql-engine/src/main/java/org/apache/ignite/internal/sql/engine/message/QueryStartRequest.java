@@ -21,7 +21,6 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryStartRequest interface.
@@ -54,7 +53,7 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      * Transaction id.
      */
     @Marshallable
-    @Nullable TxAttributes txAttributes();
+    TxAttributes txAttributes();
 
     /**
      * Return last schema version, just a stub, need to be removed after IGNITE-18733.

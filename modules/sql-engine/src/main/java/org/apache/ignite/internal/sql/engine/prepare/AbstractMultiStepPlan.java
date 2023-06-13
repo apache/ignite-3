@@ -36,7 +36,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
     protected final ResultSetMetadata meta;
 
-    public final QueryTemplate queryTemplate;
+    protected final QueryTemplate queryTemplate;
 
     protected ExecutionPlan executionPlan;
 
@@ -47,14 +47,8 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
 
     /** {@inheritDoc} */
     @Override
-    public List<Fragment> mappedFragments() {
-        return Objects.requireNonNull(executionPlan).fragments();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Fragment> fragments() {
-        return Objects.requireNonNull(queryTemplate).fragments();
+        return Objects.requireNonNull(executionPlan).fragments();
     }
 
     /** {@inheritDoc} */
@@ -74,7 +68,7 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
                 .filter(f -> f.fragmentId() == fragmentId)
                 .findAny().orElseThrow(() -> new IllegalStateException("Cannot find fragment with given ID. ["
                         + "fragmentId=" + fragmentId + ", "
-                        + "fragments=" + mappedFragments() + "]"))
+                        + "fragments=" + fragments() + "]"))
                 .mapping();
     }
 

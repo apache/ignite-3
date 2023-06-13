@@ -48,11 +48,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 /**
  * A micro-benchmark of sql execution.
  */
-@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Warmup(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(3)
+@Fork(2)
 @State(Scope.Benchmark)
 public class SqlBenchmark {
     private final DataProvider<Object[]> dataProvider = DataProvider.fromRow(
@@ -81,7 +81,8 @@ public class SqlBenchmark {
     public void setUp() {
         cluster.start();
 
-        plan = gatewayNode.prepare("SELECT * FROM t1");
+        //plan = gatewayNode.prepare("SELECT * FROM t1");
+        plan = gatewayNode.prepare("select substring('long_string', 1, 5)");
     }
 
     /** Stops the cluster. */
