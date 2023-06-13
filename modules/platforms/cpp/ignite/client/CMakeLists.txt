@@ -64,6 +64,7 @@ set(PUBLIC_HEADERS
 add_library(${TARGET} SHARED ${SOURCES})
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
+set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
 if (WIN32)
     set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-client")

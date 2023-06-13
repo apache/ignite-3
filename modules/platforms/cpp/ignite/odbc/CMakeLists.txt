@@ -46,38 +46,55 @@ set(SOURCES
     log.cpp
 )
 
-if (WIN32)
-    list(APPEND SOURCES
-        module.def
-    )
-endif ()
-
-add_library(${TARGET} SHARED ${SOURCES})
-target_link_libraries(${TARGET} ignite-common ignite-tuple ignite-network ignite-protocol ${ODBC_LIBRARIES})
-
 add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
-set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
-set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+add_library(${TARGET}-obj OBJECT ${SOURCES})
+target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (WIN32)
-    target_link_libraries(${TARGET} odbccp32 shlwapi)
+    list(APPEND SOURCES module.def)
+endif ()
 
-    remove_definitions(-DUNICODE=1)
+add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj>)
 
-    if (MSVC_VERSION GREATER_EQUAL 1900)
-        target_link_libraries(${TARGET} legacy_stdio_definitions)
+set(LIBRARIES
+    ignite-common
+    ignite-tuple
+    ignite-network
+    ignite-protocol
+    ${ODBC_LIBRARIES}
+)
+
+set(_target_libs ${TARGET} ${TARGET}-obj)
+
+foreach(_target_lib IN LISTS _target_libs)
+    set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
+    set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+
+    if (WIN32)
+        list(APPEND LIBRARIES odbccp32 shlwapi)
+
+        remove_definitions(-DUNICODE=1)
+
+        if (MSVC_VERSION GREATER_EQUAL 1900)
+            list(APPEND LIBRARIES legacy_stdio_definitions)
+        endif()
+    else()
+        list(APPEND LIBRARIES odbcinst)
     endif()
-else()
-    target_link_libraries(${TARGET} odbcinst)
-endif()
 
-target_include_directories(${TARGET} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
+    target_include_directories(${_target_lib} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
+    target_link_libraries(${_target_lib} ${LIBRARIES})
+endforeach()
+unset(_target_libs)
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-    )
+            RUNTIME DESTINATION bin
+            ARCHIVE DESTINATION lib
+            LIBRARY DESTINATION lib
+            )
 endif()
+
+ignite_test(connection_info_test config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+
