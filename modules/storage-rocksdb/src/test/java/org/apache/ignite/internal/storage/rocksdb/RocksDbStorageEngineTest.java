@@ -17,23 +17,23 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,10 +45,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbStorageEngineTest {
-    private RocksDbStorageEngine engine;
-
     @InjectConfiguration
     private RocksDbStorageEngineConfiguration engineConfig;
+
+    private RocksDbStorageEngine engine;
+
+    private RocksDbTableStorage table;
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
@@ -58,62 +60,42 @@ public class RocksDbStorageEngineTest {
     }
 
     @AfterEach
-    void tearDown() {
-        engine.stop();
+    void tearDown() throws Exception {
+        IgniteUtils.closeAllManually(
+                table,
+                engine == null ? null : engine::stop
+        );
     }
 
     @Test
-    void testCreateTableWithDefaultDataRegion(
-            @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
-    ) {
-        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZoneConfiguration);
+    void testCreateTableWithDefaultDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
+        table = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
 
         table.start();
 
-        try {
-            RocksDbDataStorageConfiguration dataStorageConfig =
-                    (RocksDbDataStorageConfiguration) distributionZoneConfiguration.dataStorage();
-
-            assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
-
-            getOrCreateMvPartition(table, 1);
-        } finally {
-            table.stop();
-        }
+        getOrCreateMvPartition(table, 1);
     }
 
     @Test
-    void testCreateTableWithDynamicCustomDataRegion(
-            @InjectConfiguration("mock.tables.foo {zoneId=1}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { dataStorage.dataRegion=foobar, dataStorage.name=" + RocksDbStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
-    ) {
+    void testCreateTableWithDynamicCustomDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
         String customRegionName = "foobar";
 
         CompletableFuture<Void> engineConfigChangeFuture = engineConfig.regions()
-                .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> {}));
+                .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> {
+                }));
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
-        MvTableStorage table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZoneConfiguration);
+        table = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
 
         table.start();
 
-        try {
-            RocksDbDataStorageConfiguration dataStorageConfig =
-                    (RocksDbDataStorageConfiguration) distributionZoneConfiguration.dataStorage();
-
-            assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
-
-            getOrCreateMvPartition(table, 1);
-        } finally {
-            table.stop();
-        }
+        getOrCreateMvPartition(table, 1);
     }
 }

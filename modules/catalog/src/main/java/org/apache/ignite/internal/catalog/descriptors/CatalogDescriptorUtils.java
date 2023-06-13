@@ -211,6 +211,7 @@ public class CatalogDescriptorUtils {
         return new CatalogIndexColumnDescriptor(config.name(), collation);
     }
 
+    // TODO: IGNITE-19483 создать какой-то тикект или вроде того
     private static CatalogDataStorageDescriptor toDataStorageDescriptor(DataStorageView config) {
         String dataRegion;
 
