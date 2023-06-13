@@ -63,12 +63,12 @@ public class SqlBenchmark {
     private final TestCluster cluster = TestBuilders.cluster()
             .nodes("N1", "N2", "N3")
             .addTable()
-            .name("T1")
-            .distribution(IgniteDistributions.hash(List.of(0)))
-            .addColumn("ID", NativeTypes.INT32)
-            .addColumn("VAL", NativeTypes.stringOf(64))
-            .defaultDataProvider(dataProvider)
-            .end()
+                    .name("T1")
+                    .distribution(IgniteDistributions.hash(List.of(0)))
+                    .addColumn("ID", NativeTypes.INT32)
+                    .addColumn("VAL", NativeTypes.stringOf(64))
+                    .defaultDataProvider(dataProvider)
+                    .end()
             .build();
     // @formatter:on
 
