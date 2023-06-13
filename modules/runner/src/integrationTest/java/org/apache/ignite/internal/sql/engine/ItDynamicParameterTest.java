@@ -26,14 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +42,6 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
-    private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
     @BeforeEach
     public void createTable() {
@@ -253,11 +250,6 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
 
         String q2 = format("SELECT CAST(? AS {})", type);
         assertQuery(q2).withParams(param).returns(expected).check();
-    }
-
-    @Nullable
-    private static Object generateValueByType(int i, ColumnType type) {
-        return NativeTypeValues.value(i, type);
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
