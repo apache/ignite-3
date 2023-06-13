@@ -246,7 +246,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Before all test scenarios. */
     @BeforeEach
-    void before() {
+    void before() throws NodeStoppingException {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
@@ -279,6 +279,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
 
         when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
+
+        when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -387,6 +389,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         verify(mvTableStorage).destroy();
         verify(txStateTableStorage).destroy();
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         assertNull(tableManager.table(scmTbl.name()));
 

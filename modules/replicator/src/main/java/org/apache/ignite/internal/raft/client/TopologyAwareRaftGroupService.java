@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.client;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -314,7 +315,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         serverEventHandler.resetLeader();
 
         var peers = peers();
-        var futs = new CompletableFuture[peers.size()];
+        List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
         for (int i = 0; i < peers.size(); i++) {
             Peer peer = peers.get(i);
@@ -322,14 +323,14 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
-                futs[i] = sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
+                futs.add(sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
                         .groupId(groupId())
                         .subscribe(false)
-                        .build());
+                        .build()));
             }
         }
 
-        return CompletableFuture.allOf(futs);
+        return CompletableFuture.allOf(futs.toArray(new CompletableFuture[futs.size()]));
     }
 
     @Override
