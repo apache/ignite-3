@@ -730,12 +730,10 @@ public class IgniteImpl implements Ignite {
                                 .thenComposeAsync(t -> {
                                     // Deploy all registered watches because all components are ready and have registered their listeners.
                                     try {
-                                        metaStorageMgr.deployWatches();
+                                        return metaStorageMgr.deployWatches().thenCompose(unused -> recoveryFuture);
                                     } catch (NodeStoppingException e) {
                                         throw new CompletionException(e);
                                     }
-
-                                    return recoveryFuture;
                                 }, startupExecutor);
                     }, startupExecutor)
                     .thenRunAsync(() -> {
