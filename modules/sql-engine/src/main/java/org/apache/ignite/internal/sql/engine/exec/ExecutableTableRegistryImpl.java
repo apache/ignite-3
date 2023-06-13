@@ -98,13 +98,13 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
         private final InternalTable table;
 
-        private final UpdateableTable updateableTable;
+        private final UpdatableTable updatableTable;
 
         private final TableRowConverter rowConverter;
 
-        private ExecutableTableImpl(InternalTable table, UpdateableTable updateableTable, TableRowConverter rowConverter) {
+        private ExecutableTableImpl(InternalTable table, UpdatableTable updatableTable, TableRowConverter rowConverter) {
             this.table = table;
-            this.updateableTable = updateableTable;
+            this.updatableTable = updatableTable;
             this.rowConverter = rowConverter;
         }
 
@@ -116,8 +116,8 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
         /** {@inheritDoc} */
         @Override
-        public UpdateableTable updates() {
-            return updateableTable;
+        public UpdatableTable updates() {
+            return updatableTable;
         }
 
         /** {@inheritDoc} */

@@ -46,7 +46,7 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
 
         /** {@inheritDoc} */
         @Override
-        public UpdateableTable updates() {
+        public UpdatableTable updates() {
             throw noDependency();
         }
 

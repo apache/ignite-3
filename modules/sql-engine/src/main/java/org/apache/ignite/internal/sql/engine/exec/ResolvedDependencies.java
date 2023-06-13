@@ -43,7 +43,7 @@ public class ResolvedDependencies {
     /**
      * Returns updatable table with the given id.
      */
-    public UpdateableTable updatableTable(int tableId) {
+    public UpdatableTable updatableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.updates();
     }

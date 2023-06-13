@@ -32,7 +32,7 @@ public interface ExecutableTable {
     /**
      * Returns table modification API.
      */
-    UpdateableTable updates();
+    UpdatableTable updates();
 
     /**
      * Returns a row converter that converts rows to execution engine representation.

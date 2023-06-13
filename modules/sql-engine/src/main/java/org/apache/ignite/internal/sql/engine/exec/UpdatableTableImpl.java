@@ -54,7 +54,7 @@ import org.apache.ignite.sql.SqlException;
 /**
  * Ignite table implementation.
  */
-public final class UpdatableTableImpl implements UpdateableTable {
+public final class UpdatableTableImpl implements UpdatableTable {
     private static final IgniteLogger LOG = Loggers.forClass(UpdatableTableImpl.class);
 
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();

@@ -63,7 +63,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     private InternalTable table1;
 
     @Mock(name = "update1")
-    private UpdateableTable update1;
+    private UpdatableTable update1;
 
     @Mock(name = "rowConverter1")
     private TableRowConverter rowConverter1;
@@ -72,7 +72,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     private InternalTable table2;
 
     @Mock(name = "update2")
-    private UpdateableTable update2;
+    private UpdatableTable update2;
 
     @Mock(name = "rowConverter2")
     private TableRowConverter rowConverter2;
@@ -208,7 +208,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             table.addIndex(index);
         }
 
-        void setDependencies(int tableId, InternalTable table, UpdateableTable updates, TableRowConverter rowConverter) {
+        void setDependencies(int tableId, InternalTable table, UpdatableTable updates, TableRowConverter rowConverter) {
             TestExecutableTable executableTable = new TestExecutableTable(table, updates, rowConverter);
 
             deps.put(tableId, executableTable);
@@ -251,11 +251,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         private final InternalTable table;
 
-        private final UpdateableTable updates;
+        private final UpdatableTable updates;
 
         private final TableRowConverter rowConverter;
 
-        TestExecutableTable(InternalTable table, UpdateableTable updates, TableRowConverter rowConverter) {
+        TestExecutableTable(InternalTable table, UpdatableTable updates, TableRowConverter rowConverter) {
             this.table = table;
             this.updates = updates;
             this.rowConverter = rowConverter;
@@ -267,7 +267,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         }
 
         @Override
-        public UpdateableTable updates() {
+        public UpdatableTable updates() {
             return updates;
         }
 

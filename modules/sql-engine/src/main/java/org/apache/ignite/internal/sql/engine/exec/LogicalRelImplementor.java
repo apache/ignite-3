@@ -575,9 +575,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     @Override
     public Node<RowT> visit(IgniteTableModify rel) {
         IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
-        UpdateableTable updateableTable = resolvedDependencies.updatableTable(table.id());
+        UpdatableTable updatableTable = resolvedDependencies.updatableTable(table.id());
 
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, updateableTable, rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.getOperation(), rel.getUpdateColumnList());
 
         Node<RowT> input = visit(rel.getInput());
 
