@@ -21,7 +21,6 @@
 #include "ignite/odbc/odbc_error.h"
 
 #include <string>
-#include <optional>
 
 /** Configuration keys . */
 namespace key {
@@ -57,13 +56,13 @@ void configuration::from_config_map(const config_map &config_params) {
 
     auto address_it = config_params.find(key::address);
     if (address_it != config_params.end())
-        m_end_points = {parse_address(page_size_it->second), true};
+        m_end_points = {parse_address(address_it->second), true};
     else {
         end_point ep;
         auto host_it = config_params.find(key::host);
         if (host_it == config_params.end())
             throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-                "No connection address is specified");
+                "Connection address is not specified");
 
         auto host = host_it->second;
         uint16_t port = default_value::port;

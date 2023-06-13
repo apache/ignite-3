@@ -32,7 +32,7 @@ using namespace ignite;
 config_map::value_type parse_attribute_pair(std::string_view attribute) {
     auto res = split_once(attribute, '=');
 
-    auto key = strip_surrounding_whitespaces(res.first);
+    auto key = normalize_argument_string(res.first);
     auto value = strip_surrounding_whitespaces(res.second);
 
     return config_map::value_type{key, value};
