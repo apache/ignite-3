@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <utility>
+
 namespace ignite {
 
 /**
@@ -25,7 +27,7 @@ namespace ignite {
  * @tparam T Type of the value.
  */
 template<typename T>
-class settable_value
+class value_with_default
 {
 public:
     /** Type of the value. */
@@ -37,7 +39,7 @@ public:
      * @param value Value to return.
      * @param set Flag indicating whether value was set by user or is default.
      */
-    settable_value(value_type value, bool set)
+    value_with_default(value_type value, bool set)
         : m_value(std::move(value))
         , m_set(set) {}
 

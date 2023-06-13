@@ -17,10 +17,8 @@
 
 #pragma once
 
-#include "ignite/odbc/config/settable_value.h"
+#include "ignite/odbc/config/value_with_default.h"
 #include "ignite/odbc/config/config_tools.h"
-#include "ignite/odbc/protocol_version.h"
-#include "ignite/odbc/ssl_mode.h"
 
 #include "ignite/common/end_point.h"
 
@@ -60,7 +58,7 @@ public:
      *
      * @return Addresses.
      */
-    [[nodiscard]] const settable_value<std::vector<end_point>>& get_address() const {
+    [[nodiscard]] const value_with_default<std::vector<end_point>>& get_address() const {
         return m_end_points;
     }
 
@@ -69,7 +67,7 @@ public:
      *
      * @return Fetch results page size.
      */
-    [[nodiscard]] settable_value<std::int32_t> get_page_size() const {
+    [[nodiscard]] value_with_default<std::int32_t> get_page_size() const {
         return m_page_size;
     }
 
@@ -83,10 +81,10 @@ public:
 
 private:
     /** Request and response page size. */
-    settable_value<int32_t> m_page_size{default_value::page_size, false};
+    value_with_default<int32_t> m_page_size{default_value::page_size, false};
 
     /** Connection end-points. */
-    settable_value<std::vector<end_point>> m_end_points{default_value::address, false};
+    value_with_default<std::vector<end_point>> m_end_points{default_value::address, false};
 };
 
 } // namespace ignite
