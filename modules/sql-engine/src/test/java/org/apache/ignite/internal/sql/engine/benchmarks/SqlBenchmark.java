@@ -48,11 +48,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 /**
  * A micro-benchmark of sql execution.
  */
-@Warmup(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(2)
+@Fork(3)
 @State(Scope.Benchmark)
 public class SqlBenchmark {
     private final DataProvider<Object[]> dataProvider = DataProvider.fromRow(
@@ -63,12 +63,12 @@ public class SqlBenchmark {
     private final TestCluster cluster = TestBuilders.cluster()
             .nodes("N1", "N2", "N3")
             .addTable()
-                    .name("T1")
-                    .distribution(IgniteDistributions.hash(List.of(0)))
-                    .addColumn("ID", NativeTypes.INT32)
-                    .addColumn("VAL", NativeTypes.stringOf(64))
-                    .defaultDataProvider(dataProvider)
-                    .end()
+            .name("T1")
+            .distribution(IgniteDistributions.hash(List.of(0)))
+            .addColumn("ID", NativeTypes.INT32)
+            .addColumn("VAL", NativeTypes.stringOf(64))
+            .defaultDataProvider(dataProvider)
+            .end()
             .build();
     // @formatter:on
 
@@ -81,8 +81,7 @@ public class SqlBenchmark {
     public void setUp() {
         cluster.start();
 
-        //plan = gatewayNode.prepare("SELECT * FROM t1");
-        plan = gatewayNode.prepare("select substring('long_string', 1, 5)");
+        plan = gatewayNode.prepare("SELECT * FROM t1");
     }
 
     /** Stops the cluster. */
