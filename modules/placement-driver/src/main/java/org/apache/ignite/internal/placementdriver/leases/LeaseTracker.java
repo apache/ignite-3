@@ -210,7 +210,7 @@ public class LeaseTracker implements PlacementDriver {
         try {
             Lease lease = leases.get(replicationGroupId);
 
-            if (lease.getExpirationTime().after(timestamp)) {
+            if (lease != null && lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
             }
 
