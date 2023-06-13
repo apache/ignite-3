@@ -18,28 +18,15 @@
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_SHORT;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_SHORT;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
-
 import jakarta.inject.Inject;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
-import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.ParameterException;
-import picocli.CommandLine.Parameters;
 
 /** Command to deploy a unit. */
 @Command(name = "deploy", description = "Deploys a unit from file or a directory (non-recursively)")
@@ -48,26 +35,8 @@ public class ClusterUnitDeployCommand extends BaseCommand implements Callable<In
     @Mixin
     private ClusterUrlProfileMixin clusterUrl;
 
-    /** Unit id. */
-    @Parameters(index = "0")
-    private String id;
-
-    /** Unit version. */
-    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT},
-            description = UNIT_VERSION_OPTION_DESC,
-            required = true)
-    private String version;
-
-    /** Unit path. */
-    private Path path;
-
-    @Option(names = {UNIT_PATH_OPTION, UNIT_PATH_OPTION_SHORT}, description = UNIT_PATH_OPTION_DESC, required = true)
-    private void setPath(Path value) {
-        if (Files.notExists(value)) {
-            throw new ParameterException(spec.commandLine(), "No such file or directory: " + value);
-        }
-        path = value;
-    }
+    @Mixin
+    private UnitDeployOptionsMixin options;
 
     @Inject
     private DeployUnitCallFactory callFactory;
@@ -75,12 +44,7 @@ public class ClusterUnitDeployCommand extends BaseCommand implements Callable<In
     @Override
     public Integer call() throws Exception {
         return CallExecutionPipeline.asyncBuilder(callFactory::create)
-                .inputProvider(() -> DeployUnitCallInput.builder()
-                        .id(id)
-                        .version(version)
-                        .path(path)
-                        .clusterUrl(clusterUrl.getClusterUrl())
-                        .build())
+                .inputProvider(() -> options.toDeployUnitCallInput(clusterUrl.getClusterUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
