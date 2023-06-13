@@ -34,16 +34,12 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ItJoinTest extends ClusterPerClassIntegrationTest {
     @BeforeAll
-    public static void beforeTestsStarted() throws InterruptedException {
+    public static void beforeTestsStarted() {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
         sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
         sql("create index t1_idx on t1 (c3, c2, c1)");
         sql("create index t2_idx on t2 (c3, c2, c1)");
-
-        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-        waitForIndex("t1_idx");
-        waitForIndex("t2_idx");
 
         insertData("t1", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
@@ -800,8 +796,6 @@ public class ItJoinTest extends ClusterPerClassIntegrationTest {
 
             if (indexScan) {
                 sql("CREATE INDEX t11_idx ON t11(i1)");
-                // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-                waitForIndex("t11_idx");
             }
 
             sql("INSERT INTO t11 VALUES (1, null), (2, 2), (null, 3), (3, null), (5, null)");
@@ -810,8 +804,6 @@ public class ItJoinTest extends ClusterPerClassIntegrationTest {
 
             if (indexScan) {
                 sql("CREATE INDEX t22_idx ON t22(i3)");
-                // FIXME: https://issues.apache.org/jira/browse/IGNITE-18733
-                waitForIndex("t22_idx");
             }
 
             sql("INSERT INTO t22 VALUES (1, 1), (2, 2), (null, 3), (4, null), (5, null)");

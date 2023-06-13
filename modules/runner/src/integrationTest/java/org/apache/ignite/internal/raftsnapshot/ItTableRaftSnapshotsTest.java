@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndex;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -359,8 +358,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
                 + " with partitions=1, replicas=3;";
         String sql = "create table test (key int primary key, value varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
-
-        waitForIndex("test_PK");
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
