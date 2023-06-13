@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CreateZoneParams.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
 
@@ -916,7 +917,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                             table.zoneId(),
                                                             table.columns().stream()
                                                                     .filter(col -> !columns.contains(col.name()))
-                                                                    .collect(Collectors.toList()),
+                                                                    .collect(toList()),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )
@@ -987,7 +988,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             version,
                             activationTimestamp,
                             catalog.objectIdGenState(),
-                            catalog.zones().stream().filter(z -> z.id() != zoneId).collect(Collectors.toList()),
+                            catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
                             catalog.schemas()
                     );
 
@@ -1004,7 +1005,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                             catalog.objectIdGenState(),
                             catalog.zones().stream()
                                     .map(z -> z.id() == descriptor.id() ? descriptor : z)
-                                    .collect(Collectors.toList()),
+                                    .collect(toList()),
                             catalog.schemas()
                     );
 
@@ -1041,7 +1042,7 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
                                                             table.zoneId(),
                                                             table.columns().stream()
                                                                     .map(source -> source.name().equals(target.name()) ? target : source)
-                                                                    .collect(Collectors.toList()),
+                                                                    .collect(toList()),
                                                             table.primaryKeyColumns(),
                                                             table.colocationColumns())
                                             )

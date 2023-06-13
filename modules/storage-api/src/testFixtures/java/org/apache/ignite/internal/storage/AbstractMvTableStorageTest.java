@@ -81,7 +81,6 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -141,7 +140,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @AfterEach
     protected void tearDown() throws Exception {
-        IgniteUtils.closeAllManually(tableStorage);
+        if (tableStorage != null) {
+            tableStorage.close();
+        }
     }
 
     protected abstract MvTableStorage createMvTableStorage();

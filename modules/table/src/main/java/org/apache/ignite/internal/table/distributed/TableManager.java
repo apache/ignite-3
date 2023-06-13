@@ -575,10 +575,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<Set<Assignment>> assignments;
 
+            int tableId = tableDescriptor.id();
+
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            if (partitionAssignments(vaultManager, ctx.newValue().id(), 0) != null) {
-                assignments = tableAssignments(vaultManager, ctx.newValue().id(), zone.partitions());
+            if (partitionAssignments(vaultManager, tableId, 0) != null) {
+                assignments = tableAssignments(vaultManager, tableId, zoneDescriptor.partitions());
             } else {
                 assignments = AffinityUtils.calculateAssignments(
                         // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
@@ -602,7 +604,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
             });
 
-            writeTableAssignmentsToMetastore(tableDescriptor.id(), assignments);
+            writeTableAssignmentsToMetastore(tableId, assignments);
 
             return createTableFut;
         } finally {
