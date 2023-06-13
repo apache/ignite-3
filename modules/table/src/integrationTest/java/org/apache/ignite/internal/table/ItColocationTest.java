@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -27,6 +29,7 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -55,6 +58,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -190,7 +195,7 @@ public class ItColocationTest {
             groupRafts.put(new TablePartitionId(tblId, i), r);
         }
 
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
+        when(replicaService.invoke(any(String.class), any())).thenAnswer(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(UUID.randomUUID(), 0);
 
@@ -227,6 +232,13 @@ public class ItColocationTest {
             }
         });
 
+        PlacementDriver placementDriver = mock(PlacementDriver.class);
+
+        ReplicaMeta primaryReplica = new TestReplicaMetaImpl(clusterNode.name(), MIN_VALUE, MAX_VALUE);
+
+        when(placementDriver.awaitPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(primaryReplica));
+
         INT_TABLE = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
@@ -234,11 +246,11 @@ public class ItColocationTest {
                 PARTS,
                 name -> clusterNode,
                 txManager,
-                Mockito.mock(MvTableStorage.class),
+                mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class),
-                Mockito.mock(PlacementDriver.class)
+                mock(HybridClock.class),
+                placementDriver
         );
     }
 
