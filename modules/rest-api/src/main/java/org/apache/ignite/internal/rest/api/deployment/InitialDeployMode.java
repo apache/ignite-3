@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+package org.apache.ignite.internal.rest.api.deployment;
 
-using BenchmarkDotNet.Running;
-using Table;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-internal static class Program
-{
-    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
+/** Initial set of nodes to deploy. */
+@Schema(description = "Initial set of nodes to deploy.")
+public enum InitialDeployMode {
+    MAJORITY,
+    ALL
 }

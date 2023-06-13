@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -46,6 +47,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
+import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
 
@@ -398,6 +401,22 @@ public class RebalanceUtil {
     }
 
     /**
+     * Returns partition assignments from vault.
+     *
+     * @param vaultManager Vault manager.
+     * @param tableId Table id.
+     * @param partitionNumber Partition number.
+     * @return Returns partition assignments from vault or {@code null} if assignments is absent.
+     */
+    public static Set<Assignment> partitionAssignments(
+            VaultManager vaultManager, int tableId, int partitionNumber) {
+        VaultEntry entry =
+                vaultManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber))).join();
+
+        return (entry == null) ? null : ByteUtils.fromBytes(entry.value());
+    }
+
+    /**
      * Returns table assignments for all table partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
@@ -430,5 +449,28 @@ public class RebalanceUtil {
 
                     return Arrays.asList(result);
                 });
+    }
+
+    /**
+     * Returns table assignments for all table partitions from vault.
+     *
+     * @param vaultManager Vault manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @return Future with table assignments as a value.
+     */
+    public static List<Set<Assignment>> tableAssignments(
+            VaultManager vaultManager,
+            int tableId,
+            int numberOfPartitions
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(i ->
+                        (Set<Assignment>) ByteUtils.fromBytes(
+                                vaultManager.get(
+                                        stablePartAssignmentsKey(new TablePartitionId(tableId, i))
+                                ).join().value())
+                )
+                .collect(Collectors.toList());
     }
 }

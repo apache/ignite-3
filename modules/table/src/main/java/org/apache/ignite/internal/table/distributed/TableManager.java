@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUt
 import static org.apache.ignite.internal.catalog.descriptors.CatalogDescriptorUtils.toZoneDescriptor;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
@@ -254,6 +256,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
+    /** Vault manager. */
+    private final VaultManager vaultManager;
+
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
@@ -408,6 +413,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.dataStorageMgr = dataStorageMgr;
         this.storagePath = storagePath;
         this.metaStorageMgr = metaStorageMgr;
+        this.vaultManager = vaultManager;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
@@ -567,12 +573,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
-            List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
-                    baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                    zoneDescriptor.partitions(),
-                    zoneDescriptor.replicas()
-            );
+            List<Set<Assignment>> assignments;
+
+            // Check if the table already has assignments in the vault.
+            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+            if (partitionAssignments(vaultManager, ctx.newValue().id(), 0) != null) {
+                assignments = tableAssignments(vaultManager, ctx.newValue().id(), zone.partitions());
+            } else {
+                assignments = AffinityUtils.calculateAssignments(
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
+                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas()
+            );}
 
             assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
@@ -1046,7 +1059,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 stopping.add(() -> {
                     try {
-                        replicaMgr.stopReplica(replicationGroupId);
+                        replicaMgr.stopReplica(replicationGroupId).join();
                     } catch (Throwable t) {
                         handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
@@ -1282,9 +1295,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 raftMgr.stopRaftNodes(replicationGroupId);
 
-                replicaMgr.stopReplica(replicationGroupId);
-
-                removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
+                removeStorageFromGcFutures[p] = replicaMgr
+                        .stopReplica(replicationGroupId)
+                        .thenCompose((notUsed) -> mvGc.removeStorage(replicationGroupId));
             }
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
@@ -2096,8 +2109,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         InternalTable internalTable = tbl.internalTable();
 
-        ((InternalTableImpl) internalTable).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
-
         LOG.info("Received update on pending assignments. Check if new raft group should be started"
                         + " [key={}, partition={}, table={}, localMemberAddress={}]",
                 new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
@@ -2105,6 +2116,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
+            ((InternalTableImpl) internalTable).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+
             localServicesStartFuture = getOrCreatePartitionStorages(tbl, partId)
                     .thenAcceptAsync(partitionStorages -> {
                         MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
@@ -2415,11 +2428,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     try {
                         raftMgr.stopRaftNodes(tablePartitionId);
-
-                        replicaMgr.stopReplica(tablePartitionId);
                     } catch (NodeStoppingException e) {
-                        // No-op.
+                        // No-op
                     }
+
+                    CompletableFuture<Boolean> stopReplicaFut;
+                    try {
+                        stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
+                    } catch (NodeStoppingException e) {
+                        stopReplicaFut = completedFuture(true);
+                    }
+
+                    CompletableFuture<Boolean> finalStopReplicaFut = stopReplicaFut;
 
                     return tablesById(evt.revision())
                             // TODO: IGNITE-18703 Destroy raft log and meta
@@ -2429,6 +2449,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 closePartitionTrackers(internalTable, partitionId);
 
                                 return allOf(
+                                        finalStopReplicaFut,
                                         internalTable.storage().destroyPartition(partitionId),
                                         runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
                                 );

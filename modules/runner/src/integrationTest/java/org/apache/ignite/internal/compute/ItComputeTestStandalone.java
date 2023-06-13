@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -51,7 +52,8 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
             CompletableFuture<Boolean> deployAsync = node(0).deployment().deployAsync(
                     unitId,
                     unitVersion,
-                    () -> Map.of("ignite-jobs-1.0-SNAPSHOT.jar", jarStream)
+                    () -> Map.of("ignite-jobs-1.0-SNAPSHOT.jar", jarStream),
+                    MAJORITY
             );
             assertThat(deployAsync, willCompleteSuccessfully());
         }

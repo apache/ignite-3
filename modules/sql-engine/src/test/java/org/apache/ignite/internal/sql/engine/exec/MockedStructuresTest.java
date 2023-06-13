@@ -156,6 +156,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
+    /** Replica manager. */
+    @Mock
+    ReplicaManager replicaManager;
+
     @Mock
     HybridClock clock;
 
@@ -555,6 +559,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
+        when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
+
         return createTableManager();
     }
 
@@ -566,7 +572,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 dstZnsCfg,
                 cs,
                 rm,
-                mock(ReplicaManager.class),
+                replicaManager,
                 null,
                 null,
                 bm,

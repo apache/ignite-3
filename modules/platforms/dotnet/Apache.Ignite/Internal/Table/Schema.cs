@@ -24,10 +24,12 @@ namespace Apache.Ignite.Internal.Table
     /// Schema.
     /// </summary>
     /// <param name="Version">Version.</param>
+    /// <param name="TableId">Table id.</param>
     /// <param name="KeyColumnCount">Key column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
     internal sealed record Schema(
         int Version,
+        int TableId,
         int KeyColumnCount,
         IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
     {

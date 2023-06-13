@@ -76,6 +76,12 @@ namespace Apache.Ignite.Tests
             // No-op.
         }
 
+        public FakeServer(bool disableOpsTracking, string nodeName = "fake-server")
+            : this(null, nodeName, disableOpsTracking: disableOpsTracking)
+        {
+            // No-op.
+        }
+
         internal FakeServer(
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
@@ -111,6 +117,8 @@ namespace Apache.Ignite.Tests
 
         public TimeSpan OperationDelay { get; set; }
 
+        public TimeSpan MultiRowOperationDelayPerRow { get; set; }
+
         public TimeSpan HeartbeatDelay { get; set; }
 
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
@@ -124,6 +132,10 @@ namespace Apache.Ignite.Tests
         public int? LastSqlPageSize { get; set; }
 
         public long? LastSqlTxId { get; set; }
+
+        public long UpsertAllRowCount { get; set; }
+
+        public long DroppedConnectionCount { get; set; }
 
         public bool DropNewConnections
         {
@@ -503,6 +515,7 @@ namespace Apache.Ignite.Tests
 
                     if (_shouldDropConnection(new RequestContext(++requestCount, opCode, requestId)))
                     {
+                        DroppedConnectionCount++;
                         break;
                     }
 
@@ -584,6 +597,19 @@ namespace Apache.Ignite.Tests
                         case ClientOp.TupleUpsertAll:
                         case ClientOp.TupleDeleteAll:
                         case ClientOp.TupleDeleteAllExact:
+                            reader.Skip(3);
+                            var count = reader.ReadInt32();
+
+                            if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                            {
+                                Thread.Sleep(MultiRowOperationDelayPerRow * count);
+                            }
+
+                            if (opCode == ClientOp.TupleUpsertAll)
+                            {
+                                UpsertAllRowCount += count;
+                            }
+
                             Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
                             continue;
 

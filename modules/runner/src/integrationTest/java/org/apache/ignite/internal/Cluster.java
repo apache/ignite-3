@@ -483,6 +483,8 @@ public class Cluster {
                     );
                 });
 
+        knockedOutNodesIndices.add(nodeIndex);
+
         LOG.info("Knocked out node " + nodeIndex + " with an artificial network partition");
     }
 
@@ -508,6 +510,8 @@ public class Cluster {
                         ignite.dropMessages(censor.prevPredicate);
                     }
                 });
+
+        knockedOutNodesIndices.remove(nodeIndex);
 
         LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
     }
