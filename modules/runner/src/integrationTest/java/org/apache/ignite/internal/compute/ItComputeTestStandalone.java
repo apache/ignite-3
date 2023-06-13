@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -47,6 +49,23 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     @BeforeEach
     void setUp() throws IOException {
+        try (InputStream jarStream = jobsResource.openStream()) {
+            CompletableFuture<Boolean> deployAsync = node(0).deployment().deployAsync(
+                    unitId,
+                    unitVersion,
+                    () -> Map.of("ignite-jobs-1.0-SNAPSHOT.jar", jarStream),
+                    MAJORITY
+            );
+            assertThat(deployAsync, willCompleteSuccessfully());
+        }
+
+        cluster.runningNodes().forEach(node -> {
+            CompletableFuture<Boolean> deployAsync = node.deployment().onDemandDeploy(
+                    unitId,
+                    unitVersion
+            );
+            assertThat(deployAsync, willCompleteSuccessfully());
+        });
         deployJar(node(0), unit.name(), unit.version(), "ignite-jobs-1.0-SNAPSHOT.jar");
         await().until(() -> node(0).deployment().clusterStatusAsync(unit.name(), unit.version()), willBe(DEPLOYED));
     }

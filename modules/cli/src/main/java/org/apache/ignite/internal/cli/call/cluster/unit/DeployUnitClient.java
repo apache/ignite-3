@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.cli.call.cluster.unit;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import okhttp3.Call;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -28,7 +30,10 @@ import org.apache.ignite.rest.client.invoker.ApiCallback;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.ApiResponse;
+import org.apache.ignite.rest.client.invoker.Pair;
 import org.apache.ignite.rest.client.invoker.ProgressRequestBody;
+import org.apache.ignite.rest.client.model.DeployMode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Temporary class for calling REST with list of files until underlying issue in the openapi-generator is fixed.
@@ -50,8 +55,14 @@ public class DeployUnitClient {
      * @return {@code true} if the call succeeded.
      * @throws ApiException if fail to call.
      */
-    public Boolean deployUnit(String unitId, List<File> unitContent, String unitVersion) throws ApiException {
-        Call call = deployUnitCall(unitId, unitContent, unitVersion, null);
+    public Boolean deployUnit(
+            String unitId,
+            List<File> unitContent,
+            String unitVersion,
+            DeployMode deployMode,
+            List<String> initialNodes
+    ) throws ApiException {
+        Call call = deployUnitCall(unitId, unitContent, unitVersion, deployMode, initialNodes, null);
         ApiResponse<Boolean> response = apiClient.execute(call, Boolean.class);
         return response.getData();
     }
@@ -64,18 +75,51 @@ public class DeployUnitClient {
      * @param unitVersion The version of the deployment unit.
      * @return Request call.
      */
-    public Call deployUnitAsync(String unitId, List<File> unitContent, String unitVersion, ApiCallback<Boolean> callback) {
-        Call call = deployUnitCall(unitId, unitContent, unitVersion, callback);
+    public Call deployUnitAsync(
+            String unitId,
+            List<File> unitContent,
+            String unitVersion,
+            @Nullable DeployMode deployMode,
+            @Nullable List<String> initialNodes,
+            ApiCallback<Boolean> callback
+    ) {
+        Call call = deployUnitCall(unitId, unitContent, unitVersion, deployMode, initialNodes, callback);
         apiClient.executeAsync(call, Boolean.class, callback);
         return call;
     }
 
-    private Call deployUnitCall(String unitId, List<File> unitContent, String unitVersion, ApiCallback<Boolean> callback) {
-        String url = apiClient.getBasePath() + "/management/v1/deployment/units";
+    private Call deployUnitCall(
+            String unitId,
+            List<File> unitContent,
+            String unitVersion,
+            @Nullable DeployMode deployMode,
+            @Nullable List<String> initialNodes,
+            ApiCallback<Boolean> callback
+    ) {
+        StringBuilder url = new StringBuilder(apiClient.getBasePath());
+        url
+                .append("/management/v1/deployment/units")
+                .append("/").append(apiClient.escapeString(unitId))
+                .append("/").append(apiClient.escapeString(unitVersion));
+
+        List<Pair> queryParams = new ArrayList<>();
+
+        if (deployMode != null) {
+            // parameterToPairs escape values while parameterToPair does not
+            queryParams.addAll(apiClient.parameterToPairs("multi", "deployMode", List.of(deployMode)));
+        }
+
+        if (initialNodes != null) {
+            queryParams.addAll(apiClient.parameterToPairs("multi", "initialNodes", initialNodes));
+        }
+
+        if (!queryParams.isEmpty()) {
+            url.append(queryParams.stream()
+                    .map(pair -> pair.getName() + "=" + pair.getValue())
+                    .collect(Collectors.joining("&", "?", "")));
+        }
 
         MultipartBody.Builder mpBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
-        mpBuilder.addFormDataPart("unitId", unitId);
-        mpBuilder.addFormDataPart("unitVersion", unitVersion);
         for (File file : unitContent) {
             RequestBody requestBody = RequestBody.create(file, MediaType.parse("application/octet-stream"));
             mpBuilder.addFormDataPart("unitContent", file.getName(), requestBody);
@@ -83,7 +127,7 @@ public class DeployUnitClient {
         MultipartBody body = mpBuilder.build();
 
         Request.Builder reqBuilder = new Request.Builder()
-                .url(url)
+                .url(url.toString())
                 .header("Accept", "application/json")
                 .header("Content-Type", "multipart/form-data");
 

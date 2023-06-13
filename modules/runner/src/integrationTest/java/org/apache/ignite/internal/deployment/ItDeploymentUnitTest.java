@@ -35,6 +35,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.deployunit.InitialDeployMode;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -219,6 +220,43 @@ public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
         String id = "test";
         Version version = Version.parseVersion("1.1.0");
         Unit smallUnit = files.deployAndVerifySmall(id, version, cluster.node(0));
+
+        await().untilAsserted(() -> {
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
+            assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
+        });
+    }
+
+    @Test
+    public void testDeployToSpecificNode() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = files.deployAndVerify(
+                id, version, false, List.of(files.smallFile()),
+                null, List.of(node(1).name()),
+                node(0)
+        );
+
+        smallUnit.waitUnitReplica(node(1));
+
+        await().untilAsserted(() -> {
+            CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();
+            assertThat(list, willBe(List.of(UnitStatuses.builder(id).append(version, DEPLOYED).build())));
+        });
+    }
+
+    @Test
+    public void testDeployToAll() {
+        String id = "test";
+        Version version = Version.parseVersion("1.1.0");
+        Unit smallUnit = files.deployAndVerify(
+                id, version, false, List.of(files.smallFile()),
+                InitialDeployMode.ALL, List.of(),
+                node(0)
+        );
+
+        smallUnit.waitUnitReplica(node(1));
+        smallUnit.waitUnitReplica(node(2));
 
         await().untilAsserted(() -> {
             CompletableFuture<List<UnitStatuses>> list = node(0).deployment().clusterStatusesAsync();

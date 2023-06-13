@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+package org.apache.ignite.internal.deployunit.exception;
 
-using BenchmarkDotNet.Running;
-using Table;
-
-internal static class Program
-{
-    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
+/**
+ * Exception that is thrown when the wrong nodes argument is passed to the unit deploy method.
+ */
+public class InvalidNodesArgumentException extends RuntimeException {
+    public InvalidNodesArgumentException(String message) {
+        super(message);
+    }
 }
