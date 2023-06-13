@@ -56,6 +56,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -305,7 +306,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
-                () -> Map.of(),
+                Map::of,
                 CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
@@ -315,7 +316,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
-                mock(IndexBuilder.class)
+                mock(IndexBuilder.class),
+                mock(TablesConfiguration.class)
         );
 
         partitionListener = new PartitionListener(

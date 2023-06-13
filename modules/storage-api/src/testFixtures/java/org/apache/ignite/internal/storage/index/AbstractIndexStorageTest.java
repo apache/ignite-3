@@ -116,7 +116,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected MvPartitionStorage partitionStorage;
 
-    protected TablesConfiguration tablesCfg;
+    TablesConfiguration tablesCfg;
 
     @BeforeEach
     void setUp() {
@@ -140,7 +140,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         this.tableStorage = tableStorage;
         this.partitionStorage = getOrCreateMvPartition(tableStorage, TEST_PARTITION);
 
-        createTestTable(tableStorage.configuration());
+        createTestTable(tablesCfg.tables().get("foo"));
     }
 
     /**

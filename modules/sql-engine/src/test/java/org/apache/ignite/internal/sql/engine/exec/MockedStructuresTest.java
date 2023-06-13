@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -56,7 +55,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -95,6 +93,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -155,6 +154,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
+
+    /** Replica manager. */
+    @Mock
+    ReplicaManager replicaManager;
 
     @Mock
     HybridClock clock;
@@ -285,8 +288,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
-
-        when(distributionZoneManager.topologyVersionedDataNodes(anyInt(), anyLong())).thenReturn(completedFuture(emptySet()));
 
         tblManager = mockManagers();
 
@@ -555,6 +556,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
+        when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
+
         return createTableManager();
     }
 
@@ -566,7 +569,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 dstZnsCfg,
                 cs,
                 rm,
-                mock(ReplicaManager.class),
+                replicaManager,
                 null,
                 null,
                 bm,

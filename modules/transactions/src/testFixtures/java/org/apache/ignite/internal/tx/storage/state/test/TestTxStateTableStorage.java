@@ -21,7 +21,6 @@ import static org.mockito.Mockito.spy;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
@@ -48,11 +47,6 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
         if (storage != null) {
             storage.destroy();
         }
-    }
-
-    @Override
-    public TableConfiguration configuration() {
-        return null;
     }
 
     @Override

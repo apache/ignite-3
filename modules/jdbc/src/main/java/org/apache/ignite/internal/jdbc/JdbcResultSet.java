@@ -97,12 +97,6 @@ public class JdbcResultSet implements ResultSet {
     /** Cursor ID. */
     private final Long cursorId;
 
-    /** Jdbc column metadata. */
-    private List<JdbcColumnMeta> meta;
-
-    /** Metadata initialization flag. */
-    private boolean metaInit;
-
     /** Column order map. */
     private Map<String, Integer> colOrder;
 
@@ -190,8 +184,10 @@ public class JdbcResultSet implements ResultSet {
      *
      * @param rows Rows.
      * @param meta Column metadata.
+     *
+     * @exception SQLException if a database access error occurs
      */
-    public JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta) {
+    public JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta) throws SQLException {
         stmt = null;
         cursorId = null;
 
@@ -200,8 +196,7 @@ public class JdbcResultSet implements ResultSet {
 
         this.rows = rows;
         this.rowsIter = rows.iterator();
-        this.meta = meta;
-        this.metaInit = true;
+        this.jdbcMeta = new JdbcResultSetMetadata(meta);
 
         initColumnOrder();
     }
@@ -873,7 +868,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         if (jdbcMeta == null) {
-            jdbcMeta = new JdbcResultSetMetadata(meta());
+            initMeta();
         }
 
         return jdbcMeta;
@@ -2174,8 +2169,8 @@ public class JdbcResultSet implements ResultSet {
             return colOrder;
         }
 
-        if (!metaInit) {
-            meta();
+        if (jdbcMeta == null) {
+            initMeta();
         }
 
         initColumnOrder();
@@ -2186,11 +2181,11 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Init column order map.
      */
-    private void initColumnOrder() {
-        colOrder = new HashMap<>(meta.size());
+    private void initColumnOrder() throws SQLException {
+        colOrder = new HashMap<>(jdbcMeta.getColumnCount());
 
-        for (int i = 0; i < meta.size(); ++i) {
-            String colName = meta.get(i).columnLabel().toUpperCase();
+        for (int i = 0; i < jdbcMeta.getColumnCount(); ++i) {
+            String colName = jdbcMeta.getColumnLabel(i + 1).toUpperCase();
 
             if (!colOrder.containsKey(colName)) {
                 colOrder.put(colName, i);
@@ -2199,28 +2194,23 @@ public class JdbcResultSet implements ResultSet {
     }
 
     /**
-     * Returns columns metadata list.
+     * Initialize metadata if it's not initialized yet.
      *
-     * @return Results metadata.
      * @throws SQLException On error.
      */
-    private List<JdbcColumnMeta> meta() throws SQLException {
+    private void initMeta() throws SQLException {
         if (finished && (!isQuery || autoClose)) {
             throw new SQLException("Server cursor is already closed.", SqlStateCode.INVALID_CURSOR_STATE);
         }
 
-        assert cursorId != null : "Unable to call meta() method for non QUERY result set.";
-
         try {
-            if (!metaInit) {
+            if (jdbcMeta == null) {
+                assert cursorId != null : "Unable to call meta() method for non QUERY result set.";
+
                 JdbcMetaColumnsResult res = cursorHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).get();
 
-                meta = res.meta();
-
-                metaInit = true;
+                jdbcMeta = new JdbcResultSetMetadata(res.meta());
             }
-
-            return meta;
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -796,10 +797,15 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
             // Emulate a situation when one of the scale up keys gets concurrently updated during a Meta Storage invoke. We then expect
             // that the invoke call will be retried.
-            byte[] key = zoneScaleUpChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyScaleUp = zoneScaleUpChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyDataNodes = zoneDataNodesKey(ZONE_1_ID).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100), HybridTimestamp.MIN_VALUE);
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
+                keyValueStorage.putAll(
+                        List.of(keyScaleUp, keyDataNodes),
+                        List.of(longToBytes(100), keyValueStorage.get(zoneDataNodesKey(ZONE_1_ID).bytes()).value()),
+                        HybridTimestamp.MIN_VALUE
+                );
             }
 
             return invocation.callRealMethod();
@@ -837,10 +843,15 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
             // Emulate a situation when one of the scale down keys gets concurrently updated during a Meta Storage invoke. We then expect
             // that the invoke call will be retried.
-            byte[] key = zoneScaleDownChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyScaleDown = zoneScaleDownChangeTriggerKey(ZONE_1_ID).bytes();
+            byte[] keyDataNodes = zoneDataNodesKey(ZONE_1_ID).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                keyValueStorage.put(key, longToBytes(100), HybridTimestamp.MIN_VALUE);
+            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleDown, k))) {
+                keyValueStorage.putAll(
+                        List.of(keyScaleDown, keyDataNodes),
+                        List.of(longToBytes(100), keyValueStorage.get(zoneDataNodesKey(ZONE_1_ID).bytes()).value()),
+                        HybridTimestamp.MIN_VALUE
+                );
             }
 
             return invocation.callRealMethod();

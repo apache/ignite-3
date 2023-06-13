@@ -56,8 +56,9 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
-import org.apache.ignite.internal.compute.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
+import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -481,7 +483,7 @@ public class IgniteImpl implements Ignite {
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
 
-        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr));
+        catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vaultMgr), clock);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -528,21 +530,21 @@ public class IgniteImpl implements Ignite {
 
         sql = new IgniteSqlImpl(qryEngine);
 
-        deploymentManager = new DeploymentManagerImpl(
+        var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
-                metaStorageMgr,
+                new DeploymentUnitStoreImpl(metaStorageMgr),
+                logicalTopologyService,
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentConfiguration.KEY),
                 cmgMgr
         );
-
-        JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory(deploymentManager);
+        deploymentManager = deploymentManagerImpl;
 
         computeComponent = new ComputeComponentImpl(
                 this,
                 clusterSvc.messagingService(),
                 nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY),
-                jobClassLoaderFactory
+                new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory())
         );
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);

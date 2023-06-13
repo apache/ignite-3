@@ -63,7 +63,12 @@ public class DeploymentUnitStoreImplTest {
 
     private final List<UnitNodeStatus> history = Collections.synchronizedList(new ArrayList<>());
 
-    private final NodeEventCallback listener = (status, holders) -> history.add(status);
+    private final NodeEventCallback listener = new NodeEventCallback() {
+        @Override
+        public void onUpdate(UnitNodeStatus status, List<String> holders) {
+            history.add(status);
+        }
+    };
 
     private DeploymentUnitStoreImpl metastore;
 

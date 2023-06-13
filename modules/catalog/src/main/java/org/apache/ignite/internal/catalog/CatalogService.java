@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.Collection;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
@@ -38,6 +38,8 @@ import org.jetbrains.annotations.Nullable;
 public interface CatalogService {
     String PUBLIC = "PUBLIC";
 
+    String DEFAULT_ZONE_NAME = "Default";
+
     CatalogTableDescriptor table(String tableName, long timestamp);
 
     CatalogTableDescriptor table(int tableId, long timestamp);
@@ -46,15 +48,19 @@ public interface CatalogService {
 
     CatalogIndexDescriptor index(int indexId, long timestamp);
 
-    Collection<CatalogIndexDescriptor> tableIndexes(int tableId, long timestamp);
-
     CatalogSchemaDescriptor schema(int version);
 
     CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
+    CatalogZoneDescriptor zone(String zoneName, long timestamp);
+
+    CatalogZoneDescriptor zone(int zoneId, long timestamp);
+
     CatalogSchemaDescriptor activeSchema(long timestamp);
 
     CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+
+    int activeCatalogVersion(long timestamp);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

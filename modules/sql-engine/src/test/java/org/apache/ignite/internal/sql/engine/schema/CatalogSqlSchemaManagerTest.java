@@ -468,7 +468,8 @@ public class CatalogSqlSchemaManagerTest {
 
         void init(CatalogManager catalogManager) {
             CatalogSchemaDescriptor schemaDescriptor = newSchemaDescriptor(version);
-            when(catalogManager.activeSchema(name != null ? name : CatalogManager.PUBLIC, timestamp)).thenReturn(schemaDescriptor);
+            when(catalogManager.activeCatalogVersion(timestamp)).thenReturn(version);
+            when(catalogManager.schema(name != null ? name : CatalogManager.PUBLIC, version)).thenReturn(schemaDescriptor);
         }
 
         CatalogSchemaDescriptor newSchemaDescriptor(int version) {
@@ -496,7 +497,7 @@ public class CatalogSqlSchemaManagerTest {
             CatalogTableDescriptor[] tablesArray = tableDescriptors.values().toArray(new CatalogTableDescriptor[0]);
             CatalogIndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new CatalogIndexDescriptor[0]);
 
-            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, version, tablesArray, indexesArray);
+            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray);
         }
     }
 
@@ -507,6 +508,8 @@ public class CatalogSqlSchemaManagerTest {
         private int id = ID.incrementAndGet();
 
         private final String name;
+
+        private final int zoneId = ID.incrementAndGet();
 
         private final Set<String> notNull = new HashSet<>();
 
@@ -570,7 +573,7 @@ public class CatalogSqlSchemaManagerTest {
                 columnDescriptors.add(newCol);
             }
 
-            return new CatalogTableDescriptor(id, name, columnDescriptors, primaryKey, colocationKey);
+            return new CatalogTableDescriptor(id, name, zoneId, columnDescriptors, primaryKey, colocationKey);
         }
     }
 

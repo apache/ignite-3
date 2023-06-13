@@ -17,6 +17,7 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Objects;
 import org.apache.ignite.compute.version.Version;
 
 /**
@@ -70,10 +71,31 @@ public class DeploymentUnit {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DeploymentUnit unit = (DeploymentUnit) o;
+        return Objects.equals(name, unit.name) && Objects.equals(version, unit.version);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, version);
+    }
+
+    @Override
     public String toString() {
         return "DeploymentUnit{"
                 + "name='" + name + '\''
                 + ", version=" + version
                 + '}';
+    }
+
+    public String render() {
+        return name + ":" + version;
     }
 }

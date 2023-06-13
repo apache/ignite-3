@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -40,8 +43,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndexStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 
-    private PersistentPageMemoryTableStorage table;
-
     @BeforeEach
     void setUp(
             @WorkDirectory
@@ -49,9 +50,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
             @InjectConfiguration
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig,
-            @InjectConfiguration("mock { dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + " }")
-            DistributionZoneConfiguration distributionZoneConfiguration
+            TablesConfiguration tablesConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -61,18 +60,20 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
 
         engine.start();
 
-        table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig,
-                distributionZoneConfiguration);
+        tableStorage = engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageIndexDescriptorSupplier(tablesConfig)
+        );
 
-        table.start();
+        tableStorage.start();
 
-        initialize(table, tablesConfig, engineConfig);
+        initialize(tableStorage, tablesConfig, engineConfig);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                table == null ? null : table::stop,
+                tableStorage == null ? null : tableStorage::stop,
                 engine == null ? null : engine::stop
         );
     }

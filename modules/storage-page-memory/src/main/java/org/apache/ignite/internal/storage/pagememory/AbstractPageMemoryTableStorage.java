@@ -28,21 +28,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
@@ -54,46 +53,38 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    protected final TableConfiguration tableCfg;
-
-    protected final TablesConfiguration tablesCfg;
-
-    protected  final DistributionZoneConfiguration distributionZoneConfiguration;
-
-    protected volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
+    private volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Table descriptor. */
+    private final StorageTableDescriptor tableDescriptor;
+
+    /** Index descriptor supplier. */
+    private final StorageIndexDescriptorSupplier indexDescriptorSupplier;
+
     /**
      * Constructor.
      *
-     * @param tableCfg Table configuration.
-     * @param tablesCfg Tables configuration.
-     * @param distributionZoneConfiguration Distribution zone configuration.
+     * @param tableDescriptor Table descriptor.
+     * @param indexDescriptorSupplier Index descriptor supplier.
      */
-    protected AbstractPageMemoryTableStorage(
-            TableConfiguration tableCfg, TablesConfiguration tablesCfg, DistributionZoneConfiguration distributionZoneConfiguration) {
-        this.tableCfg = tableCfg;
-        this.tablesCfg = tablesCfg;
-        this.distributionZoneConfiguration = distributionZoneConfiguration;
+    AbstractPageMemoryTableStorage(
+            StorageTableDescriptor tableDescriptor,
+            StorageIndexDescriptorSupplier indexDescriptorSupplier
+    ) {
+        this.tableDescriptor = tableDescriptor;
+        this.indexDescriptorSupplier = indexDescriptorSupplier;
     }
 
-    @Override
-    public TableConfiguration configuration() {
-        return tableCfg;
-    }
-
-    @Override
-    public DistributionZoneConfiguration distributionZoneConfiguration() {
-        return distributionZoneConfiguration;
-    }
-
-    @Override
-    public TablesConfiguration tablesConfiguration() {
-        return tablesCfg;
+    /**
+     * Returns index descriptor supplier.
+     */
+    public StorageIndexDescriptorSupplier getIndexDescriptorSupplier() {
+        return indexDescriptorSupplier;
     }
 
     /**
@@ -104,7 +95,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public void start() throws StorageException {
         busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages(tableCfg.value(), distributionZoneConfiguration.value());
+            mvPartitionStorages = new MvPartitionStorages<>(getTableId(), tableDescriptor.getPartitions());
 
             return null;
         });
@@ -125,7 +116,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
             IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
         } catch (Exception e) {
-            throw new StorageException("Failed to stop PageMemory table storage: " + getTableName(), e);
+            throw new StorageException("Failed to stop PageMemory table storage: " + getTableId(), e);
         }
     }
 
@@ -311,10 +302,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     abstract CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     /**
-     * Returns table name.
+     * Returns the table ID.
      */
-    public String getTableName() {
-        return tableCfg.name().value();
+    public int getTableId() {
+        return tableDescriptor.getId();
     }
 
     @Override
@@ -328,5 +319,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             return partitionStorage.getIndex(indexId);
         });
+    }
+
+    @Override
+    public StorageTableDescriptor getTableDescriptor() {
+        return tableDescriptor;
     }
 }

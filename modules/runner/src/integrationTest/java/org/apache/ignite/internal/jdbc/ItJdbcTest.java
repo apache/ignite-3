@@ -70,7 +70,7 @@ class ItJdbcTest extends IgniteIntegrationTest {
         @BeforeAll
         void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
             cluster = new Cluster(testInfo, workDir);
-            cluster.startAndInit(1, builder -> builder.clusterConfiguration(
+            cluster.startAndInit(1, new int[]{ 0 }, builder -> builder.clusterConfiguration(
                     "{\n"
                             + "  \"security\": {\n"
                             + "    \"authentication\": {\n"

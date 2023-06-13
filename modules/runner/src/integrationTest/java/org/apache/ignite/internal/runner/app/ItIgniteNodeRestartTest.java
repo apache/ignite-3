@@ -319,7 +319,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new RaftGroupEventsClientListener()
         );
 
-        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault));
+        var catalogManager = new CatalogServiceImpl(new UpdateLogImpl(metaStorageMgr, vault), hybridClock);
 
         TableManager tableManager = new TableManager(
                 name,

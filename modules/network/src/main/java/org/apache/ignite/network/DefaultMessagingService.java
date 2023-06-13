@@ -83,14 +83,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final AtomicLong correlationIdGenerator = new AtomicLong();
 
     /** Executor for outbound messages. */
-    private final ExecutorService outboundExecutor = Executors.newSingleThreadExecutor(
-            new NamedThreadFactory("MessagingService-outbound-", LOG)
-    );
+    private final ExecutorService outboundExecutor;
 
     /** Executor for inbound messages. */
-    private final ExecutorService inboundExecutor = Executors.newSingleThreadExecutor(
-            new NamedThreadFactory("MessagingService-inbound-", LOG)
-    );
+    private final ExecutorService inboundExecutor;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -104,12 +100,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
      */
-    public DefaultMessagingService(NetworkMessagesFactory factory, TopologyService topologyService,
-            ClassDescriptorRegistry classDescriptorRegistry, UserObjectMarshaller marshaller) {
+    public DefaultMessagingService(
+            String nodeName,
+            NetworkMessagesFactory factory,
+            TopologyService topologyService,
+            ClassDescriptorRegistry classDescriptorRegistry,
+            UserObjectMarshaller marshaller
+    ) {
         this.factory = factory;
         this.topologyService = topologyService;
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
+
+        this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
+        this.inboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-inbound-", LOG));
     }
 
     /**
