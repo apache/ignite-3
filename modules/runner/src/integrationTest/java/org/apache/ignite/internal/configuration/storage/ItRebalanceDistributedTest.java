@@ -237,6 +237,8 @@ public class ItRebalanceDistributedTest {
                 allOf(nodes.get(0).cmgManager.onJoinReady(), nodes.get(1).cmgManager.onJoinReady(), nodes.get(2).cmgManager.onJoinReady()),
                 willCompleteSuccessfully()
         );
+
+        nodes.stream().forEach(Node::deployWatches);
     }
 
     @AfterEach
@@ -513,6 +515,8 @@ public class ItRebalanceDistributedTest {
         newNode.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
 
         newNode.start();
+
+        newNode.deployWatches();
 
         nodes.set(evictedNodeIndex, newNode);
 
@@ -852,12 +856,18 @@ public class ItRebalanceDistributedTest {
             assertThat(
                     allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            // deploy watches to propagate data from the metastore into the vault
-                            metaStorageManager.deployWatches()
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
+        }
+
+        /**
+         * Deploys watches and waits for completion.
+         */
+        void deployWatches() {
+            // deploy watches to propagate data from the metastore into the vault
+            metaStorageManager.deployWatches().join();
         }
 
         /**
