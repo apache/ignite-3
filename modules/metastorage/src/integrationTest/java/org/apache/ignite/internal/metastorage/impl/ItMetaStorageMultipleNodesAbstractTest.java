@@ -164,7 +164,12 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             );
 
             components.forEach(IgniteComponent::start);
+        }
 
+        /**
+         * Deploys watches and waits for completion.
+         */
+        void deployWatches() {
             metaStorageManager.deployWatches().join();
         }
 
@@ -228,6 +233,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        firstNode.deployWatches();
+
         var key = new ByteArray("foo");
         byte[] value = "bar".getBytes(StandardCharsets.UTF_8);
 
@@ -236,6 +243,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(invokeFuture, willBe(true));
 
         Node secondNode = startNode(testInfo);
+
+        secondNode.deployWatches();
 
         // Check that reading remote data works correctly.
         assertThat(secondNode.metaStorageManager.get(key).thenApply(Entry::value), willBe(value));
@@ -288,6 +297,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
+        firstNode.deployWatches();
+        secondNode.deployWatches();
+
         // Try reading some data to make sure that Raft has been configured correctly.
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
@@ -313,6 +325,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        firstNode.deployWatches();
+        secondNode.deployWatches();
 
         CompletableFuture<Set<String>> logicalTopologyNodes = firstNode.cmgManager
                 .logicalTopology()
@@ -356,6 +371,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        firstNode.deployWatches();
+        secondNode.deployWatches();
 
         CompletableFuture<Void> watchCompletedFuture = new CompletableFuture<>();
         CountDownLatch watchCalledLatch = new CountDownLatch(1);
@@ -437,6 +455,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
+
+        firstNode.deployWatches();
+        secondNode.deployWatches();
 
         assertThat(
                 firstNode.metaStorageManager.put(ByteArray.fromString("test-key"), new byte[]{0, 1, 2, 3}),

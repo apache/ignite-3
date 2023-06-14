@@ -828,7 +828,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
+        void start() {
             nodeComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
@@ -852,13 +852,12 @@ public class ItRebalanceDistributedTest {
             assertThat(
                     allOf(
                             nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            // deploy watches to propagate data from the metastore into the vault
+                            metaStorageManager.deployWatches()
                     ),
                     willSucceedIn(1, TimeUnit.MINUTES)
             );
-
-            // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches().join();
         }
 
         /**

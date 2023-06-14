@@ -157,7 +157,12 @@ public class ItDistributedConfigurationStorageTest {
                     return completedFuture(null);
                 }
             });
+        }
 
+        /**
+         * Deploys watches and waits for completion.
+         */
+        void deployWatches() {
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches().join();
         }
@@ -200,6 +205,8 @@ public class ItDistributedConfigurationStorageTest {
 
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
+            node.deployWatches();
+
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
             assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
@@ -215,6 +222,8 @@ public class ItDistributedConfigurationStorageTest {
 
         try {
             node2.start();
+
+            node2.deployWatches();
 
             CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
 

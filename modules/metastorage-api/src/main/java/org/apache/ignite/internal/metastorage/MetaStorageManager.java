@@ -173,7 +173,7 @@ public interface MetaStorageManager extends IgniteComponent {
      *
      * @return Future which completes when Meta storage manager is started and deploying watches is finished.
      */
-    CompletableFuture<Void> deployWatches() throws NodeStoppingException;
+    CompletableFuture<Void> deployWatches();
 
     /**
      * Returns cluster time with a hybrid clock instance and access to safe time.

@@ -57,7 +57,6 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -306,11 +305,9 @@ public class DistributionZonesTestUtil {
      * TODO: IGNITE-19403 Watch listeners must be deployed after the zone manager starts.
      *
      * @param metaStorageManager Meta storage manager.
-     * @throws NodeStoppingException If node is stopping.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager)
-            throws NodeStoppingException, InterruptedException {
+    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager) throws InterruptedException {
         // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
         // distributionZoneManager's recovery.
         CompletableFuture<Void> deployWatchesFut = metaStorageManager.deployWatches();

@@ -84,7 +84,7 @@ public class PlacementDriverTest {
     private LeaseTracker placementDriver;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
         metastore = StandaloneMetaStorageManager.create(vault);

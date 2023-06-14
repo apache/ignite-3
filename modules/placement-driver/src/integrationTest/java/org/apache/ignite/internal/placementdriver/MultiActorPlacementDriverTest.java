@@ -230,12 +230,11 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * @param services Cluster services.
      * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
      * @return List of closures to stop the services.
-     * @throws Exception If something goes wrong.
      */
     public List<Closeable> startPlacementDriver(
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers
-    ) throws Exception {
+    ) {
         var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
 
         for (String nodeName : placementDriverNodeNames) {

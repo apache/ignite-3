@@ -60,7 +60,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -206,14 +205,15 @@ public class ItDistributedConfigurationPropertiesTest {
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
-            // deploy watches to propagate data from the metastore into the vault
-            try {
-                metaStorageManager.deployWatches().join();
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-
             distributedCfgManager.start();
+        }
+
+        /**
+         * Deploys watches and waits for completion.
+         */
+        void deployWatches() {
+            // deploy watches to propagate data from the metastore into the vault
+            metaStorageManager.deployWatches().join();
         }
 
         /**
@@ -286,6 +286,8 @@ public class ItDistributedConfigurationPropertiesTest {
         Stream.of(firstNode, secondNode).parallel().forEach(Node::start);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::deployWatches);
     }
 
     /**

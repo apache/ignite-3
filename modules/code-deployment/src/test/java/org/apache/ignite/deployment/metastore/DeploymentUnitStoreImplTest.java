@@ -46,7 +46,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,7 +75,7 @@ public class DeploymentUnitStoreImplTest {
     private Path workDir;
 
     @BeforeEach
-    public void setup() throws NodeStoppingException {
+    public void setup() {
         history.clear();
         KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
 

@@ -364,13 +364,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        nodes.forEach(node -> {
-            try {
-                node.metaStorageManager.deployWatches().join();
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        nodes.forEach(node -> node.metaStorageManager.deployWatches().join());
 
         assertTrue(exactLatch.await(10, TimeUnit.SECONDS));
         assertTrue(prefixLatch.await(10, TimeUnit.SECONDS));

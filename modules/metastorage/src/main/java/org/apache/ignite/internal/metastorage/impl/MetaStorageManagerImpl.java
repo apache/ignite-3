@@ -278,9 +278,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public CompletableFuture<Void> deployWatches() throws NodeStoppingException {
+    public CompletableFuture<Void> deployWatches() {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
         try {

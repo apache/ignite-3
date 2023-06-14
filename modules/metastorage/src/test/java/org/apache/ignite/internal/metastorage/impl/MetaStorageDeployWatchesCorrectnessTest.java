@@ -37,7 +37,6 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -101,11 +100,10 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
      * Invokes {@link MetaStorageManager#deployWatches()} and checks result.
      *
      * @param metastore Meta storage.
-     * @throws NodeStoppingException If failed.
      */
     @ParameterizedTest
     @MethodSource("metaStorageProvider")
-    public void testCheckCorrectness(MetaStorageManager metastore) throws NodeStoppingException {
+    public void testCheckCorrectness(MetaStorageManager metastore) {
         var deployWatchesFut = metastore.deployWatches();
 
         assertFalse(deployWatchesFut.isDone());
