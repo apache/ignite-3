@@ -59,7 +59,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     private ExecutableTableRegistry registry;
 
     @Mock(name = "table1")
-    private ScanableTable table1;
+    private ScannableTable table1;
 
     @Mock(name = "update1")
     private UpdatableTable update1;
@@ -68,7 +68,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     private TableRowConverter rowConverter1;
 
     @Mock(name = "table2")
-    private ScanableTable table2;
+    private ScannableTable table2;
 
     @Mock(name = "update2")
     private UpdatableTable update2;
@@ -207,7 +207,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             table.addIndex(index);
         }
 
-        void setDependencies(int tableId, ScanableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
+        void setDependencies(int tableId, ScannableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
             TestExecutableTable executableTable = new TestExecutableTable(table, updates, rowConverter);
 
             deps.put(tableId, executableTable);
@@ -248,20 +248,20 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
     private static final class TestExecutableTable implements ExecutableTable {
 
-        private final ScanableTable table;
+        private final ScannableTable table;
 
         private final UpdatableTable updates;
 
         private final TableRowConverter rowConverter;
 
-        TestExecutableTable(ScanableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
+        TestExecutableTable(ScannableTable table, UpdatableTable updates, TableRowConverter rowConverter) {
             this.table = table;
             this.updates = updates;
             this.rowConverter = rowConverter;
         }
 
         @Override
-        public ScanableTable scanableTable() {
+        public ScannableTable scanableTable() {
             return table;
         }
 

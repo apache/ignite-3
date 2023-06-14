@@ -39,7 +39,7 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
 
         /** {@inheritDoc} */
         @Override
-        public ScanableTable scanableTable() {
+        public ScannableTable scanableTable() {
             throw noDependency();
         }
 

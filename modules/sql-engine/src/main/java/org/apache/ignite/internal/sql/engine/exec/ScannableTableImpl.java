@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.rel.StorageScanNode;
@@ -28,16 +29,16 @@ import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link ScanableTable} that uses {@link InternalTable}.
+ * Implementation of {@link ScannableTable} that uses {@link InternalTable}.
  */
-public class ScanableTableIml implements ScanableTable {
+public class ScannableTableImpl implements ScannableTable {
 
     private final InternalTable internalTable;
 
     private final TableRowConverter rowConverter;
 
     /** Constructor. */
-    public ScanableTableIml(InternalTable internalTable, TableRowConverter rowConverter) {
+    public ScannableTableImpl(InternalTable internalTable, TableRowConverter rowConverter) {
         this.internalTable = internalTable;
         this.rowConverter = rowConverter;
     }
@@ -51,15 +52,17 @@ public class ScanableTableIml implements ScanableTable {
         TxAttributes txAttributes = ctx.txAttributes();
 
         if (txAttributes.readOnly()) {
-            pub = internalTable.scan(partWithTerm.partId(), txAttributes.time(), ctx.localNode());
+            HybridTimestamp readTime = txAttributes.time();
+
+            assert readTime != null;
+
+            pub = internalTable.scan(partWithTerm.partId(), readTime, ctx.localNode());
         } else {
             PrimaryReplica recipient = new PrimaryReplica(ctx.localNode(), partWithTerm.term());
 
             pub = internalTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
         }
 
-        return StorageScanNode.convertPublisher(pub, (item) -> {
-            return rowConverter.toRow(ctx, item, rowFactory, requiredColumns);
-        });
+        return StorageScanNode.convertPublisher(pub, (item) -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
     }
 }

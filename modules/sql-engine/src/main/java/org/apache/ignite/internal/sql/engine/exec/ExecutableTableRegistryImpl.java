@@ -86,33 +86,33 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
             TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
             InternalTable internalTable = table.getKey();
-            ScanableTable scanableTable = new ScanableTableIml(internalTable, rowConverter);
+            ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter);
 
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                     replicaService, clock, rowConverter, schemaDescriptor);
 
-            return new ExecutableTableImpl(scanableTable, updatableTable, rowConverter);
+            return new ExecutableTableImpl(scannableTable, updatableTable, rowConverter);
         });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {
 
-        private final ScanableTable scanableTable;
+        private final ScannableTable scannableTable;
 
         private final UpdatableTable updatableTable;
 
         private final TableRowConverter rowConverter;
 
-        private ExecutableTableImpl(ScanableTable scanableTable, UpdatableTable updatableTable, TableRowConverter rowConverter) {
-            this.scanableTable = scanableTable;
+        private ExecutableTableImpl(ScannableTable scannableTable, UpdatableTable updatableTable, TableRowConverter rowConverter) {
+            this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
             this.rowConverter = rowConverter;
         }
 
         /** {@inheritDoc} */
         @Override
-        public ScanableTable scanableTable() {
-            return scanableTable;
+        public ScannableTable scanableTable() {
+            return scannableTable;
         }
 
         /** {@inheritDoc} */

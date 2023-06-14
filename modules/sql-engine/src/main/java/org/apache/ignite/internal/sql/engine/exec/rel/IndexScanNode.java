@@ -123,12 +123,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected RowT convert(BinaryRow binaryRow) {
-        return tableRowConveter.apply(binaryRow);
-    }
-
     private Publisher<RowT> indexPublisher(Collection<PartitionWithTerm> partsWithTerms, @Nullable RangeCondition<RowT> cond) {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 partsWithTerms.iterator(),

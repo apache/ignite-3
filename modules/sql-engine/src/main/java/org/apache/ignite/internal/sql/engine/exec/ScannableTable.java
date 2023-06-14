@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Provides read operations on a table.
  */
-public interface ScanableTable {
+public interface ScannableTable {
 
     /**
      * Performs a scan over table.

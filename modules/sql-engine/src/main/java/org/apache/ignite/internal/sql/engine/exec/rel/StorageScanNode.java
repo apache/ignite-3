@@ -231,9 +231,6 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         }
     }
 
-    /** Convert row from {@code BinaryRow} to internal SQL row format {@code RowT}. */
-    protected abstract RowT convert(BinaryRow binaryRow);
-
     /** {@inheritDoc} */
     @Override
     public void register(List<Node<RowT>> sources) {

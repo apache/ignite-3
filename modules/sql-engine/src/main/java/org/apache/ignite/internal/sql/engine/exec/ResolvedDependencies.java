@@ -34,7 +34,7 @@ public class ResolvedDependencies {
     /**
      * Returns a table with the given id.
      */
-    public ScanableTable scanableTable(int tableId) {
+    public ScannableTable scanableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.scanableTable();
     }

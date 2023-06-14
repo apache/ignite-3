@@ -25,7 +25,7 @@ public interface ExecutableTable {
     /**
      * Returns read API.
      */
-    ScanableTable scanableTable();
+    ScannableTable scanableTable();
 
     /**
      * Returns table modification API.

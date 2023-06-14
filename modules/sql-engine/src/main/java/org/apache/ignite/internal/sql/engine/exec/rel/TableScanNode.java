@@ -23,11 +23,10 @@ import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.ScanableTable;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -39,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
 public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     /** Table that provides access to underlying data. */
-    private final ScanableTable physTable;
+    private final ScannableTable table;
 
     /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
     private final Collection<PartitionWithTerm> partsWithTerms;
@@ -53,7 +52,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      *
      * @param ctx Execution context.
      * @param rowFactory Row factory.
-     * @param internalTable Internal table.
+     * @param table Internal table.
      * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
@@ -62,7 +61,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     public TableScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            ScanableTable internalTable,
+            ScannableTable table,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
@@ -72,7 +71,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
         assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
-        this.physTable = internalTable;
+        this.table = table;
         this.partsWithTerms = partsWithTerms;
         this.rowFactory = rowFactory;
         this.requiredColumns = requiredColumns;
@@ -83,16 +82,9 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     protected Publisher<RowT> scan() {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 partsWithTerms.iterator(), partWithTerm -> {
-            return physTable.scan(context(), partWithTerm, rowFactory, requiredColumns);
+            return table.scan(context(), partWithTerm, rowFactory, requiredColumns);
         });
 
         return SubscriptionUtils.concat(it);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected RowT convert(BinaryRow binaryRow) {
-        // Conversion is done in ScanableTable.
-        throw new UnsupportedOperationException();
     }
 }
