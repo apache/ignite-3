@@ -113,13 +113,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
 
     /** {@inheritDoc} */
     @Override
-    public Executor fragmentExecutor(UUID qryId, long fragmentId) {
-        int commandIdx = hash(qryId, fragmentId);
-        return stripedThreadPoolExecutor.getExecutor(commandIdx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void uncaughtException(Thread t, Throwable e) {
         if (exHnd != null) {
             exHnd.uncaughtException(t, e);

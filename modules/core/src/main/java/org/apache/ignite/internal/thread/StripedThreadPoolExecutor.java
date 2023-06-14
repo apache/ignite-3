@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -129,15 +128,6 @@ public class StripedThreadPoolExecutor implements ExecutorService {
     @Override
     public Future<?> submit(Runnable task) {
         throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Returns an executor that is responsible for executing the given command.
-     *
-     * @param idx Striped index.
-     */
-    public Executor getExecutor(int idx) {
-        return commandExecutor(idx);
     }
 
     /**
