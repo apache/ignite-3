@@ -51,11 +51,10 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
     /**
      * Binary comparison operator tests with dynamic parameters.
      */
-    @ParameterizedTest
-    @MethodSource("cmp")
-    public void testComparisonDynamicParameters(TestTypeArguments<T> arguments) {
-        Comparable<?> lower = (Comparable<?>) arguments.argValue(0);
-        Comparable<?> higher = (Comparable<?>) arguments.argValue(1);
+    @Test
+    public void testComparisonDynamicParameters() {
+        Comparable<?> lower = dataSamples.min();
+        Comparable<?> higher = dataSamples.max();
 
         checkComparisonWithDynamicParameters(higher, lower);
     }
@@ -275,12 +274,6 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
 
         checkQuery("SELECT typeof(?)").withParams(value).returns(typeName).check();
         checkQuery("SELECT typeof(CAST(? as <type>))").withParams(value).returns(typeName).check();
-
-        // https://issues.apache.org/jira/browse/IGNITE-18761
-        // TypeOf can short-circuit only when its argument is a constant expression.
-        // assertThrows(RuntimeException.class, () -> {
-        //   checkQuery("SELECT typeof(CAST('%s' as <type>))").returns(typeSpec.typeName()).check();
-        // });
     }
 
     /** Dynamic parameter. **/
