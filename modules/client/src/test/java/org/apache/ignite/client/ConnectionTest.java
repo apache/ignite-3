@@ -54,6 +54,16 @@ public class ConnectionTest extends AbstractClientTest {
     }
 
     @Test
+    public void testDefaultClientConfig() throws Exception {
+        try (var ignored = new TestServer(0, new FakeIgnite(), null, null, "abc", clusterId, null, 10800)) {
+            IgniteClient.builder()
+                    .addresses("localhost")
+                    .build()
+                    .close();
+        }
+    }
+
+    @Test
     public void testInvalidNodeAddresses() {
         var ex = assertThrows(IgniteClientConnectionException.class,
                 () -> testConnection("127.0.0.1:47500"));
