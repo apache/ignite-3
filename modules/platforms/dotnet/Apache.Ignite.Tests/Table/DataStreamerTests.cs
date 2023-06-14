@@ -100,7 +100,15 @@ public class DataStreamerTests : IgniteTestsBase
 
         await Task.Delay(100);
 
-        Assert.AreEqual(enabled, await TupleView.ContainsKeyAsync(null, GetTuple(0)));
+        if (enabled)
+        {
+            TestUtils.WaitForCondition(() => TupleView.ContainsKeyAsync(null, GetTuple(0)).GetAwaiter().GetResult());
+        }
+        else
+        {
+            Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(0)));
+        }
+
         Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(1)));
 
         cts.Cancel();

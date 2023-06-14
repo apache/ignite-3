@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <string>
 
-namespace ignite::network {
+namespace ignite {
 
 /**
  * Connection end point structure.

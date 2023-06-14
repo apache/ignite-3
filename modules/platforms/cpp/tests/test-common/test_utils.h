@@ -36,15 +36,6 @@ namespace ignite {
 std::optional<std::string> get_env(const std::string &name);
 
 /**
- * Check whether tests run in single node mode.
- *
- * @return @c true if tests run in single node mode.
- */
-inline bool single_node_mode() {
-    return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value();
-}
-
-/**
  * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
  * 1) Check for path provided as argument.
  * 2) Check for environment variable.
@@ -55,7 +46,7 @@ inline bool single_node_mode() {
  * @param path Optional path to check.
  * @return Resolved Ignite home.
  */
-std::string resolveIgniteHome(const std::string &path = "");
+std::string resolve_ignite_home(const std::string &path = "");
 
 /**
  * Check async operation result and propagate error to the promise if there is
@@ -74,5 +65,21 @@ bool check_and_set_operation_error(std::promise<T2> &prom, const ignite_result<T
     }
     return true;
 }
+
+/**
+ * Check whether test cluster is connectable.
+ *
+ * @param timeout Timeout.
+ * @return @c true if cluster is connectable.
+ */
+bool check_test_node_connectable(std::chrono::seconds timeout);
+
+/**
+ * Make sure that test cluster is connectable.
+ * Throws on fail.
+ *
+ * @param timeout Timeout.
+ */
+void ensure_node_connectable(std::chrono::seconds timeout);
 
 } // namespace ignite

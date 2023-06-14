@@ -84,7 +84,7 @@ public class QueryTemplate {
 
     @NotNull
     private List<Fragment> map(List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
-        List<Fragment> frgs = new ArrayList<>();
+        List<Fragment> frgs = new ArrayList<>(fragments.size());
 
         RelOptCluster cluster = Commons.cluster();
 
@@ -92,7 +92,7 @@ public class QueryTemplate {
             frgs.add(fragment.map(ctx, mq).attach(cluster));
         }
 
-        return List.copyOf(frgs);
+        return frgs;
     }
 
     private List<Fragment> replace(List<Fragment> fragments, Fragment fragment, List<Fragment> replacement) {

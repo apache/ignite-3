@@ -22,6 +22,7 @@
 #include <array>
 #include <climits>
 #include <cassert>
+#include <cstdint>
 #include <type_traits>
 
 /**
