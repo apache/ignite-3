@@ -217,12 +217,6 @@ public class ClientHandlerModule implements IgniteComponent {
      * @throws IgniteException      When startup has failed.
      */
     private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
-        int desiredPort = configuration.port();
-        int portRange = configuration.portRange();
-
-        int port = 0;
-        Channel ch = null;
-
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
@@ -256,22 +250,19 @@ public class ClientHandlerModule implements IgniteComponent {
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
 
-        for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
-            ChannelFuture bindRes = bootstrap.bind(portCandidate).await();
+        int port = configuration.port();
+        Channel ch = null;
 
-            if (bindRes.isSuccess()) {
-                ch = bindRes.channel();
+        ChannelFuture bindRes = bootstrap.bind(port).await();
 
-                port = portCandidate;
-                break;
-            } else if (!(bindRes.cause() instanceof BindException)) {
-                throw new IgniteException(bindRes.cause());
-            }
+        if (bindRes.isSuccess()) {
+            ch = bindRes.channel();
+        } else if (!(bindRes.cause() instanceof BindException)) {
+            throw new IgniteException(bindRes.cause());
         }
 
         if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. "
-                    + "All ports are in use [ports=[" + desiredPort + ", " + (desiredPort + portRange) + "]]";
+            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
 
             LOG.debug(msg);
 
